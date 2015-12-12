@@ -1,0 +1,54 @@
+Notes:
+-e stands for epsilon
+-Lowercase text are terminals, uppercase are nonterminals
+-whitespace is non-significant
+-this is work in progress and is expanded as needed
+-function return type is considered to be 'void' if no return type is specified
+
+
+S -> FUNCTION S
+
+FUNCTION -> fn FUNCTION_DECLARATION BLOCK
+
+FUNCTION_DECLARATION -> identifier() : TYPE
+
+BLOCK -> { STATEMENTS }
+
+STATEMENTS -> STATEMENT STATEMENTS | e
+
+STATEMENT -> e
+           | VARIABLE_DECLARATION
+
+VARIABLE_DECLARATION -> let identifier : TYPE = EXPRESSION;
+
+EXPRESSION -> TERM PLUS_MINUS_EXPRESSION
+
+PLUS_MINUS_EXPRESSION ->  + EXPRESSION
+		                    | - EXPRESSION
+                        | e
+
+TERM -> FACTOR MULT_DIV_TERM
+
+MULT_DIV_TERM -> * FACTOR MULT_DIV_TERM
+               | / FACTOR MULT_DIV_TERM
+               | e
+
+FACTOR -> ( EXPRESSION )
+        | identifier
+        | CONSTANT_VALUE
+
+
+TYPE -> int_type
+      | float_type
+      | double_type
+      | boolean_type
+      | string_type
+      | void_type
+
+CONSTANT_VALUE -> integer_token
+                | float_token
+                | double_token
+                | boolean_token
+                | string_token  
+
+note on CONSTANT_VALUE: for numbers, +/- are valid start tokens (eg. "+" token followed by a int/float/double would be accepted)

@@ -1,0 +1,59 @@
+Reserved keywords
+if, else, while, for, let, fn, return, new, class,
+public, protected, private, true, false, int, float, double, bool, void
+
+Shorthands for regex:
+
+letter = [a-zA-Z]
+number = [0-9]
+letter_= letter | _
+
+Tokens:
+Arithmetic operators: Plus, Minus, Multiply, Divide +, -, *, /
+CompOp: Equal, Greater, Lesser, GreaterOrEq, LesserOrEq, NotEq:  ==, >, <, >=, <=, !=
+Assignment: 					=
+Left, Right parenthesis: 			(, )
+Left, Right brace: 				{, }
+Left, Right square bracket: 			[, ]
+Semicolon					;
+Colon             ,
+
+
+
+Identifiers:
+
+Note: If textual description and regex are conflicting, regex is considered to be the correct description.
+
+Identifiers are strings separated by whitespace that start with ascii letter or underscore (_) and may contain ascii letters, numbers and underscores.
+As regex: letter_(letter_|number)*
+
+Example identifiers: abc, _abc, ab123_cde and _ are all identifiers.
+
+
+
+
+Numbers:
+
+
+Integer constants are strings separated by whitespace that may start with number and which otherwise contain only numbers. Integers must contain at least one number.
+As regex: number+
+
+Example integers: 1245, 12345 and 13 are all integer constants.
+
+
+Floating point constants are strings separated by whitespace that may start with number or dot (.). If string did not start with dot, they may contain numbers and optional dot followed by more numbers, and optional type letter. Otherwise floating point number may only contain numbers and optional type letter. Floating point number must contain at least one number. Either dot or type letter must be present, otherwise it will be considered to be an integer.
+Optional type letter is either f or d. If type letter is not specified, it is assumed to be d.
+
+As regex: number*( \.number+(d|f)? | (\.)?number+(f|d))
+
+Example floating point numbers: .134, 0.134, 0.123f, 0f, 5d, and 3345.32  are all valid floating point numbers.
+
+The type letter declares the value to be of double or floating type. Double letter must only be used if the value in question would otherwise be interpreted as a integer.
+
+
+
+
+Text:
+
+Text constant are strings that begin and end with " and contain any uft-8 character in between
+As regex: ".*"

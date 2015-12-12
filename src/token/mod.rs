@@ -1,0 +1,195 @@
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum TokenType {
+  Assign,
+  CompOp,
+  Number,
+  Text,
+  Identifier,
+  LParen,
+  RParen,
+  LBrace,
+  RBrace,
+  LBracket,
+  RBracket,
+  Comma,
+  SemiColon,
+  Colon,
+  If,
+  ElseIf,
+  Else,
+  While,
+  For,
+  Let,
+  Fn,
+  Return,
+  Boolean,
+  New,
+  Class,
+  Public,
+  Protected,
+  Private,
+  VarType,
+  Plus,
+  Minus,
+  Multiply,
+  Divide,
+  Eof,
+}
+
+impl Display for TokenType {
+  fn fmt(&self, formatter: &mut Formatter) -> Result {
+    Display::fmt(
+      match *self {
+        TokenType::Assign => "Assign",
+        TokenType::CompOp => "Comparison operator",
+        TokenType::Number => "Number",
+        TokenType::Text => "Text",
+        TokenType::Identifier => "Identifier",
+        TokenType::LParen => "Left parenthesis",
+        TokenType::RParen => "Right parenthesis",
+        TokenType::LBrace => "Left brace",
+        TokenType::RBrace => "Right brace",
+        TokenType::LBracket => "Left bracket",
+        TokenType::RBracket => "Right bracket",
+        TokenType::Comma => "Comma",
+        TokenType::SemiColon => "Semicolon",
+        TokenType::Colon => "Colon",
+        TokenType::If => "If",
+        TokenType::ElseIf => "ElseIf",
+        TokenType::Else => "Else",
+        TokenType::While => "While",
+        TokenType::For => "For",
+        TokenType::Let => "Let",
+        TokenType::Fn => "Fn",
+        TokenType::Return => "Return",
+        TokenType::Boolean => "Boolean",
+        TokenType::New => "New",
+        TokenType::Class => "Class",
+        TokenType::Public => "Public",
+        TokenType::Protected => "Protected",
+        TokenType::Private => "Private",
+        TokenType::VarType => "Type",
+        TokenType::Plus => "+" ,
+        TokenType::Minus => "-",
+        TokenType::Multiply => "*",
+        TokenType::Divide => "/",
+        TokenType::Eof => "<EOF>",
+
+      }, formatter)
+  }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum TokenSubType {
+  Text(String), // index to text table
+  FloatNumber(f32),
+  DoubleNumber(f64),
+  IntegerNumber(i32),
+  Identifier(String), // index to text table
+  BooleanValue(bool),
+  FloatType,
+  DoubleType,
+  IntegerType,
+  BooleanType,
+  VoidType,
+  StringType,
+  Equals,
+  Lesser,
+  Greater,
+  GreaterOrEq,
+  LesserOrEq,
+  NotEq,
+  NoSubType,
+}
+
+impl Display for TokenSubType {
+  fn fmt(&self, formatter: &mut Formatter) -> Result {
+     try!(write!(formatter, "{}", match *self {
+          TokenSubType::NoSubType => "".to_string(),
+          _ => "(".to_string(),
+     }));
+    try!(write!(formatter, "{}", match *self {
+        TokenSubType::Text(ref text) => format!("{}{}{}", "\"", text.clone(), "\""),
+        TokenSubType::FloatNumber(value) => format!("{}f", value.to_string()),
+        TokenSubType::DoubleNumber(value) => format!("{}d", value.to_string()),
+        TokenSubType::IntegerNumber(value) => value.to_string(),
+        TokenSubType::Identifier(ref text) => format!("{}{}{}", "\"", text, "\""),
+        TokenSubType::BooleanValue(value) => value.to_string(),
+        TokenSubType::FloatType => "float".to_string(),
+        TokenSubType::DoubleType => "double".to_string(),
+        TokenSubType::IntegerType => "int".to_string(),
+        TokenSubType::BooleanType => "bool".to_string(),
+        TokenSubType::VoidType => "void".to_string(),
+        TokenSubType::StringType => "string".to_string(),
+        TokenSubType::Equals => "==".to_string(),
+        TokenSubType::Lesser => "<".to_string(),
+        TokenSubType::Greater => ">".to_string(),
+        TokenSubType::GreaterOrEq => ">=".to_string(),
+        TokenSubType::LesserOrEq => "<=".to_string(),
+        TokenSubType::NotEq => "!=".to_string(),
+        TokenSubType::NoSubType => "".to_string(),
+
+    }));
+
+    write!(formatter, "{}", match *self {
+         TokenSubType::NoSubType => "".to_string(),
+         _ => ")".to_string(),
+    })
+  }
+}
+
+
+#[derive(Clone)]
+pub struct SyntaxToken {
+  pub token_type: TokenType,
+  pub token_subtype: TokenSubType,
+  pub line: i32,
+  pub column: i32
+}
+
+impl Display for SyntaxToken {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+      write!(formatter, "{}{}", self.token_type, self.token_subtype)
+    }
+}
+
+
+// do not check for line numbers or positions; only check for type\subtype equality
+// also, special cases for floating point comparisons
+impl PartialEq for SyntaxToken {
+
+  fn eq(&self, other: &SyntaxToken) -> bool {
+    if self.token_type == other.token_type {
+      match self.token_subtype {
+        TokenSubType::FloatNumber(self_val) => {
+          match other.token_subtype {
+            TokenSubType::FloatNumber(other_val) => (self_val - other_val).abs() < 0.0001,
+            _=> false
+          }
+        }
+        TokenSubType::DoubleNumber(self_val) => {
+          match other.token_subtype {
+            TokenSubType::DoubleNumber(other_val) => (self_val - other_val).abs() < 0.0001,
+            _=> false
+          }
+        }
+
+        _ => self.token_subtype == other.token_subtype
+      }
+
+    } else {
+      false
+    }
+  }
+
+}
+
+impl SyntaxToken {
+  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32) -> SyntaxToken {
+    SyntaxToken { token_type: token_type, token_subtype: subtype, line: line, column: column }
+  }
+}

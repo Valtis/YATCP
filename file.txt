@@ -1,0 +1,9 @@
+fn main() : void {
+
+}
+
+
+fn main() : void {
+   let my_identifier : int = 5 + 2*9+2*(3+9) + 2*3.5;
+   let foo : string  = 4 - 2;
+}
