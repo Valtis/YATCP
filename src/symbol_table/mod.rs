@@ -1,8 +1,20 @@
 use std::collections::HashMap;
 
-struct Symbol {
-    initialized: bool,
+#[derive(Clone)]
+pub struct Symbol {
+    pub line: i32, 
+    pub column: i32,
+    pub name: String, 
+}
 
+impl Symbol {
+    pub fn new(name: String, line: i32, column: i32) -> Symbol {
+        Symbol {
+            line: line,
+            column: column,
+            name: name,
+        }        
+    }
 }
 
 struct TableEntry {
@@ -14,6 +26,22 @@ impl TableEntry {
         TableEntry {
             symbols: HashMap::new(),
         }
+    }
+
+    pub fn add_symbol(&mut self, symbol: Symbol) {
+        self.symbols.insert(symbol.name.clone(), symbol);
+    }
+
+    pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
+        match self.symbols.get(name) {
+            Some(x) => Some((*x).clone()),
+            None =>None,
+        }
+       
+    }
+
+    pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
+        self.symbols.get(name)
     }
 }
 
@@ -36,10 +64,30 @@ impl SymbolTable {
         self.entries.pop();
     }
 
-   /* pub fn add_symbol(symbol: Symbol) {
-        assert!(entries.len() > 0);
-        entries[entries.len() - 1 ].add_symbol(symbol);
-    }*/
+    pub fn add_symbol(&mut self, symbol: Symbol) {
+        assert!(self.entries.len() > 0);
+        let last = self.entries.len() - 1;
+        self.entries[last].add_symbol(symbol);
+    }
+
+    pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
+        for i in self.entries.iter().rev() {
+            if let Some(entry) = i.find_symbol(name) {
+                return Some(entry);
+            }
+        }
+        None
+    }
+    
+
+    pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
+        for i in self.entries.iter().rev() {
+            if let Some(entry) = i.find_symbol_ref(name) {
+                return Some(entry);
+            }
+        }
+        None
+    }
 }
 
 

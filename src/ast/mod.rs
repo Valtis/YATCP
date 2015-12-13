@@ -70,7 +70,7 @@ impl Display for AstNode {
       write!(formatter, "{}", match self.node_type {
           AstType::Block => "Block".to_string(),
           AstType::Function(ref i) => format!("Function {}", i.name),
-          AstType::VariableDeclaration(ref i) => format!("variable declaration {}", i.name),
+          AstType::VariableDeclaration(ref i) => format!("variable declaration {} : {}", i.name, i.variable_type),
           AstType::Plus(_) => "plus".to_string(),
           AstType::Minus(_) => "minus".to_string(),
           AstType::Multiply(_) => "multiply".to_string(),
@@ -84,7 +84,9 @@ impl Display for AstNode {
 
 #[derive(Clone, Debug)]
 pub struct FunctionInfo {
-    name: String,
+    pub name: String,
+    pub line: i32,
+    pub column: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -106,6 +108,8 @@ impl FunctionInfo {
     pub fn new(identifier: SyntaxToken) -> FunctionInfo {
         FunctionInfo {
             name: get_text_from_identifier(&identifier),
+            line: identifier.line,
+            column: identifier.column,
         }
     }
 }
