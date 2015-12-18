@@ -20,7 +20,7 @@ fn get_type_from_type_token(variable_type: &SyntaxToken) -> Type {
     TokenSubType::FloatType => Type::Float,
     TokenSubType::DoubleType => Type::Double,
     TokenSubType::BooleanType => Type::Boolean,
-    TokenSubType::VoidType => Type::Void,    
+    TokenSubType::VoidType => Type::Void,
     _ => panic!("Internal compiler error: expected type but was {}", variable_type),
   }
 }
@@ -34,9 +34,11 @@ pub enum AstType {
     Minus(ArithmeticInfo),
     Multiply(ArithmeticInfo),
     Divide(ArithmeticInfo),
-    Identifier(String),
+    Identifier(IdentifierInfo),
     Integer(i32),
+    Float(f32),
     Double(f64),
+    Text(String)
 }
 
 pub struct AstNode {
@@ -75,9 +77,11 @@ impl Display for AstNode {
           AstType::Minus(_) => "minus".to_string(),
           AstType::Multiply(_) => "multiply".to_string(),
           AstType::Divide(_) => "divide".to_string(),
-          AstType::Identifier(ref id) => format!("identifier {}", id),
+          AstType::Identifier(ref id) => format!("identifier '{}'", id.name),
           AstType::Integer(i) => format!("integer {}", i),
+          AstType::Float(i) => format!("float {}", i),
           AstType::Double(i) => format!("double {}", i),
+          AstType::Text(ref i) => format!("string '{}'", i),
       })
   }
 }
@@ -92,7 +96,7 @@ pub struct FunctionInfo {
 #[derive(Clone, Debug)]
 pub struct DeclarationInfo {
     pub name: String,
-    pub variable_type: Type, 
+    pub variable_type: Type,
     pub line: i32,
     pub column: i32,
 }
@@ -104,23 +108,31 @@ pub struct ArithmeticInfo {
     pub column: i32,
 }
 
+#[derive(Clone, Debug)]
+pub struct IdentifierInfo {
+    pub name: String,
+    pub line: i32,
+    pub column: i32,
+}
+
+
 impl FunctionInfo {
-    pub fn new(identifier: SyntaxToken) -> FunctionInfo {
+    pub fn new(token: SyntaxToken) -> FunctionInfo {
         FunctionInfo {
-            name: get_text_from_identifier(&identifier),
-            line: identifier.line,
-            column: identifier.column,
+            name: get_text_from_identifier(&token),
+            line: token.line,
+            column: token.column,
         }
     }
 }
 
 impl DeclarationInfo {
-    pub fn new(identifier: SyntaxToken, variable_type: SyntaxToken) -> DeclarationInfo {
+    pub fn new(token: SyntaxToken, variable_type: SyntaxToken) -> DeclarationInfo {
         DeclarationInfo {
-            name: get_text_from_identifier(&identifier),
-            variable_type: get_type_from_type_token(&variable_type), 
-            line: identifier.line,
-            column: identifier.column,
+            name: get_text_from_identifier(&token),
+            variable_type: get_type_from_type_token(&variable_type),
+            line: token.line,
+            column: token.column,
         }
     }
 }
@@ -136,5 +148,15 @@ impl ArithmeticInfo {
 
     pub fn update_type(&mut self, t: Type) {
       self.node_type = t;
+    }
+}
+
+impl IdentifierInfo {
+    pub fn new(token: SyntaxToken) -> IdentifierInfo {
+        IdentifierInfo {
+            name: get_text_from_identifier(&token),
+            line: token.line,
+            column: token.column,
+        }
     }
 }

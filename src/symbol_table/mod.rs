@@ -1,19 +1,27 @@
 use std::collections::HashMap;
+use semcheck::Type;
+#[derive(Clone, PartialEq)]
+pub enum SymbolType {
+    Function,
+    Variable(Type),
+}
 
 #[derive(Clone)]
 pub struct Symbol {
-    pub line: i32, 
+    pub line: i32,
     pub column: i32,
-    pub name: String, 
+    pub name: String,
+    pub symbol_type: SymbolType
 }
 
 impl Symbol {
-    pub fn new(name: String, line: i32, column: i32) -> Symbol {
+    pub fn new(name: String, line: i32, column: i32, symbol_type:SymbolType) -> Symbol {
         Symbol {
             line: line,
             column: column,
             name: name,
-        }        
+            symbol_type: symbol_type,
+        }
     }
 }
 
@@ -37,7 +45,7 @@ impl TableEntry {
             Some(x) => Some((*x).clone()),
             None =>None,
         }
-       
+
     }
 
     pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
@@ -46,7 +54,7 @@ impl TableEntry {
 }
 
 pub struct SymbolTable {
-    entries: Vec<TableEntry> 
+    entries: Vec<TableEntry>
 }
 
 impl SymbolTable {
@@ -78,7 +86,7 @@ impl SymbolTable {
         }
         None
     }
-    
+
 
     pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
         for i in self.entries.iter().rev() {
@@ -89,5 +97,3 @@ impl SymbolTable {
         None
     }
 }
-
-

@@ -7,6 +7,7 @@ use ast::AstType;
 use ast::FunctionInfo;
 use ast::DeclarationInfo;
 use ast::ArithmeticInfo;
+use ast::IdentifierInfo;
 use semcheck::Type;
 /*
   Recursive descent parser that for now merely checks if input conforms to
@@ -37,7 +38,7 @@ impl Parser {
                 },
                 TokenType::Eof => return Ok(AstNode::new(functions, AstType::Block)),
                 _ => return Err(format!("Unexpected token {}. Expected {}", token, TokenType::Fn)),
-            }            
+            }
         }
     }
 
@@ -67,7 +68,10 @@ impl Parser {
             match token.token_type {
                 TokenType::Let => {
                     nodes.push(try!(self.parse_variable_declaration()));
-                }
+                },
+                TokenType::Identifier => {
+                    nodes.push(try!(self.parse_function_call_or_assignment()));
+                },
                 _ => return Ok(nodes)
             };
         }
@@ -80,8 +84,8 @@ impl Parser {
         try!(self.expect(TokenType::Colon));
         let var_type = try!(self.expect(TokenType::VarType));
         try!(self.expect(TokenType::Assign));
-        let node = try!(self.parse_expression());
-        try!(self.expect(TokenType::SemiColon));
+        let node = try!(self.parse_expression());   
+        try!(self.expect(TokenType::SemiColon));    
 
         Ok(AstNode::new(vec![node], AstType::VariableDeclaration(DeclarationInfo::new(identifier, var_type))))
     }
@@ -98,11 +102,12 @@ impl Parser {
 
     fn parse_factor(&mut self) -> Result<AstNode, String> {
         let token = try!(self.expect_one_of(vec![
-            TokenType::Identifier, TokenType::Number, TokenType::LParen]));
+            TokenType::Identifier, TokenType::Number, TokenType::LParen, TokenType::Text]));
         match token.token_type {
             TokenType::Identifier => {
                 match token.token_subtype {
-                    TokenSubType::Identifier(text) => Ok(AstNode::new(vec![], AstType::Identifier(text))),
+                    TokenSubType::Identifier(_) => Ok(AstNode::new(vec![],
+                        AstType::Identifier(IdentifierInfo::new(token)))),
                     _ => panic!(
                         "Internal compiler error - invalid token {} passed when identifier expected", token),
                 }
@@ -114,14 +119,24 @@ impl Parser {
                     },
                     TokenSubType::DoubleNumber(i) => {
                         Ok(AstNode::new(vec![], AstType::Double(i)))
-                    }
-                    _ => panic!("Not implemented for: {}", token)
+                    },
+                    TokenSubType::FloatNumber(i) => {
+                        Ok(AstNode::new(vec![], AstType::Float(i)))
+                    },
+                    _ => panic!("Internal compiler error: Invalid token {} when number expected", token)
                 }
             },
             TokenType::LParen => {
                 let node = try!(self.parse_expression());
                 try!(self.expect(TokenType::RParen));
                 Ok(node)
+            },
+            TokenType::Text => {
+                match token.token_subtype {
+                    TokenSubType::Text(text) =>
+                        Ok(AstNode::new(vec![], AstType::Text(text))),
+                    _ => panic!("Internal compiler error - invalid token {} when text expected", token),
+                }
             }
             _ => return Err(
                 format!("Internal compiler error - invalid token '{}' passed to match statement in parse_factor", token)),
