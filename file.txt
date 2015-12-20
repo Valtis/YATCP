@@ -1,15 +1,6 @@
-fn bar() : void {
-
-}
-
-
-fn main() : void {
-
-  foo = foo + bar + 5;
-}
-
-
-fn foo() : int {
-    // this is a comment
-    let foo : int = 5 ;
+fn main() : int {
+  let foo : int = 4 + 3;
+  let hurr : int = 5;
+  hurr = foo + 5;
+  return hurr;
 }

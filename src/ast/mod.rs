@@ -30,11 +30,13 @@ pub enum AstType {
     Block,
     Function(FunctionInfo),
     VariableDeclaration(DeclarationInfo),
+    VariableAssignment(IdentifierInfo),
     Plus(ArithmeticInfo),
     Minus(ArithmeticInfo),
     Multiply(ArithmeticInfo),
     Divide(ArithmeticInfo),
     Identifier(IdentifierInfo),
+    Return,
     Integer(i32),
     Float(f32),
     Double(f64),
@@ -44,13 +46,17 @@ pub enum AstType {
 pub struct AstNode {
   children: Vec<AstNode>,
   pub node_type: AstType,
+  pub line: i32,
+  pub column: i32,
 }
 
 impl AstNode {
-    pub fn new(children: Vec<AstNode>, t: AstType) -> AstNode {
+    pub fn new(token: &SyntaxToken, children: Vec<AstNode>, t: AstType) -> AstNode {
       AstNode {
         children: children,
         node_type: t,
+        line: token.line,
+        column: token.column,
       }
     }
 
@@ -73,6 +79,8 @@ impl Display for AstNode {
           AstType::Block => "Block".to_string(),
           AstType::Function(ref i) => format!("Function {}", i.name),
           AstType::VariableDeclaration(ref i) => format!("variable declaration {} : {}", i.name, i.variable_type),
+          AstType::VariableAssignment(ref i) => format!("variable assignment {}", i.name),
+          AstType::Return => "return".to_string(),
           AstType::Plus(_) => "plus".to_string(),
           AstType::Minus(_) => "minus".to_string(),
           AstType::Multiply(_) => "multiply".to_string(),
@@ -86,63 +94,50 @@ impl Display for AstNode {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FunctionInfo {
     pub name: String,
-    pub line: i32,
-    pub column: i32,
+    pub return_type: Type,
 }
 
 #[derive(Clone, Debug)]
 pub struct DeclarationInfo {
     pub name: String,
     pub variable_type: Type,
-    pub line: i32,
-    pub column: i32,
 }
 
 #[derive(Clone, Debug)]
 pub struct ArithmeticInfo {
     pub node_type: Type,
-    pub line: i32,
-    pub column: i32,
 }
 
 #[derive(Clone, Debug)]
 pub struct IdentifierInfo {
     pub name: String,
-    pub line: i32,
-    pub column: i32,
 }
 
-
 impl FunctionInfo {
-    pub fn new(token: SyntaxToken) -> FunctionInfo {
+    pub fn new(identifier: &SyntaxToken, retun_type: &SyntaxToken) -> FunctionInfo {
         FunctionInfo {
-            name: get_text_from_identifier(&token),
-            line: token.line,
-            column: token.column,
+            name: get_text_from_identifier(identifier),
+            return_type: get_type_from_type_token(retun_type),
         }
     }
 }
 
 impl DeclarationInfo {
-    pub fn new(token: SyntaxToken, variable_type: SyntaxToken) -> DeclarationInfo {
+    pub fn new(token: &SyntaxToken, variable_type: &SyntaxToken) -> DeclarationInfo {
         DeclarationInfo {
-            name: get_text_from_identifier(&token),
-            variable_type: get_type_from_type_token(&variable_type),
-            line: token.line,
-            column: token.column,
+            name: get_text_from_identifier(token),
+            variable_type: get_type_from_type_token(variable_type),
         }
     }
 }
 
 impl ArithmeticInfo {
-    pub fn new(token: SyntaxToken) -> ArithmeticInfo {
+    pub fn new() -> ArithmeticInfo {
         ArithmeticInfo {
             node_type: Type::Uninitialized,
-            line: token.line,
-            column: token.column,
         }
     }
 
@@ -152,11 +147,9 @@ impl ArithmeticInfo {
 }
 
 impl IdentifierInfo {
-    pub fn new(token: SyntaxToken) -> IdentifierInfo {
+    pub fn new(token: &SyntaxToken) -> IdentifierInfo {
         IdentifierInfo {
-            name: get_text_from_identifier(&token),
-            line: token.line,
-            column: token.column,
+            name: get_text_from_identifier(token),
         }
     }
 }

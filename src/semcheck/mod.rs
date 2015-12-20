@@ -1,6 +1,7 @@
 use ast::AstNode;
 use ast::AstType;
 use ast::ArithmeticInfo;
+use ast::IdentifierInfo;
 use ast::FunctionInfo;
 use ast::DeclarationInfo;
 
@@ -45,7 +46,7 @@ impl Display for Type {
 
 
 pub struct SemanticsCheck {
-    errors: bool,
+    errors: u32,
     symbol_table: SymbolTable,
 }
 
@@ -53,12 +54,12 @@ pub struct SemanticsCheck {
 impl SemanticsCheck {
     pub fn new() -> SemanticsCheck {
         SemanticsCheck {
-            errors: false,
+            errors: 0,
             symbol_table: SymbolTable::new(),
         }
     }
 
-    pub fn check_semantics(&mut self, node: &mut AstNode) -> bool {
+    pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
         self.do_check(node);
         self.errors
     }
@@ -68,6 +69,8 @@ impl SemanticsCheck {
             AstType::Block => self.handle_block_node(node),
             AstType::Function(_) =>self.handle_function_node(node),
             AstType::VariableDeclaration(_) => self.handle_variable_declaration_node(node),
+            AstType::VariableAssignment(_) => self.handle_variable_assignment_node(node),
+            AstType::Return => self.handle_return_statement_node(node),
             AstType::Plus(_) | AstType::Minus(_) | AstType::Multiply(_) | AstType::Divide(_) =>
                 self.handle_arithmetic_node(node),
             AstType::Integer(_) | AstType::Double(_) |
@@ -96,14 +99,14 @@ impl SemanticsCheck {
 
         match self.symbol_table.find_symbol(&info.name) {
             Some(symbol) => {
-                self.print_error(info.line, info.column,
+                self.print_error(node.line, node.column,
                     format!("Name error: Redefinition of function {}. Previously defined at {}:{}",
                     info.name, symbol.line, symbol.column));
             },
             None => {
                 self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), info.line, info.column,
-                        SymbolType::Function));
+                    Symbol::new(info.name.clone(), node.line, node.column,
+                        SymbolType::Function(info.clone())));
             },
         }
 
@@ -124,17 +127,17 @@ impl SemanticsCheck {
         match self.symbol_table.find_symbol(&info.name) {
             Some(symbol) => {
                 let err_text = match symbol.symbol_type {
-                    SymbolType::Function => format!("Name error: Variable '{}' shadows function declared at {}:{}",
+                    SymbolType::Function(_) => format!("Name error: Variable '{}' shadows function declared at {}:{}",
                         info.name, symbol.line, symbol.column),
                     SymbolType::Variable(_) => format!("Name error: Redefinition of variable {}. Previously defined at {}:{}",
                         info.name, symbol.line, symbol.column),
                 };
 
-                self.print_error(info.line, info.column, err_text);
+                self.print_error(node.line, node.column, err_text);
             },
             None => {
                 self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), info.line, info.column,
+                    Symbol::new(info.name.clone(), node.line, node.column,
                         SymbolType::Variable(info.variable_type)));
             },
         }
@@ -148,13 +151,75 @@ impl SemanticsCheck {
         assert!(types.len() == 1);
 
         types.push(info.variable_type);
-        let shared_type = SemanticsCheck::get_widening_conversion(&types);
+        let widened_type = SemanticsCheck::get_widening_conversion(&types);
         // if type is invalid, errors has already been reported
-        if info.variable_type != shared_type && types[0] != Type::Invalid {
-            self.print_error(info.line, info.column, format!(
+        if info.variable_type != widened_type && types[0] != Type::Invalid {
+            self.print_error(node.line, node.column, format!(
                 "Type error: Cannot assign {} into variable '{}' with type of {}",
                 types[0], info.name, info.variable_type));
         }
+
+    }
+
+    fn handle_variable_assignment_node(&mut self, node: &mut AstNode) {
+        
+        let info = {
+            match node.node_type {
+                AstType::VariableAssignment(ref i) => i.clone(),
+                _ => panic!("Internal compiler error: Expected variable assignment ast node but was {}",
+                        node),
+            }
+        };
+
+        self.check_variable_is_declared(node, &info);
+
+        let mut types = vec![];
+        for ref mut child in node.get_mutable_children() {
+            self.do_check(child);
+            types.push(self.get_type(child));
+        }
+
+        assert!(types.len() == 1);
+
+        // do type check only for a declared variable     
+        if let Some(symbol) = self.symbol_table.find_symbol(&info.name) {
+            if let SymbolType::Variable(variable_type) = symbol.symbol_type { 
+                types.push(variable_type);
+                let widened_type = SemanticsCheck::get_widening_conversion(&types);
+
+                // if type is invalid, errors has already been reported
+                if variable_type != widened_type && types[0] != Type::Invalid {
+                    self.print_error(node.line, node.column, format!(
+                        "Type error: Cannot assign {} into variable '{}' with type of {}",
+                        types[0], symbol.name, variable_type));
+                }
+            }
+        }
+    }
+
+    fn handle_return_statement_node(&mut self, node: &mut AstNode) {
+        
+        let mut types = vec![];
+
+        for ref mut child in node.get_mutable_children() {
+            self.do_check(child);
+            types.push(self.get_type(child));
+        }
+        
+        assert!(types.len() == 1);
+
+        let info = self.symbol_table.get_enclosing_function_info();
+
+        types.push(info.return_type);
+
+        let widened_type = SemanticsCheck::get_widening_conversion(&types);
+        // if type is invalid, errors has already been reported
+        if info.return_type != widened_type && types[0] != Type::Invalid {
+            self.print_error(node.line, node.column, format!(
+                "Type error: Cannot return {} from a function '{}' with return type of {}",
+                types[0], info.name, info.return_type));
+        }
+
 
     }
 
@@ -184,33 +249,37 @@ impl SemanticsCheck {
 
         // if types contains Type::Invalid, error has been reported already
         if info.node_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            self.print_error(info.line, info.column, format!(
+            self.print_error(node.line, node.column, format!(
                 "Type error: Cannot convert between {} and {}", types[0], types[1]));
         }
     }
 
     fn handle_identifier_node(&mut self, node: &mut AstNode) {
         assert!(node.get_children().len() == 0);
-
         let info =
             match node.node_type {
-                AstType::Identifier(ref i) => i,
-                _ => panic!("Internal compiler error: Expected identifier ast node but was {}",
+                AstType::Identifier(ref i) => i.clone(), // clone to fix mutable\immutable borrow error
+                _ => panic!("Internal compiler error: Expected identifier node but was {}",
                         node),
-            };
+        };
+        self.check_variable_is_declared(node, &info);
+    }
 
-        match self.symbol_table.find_symbol(&info.name) {
+    fn check_variable_is_declared(&mut self, node: &mut AstNode, info: &IdentifierInfo) {
+
+
+         match self.symbol_table.find_symbol(&info.name) {
             Some(symbol) => {
                 match symbol.symbol_type {
-                    SymbolType::Function => self.print_error(info.line, info.column,
-                        format!("Type error: Usage of function '{}' as identifier", info.name)),
+                    SymbolType::Function(_)=> self.print_error(node.line, node.column,
+                        format!("Type error: Usage of function '{}' as a variable", info.name)),
                     SymbolType::Variable(_) => { /* ok - do nothing*/}
                 };
 
 
             },
             None => {
-                self.print_error(info.line, info.column, format!("Name error: Undeclared identifier '{}'",
+                self.print_error(node.line, node.column, format!("Name error: Undeclared identifier '{}'",
                     info.name));
             },
         }
@@ -255,7 +324,7 @@ impl SemanticsCheck {
 
 
     fn print_error(&mut self, line:i32, column:i32, error: String) {
-        self.errors = true;
+        self.errors += 1;
         match writeln!(&mut ::std::io::stderr(), "{}:{} {}", line, column, error) {
             Ok(_) => {},
             Err(x) => panic!("Unable to write to stderr: {}", x),

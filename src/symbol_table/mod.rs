@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use ast::FunctionInfo;
 use semcheck::Type;
+
 #[derive(Clone, PartialEq)]
 pub enum SymbolType {
-    Function,
+    Function(FunctionInfo),
     Variable(Type),
 }
 
@@ -26,30 +28,38 @@ impl Symbol {
 }
 
 struct TableEntry {
-    symbols: HashMap<String, Symbol>,
+    // I would really like to use LinkedHashMap here, but as of writing this, it does not
+    // work on a stable compiler
+    symbols: Vec<Symbol>, 
 }
 
 impl TableEntry {
     pub fn new() -> TableEntry {
         TableEntry {
-            symbols: HashMap::new(),
+            symbols: vec![],
         }
     }
 
     pub fn add_symbol(&mut self, symbol: Symbol) {
-        self.symbols.insert(symbol.name.clone(), symbol);
+        self.symbols.push(symbol);
     }
 
     pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
-        match self.symbols.get(name) {
-            Some(x) => Some((*x).clone()),
-            None =>None,
+        for ref s in self.symbols.iter() {
+            if s.name == *name {
+                return Some((*s).clone());
+            }
         }
-
+        None
     }
 
-    pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
-        self.symbols.get(name)
+    pub fn find_enclosing_function_info(&self) -> Option<FunctionInfo> {
+       for ref s in self.symbols.iter().rev() {
+            if let SymbolType::Function(ref info) = s.symbol_type {
+                return Some(info.clone())
+            }
+        }
+        None
     }
 }
 
@@ -87,13 +97,12 @@ impl SymbolTable {
         None
     }
 
-
-    pub fn find_symbol_ref(&self, name: &String) -> Option<&Symbol> {
+    pub fn get_enclosing_function_info(&self) -> FunctionInfo {
         for i in self.entries.iter().rev() {
-            if let Some(entry) = i.find_symbol_ref(name) {
-                return Some(entry);
+            if let Some(entry) = i.find_enclosing_function_info() {
+                return entry;
             }
         }
-        None
+        panic!("Internal compiler error: No enclosing function was found");
     }
 }

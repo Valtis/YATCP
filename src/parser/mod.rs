@@ -36,7 +36,7 @@ impl Parser {
                     let function_node = try!(self.parse_function());
                     functions.push(function_node);
                 },
-                TokenType::Eof => return Ok(AstNode::new(functions, AstType::Block)),
+                TokenType::Eof => return Ok(AstNode::new(&token, functions, AstType::Block)),
                 _ => return Err(format!("Unexpected token {}. Expected {}", token, TokenType::Fn)),
             }
         }
@@ -48,17 +48,18 @@ impl Parser {
         try!(self.expect(TokenType::LParen));
         try!(self.expect(TokenType::RParen));
         try!(self.expect(TokenType::Colon));
-        try!(self.expect(TokenType::VarType));
+        let type_token = try!(self.expect(TokenType::VarType));
         let node = try!(self.parse_block());
 
-        Ok(AstNode::new(vec![node], AstType::Function(FunctionInfo::new(identifier))))
+        Ok(AstNode::new(&identifier, vec![node], AstType::Function(
+            FunctionInfo::new(&identifier, &type_token))))
     }
 
     fn parse_block(&mut self) -> Result<AstNode, String> {
-        try!(self.expect(TokenType::LBrace));
+        let token = try!(self.expect(TokenType::LBrace));
         let nodes = try!(self.parse_statements());
         try!(self.expect(TokenType::RBrace));
-        Ok(AstNode::new(nodes, AstType::Block))
+        Ok(AstNode::new(&token, nodes, AstType::Block))
     }
 
     fn parse_statements(&mut self) -> Result<Vec<AstNode>, String> {
@@ -71,6 +72,9 @@ impl Parser {
                 },
                 TokenType::Identifier => {
                     nodes.push(try!(self.parse_function_call_or_assignment()));
+                },
+                TokenType::Return => {
+                    nodes.push(try!(self.parse_return_statement()));
                 },
                 _ => return Ok(nodes)
             };
@@ -87,8 +91,38 @@ impl Parser {
         let node = try!(self.parse_expression());   
         try!(self.expect(TokenType::SemiColon));    
 
-        Ok(AstNode::new(vec![node], AstType::VariableDeclaration(DeclarationInfo::new(identifier, var_type))))
+        Ok(AstNode::new(&identifier, vec![node], AstType::VariableDeclaration(DeclarationInfo::new(&identifier, &var_type))))
     }
+
+
+    fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, String> {
+        let identifier = try!(self.expect(TokenType::Identifier));
+        let token  = try!(self.lexer.peek_token());
+        match token.token_type {
+            TokenType::Assign => self.parse_assignment(identifier),
+            TokenType::LParen => panic!("Function call not implemented"), 
+            _ => Err(format!("{}:{}: Unexpected token '{}'. Expected '{}' for assignment or '{}' for function call", 
+                token.line, token.column, token, TokenType::Assign, TokenType::LParen)),
+        }
+    }
+
+
+    fn parse_assignment(&mut self, identifier: SyntaxToken) -> Result<AstNode, String> {
+        try!(self.expect(TokenType::Assign));
+        let expression_node = try!(self.parse_expression());
+        try!(self.expect(TokenType::SemiColon));
+
+        Ok(AstNode::new(&identifier, vec![expression_node], AstType::VariableAssignment(IdentifierInfo::new(&identifier))))
+    }
+
+    fn parse_return_statement(&mut self) -> Result<AstNode, String> {
+        let return_node = try!(self.expect(TokenType::Return));
+        let node = try!(self.parse_expression());
+        try!(self.expect(TokenType::SemiColon));
+
+        Ok(AstNode::new(&return_node, vec![node], AstType::Return))
+    }
+
 
     fn parse_expression(&mut self) -> Result<AstNode, String> {
         let node = try!(self.parse_term());
@@ -106,8 +140,8 @@ impl Parser {
         match token.token_type {
             TokenType::Identifier => {
                 match token.token_subtype {
-                    TokenSubType::Identifier(_) => Ok(AstNode::new(vec![],
-                        AstType::Identifier(IdentifierInfo::new(token)))),
+                    TokenSubType::Identifier(_) => Ok(AstNode::new(&token, vec![],
+                        AstType::Identifier(IdentifierInfo::new(&token)))),
                     _ => panic!(
                         "Internal compiler error - invalid token {} passed when identifier expected", token),
                 }
@@ -115,13 +149,13 @@ impl Parser {
             TokenType::Number => {
                 match token.token_subtype {
                     TokenSubType::IntegerNumber(i) => {
-                        Ok(AstNode::new(vec![], AstType::Integer(i)))
+                        Ok(AstNode::new(&token, vec![], AstType::Integer(i)))
                     },
                     TokenSubType::DoubleNumber(i) => {
-                        Ok(AstNode::new(vec![], AstType::Double(i)))
+                        Ok(AstNode::new(&token, vec![], AstType::Double(i)))
                     },
                     TokenSubType::FloatNumber(i) => {
-                        Ok(AstNode::new(vec![], AstType::Float(i)))
+                        Ok(AstNode::new(&token, vec![], AstType::Float(i)))
                     },
                     _ => panic!("Internal compiler error: Invalid token {} when number expected", token)
                 }
@@ -133,8 +167,8 @@ impl Parser {
             },
             TokenType::Text => {
                 match token.token_subtype {
-                    TokenSubType::Text(text) =>
-                        Ok(AstNode::new(vec![], AstType::Text(text))),
+                    TokenSubType::Text(ref text) =>
+                        Ok(AstNode::new(&token, vec![], AstType::Text(text.clone()))),
                     _ => panic!("Internal compiler error - invalid token {} when text expected", token),
                 }
             }
@@ -151,14 +185,15 @@ impl Parser {
             try!(self.lexer.next_token());
             nodes.push(try!(self.parse_expression()));
             if next_token.token_type == TokenType::Plus {
-                return Ok(AstNode::new(nodes, AstType::Plus(ArithmeticInfo::new(next_token))));
+                return Ok(AstNode::new(&next_token, nodes, AstType::Plus(ArithmeticInfo::new())));
             } else {
-                return Ok(AstNode::new(nodes, AstType::Minus(ArithmeticInfo::new(next_token))));
+                return Ok(AstNode::new(&next_token, nodes, AstType::Minus(ArithmeticInfo::new())));
             }
         }
 
         Ok(node)
     }
+
     fn parse_mult_divide_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
 
         let next_token = try!(self.lexer.peek_token());
@@ -168,9 +203,9 @@ impl Parser {
             try!(self.lexer.next_token());
             nodes.push(try!(self.parse_term()));
             if next_token.token_type == TokenType::Multiply {
-                return Ok(AstNode::new(nodes, AstType::Multiply(ArithmeticInfo::new(next_token))));
+                return Ok(AstNode::new(&next_token, nodes, AstType::Multiply(ArithmeticInfo::new())));
             } else {
-                return Ok(AstNode::new(nodes, AstType::Divide(ArithmeticInfo::new(next_token))));
+                return Ok(AstNode::new(&next_token, nodes, AstType::Divide(ArithmeticInfo::new())));
             }
         }
 
@@ -180,10 +215,10 @@ impl Parser {
     fn expect(&mut self, token_type: TokenType) -> Result<SyntaxToken, String> {
         let next_token = try!(self.lexer.next_token());
         if next_token.token_type != token_type {
-            Err(format!("Unexpected token '{}' at {}:{}. {} was expected instead",
-                next_token,
+            Err(format!("{}:{}: Unexpected token '{}'. {} was expected instead",
                 next_token.line,
                 next_token.column,
+                next_token,
                 token_type))
         } else {
             Ok(next_token)
@@ -202,10 +237,10 @@ impl Parser {
             type_string = format!("{} {}", type_string, token_type);
         }
 
-        Err(format!("Unexpected token '{}' at {}:{}. Expected one of:{}",
-            next_token,
+        Err(format!("{}:{}: Unexpected token '{}' . Expected one of:{}",
             next_token.line,
             next_token.column,
+            next_token,
             type_string))
     }
 }
