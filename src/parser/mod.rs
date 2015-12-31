@@ -8,7 +8,6 @@ use ast::FunctionInfo;
 use ast::DeclarationInfo;
 use ast::ArithmeticInfo;
 use ast::IdentifierInfo;
-use semcheck::Type;
 /*
   Recursive descent parser that for now merely checks if input conforms to
   grammar. No syntax tree is built.
@@ -76,6 +75,9 @@ impl Parser {
                 TokenType::Return => {
                     nodes.push(try!(self.parse_return_statement()));
                 },
+                TokenType::If => {
+                    nodes.push(try!(self.parse_if_statement()));
+                }
                 _ => return Ok(nodes)
             };
         }
@@ -124,14 +126,94 @@ impl Parser {
     }
 
 
+    fn parse_if_statement(&mut self) -> Result<AstNode, String> {
+        let if_node = try!(self.expect(TokenType::If));
+        let condition_node = try!(self.parse_expression());
+        let block = try!(self.parse_block());
+
+        let mut children = vec![];
+        children.push(condition_node);
+        children.push(block);
+
+        // handle elseif/else
+        loop {
+            let next_token = try!(self.lexer.peek_token());
+            if next_token.token_type == TokenType::ElseIf { 
+                children.push(try!(self.parse_else_if_statement()));
+            } else if next_token.token_type == TokenType::Else {
+                children.push(try!(self.parse_else_statement()));
+                break;
+            } else {
+                break;
+            }
+        }
+
+        let branch_node = AstNode::new(&if_node, children, AstType::If);
+
+        Ok(branch_node)
+    }
+
+    fn parse_else_if_statement(&mut self) -> Result<AstNode, String> {
+        let else_if_node = try!(self.expect(TokenType::ElseIf));
+        let condition_node = try!(self.parse_expression());
+        let block = try!(self.parse_block());
+
+        let mut children = vec![];
+        children.push(condition_node);
+        children.push(block);
+
+        let branch_node = AstNode::new(&else_if_node, children, AstType::ElseIf);
+
+        Ok(branch_node)
+    }
+
+    fn parse_else_statement(&mut self) -> Result<AstNode, String> {
+        let else_node = try!(self.expect(TokenType::Else));
+        let block = try!(self.parse_block());
+
+        let mut children = vec![];
+        children.push(block);
+
+        let branch_node = AstNode::new(&else_node, children, AstType::Else);
+
+        Ok(branch_node)
+    }
+
     fn parse_expression(&mut self) -> Result<AstNode, String> {
+        let node = try!(self.parse_arithmetic_expression());
+        self.parse_comparison_expression(node)
+    } 
+
+    fn parse_arithmetic_expression(&mut self) -> Result<AstNode, String> {
         let node = try!(self.parse_term());
-        self.parse_plus_minus_expression(node)
+        let mut result = try!(self.parse_plus_minus_expression(node));
+
+        // while plus or minus tokens are next, keep parse_assignment
+        loop {
+            let next_token = try!(self.lexer.peek_token());
+            match next_token.token_type {
+                TokenType::Plus | TokenType::Minus => 
+                    result = try!(self.parse_plus_minus_expression(result)),
+                _ => break,
+            }
+        }
+        Ok(result)
     }
 
     fn parse_term(&mut self) -> Result<AstNode, String> {
         let node = try!(self.parse_factor());
-        self.parse_mult_divide_expression(node)
+
+        let mut result = try!(self.parse_mult_divide_expression(node));
+        // while mul or div tokens are next, keep parse_assignment
+        loop {
+            let next_token = try!(self.lexer.peek_token());
+            match next_token.token_type {
+                TokenType::Multiply | TokenType::Divide => 
+                    result = try!(self.parse_mult_divide_expression(result)),
+                _ => break,
+            }
+        }
+        Ok(result)
     }
 
     fn parse_factor(&mut self) -> Result<AstNode, String> {
@@ -177,13 +259,26 @@ impl Parser {
         }
     }
 
+    fn parse_comparison_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
+        let next_token = try!(self.lexer.peek_token());
+        if next_token.token_type == TokenType::Equals {
+            let mut nodes = vec![node];
+
+            try!(self.lexer.next_token());
+            nodes.push(try!(self.parse_expression()));          
+            return Ok(AstNode::new(&next_token, nodes, AstType::Equals));            
+        }
+
+        Ok(node)
+    }
+
     fn parse_plus_minus_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
         let next_token = try!(self.lexer.peek_token());
         if next_token.token_type == TokenType::Plus || next_token.token_type == TokenType::Minus {
             let mut nodes = vec![node];
 
             try!(self.lexer.next_token());
-            nodes.push(try!(self.parse_expression()));
+            nodes.push(try!(self.parse_term()));
             if next_token.token_type == TokenType::Plus {
                 return Ok(AstNode::new(&next_token, nodes, AstType::Plus(ArithmeticInfo::new())));
             } else {
@@ -201,7 +296,7 @@ impl Parser {
             let mut nodes = vec![node];
 
             try!(self.lexer.next_token());
-            nodes.push(try!(self.parse_term()));
+            nodes.push(try!(self.parse_factor()));
             if next_token.token_type == TokenType::Multiply {
                 return Ok(AstNode::new(&next_token, nodes, AstType::Multiply(ArithmeticInfo::new())));
             } else {
@@ -215,7 +310,7 @@ impl Parser {
     fn expect(&mut self, token_type: TokenType) -> Result<SyntaxToken, String> {
         let next_token = try!(self.lexer.next_token());
         if next_token.token_type != token_type {
-            Err(format!("{}:{}: Unexpected token '{}'. {} was expected instead",
+            Err(format!("{}:{}: Unexpected token '{}'. '{}' was expected instead",
                 next_token.line,
                 next_token.column,
                 next_token,

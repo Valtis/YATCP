@@ -31,6 +31,10 @@ pub enum AstType {
     Function(FunctionInfo),
     VariableDeclaration(DeclarationInfo),
     VariableAssignment(IdentifierInfo),
+    Equals,
+    If,
+    ElseIf,
+    Else,
     Plus(ArithmeticInfo),
     Minus(ArithmeticInfo),
     Multiply(ArithmeticInfo),
@@ -77,10 +81,14 @@ impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match self.node_type {
           AstType::Block => "Block".to_string(),
-          AstType::Function(ref i) => format!("Function {}", i.name),
-          AstType::VariableDeclaration(ref i) => format!("variable declaration {} : {}", i.name, i.variable_type),
-          AstType::VariableAssignment(ref i) => format!("variable assignment {}", i.name),
+          AstType::Function(ref i) => format!("Function '{}'", i.name),
+          AstType::VariableDeclaration(ref i) => format!("variable declaration '{}' : {}", i.name, i.variable_type),
+          AstType::VariableAssignment(ref i) => format!("variable assignment '{}'", i.name),
           AstType::Return => "return".to_string(),
+          AstType::Equals => "equals".to_string(),
+          AstType::If => "if".to_string(),
+          AstType::ElseIf => "elif".to_string(),
+          AstType::Else => "else".to_string(),
           AstType::Plus(_) => "plus".to_string(),
           AstType::Minus(_) => "minus".to_string(),
           AstType::Multiply(_) => "multiply".to_string(),
@@ -104,6 +112,7 @@ pub struct FunctionInfo {
 pub struct DeclarationInfo {
     pub name: String,
     pub variable_type: Type,
+    pub id: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -114,6 +123,7 @@ pub struct ArithmeticInfo {
 #[derive(Clone, Debug)]
 pub struct IdentifierInfo {
     pub name: String,
+    pub id: u32,
 }
 
 impl FunctionInfo {
@@ -130,6 +140,7 @@ impl DeclarationInfo {
         DeclarationInfo {
             name: get_text_from_identifier(token),
             variable_type: get_type_from_type_token(variable_type),
+            id: 0,
         }
     }
 }
@@ -150,6 +161,7 @@ impl IdentifierInfo {
     pub fn new(token: &SyntaxToken) -> IdentifierInfo {
         IdentifierInfo {
             name: get_text_from_identifier(token),
+            id: 0,
         }
     }
 }

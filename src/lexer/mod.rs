@@ -120,25 +120,10 @@ impl Lexer {
       ';' => Ok(self.create_token(TokenType::SemiColon, TokenSubType::NoSubType)),
       ',' => Ok(self.create_token(TokenType::Comma, TokenSubType::NoSubType)),
       ':' => Ok(self.create_token(TokenType::Colon, TokenSubType::NoSubType)),
-      '=' => self.multi_char_operator_helper('=', TokenType::CompOp, TokenSubType::Equals, TokenType::Assign, TokenSubType::NoSubType),
-      '>' => self.multi_char_operator_helper('=', TokenType::CompOp, TokenSubType::GreaterOrEq, TokenType::CompOp, TokenSubType::Greater),
-      '<' => self.multi_char_operator_helper('=', TokenType::CompOp, TokenSubType::LesserOrEq, TokenType::CompOp, TokenSubType::Lesser),
-      // special case compared to above, as '!' right now is not a valid operator
-      '!' =>  {
-        let next_char;
-
-        match self.next_char() {
-          Some(ch) => next_char = ch,
-          None => return Err("Unexpected end of file, '=' was expected".to_string()),
-        }
-
-        if next_char == '=' {
-          Ok(self.create_token(TokenType::CompOp, TokenSubType::NotEq))
-        } else {
-          Err(format!("Invalid character '{}' following '!','=' expected", next_char))
-        }
-      }
-
+      '=' => self.multi_char_operator_helper('=', TokenType::Equals, TokenType::Assign),
+      '>' => self.multi_char_operator_helper('=', TokenType::GreaterOrEq, TokenType::Greater),
+      '<' => self.multi_char_operator_helper('=', TokenType::LessOrEq, TokenType::Less),
+      '!' => self.multi_char_operator_helper('=', TokenType::NotEq, TokenType::Not),
       _ => Err(format!("Not an operator: {}", ch))
     }
   }
@@ -147,9 +132,7 @@ impl Lexer {
     &mut self,
     optional_second_char: char,
     type_if_matches: TokenType,
-    subtype_if_matches: TokenSubType,
-    type_if_no_match: TokenType,
-    subtype_if_no_match:TokenSubType) -> Result<SyntaxToken, String> {
+    type_if_no_match: TokenType) -> Result<SyntaxToken, String> {
 
       let mut next_char = ' ';
 
@@ -161,9 +144,9 @@ impl Lexer {
       if next_char == optional_second_char {
         // consume the next character
         self.next_char();
-        Ok(self.create_token(type_if_matches, subtype_if_matches))
+        Ok(self.create_token(type_if_matches, TokenSubType::NoSubType))
       } else {
-        Ok(self.create_token(type_if_no_match, subtype_if_no_match))
+        Ok(self.create_token(type_if_no_match, TokenSubType::NoSubType))
       }
     }
 

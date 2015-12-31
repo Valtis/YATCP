@@ -1,0 +1,10 @@
+fn test() : void {
+    let a : int = 4 + 2*3;
+    let b : int = 4 - 2*3;
+    let c : int = 4 - 2+3;
+    let d : int = 4 + 2 - 3;
+    let e : int = 2*3 + 4;
+    let f : int = 2/3 - 4;
+    let g : int = 2*3/4;
+    let h : int = 2/3*4;
+}

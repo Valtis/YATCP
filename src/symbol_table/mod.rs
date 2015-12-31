@@ -1,11 +1,25 @@
-use std::collections::HashMap;
 use ast::FunctionInfo;
 use semcheck::Type;
 
 #[derive(Clone, PartialEq)]
 pub enum SymbolType {
     Function(FunctionInfo),
-    Variable(Type),
+    Variable(VariableInfo),
+}
+
+#[derive(Clone, PartialEq)]
+pub struct VariableInfo {
+    pub variable_type: Type,
+    pub id: u32,
+}
+
+impl VariableInfo {
+    pub fn new(v_type: Type, id: u32) -> VariableInfo {
+        VariableInfo {
+            variable_type: v_type,
+            id: id,
+        }
+    }
 }
 
 #[derive(Clone)]
