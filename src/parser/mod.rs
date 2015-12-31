@@ -181,7 +181,17 @@ impl Parser {
 
     fn parse_expression(&mut self) -> Result<AstNode, String> {
         let node = try!(self.parse_arithmetic_expression());
-        self.parse_comparison_expression(node)
+        let mut result = try!(self.parse_comparison_expression(node));
+
+        loop {
+            let next_token = try!(self.lexer.peek_token());
+            match next_token.token_type {
+                TokenType::Equals => 
+                    result = try!(self.parse_comparison_expression(result)),
+                _ => break,
+            }
+        }
+        Ok(result)
     } 
 
     fn parse_arithmetic_expression(&mut self) -> Result<AstNode, String> {
@@ -265,7 +275,7 @@ impl Parser {
             let mut nodes = vec![node];
 
             try!(self.lexer.next_token());
-            nodes.push(try!(self.parse_expression()));          
+            nodes.push(try!(self.parse_arithmetic_expression()));          
             return Ok(AstNode::new(&next_token, nodes, AstType::Equals));            
         }
 

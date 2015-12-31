@@ -7,4 +7,7 @@ fn test() : void {
     let f : int = 2/3 - 4;
     let g : int = 2*3/4;
     let h : int = 2/3*4;
+    let i : bool = x == y;
+    let j : bool = x == y == z;
+    let k : bool = 2*3+4 == 4-3;
 }
