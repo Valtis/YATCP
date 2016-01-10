@@ -4,7 +4,7 @@ use compiler::lexer::Lexer;
 use compiler::parser::Parser;
 use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
-use compiler::ssa_generator::SSAGenerator;
+use compiler::tac_generator::TACGenerator;
 use compiler::error_reporter::FileErrorReporter;
 
 #[cfg(not(test))]
@@ -37,11 +37,11 @@ fn main() {
     return;
   }
 
-  let mut ssa = SSAGenerator::new();
-  ssa.generate_ssa(&mut node);
+  let mut gen = TACGenerator::new();
+  gen.generate_tac(&mut node);
 
   let mut counter = 1; 
-  for s in ssa.statements {
+  for s in gen.statements {
     println!("{}: {}", counter, s);
     counter += 1;
   }
