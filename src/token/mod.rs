@@ -147,7 +147,8 @@ pub struct SyntaxToken {
   pub token_type: TokenType,
   pub token_subtype: TokenSubType,
   pub line: i32,
-  pub column: i32
+  pub column: i32,
+  pub length: i32,
 }
 
 impl Display for SyntaxToken {
@@ -188,7 +189,7 @@ impl PartialEq for SyntaxToken {
 }
 
 impl SyntaxToken {
-  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32) -> SyntaxToken {
-    SyntaxToken { token_type: token_type, token_subtype: subtype, line: line, column: column }
+  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32, length : i32) -> SyntaxToken {
+    SyntaxToken { token_type: token_type, token_subtype: subtype, line: line, column: column, length: length }
   }
 }

@@ -1,6 +1,7 @@
 use token::SyntaxToken;
 use token::TokenSubType;
 use semcheck::Type;
+use symbol_table;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
@@ -27,7 +28,7 @@ fn get_type_from_type_token(variable_type: &SyntaxToken) -> Type {
 
 #[derive(Clone, Debug)]
 pub enum AstType {
-    Block,
+    Block(Option<symbol_table::TableEntry>),
     Function(FunctionInfo),
     VariableDeclaration(DeclarationInfo),
     VariableAssignment(IdentifierInfo),
@@ -47,11 +48,13 @@ pub enum AstType {
     Text(String)
 }
 
+#[derive(Debug)]
 pub struct AstNode {
   children: Vec<AstNode>,
   pub node_type: AstType,
   pub line: i32,
   pub column: i32,
+  pub length: i32,
 }
 
 impl AstNode {
@@ -61,6 +64,7 @@ impl AstNode {
         node_type: t,
         line: token.line,
         column: token.column,
+        length : token.length,
       }
     }
 
@@ -80,7 +84,7 @@ impl AstNode {
 impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match self.node_type {
-          AstType::Block => "Block".to_string(),
+          AstType::Block(_) => "Block".to_string(),
           AstType::Function(ref i) => format!("Function '{}'", i.name),
           AstType::VariableDeclaration(ref i) => format!("variable declaration '{}' : {}", i.name, i.variable_type),
           AstType::VariableAssignment(ref i) => format!("variable assignment '{}'", i.name),

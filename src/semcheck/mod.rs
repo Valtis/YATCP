@@ -61,6 +61,10 @@ impl SemanticsCheck {
         }
     }
 
+    pub fn get_id_counter(&self) -> u32 {
+        self.id_counter
+    }
+
     pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
         self.do_check(node);
         self.errors
@@ -68,7 +72,7 @@ impl SemanticsCheck {
 
     fn do_check(&mut self, node: &mut AstNode) {
         match node.node_type {
-            AstType::Block => self.handle_block_node(node),
+            AstType::Block(_) => self.handle_block_node(node),
             AstType::Function(_) =>self.handle_function_node(node),
             AstType::VariableDeclaration(_) => self.handle_variable_declaration_node(node),
             AstType::VariableAssignment(_) => self.handle_variable_assignment_node(node),
@@ -86,11 +90,17 @@ impl SemanticsCheck {
     }
 
     fn handle_block_node(&mut self, node: &mut AstNode) {
-        self.symbol_table.push();
+        self.symbol_table.push_empty();
         for ref mut child in node.get_mutable_children() {
             self.do_check(child);
         }
-        self.symbol_table.pop();
+
+
+        if let AstType::Block(ref mut table_entry) = node.node_type {
+            *table_entry = self.symbol_table.pop();
+        } else {
+            panic!("Internal compiler error: Expected Block node but was {:?}", node.node_type);
+        }
     }
 
     fn handle_function_node(&mut self, node: &mut AstNode) {
@@ -105,13 +115,14 @@ impl SemanticsCheck {
 
         match self.symbol_table.find_symbol(&info.name) {
             Some(symbol) => {
-                self.report_error(Error::NameError, node.line, node.column,
+                /*self.report_error(Error::NameError, node.line, node.column,
                     format!("Redefinition of function '{}'. Previously defined at {}:{}",
-                    info.name, symbol.line, symbol.column));
+                    info.name, symbol.line, symbol.column));*/
+                    panic!("Not implemented");
             },
             None => {
                 self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), node.line, node.column,
+                    Symbol::new(info.name.clone(), node.line, node.column, node.length,
                         SymbolType::Function(info.clone())));
             },
         }
@@ -122,8 +133,6 @@ impl SemanticsCheck {
     }
 
     fn handle_variable_declaration_node(&mut self, node: &mut AstNode) {
-
-
         // borrow checker workarounds
         let info = {
             let mut info = {
@@ -147,11 +156,11 @@ impl SemanticsCheck {
                         info.name, symbol.line, symbol.column),
                 };
 
-                self.report_error(Error::NameError, node.line, node.column, err_text);
+                /*self.report_error(Error::NameError, node.line, node.column, err_text); */ panic!("Not implemented");
             },
             None => {
                 self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), node.line, node.column,
+                    Symbol::new(info.name.clone(), node.line, node.column, node.length,
                         SymbolType::Variable(VariableInfo::new(info.variable_type, info.id))));
             },
         }
@@ -168,15 +177,20 @@ impl SemanticsCheck {
         let widened_type = SemanticsCheck::get_widening_conversion(&types);
         // if type is invalid, errors has already been reported
         if info.variable_type != widened_type && types[0] != Type::Invalid {
-            self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot assign {} into variable '{}' with type of {}",
-                types[0], info.name, info.variable_type));
+            /*self.report_error(Error::TypeError, node.line, node.column, format!(
+                "Expected '{}' but got '{}",
+                types[0], info.variable_type));*/
+                panic!("Not implemented");
         }
 
     }
 
     fn handle_variable_assignment_node(&mut self, node: &mut AstNode) {
-        
+       
+        if node.get_children().len() != 1 {
+            panic!("Internal compiler error: Invalid child count for assignment node: Expected 1 but was {}", node.get_children().len());
+        }
+
         let info = {
             match node.node_type {
                 AstType::VariableAssignment(ref i) => i.clone(),
@@ -188,14 +202,13 @@ impl SemanticsCheck {
         let id = self.check_variable_is_declared_and_get_id(node, &info);
         SemanticsCheck::update_identifier_id(node, id);
 
+
+        let child = &mut node.get_mutable_children()[0];
+        self.do_check(child);
+        
         let mut types = vec![];
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-            types.push(self.get_type(child));
-        }
-
-        assert!(types.len() == 1);
-
+        types.push(self.get_type(child));
+    
         // do type check only for a declared variable     
         if let Some(symbol) = self.symbol_table.find_symbol(&info.name) {
             if let SymbolType::Variable(variable_info) = symbol.symbol_type { 
@@ -204,9 +217,12 @@ impl SemanticsCheck {
 
                 // if type is invalid, errors has already been reported
                 if variable_info.variable_type != widened_type && types[0] != Type::Invalid {
-                    self.report_error(Error::TypeError, node.line, node.column, format!(
-                        "Cannot assign {} into variable '{}' with type of {}",
-                        types[0], symbol.name, variable_info.variable_type));
+                    self.report_error(Error::TypeError, child.line, child.column, child.length, format!(
+                        "Expected '{}' but got '{}'",
+                         variable_info.variable_type, types[0]));
+
+                    self.report_error(Error::Note, symbol.line, symbol.column, symbol.length, format!(
+                        "Variable '{}' declared here ", info.name));
                 }
             }
         }
@@ -228,9 +244,10 @@ impl SemanticsCheck {
         let widened_type = SemanticsCheck::get_widening_conversion(&types);
         // if type is invalid, errors has already been reported
         if info.return_type != widened_type && types[0] != Type::Invalid {
-            self.report_error(Error::TypeError, node.line, node.column, format!(
+            /*self.report_error(Error::TypeError, node.line, node.column, format!(
                 "Cannot return {} from a function '{}' with return type of {}",
-                types[0], info.name, info.return_type));
+                types[0], info.name, info.return_type));*/
+                panic!("Not implemented");
         }
 
 
@@ -262,13 +279,13 @@ impl SemanticsCheck {
 
         // if types contains Type::Invalid, error has been reported already
         if info.node_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot convert between {} and {}", types[0], types[1]));
+            /*self.report_error(Error::TypeError, node.line, node.column, format!(
+                "Cannot convert between {} and {}", types[0], types[1]));*/ panic!("Not implemented");
         } else if info.node_type == Type::String {
             match node.node_type {
                 AstType::Plus(_) => { /* Ok */},
-                _ => self.report_error(Error::TypeError, node.line, node.column, 
-                    format!("Operator '{}' is not a valid operator for strings", node)),
+                _ => /*self.report_error(Error::TypeError, node.line, node.column, 
+                    format!("Operator '{}' is not a valid operator for strings", node))*/ panic!("Not implemented"),
             }
         }
     }
@@ -298,8 +315,8 @@ impl SemanticsCheck {
      
         // if types contains Type::Invalid, error has been reported already
         if widened_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot convert between {} and {}", types[0], types[1]));
+            /*self.report_error(Error::TypeError, node.line, node.column, format!(
+                "Cannot convert between {} and {}", types[0], types[1]))0;*/ panic!("Not implemented");
         } 
     }
 
@@ -315,9 +332,9 @@ impl SemanticsCheck {
         let condition_expression_type = self.get_type(&children[0]);
 
         if condition_expression_type != Type::Boolean {
-            self.report_error(Error::TypeError, children[0].line, children[0].column, 
+            /*self.report_error(Error::TypeError, children[0].line, children[0].column, 
                 format!("{} expression expected but was {} instead", 
-                    Type::Boolean, condition_expression_type));
+                    Type::Boolean, condition_expression_type));*/ panic!("Not implemented");
         }        
     }
 
@@ -337,8 +354,8 @@ impl SemanticsCheck {
          match self.symbol_table.find_symbol(&info.name) {
             Some(symbol) => {
                 match symbol.symbol_type {
-                    SymbolType::Function(_)=> self.report_error(Error::TypeError, node.line, node.column,
-                        format!("Usage of function '{}' as a variable", info.name)),
+                    SymbolType::Function(_)=>/* self.report_error(Error::TypeError, node.line, node.column,
+                        format!("Usage of function '{}' as a variable", info.name))*/ panic!("Not implemented"),
                     SymbolType::Variable(symbol_info) => { 
                        return symbol_info.id;
                     }
@@ -346,8 +363,8 @@ impl SemanticsCheck {
                 };
             },
             None => {
-                self.report_error(Error::NameError, node.line, node.column, format!("Undeclared identifier '{}'",
-                    info.name));
+                /*self.report_error(Error::NameError, node.line, node.column, format!("Undeclared identifier '{}'",
+                    info.name));*/ panic!("Not implemented");
             },
         }
         0
@@ -400,8 +417,15 @@ impl SemanticsCheck {
         }
     }
 
-    fn report_error(&mut self, error_type: Error, line:i32, column:i32, error: String) {
+    fn report_error(&mut self, error_type: Error, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
-        self.error_reporter.report_error(error_type, line, column, error);        
+        self.error_reporter.report_error(error_type, line, column, token_length, error);        
     }
+}
+
+
+
+#[test]
+fn can_assign_integer() {
+    
 }

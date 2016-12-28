@@ -1,13 +1,13 @@
 use ast::FunctionInfo;
 use semcheck::Type;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum SymbolType {
     Function(FunctionInfo),
     Variable(VariableInfo),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct VariableInfo {
     pub variable_type: Type,
     pub id: u32,
@@ -22,26 +22,29 @@ impl VariableInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Symbol {
     pub line: i32,
     pub column: i32,
+    pub length: i32,
     pub name: String,
     pub symbol_type: SymbolType
 }
 
 impl Symbol {
-    pub fn new(name: String, line: i32, column: i32, symbol_type:SymbolType) -> Symbol {
+    pub fn new(name: String, line: i32, column: i32, length: i32, symbol_type:SymbolType) -> Symbol {
         Symbol {
             line: line,
             column: column,
+            length: length,
             name: name,
             symbol_type: symbol_type,
         }
     }
 }
 
-struct TableEntry {
+#[derive(Debug, Clone)]
+pub struct TableEntry {
     // I would really like to use LinkedHashMap here, but as of writing this, it does not
     // work on a stable compiler
     symbols: Vec<Symbol>, 
@@ -88,12 +91,16 @@ impl SymbolTable {
         }
     }
 
-    pub fn push(&mut self) {
+    pub fn push_empty(&mut self) {
         self.entries.push(TableEntry::new());
     }
 
-    pub fn pop(&mut self) {
-        self.entries.pop();
+    pub fn push(&mut self, entry: TableEntry) {
+        self.entries.push(entry);
+    }
+
+    pub fn pop(&mut self) -> Option<TableEntry> {
+        self.entries.pop()
     }
 
     pub fn add_symbol(&mut self, symbol: Symbol) {

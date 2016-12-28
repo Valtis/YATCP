@@ -6,3 +6,6 @@ version = "0.0.1"
 [[bin]]
 
 name = "compiler"
+
+[dependencies]
+ansi_term = "0.9"

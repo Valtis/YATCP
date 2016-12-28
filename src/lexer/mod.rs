@@ -398,7 +398,7 @@ impl Lexer {
   }
 
   fn create_token(&self, token_type: TokenType, token_subtype: TokenSubType) -> SyntaxToken {
-    SyntaxToken::new(token_type, token_subtype, self.token_start_line, self.token_start_column)
+    SyntaxToken::new(token_type, token_subtype, self.token_start_line, self.token_start_column, self.column - self.token_start_column)
   }
 
 

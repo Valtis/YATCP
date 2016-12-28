@@ -35,7 +35,7 @@ impl Parser {
                     let function_node = try!(self.parse_function());
                     functions.push(function_node);
                 },
-                TokenType::Eof => return Ok(AstNode::new(&token, functions, AstType::Block)),
+                TokenType::Eof => return Ok(AstNode::new(&token, functions, AstType::Block(None))),
                 _ => return Err(format!("Unexpected token {}. Expected {}", token, TokenType::Fn)),
             }
         }
@@ -58,7 +58,7 @@ impl Parser {
         let token = try!(self.expect(TokenType::LBrace));
         let nodes = try!(self.parse_statements());
         try!(self.expect(TokenType::RBrace));
-        Ok(AstNode::new(&token, nodes, AstType::Block))
+        Ok(AstNode::new(&token, nodes, AstType::Block(None)))
     }
 
     fn parse_statements(&mut self) -> Result<Vec<AstNode>, String> {
