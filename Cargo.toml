@@ -9,3 +9,4 @@ name = "compiler"
 
 [dependencies]
 ansi_term = "0.9"
+byteorder = "0.5.3"

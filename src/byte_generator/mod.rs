@@ -5,6 +5,12 @@ use tac_generator::Operand;
 use std::collections::HashMap;
 
 #[derive(Debug)]
+pub struct UnaryOperation {
+    src: Source,
+    dest: Source,
+}
+
+#[derive(Debug)]
 pub struct BinaryOperation {
     src1: Source,
     src2: Source,
@@ -15,6 +21,7 @@ pub struct BinaryOperation {
 pub enum Source {
     Register(u32),
     IntegerConstant(i32),
+    ReturnRegister, // special register, signifies the register that the calling convention uses to return values
 }
 
 #[derive(Debug)]
@@ -24,6 +31,8 @@ pub enum ByteCode {
     Sub(BinaryOperation),
     Mul(BinaryOperation),
     Div(BinaryOperation),
+    Mov(UnaryOperation),
+    Ret,
 }
 
 pub struct ByteGenerator {
@@ -49,14 +58,28 @@ impl ByteGenerator {
         let statements = self.statements.clone(); 
         for s in statements {
             match s {
-
                Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
                Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
                Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
                Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
-               _ => println!("Something else"),
+               Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
+               Statement::Return(val) => self.emit_return(val),
+               _ => panic!("Not implemented: {:?}", s),
             }
         }
+    }
+
+    fn emit_return(&mut self, retval: Option<Operand>) {
+        if let Some(op) = retval {
+            let data = UnaryOperation { src: self.get_source(&op), dest: Source::ReturnRegister };
+        }
+
+        self.code.push(ByteCode::Ret); 
+    }
+
+    fn emit_move(&mut self, op: &Operand, dest: &Operand) {    
+        let data = self.form_unary_operation(op, dest);
+        self.code.push(ByteCode::Mov(data));
     }
 
     fn emit_binary_op(&mut self, operator: Operator, op1: &Operand, op2: &Operand, dest: &Operand) {
@@ -65,10 +88,14 @@ impl ByteGenerator {
         self.code.push(code);
     }
 
+    fn form_unary_operation(&mut self, op: &Operand, dest: &Operand) -> UnaryOperation {
+        let src = self.get_source(op);
+        let dest = self.get_source(dest);
+        UnaryOperation { src: src, dest: dest }
+    }
+
     fn form_binary_operation(&mut self, op1: &Operand, op2: &Operand, dest: &Operand) -> BinaryOperation {
         let src1 = self.get_source(op1);
-
-
         let src2 = self.get_source(op2);
         let op_dest = self.get_source(dest);
 
@@ -98,9 +125,10 @@ impl ByteGenerator {
 
     fn form_binary_code(&mut self, operator: Operator, data: BinaryOperation) -> ByteCode {
         match operator {
+            Operator::Plus => ByteCode::Add(data),
             Operator::Minus => ByteCode::Sub(data),
             Operator::Multiply => ByteCode::Mul(data),
-            _=> unimplemented!(),
+            Operator::Divide => ByteCode::Div(data),
         }
     }
 }

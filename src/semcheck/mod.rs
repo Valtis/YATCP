@@ -279,8 +279,8 @@ impl SemanticsCheck {
 
         // if types contains Type::Invalid, error has been reported already
         if info.node_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            /*self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot convert between {} and {}", types[0], types[1]));*/ panic!("Not implemented");
+            self.report_error(Error::TypeError, node.line, node.column, node.length, format!(
+                        "Not a valid operation for {} and {}", types[0], types[1]));
         } else if info.node_type == Type::String {
             match node.node_type {
                 AstType::Plus(_) => { /* Ok */},

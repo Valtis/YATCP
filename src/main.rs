@@ -6,7 +6,12 @@ use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
 use compiler::tac_generator::TACGenerator;
 use compiler::byte_generator::ByteGenerator;
+use compiler::obj_generator;
+use compiler::obj_generator::ObjectType;
+use compiler::obj_generator::Architecture;
+
 use compiler::error_reporter::FileErrorReporter;
+
 
 #[cfg(not(test))]
 fn main() {
@@ -22,6 +27,7 @@ fn main() {
   };
 
   print(&node, 0);
+  println!("");
 
   let mut checker = SemanticsCheck::new(
     Box::new(FileErrorReporter::new("file.txt")));
@@ -41,6 +47,7 @@ fn main() {
   let mut tac_gen = TACGenerator::new(checker.get_id_counter());
   tac_gen.generate_tac(&mut node);
 
+  println!("");
   let mut counter = 1; 
   for s in tac_gen.statements() {
     println!("{}: {:?}", counter, s);
@@ -59,6 +66,8 @@ fn main() {
     counter += 1;
   }
   
+
+  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), "dummy.o".to_owned());
 }
 
 
@@ -68,5 +77,4 @@ fn print(node: &AstNode, intendation: usize) {
     for child in node.get_children() {
         print(&child, intendation + 4);
     }
-    println!("");
 }

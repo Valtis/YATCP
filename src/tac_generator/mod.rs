@@ -1,5 +1,7 @@
 use ast::AstNode;
 use ast::AstType;
+use ast::IdentifierInfo;
+
 use semcheck::Type;
 
 use symbol_table::SymbolTable;
@@ -12,7 +14,6 @@ pub enum Operator {
     Minus,
     Multiply,
     Divide,
-    Return,
 }
 
 #[derive(Clone, Debug)]
@@ -27,6 +28,7 @@ pub enum Operand {
 #[derive(Clone, Debug)]
 pub enum Statement {
     Assignment(Option<Operator>, Option<Operand>, Option<Operand>, Option<Operand>),
+    Return(Option<Operand>)
 }
 
 
@@ -61,13 +63,14 @@ impl TACGenerator {
             AstType::Plus(_) | AstType::Minus(_) | AstType::Multiply(_) | AstType::Divide(_) => 
                 self.handle_arithmetic_node(node),
             AstType::Integer(_) => self.handle_constant(node),
-            AstType::Return(_) => self.handle_return(node),
+            AstType::Identifier(ref info) => self.handle_identifier(node, info),
+            AstType::Return => self.handle_return(node),
+
             _ => panic!("Not implemented: {}", node),
         }
     }
 
     fn handle_block(&mut self, node: &AstNode) {
-
         if let AstType::Block(ref block) = node.node_type {
             if let Some(ref entry) = *block {
                self.symbol_table.push(entry.clone());
@@ -111,13 +114,7 @@ impl TACGenerator {
             _ => panic!("Invalid type")
         };
 
-        let symbol = self.symbol_table.find_symbol(&name).unwrap_or_else(
-                || panic!("Internal compiler error: No symbol '{}' found during TAC construction", name));
-
-        let variable_info = match symbol.symbol_type {
-            SymbolType::Variable(variable_info) => variable_info,
-            _ => panic!("Internal compiler error: Expected variable but was {:?}", symbol.symbol_type),
-        };
+        let variable_info = self.get_variable_info(name);
 
         self.statements.push(Statement::Assignment(None, Some(Operand::Variable(variable_info)), None, self.operands.pop()));
     }
@@ -128,6 +125,7 @@ impl TACGenerator {
 
         let left = self.get_operand(&children[0]);
         let right = self.get_operand(&children[1]);
+        println!("    Left: {:?}     Right: {:?}", left, right);
         
         let operator = match node.node_type {
             AstType::Plus(_) => Operator::Plus,
@@ -148,17 +146,34 @@ impl TACGenerator {
         self.operands.push(variable) 
     }
 
+    fn handle_identifier(&mut self, node: &AstNode, info: &IdentifierInfo) {
+        let name = &info.name;
+
+        let variable_info = self.get_variable_info(name);
+
+        self.operands.push(Operand::Variable(variable_info));
+    }
 
     fn handle_constant(&mut self, node : &AstNode) {
-        let operand = self.get_operand(node);
+        let operand = match node.node_type {
+            AstType::Integer(val) => Operand::Integer(val),
+            _ => panic!("Internal compiler error: Unexpected type {:?} when constant was expected during TAC generation", node.node_type),
+        };
+
         self.operands.push(operand);
     }
 
     fn handle_return(&mut self, node: &AstNode) {
-        assert!(node.children.len() == 1);
-        let operand = self.get_operand(node);
-    }
+        assert!(node.get_children().len() <= 1);
+        
+        let operand = if node.get_children().len() == 1 {
+            Some(self.get_operand(&node.get_children()[0]))
+        } else {
+            None
+        };
 
+        self.statements.push(Statement::Return(operand));
+    }
 
     fn get_type(&self, operand: &Operand) -> Type {
         match *operand {
@@ -171,19 +186,23 @@ impl TACGenerator {
     }
 
     fn get_operand(&mut self, node: &AstNode) -> Operand {
-       /* match node.node_type {
-            AstType::Integer(value) => Operand::Integer(value),
-
-            AstType::Plus(_) | AstType::Minus(_) | AstType::Multiply(_) | AstType::Divide(_) => { self.generate_tac(node);  }
-            _ => { println!("{:?}", node); unimplemented!() }
-        }*/
-
         self.generate_tac(node);
-        return self.operands.pop().unwrap_or_else(|| panic!("Internal compiler error: Operand stack empty"));
+        self.operands.pop().unwrap_or_else(|| panic!("Internal compiler error: Operand stack empty"))
     }
+
     fn get_next_id(&mut self) -> u32 {
         let ret = self.id_counter;
         self.id_counter += 1;
         ret
+    }
+
+    fn get_variable_info(&self, name: &String) -> VariableInfo {
+        let symbol = self.symbol_table.find_symbol(name).unwrap_or_else(
+                || panic!("Internal compiler error: No symbol '{}' found during TAC construction", name));
+
+        match symbol.symbol_type {
+            SymbolType::Variable(variable_info) => variable_info,
+            _ => panic!("Internal compiler error: Expected variable but was {:?}", symbol.symbol_type),
+        }
     }
 }

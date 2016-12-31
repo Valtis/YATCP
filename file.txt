@@ -1,6 +1,6 @@
-fn main() : int {
+fn foo() : int {
   let f : int = 4 - 2*3;
-  f = 2;
+  f = f/2;
   return f;
 }
 
