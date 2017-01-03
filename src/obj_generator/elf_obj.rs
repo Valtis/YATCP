@@ -102,6 +102,23 @@ const SHF_ALLOC : u32 = 0x2;
 const SHF_EXECINSTR : u32 = 0x4;
 const SHF_MASKPROC : u32 = 0xf0000000;
 
+
+// symbol bindings
+const STB_LOCAL : u8 = 0;
+const STB_GLOBAL : u8 = 1;
+const STB_WEAK : u8 = 2;
+const STB_LOPROC : u8 = 13;
+const STB_HIPROC: u8 = 15;  
+
+// symbol types
+const STT_NOTYPE : u8 = 0;
+const STT_OBJECT : u8 = 1;
+const STT_FUNC : u8 = 2;
+const STT_SECTION : u8 = 3;
+const STT_FILE : u8 = 4;
+const STT_LOPROC : u8 = 13;
+const STT_HIPROC : u8 = 15;
+
 pub struct ElfHeader {
     magic_number: &'static str,
     format: u8,
@@ -154,6 +171,20 @@ struct StringSection {
 struct TextSection {
     code: Vec<u8>,
 }
+
+struct SymbolSection {
+    entries: Vec<SymbolEntry>,
+}
+
+struct SymbolEntry {
+    string_index: u32,
+    info: u8,
+    other: u8,
+    section_header_index : u16,
+    value: ElfSize,
+    size: ElfSize, 
+}
+
 
 #[derive(Clone, Copy, Debug)]
 enum ElfSize {
@@ -307,6 +338,27 @@ impl Section for TextSection {
     }     
 }
 
+impl Section for SymbolSection {
+     fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+        for v in self.entries.iter() {
+            v.write(file, architecture);
+        }
+
+        Ok(())
+    }  
+}
+
+impl SymbolEntry {
+    fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+        write_u32(file, self.string_index, architecture)?;
+        file.write(&[self.info, self.other])?;
+        write_u16(file, self.section_header_index, architecture)?;
+        write_elfsize(file, self.value, architecture)?;
+        write_elfsize(file, self.size, architecture)?;
+        Ok(())
+    }
+}
+
 pub struct ElfGenerator {
     architecture: Architecture,
     output_file: String,
@@ -389,10 +441,11 @@ impl ElfGenerator {
     }
 
     fn add_string_table(&mut self) {
+        // hard coding for now for testing
         let strings = vec![
             "".to_string(), 
-            "placeholder_symbol".to_string(), 
-            "placeholder_symbol2".to_string(), 
+            "dummy.c".to_string(), 
+            "foo".to_string(), 
             ];
 
         // string.len() -> null terminator count
@@ -419,33 +472,65 @@ impl ElfGenerator {
     }
 
     fn add_symbol_table(&mut self) {
-     /*   let strings = vec![
-            "".to_string(), 
-            "placeholder_symbol".to_string(), 
-            "placeholder_symbol2".to_string(), 
-            ];
+        let mut entries = vec![];
+        let zero = match self.architecture {
+            Architecture::X64 => ElfSize::Elf64(0),
+        };
 
-        // string.len() -> null terminator count
-        let string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
-        println!("Size: {}", string_size); 
+
+        entries.push(SymbolEntry {
+            string_index: 0,
+            info: 0,
+            other: 0,
+            section_header_index: 0,
+            value: zero,
+            size: zero,
+        });
+
+        entries.push(SymbolEntry {
+            string_index: 1,
+            info: (((STB_LOCAL) << 4) + ((STT_FILE) & 0xf)),
+            other: 0,
+            section_header_index: SHN_ABS as u16,
+            value: zero,
+            size: zero,
+        });
+
+        entries.push(SymbolEntry {
+            string_index: 9,
+            info: (((STB_GLOBAL) << 4) + ((STT_FUNC) & 0xf)),
+            other: 0,
+            section_header_index: 4, // text section index
+            value: zero,
+            size: ElfSize::Elf64(self.code.len() as u64),
+        });
+
+        let entries_len = entries.len();
 
         let section = Box::new(SymbolSection {
-            strings: strings,                     
+            entries: entries,                     
         });
 
         let mut header = SectionHeader::new(self.architecture);
         header.string_index = 19; // HARDCODED ASSUMPTION IN REGARDS OF SECTION STRING TABLE!
         header.header_type = SHT_SYMTAB;
         header.size = match self.architecture {
-            Architecture::X64 => ElfSize::Elf64(string_size as u64),
+            Architecture::X64 => ElfSize::Elf64((entries_len*24) as u64),
         };
-       
+        
+        header.entry_size = match self.architecture {
+            Architecture::X64 => ElfSize::Elf64(24),
+        };
+
+        header.link = 2; // dirty hardcoded value for the string table
+        header.info = 2; // one larger than the index of the last local binding
+
         header.address_alignment = match self.architecture {
-            Architecture::X64 => ElfSize::Elf64(1),
+            Architecture::X64 => ElfSize::Elf64(8),
         };
 
         self.add_section_header(header);
-        self.add_section(section);*/
+        self.add_section(section);
     }
 
     fn add_text_table(&mut self) {
@@ -510,21 +595,6 @@ impl ElfGenerator {
             } 
         };
     }
-/*
-    fn update_string_table_offset(&mut self) {
-        // HARDCODED ASSUMPTION! Assumes that section string table header is the second entity in section_header vector, string table is third, and that string section is right after the section string table
-        let section_string_header = self.section_headers[1].clone();
-        let string_header = &mut self.section_headers[2];
-        string_header.offset = match self.architecture {
-            Architecture::X64 => {
-                if let (ElfSize::Elf64(val), ElfSize::Elf64(val2)) = (section_string_header.offset, section_string_header.size) {
-                    ElfSize::Elf64(val + val2) 
-                } else {
-                    panic!("Internal compiler error: Invalid variable size for architecture in ELF header");
-                }
-            } 
-        };
-    }*/
 
     fn update_remaining_section_offsets(&mut self) {
         for i in 2..self.section_headers.len() {

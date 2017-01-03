@@ -32,6 +32,7 @@ pub enum ByteCode {
     Mul(BinaryOperation),
     Div(BinaryOperation),
     Mov(UnaryOperation),
+    SignExtend(UnaryOperation),
     Ret,
 }
 

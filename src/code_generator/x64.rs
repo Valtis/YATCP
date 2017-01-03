@@ -20,12 +20,16 @@ const SUB_REG_FROM_REG_MEM : u8 = 0x29;
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
 
+const SIGNED_DIV_64_BIT : u8 = 0xF7;
+
+const SIGN_EXTENSION : u8 = 0x99;
 
 const NOP : u8 = 0x90;
 
 const NEAR_RETURN : u8 = 0xC3;
 
-const PUSH : u8 = 0xC3;
+const PUSH : u8 = 0x50;
+const POP : u8 = 0x58;
 
 
 const ACCUMULATOR : u32 = 999;
@@ -62,22 +66,14 @@ enum Register {
 impl Register {
     fn encoding(&self) -> u8 {
         match *self {
-            Register::RAX => 0x00,
-            Register::RCX => 0x01,
-            Register::RDX => 0x02,
-            Register::RBX => 0x03,
-            Register::RSP => 0x04,
-            Register::RBP => 0x05,
-            Register::RSI => 0x06,
-            Register::RDI => 0x07,
-            Register::R8 => 0x08,
-            Register::R9 => 0x09,
-            Register::R10 => 0x10,
-            Register::R11 => 0x11,
-            Register::R12 => 0x12,
-            Register::R13 => 0x13,
-            Register::R14 => 0x14,
-            Register::R15 => 0x15,
+            Register::RAX | Register::R8 => 0x00,
+            Register::RCX | Register::R9 => 0x01,
+            Register::RDX | Register::R10 => 0x02,
+            Register::RBX | Register::R11 => 0x03,
+            Register::RSP | Register::R12 => 0x04,
+            Register::RBP | Register::R13 => 0x05,
+            Register::RSI | Register::R14 => 0x06,
+            Register::RDI | Register::R15 => 0x07,
         }
     } 
 
@@ -120,7 +116,7 @@ impl X64CodeGen {
         map.insert(10, Register::R13); 
         map.insert(11, Register::R14); 
         map.insert(12, Register::R15); 
-        map.insert(ACCUMULATOR, 0); 
+        map.insert(ACCUMULATOR, Register::RAX); 
 
         X64CodeGen {
             bytecode: bytecode,
@@ -145,6 +141,7 @@ impl X64CodeGen {
                 ByteCode::Mul(ref operands) => self.emit_mul(operands),
                 ByteCode::Div(ref operands) => self.emit_div(operands),
                 ByteCode::Ret => self.emit_ret(),
+                ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
                 _ => unimplemented!(),
             }
         }
@@ -182,7 +179,7 @@ impl X64CodeGen {
                         }
                     } 
                 },
-                ByteCode::Mov(ref op) => {
+                ByteCode::Mov(ref op) | ByteCode::SignExtend(ref op) => {
                     if let Source::Register(val) = op.dest {
                         if free_register <= val {
                             free_register = val + 1;
@@ -270,6 +267,61 @@ impl X64CodeGen {
 
                     new_code.push(ByteCode::Mul(new_operands));
                 },
+                // div implicitly uses rax/rdx as both destination and divdend
+                // make sure those registers are backed up and restored, as well as
+                // populated with correct values
+                ByteCode::Div(ref operands) => {
+                    let mut new_operands = operands.clone();
+
+                    let rdx_backup = Source::Register(free_register); 
+                    free_register += 1;
+
+                    new_code.push(ByteCode::Mov(UnaryOperation {
+                        src: Source::Register(1), // 1 -> RDX
+                        dest: rdx_backup.clone(),
+                    }));    
+
+                    // move src1 into rax and zero r
+                    new_code.push(ByteCode::Mov(UnaryOperation {
+                        src: operands.src1.clone(), 
+                        dest: Source::Register(ACCUMULATOR),
+                    }));  
+
+                    // sign extend rax into rdx
+                    new_code.push(ByteCode::SignExtend(UnaryOperation {
+                            src: Source::Register(ACCUMULATOR), 
+                            dest: Source::Register(1),
+                    }));  
+
+
+                    // if src2 is immediate value, store it in a register first
+                    if let Source::IntegerConstant(val) = operands.src2 {
+                        let divisor = Source::Register(free_register); 
+                        free_register += 1;
+
+                        new_code.push(ByteCode::Mov(UnaryOperation {
+                            src: operands.src2.clone(), // 1 -> RDX
+                            dest: divisor.clone(),
+                        }));  
+
+                        new_operands.src2 = divisor;
+
+                    }
+                    
+                    new_code.push(ByteCode::Div(new_operands));
+
+                    // restore old value of rdx
+                    new_code.push(ByteCode::Mov(UnaryOperation {
+                        src: rdx_backup, // 1 -> RDX
+                        dest: Source::Register(1),
+                    })); 
+                    // move the value to the expected destination
+                    new_code.push(ByteCode::Mov(UnaryOperation {
+                            src: Source::Register(ACCUMULATOR), // 1 -> RDX
+                            dest: operands.dest.clone(),
+                    }));  
+
+                },
                 _ => new_code.push(b.clone())
             };                       
         }
@@ -285,6 +337,20 @@ impl X64CodeGen {
         self.asm_code.push(NOP);
     }
 
+    fn emit_sign_extension(&mut self, operands: &UnaryOperation) {
+        if let Source::Register(src_reg) = operands.src {
+            if let Source::Register(dest_reg) = operands.dest {
+                if src_reg == ACCUMULATOR || dest_reg == 1 /* evil hardcoded number... */ {
+                    self.asm_code.push(0x48);
+                    self.asm_code.push(SIGN_EXTENSION);
+                    return;
+                }
+            } 
+        } 
+
+        unimplemented!();
+    }
+
     fn emit_mov(&mut self, operand: &UnaryOperation) {
         let mut WRXB_bits = 0u8;
         let mut register = 0u8;
@@ -293,17 +359,17 @@ impl X64CodeGen {
                 // register encoding is is in form of 0x0y, where y is number between 0 - f.
                 // first bit toggles the registers r8 - r15 and must be encoded in the
                 // REX prefix. Rest of the bits form an octal that select the register.
-                if 0x08 & self.reg_map[&reg] != 0 {
+                if self.reg_map[&reg].is_extended_reg() {
                     WRXB_bits = REX_EXT_RM_BIT;
                 }
-                register = self.reg_map[&reg] & 0x07;
+                register = self.reg_map[&reg].encoding();
             }
             // SYSTEMV api returns value in rax
             Source::ReturnRegister => {
-                if 0x08 & self.reg_map[&ACCUMULATOR] != 0 {
+                if self.reg_map[&ACCUMULATOR].is_extended_reg() {
                     WRXB_bits = REX_EXT_RM_BIT;
                 }
-                register = self.reg_map[&ACCUMULATOR] & 0x07;
+                register = self.reg_map[&ACCUMULATOR].encoding();
             },
             _ => unimplemented!(), // mov to memory address needs to be implemented
         };
@@ -330,11 +396,11 @@ impl X64CodeGen {
                 }
             },
             Source::Register(reg) => {
-                if 0x08 & self.reg_map[&reg] != 0 {
+                if self.reg_map[&reg].is_extended_reg() {
                     WRXB_bits = WRXB_bits | REX_EXT_REG_BIT;
                 }
 
-                register = register | ((self.reg_map[&reg] & 0x07 ) << 3);
+                register = register | (self.reg_map[&reg].encoding() << 3);
 
                 // rex prefix, which contains bits that extend the 32 bit instruction set into 64 bit
                 let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
@@ -380,24 +446,22 @@ impl X64CodeGen {
                 operand);
         }
 
-        println!("HELLO________________");
-
         match operand.dest {
             Source::Register(reg) => {
-                if self.reg_map[&reg] & 0x08 != 0 {
+                if self.reg_map[&reg].is_extended_reg() {
                     WRXB_bits |= REX_EXT_RM_BIT;
                 }
-                dest_reg_bits = 0x07 & self.reg_map[&reg];
+                dest_reg_bits = self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(),
         }  
 
         match operand.src2 {
             Source::Register(reg) => {
-                if self.reg_map[&reg] & 0x08 != 0 {
+                if self.reg_map[&reg].is_extended_reg() {
                     WRXB_bits |= REX_EXT_REG_BIT;
                 }
-                src_reg_bits = (0x07 & self.reg_map[&reg]) << 3;
+                src_reg_bits = self.reg_map[&reg].encoding() << 3;
             },
             _ => unimplemented!(), // operand from memory address needs to be handled
         }
@@ -466,17 +530,17 @@ impl X64CodeGen {
         let mut src_reg_bits = 0u8;
         let mut dest_reg_bits = 0u8;
 
-        if self.reg_map[&destination_reg] & 0x08 != 0 {
+        if self.reg_map[&destination_reg].is_extended_reg() {
             WRXB_bits |= REX_EXT_REG_BIT;
         }
-        dest_reg_bits = (0x07 & self.reg_map[&destination_reg]) << 3;
+        dest_reg_bits = self.reg_map[&destination_reg].encoding() << 3;
 
         match *src_val {
             Source::Register(reg) => {
-                if self.reg_map[&reg] & 0x08 != 0 {
+                if self.reg_map[&reg].is_extended_reg() {
                     WRXB_bits |= REX_EXT_RM_BIT;
                 }
-                src_reg_bits = 0x07 & self.reg_map[&reg];
+                src_reg_bits = self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(), // operand from memory address needs to be handled
         }
@@ -497,7 +561,24 @@ impl X64CodeGen {
     }
 
     fn emit_div(&mut self, operand: &BinaryOperation) {
-        self.emit_nop();
+
+        let mut wrxb_bits = REX_64_BIT_OPERAND;
+        let mut src_reg_bits = 0;
+
+        if let Source::Register(reg) = operand.src2 {
+            src_reg_bits = self.reg_map[&reg].encoding();
+            if self.reg_map[&reg].is_extended_reg() {
+                wrxb_bits |= REX_EXT_RM_BIT;
+            }
+        } else {
+            unimplemented!();
+        }
+
+        let prefix = self.create_rex_prefix(wrxb_bits);
+        self.asm_code.push(prefix);
+        self.asm_code.push(SIGNED_DIV_64_BIT);
+        self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | (111 << 3) | src_reg_bits);
+
     }
 
     fn emit_ret(&mut self) {
@@ -508,15 +589,36 @@ impl X64CodeGen {
     fn emit_function_prologue(&mut self) {
         // currently just save all the registers that are expected
         // to be callee-saved, whether they are used or not
-
         // save RBP, RBX, and R12–R15,
-
-       // self.push();
-
+        self.push(Register::RBP);
+        self.push(Register::RBX);
+        self.push(Register::R12);
+        self.push(Register::R13);
+        self.push(Register::R14);
+        self.push(Register::R15);
     }
 
     fn emit_function_epilogue(&mut self) {
+        self.pop(Register::R15);
+        self.pop(Register::R14);
+        self.pop(Register::R13);
+        self.pop(Register::R12);
+        self.pop(Register::RBX);
+        self.pop(Register::RBP);
+    }
 
+    fn push(&mut self, register: Register) {
+        if register.is_extended_reg() {
+            self.asm_code.push(0x41);
+        }
+        self.asm_code.push(PUSH + register.encoding());
+    }
+
+    fn pop(&mut self, register: Register) {
+        if register.is_extended_reg() {
+            self.asm_code.push(0x41);
+        }
+        self.asm_code.push(POP + register.encoding());
     }
 
     // REX prefix is used to encode things related to 64 bit instruction set
