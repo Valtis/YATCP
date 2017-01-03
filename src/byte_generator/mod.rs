@@ -4,27 +4,27 @@ use tac_generator::Operand;
 
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOperation {
-    src: Source,
-    dest: Source,
+    pub src: Source,
+    pub dest: Source,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryOperation {
-    src1: Source,
-    src2: Source,
-    dest: Source,
+    pub src1: Source,
+    pub src2: Source,
+    pub dest: Source,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     Register(u32),
     IntegerConstant(i32),
     ReturnRegister, // special register, signifies the register that the calling convention uses to return values
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ByteCode {
     Nop,
     Add(BinaryOperation),
@@ -52,7 +52,6 @@ impl ByteGenerator {
         }
     }
 
-
     pub fn generate_bytecode(&mut self) {
         // clone to fix borrow issue. TODO: Figure out how to avoid an unnecessary copy.
         let statements = self.statements.clone(); 
@@ -72,6 +71,7 @@ impl ByteGenerator {
     fn emit_return(&mut self, retval: Option<Operand>) {
         if let Some(op) = retval {
             let data = UnaryOperation { src: self.get_source(&op), dest: Source::ReturnRegister };
+            self.code.push(ByteCode::Mov(data));
         }
 
         self.code.push(ByteCode::Ret); 
@@ -109,7 +109,6 @@ impl ByteGenerator {
             _ => unimplemented!(),
         }
     }
-
 
     fn get_register_for(&mut self, variable: u32) -> Source {
         if self.variable_id_to_register.contains_key(&variable) {

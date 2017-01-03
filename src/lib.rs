@@ -10,5 +10,6 @@ pub mod symbol_table;
 pub mod tac_generator;
 pub mod ssa_generator;
 pub mod byte_generator;
+pub mod code_generator;
 pub mod obj_generator;
 pub mod error_reporter;

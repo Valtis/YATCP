@@ -6,6 +6,7 @@ use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
 use compiler::tac_generator::TACGenerator;
 use compiler::byte_generator::ByteGenerator;
+use compiler::code_generator::CodeGenerator;
 use compiler::obj_generator;
 use compiler::obj_generator::ObjectType;
 use compiler::obj_generator::Architecture;
@@ -61,13 +62,15 @@ fn main() {
 
   println!("");
   counter = 1;
-  for c in byte_gen.code {
+  for c in &byte_gen.code {
     println!("{}: {:?}", counter, c);
     counter += 1;
-  }
-  
+  }  
 
-  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), "dummy.o".to_owned());
+  let code_gen = CodeGenerator::new(byte_gen.code);
+  let asm_code = code_gen.generate_code();
+
+  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), "dummy.o".to_owned(), asm_code);
 }
 
 

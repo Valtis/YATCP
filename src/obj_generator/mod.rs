@@ -12,9 +12,9 @@ pub enum Architecture {
     X64,
 }
 
-pub fn generate_object_file(obj_type: ObjectType, output_file: String) {
+pub fn generate_object_file(obj_type: ObjectType, output_file: String, code: Vec<u8>) {
     match obj_type {
-        ObjectType::Elf(arch) => { let generator = ElfGenerator::new(arch, output_file); generator.generate(); },
+        ObjectType::Elf(arch) => { let generator = ElfGenerator::new(arch, output_file, code); generator.generate(); },
     };
 }
 

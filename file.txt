@@ -1,6 +1,7 @@
 fn foo() : int {
   let f : int = 4 - 2*3;
   f = f/2;
+  f = 4*f;
   return f;
 }
 
