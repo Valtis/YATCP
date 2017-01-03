@@ -185,13 +185,11 @@ struct SymbolEntry {
     size: ElfSize, 
 }
 
-
 #[derive(Clone, Copy, Debug)]
 enum ElfSize {
     Elf32(u32),
     Elf64(u64),
 }
-
 
 impl ElfHeader {
     pub fn new(architecture: Architecture) -> ElfHeader {
