@@ -1,25 +1,41 @@
 mod x64;
+use byte_generator;
+use byte_generator::ByteCode;
 
-use byte_generator::ByteCode; 
 use self::x64::X64CodeGen;
 
 pub struct CodeGenerator {
-    bytecode: Vec<ByteCode>
+    bytecode_functions: Vec<byte_generator::Function>
+}
+
+#[derive(Clone, Debug)]
+pub struct Function {
+    pub name: String,
+    pub start: usize,
+    pub length: usize,
+}
+
+pub struct Code {
+    pub code: Vec<u8>,
+    pub functions: Vec<Function>,
 }
 
 impl CodeGenerator {
-    pub fn new(bytecode: Vec<ByteCode>) -> CodeGenerator {
+    pub fn new(bytecode_functions: Vec<byte_generator::Function>) -> CodeGenerator {
         CodeGenerator {
-            bytecode: bytecode,
+            bytecode_functions: bytecode_functions,
         }
     }   
 
-    pub fn generate_code(self) -> Vec<u8> {
+    pub fn generate_code(self) -> Code {
         // TODO - remove hard coded architecture
-        let mut generator = X64CodeGen::new(self.bytecode.clone());
+        let mut generator = X64CodeGen::new(self.bytecode_functions);
 
         generator.generate_code();
-        generator.get_code()
+        Code {
+            code: generator.get_code(),
+            functions: generator.get_functions(),
+        }
     }
 }
 

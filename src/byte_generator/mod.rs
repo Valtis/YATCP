@@ -1,6 +1,7 @@
 use tac_generator::Statement;
 use tac_generator::Operator;
 use tac_generator::Operand;
+use tac_generator;
 
 use std::collections::HashMap;
 
@@ -36,18 +37,24 @@ pub enum ByteCode {
     Ret,
 }
 
+#[derive(Clone, Debug)]
+pub struct Function {
+    pub name: String,
+    pub code: Vec<ByteCode> 
+}
+
 pub struct ByteGenerator {
-    pub code: Vec<ByteCode>,
-    pub statements: Vec<Statement>,
+    pub bytecode_functions: Vec<Function>,
+    tac_functions: Vec<tac_generator::Function>,
     next_register: u32,
     variable_id_to_register: HashMap<u32, u32>,
 }
 
 impl ByteGenerator {
-    pub fn new(statements: Vec<Statement>) -> ByteGenerator {
+    pub fn new(functions: Vec<tac_generator::Function>) -> ByteGenerator {
         ByteGenerator {
-            code: vec![],
-            statements: statements,
+            bytecode_functions: vec![],
+            tac_functions: functions,
             next_register: 0,
             variable_id_to_register: HashMap::new(),
         }
@@ -55,16 +62,23 @@ impl ByteGenerator {
 
     pub fn generate_bytecode(&mut self) {
         // clone to fix borrow issue. TODO: Figure out how to avoid an unnecessary copy.
-        let statements = self.statements.clone(); 
-        for s in statements {
-            match s {
-               Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
-               Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
-               Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
-               Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
-               Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
-               Statement::Return(val) => self.emit_return(val),
-               _ => panic!("Not implemented: {:?}", s),
+        let functions = self.tac_functions.clone();
+        for f in functions {
+            self.bytecode_functions.push(Function {
+                name: f.name,
+                code: vec![],
+            });
+            self.next_register = 0;
+            for s in f.statements {
+                match s {
+                   Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
+                   Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
+                   Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
+                   Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
+                   Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
+                   Statement::Return(val) => self.emit_return(val),
+                   _ => panic!("Not implemented: {:?}", s),
+                }
             }
         }
     }
@@ -72,21 +86,21 @@ impl ByteGenerator {
     fn emit_return(&mut self, retval: Option<Operand>) {
         if let Some(op) = retval {
             let data = UnaryOperation { src: self.get_source(&op), dest: Source::ReturnRegister };
-            self.code.push(ByteCode::Mov(data));
+            self.current_function().code.push(ByteCode::Mov(data));
         }
 
-        self.code.push(ByteCode::Ret); 
+        self.current_function().code.push(ByteCode::Ret); 
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {    
         let data = self.form_unary_operation(op, dest);
-        self.code.push(ByteCode::Mov(data));
+        self.current_function().code.push(ByteCode::Mov(data));
     }
 
     fn emit_binary_op(&mut self, operator: Operator, op1: &Operand, op2: &Operand, dest: &Operand) {
         let data = self.form_binary_operation(op1, op2, dest);
         let code = self.form_binary_code(operator, data);
-        self.code.push(code);
+        self.current_function().code.push(code);
     }
 
     fn form_unary_operation(&mut self, op: &Operand, dest: &Operand) -> UnaryOperation {
@@ -130,5 +144,9 @@ impl ByteGenerator {
             Operator::Multiply => ByteCode::Mul(data),
             Operator::Divide => ByteCode::Div(data),
         }
+    }
+
+    fn current_function(&mut self) -> &mut Function {
+        self.bytecode_functions.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Empty function array"))
     }
 }

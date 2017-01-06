@@ -1,7 +1,10 @@
 use obj_generator::Architecture;
 
+use code_generator::Code;
+
 use byteorder::{ByteOrder, LittleEndian, BigEndian };
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::Error;
@@ -359,21 +362,29 @@ impl SymbolEntry {
 
 pub struct ElfGenerator {
     architecture: Architecture,
+    input_file: String,
     output_file: String,
     elf_header: ElfHeader,
     section_headers: Vec<SectionHeader>,
-    sections: Vec<Box<Section>>,  
-    code: Vec<u8>, 
+    sections: Vec<Box<Section>>,
+    string_pos: HashMap<String, u32>,  
+    code: Code, 
 }
 
 impl ElfGenerator {
-    pub fn new(architecture: Architecture, output_file: String, code: Vec<u8>) -> ElfGenerator {
+    pub fn new(
+        architecture: Architecture, 
+        input_file: String, 
+        output_file: String, 
+        code: Code) -> ElfGenerator {
         ElfGenerator {
             architecture: architecture,
+            input_file: input_file,
             output_file: output_file,
             elf_header: ElfHeader::new(architecture),
             section_headers: vec![],
             sections: vec![],
+            string_pos: HashMap::new(),
             code: code
         }
     }
@@ -440,14 +451,21 @@ impl ElfGenerator {
 
     fn add_string_table(&mut self) {
         // hard coding for now for testing
-        let strings = vec![
+        let mut strings = vec![
             "".to_string(), 
-            "dummy.c".to_string(), 
-            "foo".to_string(), 
+            self.input_file.clone(), 
             ];
 
         // string.len() -> null terminator count
-        let string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
+        let mut string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
+        
+        for f in self.code.functions.iter() {
+            strings.push(f.name.clone());
+            self.string_pos.insert(f.name.clone(), string_size as u32);
+            string_size += f.name.len() + 1; // +1 for null terminatoe
+        } 
+
+      
         println!("Size: {}", string_size); 
 
         let section = Box::new(StringSection {
@@ -494,14 +512,21 @@ impl ElfGenerator {
             size: zero,
         });
 
-        entries.push(SymbolEntry {
-            string_index: 9,
-            info: (((STB_GLOBAL) << 4) + ((STT_FUNC) & 0xf)),
-            other: 0,
-            section_header_index: 4, // text section index
-            value: zero,
-            size: ElfSize::Elf64(self.code.len() as u64),
-        });
+        for f in self.code.functions.iter() {
+            println!("Function '{}' start: {} length: {}", f.name, f.start, f.length);
+            entries.push(SymbolEntry {
+                string_index: self.string_pos[&f.name],
+                info: (((STB_GLOBAL) << 4) + ((STT_FUNC) & 0xf)),
+                other: 0,
+                section_header_index: 4, // text section index
+                value: match self.architecture {
+                    Architecture::X64 => ElfSize::Elf64(f.start as u64),
+                },
+                size: match self.architecture {
+                    Architecture::X64 => ElfSize::Elf64(f.length as u64),
+                }
+            });
+        }
 
         let entries_len = entries.len();
 
@@ -533,10 +558,10 @@ impl ElfGenerator {
 
     fn add_text_table(&mut self) {
       
-        let len = self.code.len();
+        let len = self.code.code.len();
 
         let section = Box::new(TextSection {
-            code: self.code.clone(),                     
+            code: self.code.code.clone(),                     
         });
 
         let mut header = SectionHeader::new(self.architecture);

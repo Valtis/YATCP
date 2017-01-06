@@ -5,3 +5,9 @@ fn foo() : int {
   return f;
 }
 
+fn bar() : int {
+    let q : int = "hello";
+    let a : int = 9 + 3;
+    a = a + 9;
+    return a; 
+}

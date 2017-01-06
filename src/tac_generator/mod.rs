@@ -1,6 +1,7 @@
 use ast::AstNode;
 use ast::AstType;
 use ast::IdentifierInfo;
+use ast::FunctionInfo;
 
 use semcheck::Type;
 
@@ -31,9 +32,25 @@ pub enum Statement {
     Return(Option<Operand>)
 }
 
+#[derive(Clone, Debug)]
+pub struct Function {
+    pub name: String,
+    pub statements: Vec<Statement>
+}
+
+impl Function {
+    fn new(name: String) -> Function {
+        Function {
+            name: name,
+            statements: vec![],
+        }
+    }
+}
+
 
 pub struct TACGenerator {
-    statements: Vec<Statement>,
+    functions: Vec<Function>,
+    function_stack: Vec<Function>,
     operands: Vec<Operand>, 
     id_counter: u32,
     symbol_table: SymbolTable,
@@ -42,22 +59,23 @@ pub struct TACGenerator {
 impl TACGenerator {
     pub fn new(id_counter: u32) -> TACGenerator {
         TACGenerator {
-            statements: vec![],
+            functions: vec![],
+            function_stack: vec![],
             operands: vec![],
             id_counter: id_counter,
             symbol_table: SymbolTable::new(),            
         }
     }
 
-    pub fn statements(&self) -> &Vec<Statement> {
-        &self.statements
+    pub fn functions(&self) -> &Vec<Function> {
+        &self.functions
     }
 
 
     pub fn generate_tac(&mut self, node: &AstNode) {
         match node.node_type {
             AstType::Block(_) => self.handle_block(node),
-            AstType::Function(_) => self.handle_function(node),
+            AstType::Function(ref info) => self.handle_function(node, info),
             AstType::VariableDeclaration(_) => self.handle_variable_declaration(node),
             AstType::VariableAssignment(_) => self.handle_variable_assignment(node),
             AstType::Plus(_) | AstType::Minus(_) | AstType::Multiply(_) | AstType::Divide(_) => 
@@ -89,10 +107,16 @@ impl TACGenerator {
         self.symbol_table.pop();
     }
 
-    fn handle_function(&mut self, node: &AstNode) {
+    fn handle_function(&mut self, node: &AstNode, info: &FunctionInfo) {
+        let function = Function::new(info.name.clone());
+        self.function_stack.push(function);
+
         for ref child in node.get_children() {
             self.generate_tac(child);
         }
+        self.functions.push(
+            self.function_stack.pop().unwrap_or_else(
+                || panic!("Internal compiler error: Function stack empty when generating function 3AC")));        
     }
 
     fn handle_variable_declaration(&mut self, node: &AstNode) {
@@ -116,7 +140,8 @@ impl TACGenerator {
 
         let variable_info = self.get_variable_info(name);
 
-        self.statements.push(Statement::Assignment(None, Some(Operand::Variable(variable_info)), None, self.operands.pop()));
+        let operand = self.operands.pop();
+        self.current_function().statements.push(Statement::Assignment(None, Some(Operand::Variable(variable_info)), None, operand));
     }
 
     fn handle_arithmetic_node(&mut self, node: &AstNode) {
@@ -139,7 +164,7 @@ impl TACGenerator {
 
         let variable = Operand::Variable(VariableInfo::new(self.get_type(&left), id));
 
-        self.statements.push(Statement::Assignment(
+        self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(variable.clone()), Some(left), Some(right),
         ));
 
@@ -172,7 +197,7 @@ impl TACGenerator {
             None
         };
 
-        self.statements.push(Statement::Return(operand));
+        self.current_function().statements.push(Statement::Return(operand));
     }
 
     fn get_type(&self, operand: &Operand) -> Type {
@@ -205,4 +230,9 @@ impl TACGenerator {
             _ => panic!("Internal compiler error: Expected variable but was {:?}", symbol.symbol_type),
         }
     }
+
+    fn current_function(&mut self) -> &mut Function {
+        self.function_stack.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Function stack empty"))
+    } 
+
 }

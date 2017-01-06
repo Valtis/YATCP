@@ -16,7 +16,9 @@ use compiler::error_reporter::FileErrorReporter;
 
 #[cfg(not(test))]
 fn main() {
-  let lexer = Lexer::new("file.txt");
+
+  let file_name = "file.txt";
+  let lexer = Lexer::new(file_name);
   let mut parser = Parser::new(lexer);
   let mut node = match parser.parse() {
       Ok(node) => node,
@@ -31,7 +33,7 @@ fn main() {
   println!("");
 
   let mut checker = SemanticsCheck::new(
-    Box::new(FileErrorReporter::new("file.txt")));
+    Box::new(FileErrorReporter::new(file_name)));
   checker.check_semantics(&mut node);
   
   if checker.errors > 0 {
@@ -50,27 +52,34 @@ fn main() {
 
   println!("");
   let mut counter = 1; 
-  for s in tac_gen.statements() {
-    println!("{}: {:?}", counter, s);
+  for f in tac_gen.functions() {
+    println!("Function '{}'\n", f.name);
+    for s in &f.statements {
+      println!("    {}: {:?}", counter, s);
+    }
+    println!("");
     counter += 1;
   }
 
-  let mut byte_gen = ByteGenerator::new((*tac_gen.statements()).clone());
+  let mut byte_gen = ByteGenerator::new((*tac_gen.functions()).clone());
   println!("");
   byte_gen.generate_bytecode();
 
 
   println!("");
   counter = 1;
-  for c in &byte_gen.code {
-    println!("{}: {:?}", counter, c);
-    counter += 1;
-  }  
+  for f in &byte_gen.bytecode_functions {
+    println!("Function '{}'\n", f.name);
+    for c in &f.code {
+      println!("    {}: {:?}", counter, c);
+      counter += 1;
+    }   
+  }
 
-  let code_gen = CodeGenerator::new(byte_gen.code);
+  let code_gen = CodeGenerator::new(byte_gen.bytecode_functions);
   let asm_code = code_gen.generate_code();
 
-  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), "dummy.o".to_owned(), asm_code);
+  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), file_name.to_string(), "test.o".to_owned(), asm_code);
 }
 
 
