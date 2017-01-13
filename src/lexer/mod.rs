@@ -110,10 +110,9 @@ impl ReadLexer {
 
       let mut next_char = ' ';
 
-      match self.peek_char() {
-        Some(ch) => next_char = ch,
-        None => { /* do nothing */}
-      };
+      if let Some(ch) = self.peek_char() {
+        next_char = ch; 
+      }
 
       if next_char == optional_second_char {
         // consume the next character
