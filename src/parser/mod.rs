@@ -30,7 +30,7 @@ impl Parser {
     pub fn parse(&mut self) -> Result<AstNode, String> {
         let mut functions = vec![];
         loop {
-            let token = try!(self.lexer.peek_token());
+            let token = self.lexer.peek_token();
             match token.token_type {
                 TokenType::Fn => {
                     let function_node = try!(self.parse_function());
@@ -65,7 +65,7 @@ impl Parser {
     fn parse_statements(&mut self) -> Result<Vec<AstNode>, String> {
         let mut nodes = vec![];
         loop {
-            let token = try!(self.lexer.peek_token());
+            let token = self.lexer.peek_token();
             match token.token_type {
                 TokenType::Let => {
                     nodes.push(try!(self.parse_variable_declaration()));
@@ -100,7 +100,7 @@ impl Parser {
 
     fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, String> {
         let identifier = try!(self.expect(TokenType::Identifier));
-        let token  = try!(self.lexer.peek_token());
+        let token  = self.lexer.peek_token();
         match token.token_type {
             TokenType::Assign => self.parse_assignment(identifier),
             TokenType::LParen => panic!("Function call not implemented"), 
@@ -138,7 +138,7 @@ impl Parser {
 
         // handle else
         loop {
-            let next_token = try!(self.lexer.peek_token());
+            let next_token = self.lexer.peek_token();
             if next_token.token_type == TokenType::Else {
                 children.push(try!(self.parse_else_statement()));
                 break;
@@ -169,7 +169,7 @@ impl Parser {
         let mut result = try!(self.parse_comparison_expression(node));
 
         loop {
-            let next_token = try!(self.lexer.peek_token());
+            let next_token = self.lexer.peek_token();
             match next_token.token_type {
                 TokenType::Equals => 
                     result = try!(self.parse_comparison_expression(result)),
@@ -185,7 +185,7 @@ impl Parser {
 
         // while plus or minus tokens are next, keep parse_assignment
         loop {
-            let next_token = try!(self.lexer.peek_token());
+            let next_token = self.lexer.peek_token();
             match next_token.token_type {
                 TokenType::Plus | TokenType::Minus => 
                     result = try!(self.parse_plus_minus_expression(result)),
@@ -201,7 +201,7 @@ impl Parser {
         let mut result = try!(self.parse_mult_divide_expression(node));
         // while mul or div tokens are next, keep parse_assignment
         loop {
-            let next_token = try!(self.lexer.peek_token());
+            let next_token = self.lexer.peek_token();
             match next_token.token_type {
                 TokenType::Multiply | TokenType::Divide => 
                     result = try!(self.parse_mult_divide_expression(result)),
@@ -263,11 +263,11 @@ impl Parser {
     }
 
     fn parse_comparison_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
-        let next_token = try!(self.lexer.peek_token());
+        let next_token = self.lexer.peek_token();
         if next_token.token_type == TokenType::Equals {
             let mut nodes = vec![node];
 
-            try!(self.lexer.next_token());
+            self.lexer.next_token();
             nodes.push(try!(self.parse_arithmetic_expression()));          
             return Ok(AstNode::new(&next_token, nodes, AstType::Equals));            
         }
@@ -276,11 +276,11 @@ impl Parser {
     }
 
     fn parse_plus_minus_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
-        let next_token = try!(self.lexer.peek_token());
+        let next_token = self.lexer.peek_token();
         if next_token.token_type == TokenType::Plus || next_token.token_type == TokenType::Minus {
             let mut nodes = vec![node];
 
-            try!(self.lexer.next_token());
+            self.lexer.next_token();
             nodes.push(try!(self.parse_term()));
             if next_token.token_type == TokenType::Plus {
                 return Ok(AstNode::new(&next_token, nodes, AstType::Plus(ArithmeticInfo::new())));
@@ -294,11 +294,11 @@ impl Parser {
 
     fn parse_mult_divide_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
 
-        let next_token = try!(self.lexer.peek_token());
+        let next_token = self.lexer.peek_token();
         if next_token.token_type == TokenType::Multiply || next_token.token_type == TokenType::Divide {
             let mut nodes = vec![node];
 
-            try!(self.lexer.next_token());
+            self.lexer.next_token();
             nodes.push(try!(self.parse_factor()));
             if next_token.token_type == TokenType::Multiply {
                 return Ok(AstNode::new(&next_token, nodes, AstType::Multiply(ArithmeticInfo::new())));
@@ -311,7 +311,7 @@ impl Parser {
     }
 
     fn expect(&mut self, token_type: TokenType) -> Result<Token, String> {
-        let next_token = try!(self.lexer.next_token());
+        let next_token = self.lexer.next_token();
         if next_token.token_type != token_type {
             Err(format!("{}:{}: Unexpected token '{}'. '{}' was expected instead",
                 next_token.line,
@@ -324,7 +324,7 @@ impl Parser {
     }
 
     fn expect_one_of(&mut self, types: Vec<TokenType>) -> Result<Token, String> {
-        let next_token = try!(self.lexer.next_token());
+        let next_token = self.lexer.next_token();
         for token_type in &types {
             if next_token.token_type == *token_type {
                 return Ok(next_token);

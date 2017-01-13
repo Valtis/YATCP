@@ -87,20 +87,20 @@ fn create_lexer(text: &str) -> (ReadLexer, Rc<RefCell<TestReporter>>) {
 #[test]
 fn empty_stream_returns_eofs() {
     let (mut lexer, _) = create_lexer(r"");
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -111,19 +111,19 @@ fn valid_integers_are_accepted() {
     let (mut lexer, _) = create_lexer(r"1234 111222 99887766");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::IntegerNumber(1234));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::IntegerNumber(111222));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::IntegerNumber(99887766));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -133,19 +133,19 @@ fn valid_floats_are_accepted() {
     let (mut lexer, _) = create_lexer(r"123f 456.78f .99f");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::FloatNumber(123 as f32));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::FloatNumber(456.78 as f32));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::FloatNumber(0.99 as f32));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -155,19 +155,19 @@ fn valid_doubles_are_accepted() {
     let (mut lexer, _) = create_lexer(r"123d 456.78 .99");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::DoubleNumber(123 as f64));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::DoubleNumber(456.78 as f64));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::DoubleNumber(0.99 as f64));
 
-    assert_eq_token!(lexer.next_token().unwrap(), 
+    assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -179,97 +179,97 @@ fn keywords_are_accepted() {
         public protected private int float double bool void string");
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::If, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Else, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::While, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::For, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Let, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Fn, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Return, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::New, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Class, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Public, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Protected, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Private, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::IntegerType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::FloatType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::DoubleType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::BooleanType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::VoidType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::VarType, 
       TokenSubType::StringType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -279,42 +279,42 @@ fn identifiers_are_accepted() {
     let (mut lexer, _) = create_lexer(r"id ident while_ident ifff _a_ a123 a_1_2_3");
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("id".to_string()));
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("ident".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("while_ident".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("ifff".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("_a_".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("a123".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("a_1_2_3".to_string()));
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -324,67 +324,67 @@ fn operators_are_accepted() {
     let (mut lexer, _) = create_lexer(r"< <= == >= > ! != = + - * /");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Less, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LessOrEq, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Equals, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::GreaterOrEq, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Greater, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Not, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::NotEq, 
       TokenSubType::NoSubType);
    
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Assign, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Plus, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Minus, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Multiply, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Divide, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -394,57 +394,57 @@ fn parenthesis_and_other_symbols_are_accepted() {
     let (mut lexer, _) = create_lexer(r"( ) { } [ ] ; : . ,");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LParen, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RParen, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LBrace, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RBrace, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LBracket, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RBracket, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::SemiColon, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Colon, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Dot, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Comma, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 }
@@ -454,57 +454,57 @@ fn whitespace_does_not_affect_parenthesis() {
     let (mut lexer, _) = create_lexer(r"(){}[];:.,");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LParen, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RParen, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LBrace, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RBrace, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::LBracket, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::RBracket, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::SemiColon, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Colon, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Dot, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Comma, 
       TokenSubType::NoSubType); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
 }
@@ -517,27 +517,27 @@ fn strings_are_accepted() {
     let (mut lexer, _) = create_lexer(r#""hello world" "test""yarhar"identifier"#);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::Text("hello world".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::Text("test".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::Text("yarhar".to_string())); 
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("identifier".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 }
@@ -576,22 +576,22 @@ fn lexer_returns_error_token_number_when_number_has_invalid_type_letter() {
     let (mut lexer, handler) = create_lexer(r#"12r 123.4x .122abcd"#);
    
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
@@ -646,42 +646,42 @@ fn unterminated_string_produces_correct_error_tokens() {
         + - "yet another unterminated token"#);
     
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("valid_token".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::IntegerNumber(123));
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Plus, 
       TokenSubType::NoSubType);
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Minus, 
       TokenSubType::NoSubType);   
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
@@ -741,22 +741,22 @@ fn unexpected_escape_characters_produce_correct_tokens() {
         "unterminated\"#); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::Text("foo ".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::Text("  ".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Text, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
@@ -808,22 +808,22 @@ fn multiple_decimal_separators_generate_error_tokens() {
         ");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Number, 
       TokenSubType::ErrorToken); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
@@ -862,17 +862,17 @@ fn unexpected_starting_symbol_are_ignored() {
         |foo");
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("hello".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Identifier, 
       TokenSubType::Identifier("foo".to_string())); 
 
     assert_eq_token!(
-      lexer.next_token().unwrap(), 
+      lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 

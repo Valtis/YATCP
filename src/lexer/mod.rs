@@ -17,8 +17,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 pub trait Lexer {
-  fn next_token(&mut self) -> Result<Token, String>;
-  fn peek_token(&mut self) -> Result<Token, String>; 
+  fn next_token(&mut self) -> Token;
+  fn peek_token(&mut self) -> Token;
 }
 
 pub struct ReadLexer {
@@ -74,22 +74,22 @@ impl ReadLexer {
     }
   }
 
-  fn handle_symbols(&mut self, ch: char) -> Result<Token, String> {
+  fn handle_symbols(&mut self, ch: char) -> Token {
     match ch {
-      '+' => Ok(self.create_token(TokenType::Plus, TokenSubType::NoSubType)),
-      '-' => Ok(self.create_token(TokenType::Minus, TokenSubType::NoSubType)),
-      '*' => Ok(self.create_token(TokenType::Multiply, TokenSubType::NoSubType)),
-      '/' => Ok(self.create_token(TokenType::Divide, TokenSubType::NoSubType)),
-      '[' => Ok(self.create_token(TokenType::LBracket, TokenSubType::NoSubType)),
-      ']' => Ok(self.create_token(TokenType::RBracket, TokenSubType::NoSubType)),
-      '{' => Ok(self.create_token(TokenType::LBrace, TokenSubType::NoSubType)),
-      '}' => Ok(self.create_token(TokenType::RBrace, TokenSubType::NoSubType)),
-      '(' => Ok(self.create_token(TokenType::LParen, TokenSubType::NoSubType)),
-      ')' => Ok(self.create_token(TokenType::RParen, TokenSubType::NoSubType)),
-      ';' => Ok(self.create_token(TokenType::SemiColon, TokenSubType::NoSubType)),
-      ',' => Ok(self.create_token(TokenType::Comma, TokenSubType::NoSubType)),
-      '.' => Ok(self.create_token(TokenType::Dot, TokenSubType::NoSubType)),
-      ':' => Ok(self.create_token(TokenType::Colon, TokenSubType::NoSubType)),
+      '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
+      '-' => self.create_token(TokenType::Minus, TokenSubType::NoSubType),
+      '*' => self.create_token(TokenType::Multiply, TokenSubType::NoSubType),
+      '/' => self.create_token(TokenType::Divide, TokenSubType::NoSubType),
+      '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
+      ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
+      '{' => self.create_token(TokenType::LBrace, TokenSubType::NoSubType),
+      '}' => self.create_token(TokenType::RBrace, TokenSubType::NoSubType),
+      '(' => self.create_token(TokenType::LParen, TokenSubType::NoSubType),
+      ')' => self.create_token(TokenType::RParen, TokenSubType::NoSubType),
+      ';' => self.create_token(TokenType::SemiColon, TokenSubType::NoSubType),
+      ',' => self.create_token(TokenType::Comma, TokenSubType::NoSubType),
+      '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
+      ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
       '=' => self.multi_char_operator_helper('=', TokenType::Equals, TokenType::Assign),
       '>' => self.multi_char_operator_helper('=', TokenType::GreaterOrEq, TokenType::Greater),
       '<' => self.multi_char_operator_helper('=', TokenType::LessOrEq, TokenType::Less),
@@ -106,7 +106,7 @@ impl ReadLexer {
     &mut self,
     optional_second_char: char,
     type_if_matches: TokenType,
-    type_if_no_match: TokenType) -> Result<Token, String> {
+    type_if_no_match: TokenType) -> Token {
 
       let mut next_char = ' ';
 
@@ -118,9 +118,9 @@ impl ReadLexer {
       if next_char == optional_second_char {
         // consume the next character
         self.next_char();
-        Ok(self.create_token(type_if_matches, TokenSubType::NoSubType))
+        self.create_token(type_if_matches, TokenSubType::NoSubType)
       } else {
-        Ok(self.create_token(type_if_no_match, TokenSubType::NoSubType))
+        self.create_token(type_if_no_match, TokenSubType::NoSubType)
       }
     }
 
@@ -133,7 +133,7 @@ impl ReadLexer {
     ch.is_alphanumeric() || ch == '_'
   }
 
-  fn handle_identifier(&mut self, ch: char) -> Result<Token, String> {
+  fn handle_identifier(&mut self, ch: char) -> Token {
 
     let mut identifier = ch.to_string();
 
@@ -156,10 +156,8 @@ impl ReadLexer {
 
 
     match self.handle_keywords(&identifier) {
-      Some(token) => Ok(token),
-      None => {
-        Ok(self.create_token(TokenType::Identifier, TokenSubType::Identifier(identifier)))
-      }
+      Some(token) => token,
+      None => self.create_token(TokenType::Identifier, TokenSubType::Identifier(identifier)),      
     }
   }
   /*if, else, while, for, let, fn, return, new, class,
@@ -208,7 +206,7 @@ impl ReadLexer {
     }
   }
 
-  fn handle_number(&mut self, ch: char) -> Result<Token, String> {
+  fn handle_number(&mut self, ch: char) -> Token {
 
     let mut number_str = ch.to_string();
 
@@ -233,7 +231,7 @@ impl ReadLexer {
             self.next_char();
             return self.handle_decimal_number(number_str);
           } else if ch.is_alphabetic() {    
-            return Ok(self.handle_number_type_str(number_str));
+            return self.handle_number_type_str(number_str);
           } else {
             break;
           }
@@ -243,13 +241,13 @@ impl ReadLexer {
     }
 
     match number_str.parse() {
-      Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::IntegerNumber(number))),
+      Ok(number) => self.create_token(TokenType::Number, TokenSubType::IntegerNumber(number)),
       Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
             self.line, self.column, e),
     }
   }
 
-  fn handle_decimal_number(&mut self, mut number_str: String) -> Result<Token, String> {  
+  fn handle_decimal_number(&mut self, mut number_str: String) -> Token {  
     let mut separator_error = false;
     loop {
 
@@ -261,7 +259,7 @@ impl ReadLexer {
                     number_str.push(ch);
                     self.next_char();
                 } else if ch.is_alphabetic() {       
-                    return Ok(self.handle_number_type_str(number_str));
+                    return self.handle_number_type_str(number_str);
                 } else if ch == '.' {
                     if separator_error == false {
                     let (line, column) = (self.line, self.column);
@@ -281,11 +279,11 @@ impl ReadLexer {
     }
 
     if separator_error {
-      return Ok(self.create_token(TokenType::Number, TokenSubType::ErrorToken));
+      return self.create_token(TokenType::Number, TokenSubType::ErrorToken);
     }
 
     match number_str.parse() {
-      Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number))),
+      Ok(number) => self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number)),
       Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
             self.line, self.column, e),
     }
@@ -308,10 +306,8 @@ impl ReadLexer {
       }
     }
    
-
-
     if type_str == "d" || type_str == "f" {
-      self.create_number_token(type_str, number_str).unwrap()
+      self.create_number_token(type_str, number_str)
     } else {
         let (line, column) = (self.line, self.column - type_str.len() as i32); 
         self.report_error(
@@ -327,18 +323,18 @@ impl ReadLexer {
     }
   }
 
-  fn create_number_token(&mut self, type_str: String, number_str: String) -> Result<Token, String> {
+  fn create_number_token(&mut self, type_str: String, number_str: String) -> Token {
     
     if type_str == "d" {
       match number_str.parse() {
-        Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number))),
+        Ok(number) => self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number)),
         Err(e) => 
             ice!("Non-numeric characters in number token at {}:{} ({})",
               self.line, self.column, e),
       }
     } else if type_str == "f" {
       match number_str.parse() {
-        Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::FloatNumber(number))),
+        Ok(number) => self.create_token(TokenType::Number, TokenSubType::FloatNumber(number)),
         Err(e) => 
             ice!("Non-numeric characters in number token at {}:{} ({})",
                 self.line, self.column, e),
@@ -352,7 +348,7 @@ impl ReadLexer {
     ch == '"'
   }
 
-  fn handle_string(&mut self) -> Result<Token, String> {
+  fn handle_string(&mut self) -> Token {
 
     let mut value = String::new();
 
@@ -375,9 +371,9 @@ impl ReadLexer {
                 column,
                 value.len(),
                 "Unterminated string".to_string());
-              return Ok(self.create_token(
+              return self.create_token(
                 TokenType::Text,
-                TokenSubType::ErrorToken));
+                TokenSubType::ErrorToken);
           } else {
             value.push(ch);
           }
@@ -391,14 +387,14 @@ impl ReadLexer {
             value.len() + 1,
             "Unexpected end of file when processing string".to_string());
 
-          return Ok(self.create_token(
+          return self.create_token(
                 TokenType::Text,
-                TokenSubType::ErrorToken));
+                TokenSubType::ErrorToken);
         },
       }
     }
 
-    Ok(self.create_token(TokenType::Text, TokenSubType::Text(value)))
+    self.create_token(TokenType::Text, TokenSubType::Text(value))
   }
 
   fn handle_escape_sequence(&mut self) -> char {
@@ -505,11 +501,11 @@ impl ReadLexer {
 }
 
 impl Lexer for ReadLexer {
-  fn next_token(&mut self) -> Result<Token, String> {
+  fn next_token(&mut self) -> Token {
     if self.next_token != None {
         let token = self.next_token.clone().unwrap();
         self.next_token = None;
-        return Ok(token);
+        return token;
     }
 
     self.skip_whitespace();
@@ -542,18 +538,18 @@ impl Lexer for ReadLexer {
             self.next_token()
         }
       }
-      None => Ok(self.create_token(TokenType::Eof, TokenSubType::NoSubType)),
+      None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
     }
   }
 
-  fn peek_token(&mut self) -> Result<Token, String> {
+  fn peek_token(&mut self) -> Token {
       if let Some(ref token) = self.next_token  {
-          return Ok(token.clone());
+          return token.clone();
       }
 
-      let res = try!(self.next_token());
+      let res = self.next_token();
       self.next_token = Some(res.clone());
-      Ok(res)
+      res
   }
 
 }
