@@ -236,7 +236,7 @@ impl X64CodeGen {
                          let mut new_operands = operands.clone();
 
                          match operands.src1 {
-                            Source::IntegerConstant(val) => {
+                            Source::IntegerConstant(_) => {
                                 match operands.src2 {
                                     // two integer constant addition - generate a mov in between
                                     // so that we get reg, const addition
@@ -296,7 +296,7 @@ impl X64CodeGen {
                          let mut new_operands = operands.clone();
 
                          match operands.src1 {
-                            Source::IntegerConstant(val) => {
+                            Source::IntegerConstant(_) => {
 
                                 new_code.push(ByteCode::Mov(UnaryOperation {
                                     src: operands.src1.clone(),
@@ -326,7 +326,7 @@ impl X64CodeGen {
                         let mut new_operands = operands.clone();
 
                         match operands.src1 {
-                            Source::IntegerConstant(val) => {
+                            Source::IntegerConstant(_) => {
                                 // only transform if the second arg is an integer as well
                                 if let Source::IntegerConstant(_) = operands.src2 {                                  
                                     new_code.push(ByteCode::Mov(UnaryOperation {

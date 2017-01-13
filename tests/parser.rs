@@ -5,7 +5,7 @@ use compiler::parser::Parser;
 use compiler::ast::AstNode;
 use compiler::ast::AstType;
 
-
+/*
 fn parse_file(file: &str) -> Result<AstNode, String> {
   let lexer = Lexer::new(file);
   let mut parser = Parser::new(lexer);
@@ -286,3 +286,4 @@ fn check_eleventh_node(node: &AstNode) {
     assert!(is_integer_node(&children[0].get_children()[1].get_children()[0], 4));
     assert!(is_integer_node(&children[0].get_children()[1].get_children()[1], 3));
 }
+*/

@@ -1,81 +1,50 @@
-use token::SyntaxToken;
+use token::Token;
 use token::TokenType;
 use token::TokenSubType;
+
+use error_reporter::ErrorReporter;
+use error_reporter::Error;
+
 use std::fs::File;
+
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Bytes;
+
 use std::iter::Peekable;
 
-pub struct Lexer {
+use std::rc::Rc;
+use std::cell::RefCell;
+
+pub trait Lexer {
+  fn next_token(&mut self) -> Result<Token, String>;
+  fn peek_token(&mut self) -> Result<Token, String>; 
+}
+
+pub struct ReadLexer {
   line: i32,
   column: i32,
   token_start_line: i32,
   token_start_column: i32,
-  iter: Peekable<Bytes<BufReader<File>>>, // TODO! Change to Chars once api stabilizes
-  next_token: Option<SyntaxToken>, // used for storing token after peeking
+  iter: Peekable<Bytes<BufReader<Box<Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
+  next_token: Option<Token>, // used for storing token after peeking
+  error_reporter: Rc<RefCell<ErrorReporter>>,
 }
 
-impl Lexer {
+impl ReadLexer {
+  pub fn new(input: Box<Read>, error_reporter: Rc<RefCell<ErrorReporter>>) -> ReadLexer { 
 
-  pub fn new(file_path: &str) -> Lexer {
-    let f = match File::open(file_path) {
-        Ok(file) => file,
-        Err(e) => panic!("Failed to open file {}: {}", file_path, e),
-    };
-
-    Lexer {
+    ReadLexer {
       line: 1,
       column: 1,
       token_start_line: 1,
       token_start_column: 1,
-      iter: BufReader::new(f).bytes().peekable(),
+      iter: BufReader::new(input).bytes().peekable(),
       next_token: None,
+      error_reporter: error_reporter,
     }
   }
 
-  pub fn next_token(&mut self) -> Result<SyntaxToken, String> {
-    if self.next_token != None {
-        let token = self.next_token.clone().unwrap();
-        self.next_token = None;
-        return Ok(token);
-    }
-
-    self.skip_whitespace();
-
-    self.token_start_line = self.line;
-    self.token_start_column = self.column;
-
-    match self.next_char() {
-      Some(ch) => {
-        if self.starts_comment(ch) {
-          self.skip_comment();
-          self.next_token()
-        } else if Lexer::starts_symbol(ch) {
-          self.handle_symbols(ch)
-        } else if Lexer::starts_identifier(ch) {
-          self.handle_identifier(ch)
-        } else if self.starts_number(ch) {
-          self.handle_number(ch)
-        } else if Lexer::starts_string(ch) {
-          self.handle_string()
-        } else {
-          Err(format!("Unexpected symbol '{}' at {}:{}", ch, self.token_start_line, self.token_start_column))
-        }
-      }
-      None => Ok(self.create_token(TokenType::Eof, TokenSubType::NoSubType)),
-    }
-  }
-
-  pub fn peek_token(&mut self) -> Result<SyntaxToken, String> {
-      if self.next_token != None {
-          return Ok(self.next_token.clone().unwrap());
-      }
-
-      let res = try!(self.next_token());
-      self.next_token = Some(res.clone());
-      Ok(res)
-  }
 
   fn starts_comment(&mut self, ch: char) -> bool {
     if ch == '/' {
@@ -97,15 +66,15 @@ impl Lexer {
     }
   }
 
-  fn starts_symbol(ch: char) -> bool {
+  fn starts_symbol(&mut self, ch: char) -> bool {
     match ch {
       '+' | '-' | '*' | '/' | '[' | ']' | '{' | '}' | '(' | ')' | '<' | '>' | '=' | ';' | ',' | ':' | '!' => true,
+      '.' => self.does_not_start_desimal_number(),
       _ => false,
     }
   }
 
-  fn handle_symbols(&mut self, ch: char) -> Result<SyntaxToken, String> {
-
+  fn handle_symbols(&mut self, ch: char) -> Result<Token, String> {
     match ch {
       '+' => Ok(self.create_token(TokenType::Plus, TokenSubType::NoSubType)),
       '-' => Ok(self.create_token(TokenType::Minus, TokenSubType::NoSubType)),
@@ -119,20 +88,25 @@ impl Lexer {
       ')' => Ok(self.create_token(TokenType::RParen, TokenSubType::NoSubType)),
       ';' => Ok(self.create_token(TokenType::SemiColon, TokenSubType::NoSubType)),
       ',' => Ok(self.create_token(TokenType::Comma, TokenSubType::NoSubType)),
+      '.' => Ok(self.create_token(TokenType::Dot, TokenSubType::NoSubType)),
       ':' => Ok(self.create_token(TokenType::Colon, TokenSubType::NoSubType)),
       '=' => self.multi_char_operator_helper('=', TokenType::Equals, TokenType::Assign),
       '>' => self.multi_char_operator_helper('=', TokenType::GreaterOrEq, TokenType::Greater),
       '<' => self.multi_char_operator_helper('=', TokenType::LessOrEq, TokenType::Less),
       '!' => self.multi_char_operator_helper('=', TokenType::NotEq, TokenType::Not),
-      _ => Err(format!("Not an operator: {}", ch))
+      _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
     }
+  }
+
+  fn does_not_start_desimal_number(&mut self) -> bool {
+    self.peek_char().map_or(false, |c| !c.is_digit(10))
   }
 
   fn multi_char_operator_helper (
     &mut self,
     optional_second_char: char,
     type_if_matches: TokenType,
-    type_if_no_match: TokenType) -> Result<SyntaxToken, String> {
+    type_if_no_match: TokenType) -> Result<Token, String> {
 
       let mut next_char = ' ';
 
@@ -159,7 +133,7 @@ impl Lexer {
     ch.is_alphanumeric() || ch == '_'
   }
 
-  fn handle_identifier(&mut self, ch: char) -> Result<SyntaxToken, String> {
+  fn handle_identifier(&mut self, ch: char) -> Result<Token, String> {
 
     let mut identifier = ch.to_string();
 
@@ -169,7 +143,7 @@ impl Lexer {
 
       match value {
         Some(ch) => {
-          if Lexer::is_valid_identifier_character(ch) {
+          if ReadLexer::is_valid_identifier_character(ch) {
             identifier.push(ch);
             self.next_char();
           } else {
@@ -190,10 +164,9 @@ impl Lexer {
   }
   /*if, else, while, for, let, fn, return, new, class,
   public, protected, private, true, false, int, float, double, bool, void*/
-  fn handle_keywords(&self, identifier: &str) -> Option<SyntaxToken> {
+  fn handle_keywords(&self, identifier: &str) -> Option<Token> {
     match identifier {
       "if" => Some(self.create_token(TokenType::If, TokenSubType::NoSubType)),
-      "elif" => Some(self.create_token(TokenType::ElseIf, TokenSubType::NoSubType)),
       "else" => Some(self.create_token(TokenType::Else, TokenSubType::NoSubType)),
       "while" => Some(self.create_token(TokenType::While, TokenSubType::NoSubType)),
       "for" => Some(self.create_token(TokenType::For, TokenSubType::NoSubType)),
@@ -235,7 +208,7 @@ impl Lexer {
     }
   }
 
-  fn handle_number(&mut self, ch: char) -> Result<SyntaxToken, String> {
+  fn handle_number(&mut self, ch: char) -> Result<Token, String> {
 
     let mut number_str = ch.to_string();
 
@@ -259,9 +232,8 @@ impl Lexer {
             number_str.push(ch);
             self.next_char();
             return self.handle_decimal_number(number_str);
-          } else if ch.is_alphabetic() {
-            self.next_char();
-            return self.handle_number_type_char(ch, number_str);
+          } else if ch.is_alphabetic() {    
+            return Ok(self.handle_number_type_str(number_str));
           } else {
             break;
           }
@@ -272,87 +244,115 @@ impl Lexer {
 
     match number_str.parse() {
       Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::IntegerNumber(number))),
-      Err(e) => Err(
-          format!("Internal compiler error: non-numeric characters in number token at {}:{} ({})",
-            self.line, self.column, e)),
+      Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
+            self.line, self.column, e),
     }
   }
 
-  fn handle_decimal_number(&mut self, mut number_str: String) -> Result<SyntaxToken, String> {
+  fn handle_decimal_number(&mut self, mut number_str: String) -> Result<Token, String> {  
+    let mut separator_error = false;
     loop {
 
-      let value = self.peek_char();
+        let value = self.peek_char();
 
-      match value {
-        Some(ch) => {
-          if ch.is_digit(10) {
-            number_str.push(ch);
-            self.next_char();
-          } else if ch.is_alphabetic() {
-            self.next_char();
-            return self.handle_number_type_char(ch, number_str);
-          } else if ch == '.' {
-            return Err("Multiple decimal separators in number".to_string());
-          } else {
-            break;
-          }
+        match value {
+            Some(ch) => {
+                if ch.is_digit(10) {
+                    number_str.push(ch);
+                    self.next_char();
+                } else if ch.is_alphabetic() {       
+                    return Ok(self.handle_number_type_str(number_str));
+                } else if ch == '.' {
+                    if separator_error == false {
+                    let (line, column) = (self.line, self.column);
+                    self.report_error(
+                    Error::TokenError,
+                    line, column, 1,
+                    "Multiple decimal separators in number".to_string());
+                    separator_error = true;      
+                  }      
+                  self.next_char();
+                } else {
+                    break;
+                }
+            },
+            None => break
         }
-        None => break
-      }
+    }
+
+    if separator_error {
+      return Ok(self.create_token(TokenType::Number, TokenSubType::ErrorToken));
     }
 
     match number_str.parse() {
       Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number))),
-      Err(e) => Err(
-          format!("Internal compiler error: non-numeric characters in number token at {}:{} ({})",
-            self.line, self.column, e)),
+      Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
+            self.line, self.column, e),
     }
   }
 
-  fn handle_number_type_char(&mut self, type_char: char, number_str: String) -> Result<SyntaxToken, String> {
+  fn handle_number_type_str(&mut self, number_str: String) -> Token {
+    let mut type_str : String = String::new();
 
-    match type_char {
-      'd'|'f' => {
-        self.create_number_token(type_char, number_str)
-      }
-      _ => Err(format!("Invalid type character: {}", type_char)),
-    }
-  }
-
-  fn create_number_token(&mut self, type_char: char, number_str: String) -> Result<SyntaxToken, String> {
-    // check that character following the type char is not alphanumeric
-    match self.peek_char() {
-      Some(ch) => {
-        if ch.is_alphanumeric() {
-          return Err(format!("Invalid character following number type character: {}", ch));
+    loop {
+      let next_ch_opt = self.peek_char();
+      if let Some(next_ch) = next_ch_opt {
+        if next_ch.is_alphanumeric() {
+          type_str.push(next_ch);
+          self.next_char();
+        } else {
+          break;
         }
+      } else {
+        break;
       }
-      None => { /* do nothing */}
     }
+   
 
-    if type_char == 'd' {
+
+    if type_str == "d" || type_str == "f" {
+      self.create_number_token(type_str, number_str).unwrap()
+    } else {
+        let (line, column) = (self.line, self.column - type_str.len() as i32); 
+        self.report_error(
+          Error::TokenError, 
+          line, 
+          column, 
+          type_str.len(), // length of a single character
+          format!("Invalid type string '{}'", type_str));
+
+          self.create_token(
+            TokenType::Number, 
+            TokenSubType::ErrorToken)
+    }
+  }
+
+  fn create_number_token(&mut self, type_str: String, number_str: String) -> Result<Token, String> {
+    
+    if type_str == "d" {
       match number_str.parse() {
         Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number))),
-        Err(e) => Err(
-            format!("Internal compiler error: non-numeric characters in number token at {}:{} ({})",
-              self.line, self.column, e)),
+        Err(e) => 
+            ice!("Non-numeric characters in number token at {}:{} ({})",
+              self.line, self.column, e),
       }
-    } else {
+    } else if type_str == "f" {
       match number_str.parse() {
         Ok(number) => Ok(self.create_token(TokenType::Number, TokenSubType::FloatNumber(number))),
-        Err(e) => Err(
-            format!("Internal compiler error: non-numeric characters in number token at {}:{} ({})",
-                self.line, self.column, e)),
+        Err(e) => 
+            ice!("Non-numeric characters in number token at {}:{} ({})",
+                self.line, self.column, e),
       }
+    } else {
+      ice!("Unexpected type string '{}'", type_str);
     }
   }
-
 
   fn starts_string(ch: char) -> bool {
     ch == '"'
   }
 
-  fn handle_string(&mut self) -> Result<SyntaxToken, String> {
+  fn handle_string(&mut self) -> Result<Token, String> {
 
     let mut value = String::new();
 
@@ -360,45 +360,80 @@ impl Lexer {
       match self.next_char() {
         Some(ch) => {
           if ch == '\\' {
-            value.push(try!(self.handle_escape_sequence()));
+            value.push(self.handle_escape_sequence());
           } else if ch == '"' {
-            // check that there are no alphanumeric characters following the '"'
-            match self.peek_char() {
-              Some(ch) => {
-                if ch.is_alphanumeric() {
-                  return Err(format!("Invalid character following closing\" in string: {}", ch));
-                }
-              },
-              None => { /* do nothing*/}
-            }
             break;
+          }
+          else if ch == '\n' {
+              let (line, column) = (
+                self.token_start_line, 
+                self.token_start_column); 
+              
+              self.report_error(
+                Error::TokenError, 
+                line,
+                column,
+                value.len(),
+                "Unterminated string".to_string());
+              return Ok(self.create_token(
+                TokenType::Text,
+                TokenSubType::ErrorToken));
           } else {
             value.push(ch);
           }
         }
-        None => return Err(format!("Unterminated string at {}:{}",
-            self.token_start_line, self.token_start_column)),
+        None => {
+          let (line, column) = (self.token_start_line, self.token_start_column); 
+          self.report_error(
+            Error::TokenError, 
+            line,
+            column,
+            value.len() + 1,
+            "Unexpected end of file when processing string".to_string());
+
+          return Ok(self.create_token(
+                TokenType::Text,
+                TokenSubType::ErrorToken));
+        },
       }
     }
 
     Ok(self.create_token(TokenType::Text, TokenSubType::Text(value)))
   }
 
-  fn handle_escape_sequence(&mut self) -> Result<char, String> {
+  fn handle_escape_sequence(&mut self) -> char {
     match self.next_char() {
       Some(ch) => match ch {
-        'n' => Ok('\n'),
-        't' => Ok('\t'),
-        '\\' => Ok('\\'),
-        '"' => Ok('"'),
-        _ => Err(format!("Invalid escape sequence \\{}", ch))
+        'n' => '\n',
+        't' => '\t',
+        '\\' => '\\',
+        '"' => '"',
+        _ => {
+          let (line, column) = (self.line, self.column-2);
+          self.report_error(
+            Error::TokenError,
+            line,
+            column,
+            2,
+            format!("Invalid escape sequence '\\{}'", ch));
+          ' '
+        },
       },
-      None => Err("Invalid escape sequence - no character following \\".to_string()),
+      None => {
+        let (line, column) = (self.line, self.column-1);
+          self.report_error(
+            Error::TokenError,
+            line,
+            column,
+            1,
+            "Unexpected end of file when processing escape sequence".to_string());
+          ' '
+      }
     }
   }
 
-  fn create_token(&self, token_type: TokenType, token_subtype: TokenSubType) -> SyntaxToken {
-    SyntaxToken::new(token_type, token_subtype, self.token_start_line, self.token_start_column, self.column - self.token_start_column)
+  fn create_token(&self, token_type: TokenType, token_subtype: TokenSubType) -> Token {
+    Token::new(token_type, token_subtype, self.token_start_line, self.token_start_column, self.column - self.token_start_column)
   }
 
 
@@ -451,4 +486,74 @@ impl Lexer {
           };
         }
     }
+
+
+  fn report_error(
+    &mut self, 
+    error_type: Error, 
+    line: i32, 
+    column: i32, 
+    length: usize, 
+    reason: String) {
+      self.error_reporter.borrow_mut().report_error(
+        error_type,
+        line,
+        column,
+        length as i32,
+        reason);
+  }
+}
+
+impl Lexer for ReadLexer {
+  fn next_token(&mut self) -> Result<Token, String> {
+    if self.next_token != None {
+        let token = self.next_token.clone().unwrap();
+        self.next_token = None;
+        return Ok(token);
+    }
+
+    self.skip_whitespace();
+
+    self.token_start_line = self.line;
+    self.token_start_column = self.column;
+
+    match self.next_char() {
+      Some(ch) => {
+        if self.starts_comment(ch) {
+          self.skip_comment();
+          self.next_token()
+        } else if self.starts_symbol(ch) {
+          self.handle_symbols(ch)
+        } else if ReadLexer::starts_identifier(ch) {
+          self.handle_identifier(ch)
+        } else if self.starts_number(ch) {
+          self.handle_number(ch)
+        } else if ReadLexer::starts_string(ch) {
+          self.handle_string()
+        } else {
+            let (line, column) = (self.token_start_line, self.token_start_column);
+            self.report_error(
+                Error::TokenError,
+                line,
+                column,
+                1,
+                format!(
+                    "Symbol '{}' does not start a valid token", ch));
+            self.next_token()
+        }
+      }
+      None => Ok(self.create_token(TokenType::Eof, TokenSubType::NoSubType)),
+    }
+  }
+
+  fn peek_token(&mut self) -> Result<Token, String> {
+      if let Some(ref token) = self.next_token  {
+          return Ok(token.clone());
+      }
+
+      let res = try!(self.next_token());
+      self.next_token = Some(res.clone());
+      Ok(res)
+  }
+
 }

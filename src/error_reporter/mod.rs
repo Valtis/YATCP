@@ -11,19 +11,35 @@ use std::io::BufReader;
 
 use ansi_term::Colour::Red;
 use ansi_term::Colour::Cyan;
+use ansi_term;
 
+#[derive(Debug, PartialEq)]
 pub enum Error {
     Note,
+    TokenError,
     TypeError,
     NameError,
 }
 
+impl Error {
+    fn get_color(&self) -> ansi_term::Colour {
+        match *self {
+            Error::Note => Cyan,
+            Error::TokenError => Red,
+            Error::TypeError => Red,
+            Error::NameError => Red,
+        }
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
+        let color = self.get_color();
         let str = match *self {
-            Error::Note => Cyan.bold().paint("Note").to_string(),
-            Error::TypeError => Red.bold().paint("Type error").to_string(),
-            Error::NameError => Red.bold().paint("Name error").to_string(),           
+            Error::Note => color.bold().paint("Note").to_string(),
+            Error::TokenError => color.bold().paint("Token error").to_string(),
+            Error::TypeError => color.bold().paint("Type error").to_string(),
+            Error::NameError => color.bold().paint("Name error").to_string(),           
         };
    
         write!(formatter, "{}", str)
@@ -71,11 +87,14 @@ impl ErrorReporter for FileErrorReporter {
         }
 
         print!("{}", buffer);
+        if !buffer.ends_with("\n") {
+            println!("");
+        }
         for _ in 0..(column-1) {
             print!(" ");
         }
 
-        let color = Red;
+        let color = error_type.get_color();
 
         print!("{}", color.bold().paint("^").to_string());
         for _ in 0..(token_length-1) {

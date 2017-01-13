@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
-
-#[derive(Eq, PartialEq, Copy, Clone)]
+ 
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
   Assign,
   Equals,
@@ -22,10 +22,10 @@ pub enum TokenType {
   LBracket,
   RBracket,
   Comma,
+  Dot,
   SemiColon,
   Colon,
   If,
-  ElseIf,
   Else,
   While,
   For,
@@ -65,13 +65,13 @@ impl Display for TokenType {
         TokenType::RParen => ")",
         TokenType::LBrace => "{",
         TokenType::RBrace => "}",
-        TokenType::LBracket => "<",
-        TokenType::RBracket => ">",
+        TokenType::LBracket => "[",
+        TokenType::RBracket => "]",
         TokenType::Comma => ",",
+        TokenType::Dot => ".",
         TokenType::SemiColon => ";",
         TokenType::Colon => ":",
         TokenType::If => "if",
-        TokenType::ElseIf => "elif",
         TokenType::Else => "else",
         TokenType::While => "while",
         TokenType::For => "for",
@@ -95,6 +95,8 @@ impl Display for TokenType {
   }
 }
 
+// TODO: PartialEq should be implemented explicitly so that
+// we can use epsilon for floating point numbers when doing equality comparison
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenSubType {
   Text(String), // index to text table
@@ -110,6 +112,7 @@ pub enum TokenSubType {
   VoidType,
   StringType,
   NoSubType,
+  ErrorToken
 }
 
 impl Display for TokenSubType {
@@ -132,6 +135,7 @@ impl Display for TokenSubType {
         TokenSubType::VoidType => "void".to_string(),
         TokenSubType::StringType => "string".to_string(),
         TokenSubType::NoSubType => "".to_string(),
+        TokenSubType::ErrorToken => "<Invalid token>".to_string(),
     }));
 
     write!(formatter, "{}", match *self {
@@ -142,8 +146,8 @@ impl Display for TokenSubType {
 }
 
 
-#[derive(Clone)]
-pub struct SyntaxToken {
+#[derive(Clone, Debug)]
+pub struct Token {
   pub token_type: TokenType,
   pub token_subtype: TokenSubType,
   pub line: i32,
@@ -151,7 +155,7 @@ pub struct SyntaxToken {
   pub length: i32,
 }
 
-impl Display for SyntaxToken {
+impl Display for Token {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}{}", self.token_type, self.token_subtype)
     }
@@ -160,9 +164,9 @@ impl Display for SyntaxToken {
 
 // do not check for line numbers or positions; only check for type\subtype equality
 // also, special cases for floating point comparisons
-impl PartialEq for SyntaxToken {
+impl PartialEq for Token {
 
-  fn eq(&self, other: &SyntaxToken) -> bool {
+  fn eq(&self, other: &Token) -> bool {
     if self.token_type == other.token_type {
       match self.token_subtype {
         TokenSubType::FloatNumber(self_val) => {
@@ -188,8 +192,8 @@ impl PartialEq for SyntaxToken {
 
 }
 
-impl SyntaxToken {
-  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32, length : i32) -> SyntaxToken {
-    SyntaxToken { token_type: token_type, token_subtype: subtype, line: line, column: column, length: length }
+impl Token {
+  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32, length : i32) -> Token {
+    Token { token_type: token_type, token_subtype: subtype, line: line, column: column, length: length }
   }
 }

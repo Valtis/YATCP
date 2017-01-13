@@ -14,6 +14,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
@@ -46,13 +48,13 @@ impl Display for Type {
 pub struct SemanticsCheck {
     pub errors: u32,
     symbol_table: SymbolTable,
-    error_reporter: Box<ErrorReporter>,
+    error_reporter: Rc<RefCell<ErrorReporter>>,
     id_counter: u32,
 }
 
 
 impl SemanticsCheck {
-    pub fn new(reporter: Box<ErrorReporter>) -> SemanticsCheck {
+    pub fn new(reporter: Rc<RefCell<ErrorReporter>>) -> SemanticsCheck {
         SemanticsCheck {
             errors: 0,
             symbol_table: SymbolTable::new(),
@@ -86,6 +88,7 @@ impl SemanticsCheck {
             AstType::If => self.handle_if_node(node),
             AstType::ElseIf => self.handle_else_if_node(node),
             AstType::Else => self.handle_else_node(node),
+            AstType::ErrorNode => {},
         }
     }
 
@@ -133,6 +136,7 @@ impl SemanticsCheck {
     }
 
     fn handle_variable_declaration_node(&mut self, node: &mut AstNode) {
+        assert!(node.get_children().len() == 1);
         // borrow checker workarounds
         let info = {
             let mut info = {
@@ -167,20 +171,22 @@ impl SemanticsCheck {
 
 
         let mut types = vec![];
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-            types.push(self.get_type(child));
-        }
-        assert!(types.len() == 1);
+        // borrow checker workarounds
+        let (node_line, node_column, node_length) = (node.line, node.column, node.length);
+        let child = &mut node.get_mutable_children()[0];       
+        self.do_check(child);
+        types.push(self.get_type(child));
 
         types.push(info.variable_type);
         let widened_type = SemanticsCheck::get_widening_conversion(&types);
         // if type is invalid, errors has already been reported
         if info.variable_type != widened_type && types[0] != Type::Invalid {
-            /*self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Expected '{}' but got '{}",
-                types[0], info.variable_type));*/
-                panic!("Not implemented");
+            self.report_error(Error::TypeError, child.line, child.column, child.length,
+                format!("Expected '{}' but got '{}'",
+                info.variable_type, types[0]));
+
+            self.report_error(Error::Note, node_line, node_column, node_length, format!(
+                "Variable '{}', declared here, has type {}", info.name, info.variable_type));
         }
 
     }
@@ -221,8 +227,14 @@ impl SemanticsCheck {
                         "Expected '{}' but got '{}'",
                          variable_info.variable_type, types[0]));
 
-                    self.report_error(Error::Note, symbol.line, symbol.column, symbol.length, format!(
-                        "Variable '{}' declared here ", info.name));
+                    self.report_error(
+                        Error::Note, 
+                        symbol.line, 
+                        symbol.column, 
+                        symbol.length, 
+                        format!("Variable '{}', declared here, has type {}", 
+                            info.name, 
+                            variable_info.variable_type));
                 }
             }
         }
@@ -363,8 +375,13 @@ impl SemanticsCheck {
                 };
             },
             None => {
-                /*self.report_error(Error::NameError, node.line, node.column, format!("Undeclared identifier '{}'",
-                    info.name));*/ panic!("Not implemented");
+                self.report_error(
+                    Error::NameError, 
+                    node.line, 
+                    node.column, 
+                    node.length,
+                    format!("Undeclared identifier '{}'",
+                        info.name));
             },
         }
         0
@@ -390,6 +407,7 @@ impl SemanticsCheck {
             AstType::Float(_) => Type::Float,
             AstType::Text(_) => Type::String,
             AstType::Equals => Type::Boolean,
+            AstType::ErrorNode => Type::Invalid,
             _ => panic!("Internal compiler error: Invalid node type {}", node),
         }
     }
@@ -419,13 +437,6 @@ impl SemanticsCheck {
 
     fn report_error(&mut self, error_type: Error, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
-        self.error_reporter.report_error(error_type, line, column, token_length, error);        
+        self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);        
     }
-}
-
-
-
-#[test]
-fn can_assign_integer() {
-    
 }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use obj_generator::Architecture;
 
 use code_generator::Code;

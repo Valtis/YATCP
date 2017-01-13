@@ -1,4 +1,4 @@
-use token::SyntaxToken;
+use token::Token;
 use token::TokenSubType;
 use semcheck::Type;
 use symbol_table;
@@ -7,14 +7,14 @@ use std::fmt::Formatter;
 use std::fmt::Result;
 
 
-fn get_text_from_identifier(identifier: &SyntaxToken) -> String {
+fn get_text_from_identifier(identifier: &Token) -> String {
     match identifier.token_subtype {
         TokenSubType::Identifier(ref text) => text.clone(),
         _ => panic!("Internal compiler error: Expected identifier but was {}", identifier),
     }
 }
 
-fn get_type_from_type_token(variable_type: &SyntaxToken) -> Type {
+fn get_type_from_type_token(variable_type: &Token) -> Type {
   match variable_type.token_subtype {
     TokenSubType::IntegerType => Type::Integer,
     TokenSubType::StringType => Type::String,
@@ -45,7 +45,8 @@ pub enum AstType {
     Integer(i32),
     Float(f32),
     Double(f64),
-    Text(String)
+    Text(String),
+    ErrorNode,
 }
 
 #[derive(Debug)]
@@ -58,7 +59,7 @@ pub struct AstNode {
 }
 
 impl AstNode {
-    pub fn new(token: &SyntaxToken, children: Vec<AstNode>, t: AstType) -> AstNode {
+    pub fn new(token: &Token, children: Vec<AstNode>, t: AstType) -> AstNode {
       AstNode {
         children: children,
         node_type: t,
@@ -102,6 +103,7 @@ impl Display for AstNode {
           AstType::Float(i) => format!("float {}", i),
           AstType::Double(i) => format!("double {}", i),
           AstType::Text(ref i) => format!("string '{}'", i),
+          AstType::ErrorNode => "<syntax error>".to_string(),
       })
   }
 }
@@ -131,7 +133,7 @@ pub struct IdentifierInfo {
 }
 
 impl FunctionInfo {
-    pub fn new(identifier: &SyntaxToken, retun_type: &SyntaxToken) -> FunctionInfo {
+    pub fn new(identifier: &Token, retun_type: &Token) -> FunctionInfo {
         FunctionInfo {
             name: get_text_from_identifier(identifier),
             return_type: get_type_from_type_token(retun_type),
@@ -140,7 +142,7 @@ impl FunctionInfo {
 }
 
 impl DeclarationInfo {
-    pub fn new(token: &SyntaxToken, variable_type: &SyntaxToken) -> DeclarationInfo {
+    pub fn new(token: &Token, variable_type: &Token) -> DeclarationInfo {
         DeclarationInfo {
             name: get_text_from_identifier(token),
             variable_type: get_type_from_type_token(variable_type),
@@ -162,7 +164,7 @@ impl ArithmeticInfo {
 }
 
 impl IdentifierInfo {
-    pub fn new(token: &SyntaxToken) -> IdentifierInfo {
+    pub fn new(token: &Token) -> IdentifierInfo {
         IdentifierInfo {
             name: get_text_from_identifier(token),
             id: 0,

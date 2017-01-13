@@ -1,6 +1,6 @@
 extern crate compiler;
 
-use compiler::lexer::Lexer;
+use compiler::lexer::ReadLexer;
 use compiler::parser::Parser;
 use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
@@ -13,12 +13,19 @@ use compiler::obj_generator::Architecture;
 
 use compiler::error_reporter::FileErrorReporter;
 
+use std::fs::File;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[cfg(not(test))]
 fn main() {
 
   let file_name = "file.txt";
-  let lexer = Lexer::new(file_name);
+  let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(file_name)));
+  
+  let file = File::open(file_name).unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
+
+  let lexer = Box::new(ReadLexer::new(Box::new(file), error_reporter.clone()));
   let mut parser = Parser::new(lexer);
   let mut node = match parser.parse() {
       Ok(node) => node,
@@ -32,8 +39,7 @@ fn main() {
   print(&node, 0);
   println!("");
 
-  let mut checker = SemanticsCheck::new(
-    Box::new(FileErrorReporter::new(file_name)));
+  let mut checker = SemanticsCheck::new(error_reporter);
   checker.check_semantics(&mut node);
   
   if checker.errors > 0 {
@@ -84,9 +90,9 @@ fn main() {
 
 
 fn print(node: &AstNode, intendation: usize) {
-    let int_str = std::iter::repeat(" ").take(intendation).collect::<String>();
+   /* let int_str = std::iter::repeat(" ").take(intendation).collect::<String>();
     println!("{}{}", int_str, node);
     for child in node.get_children() {
         print(&child, intendation + 4);
-    }
+    }*/
 }

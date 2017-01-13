@@ -1,7 +1,8 @@
-use token::SyntaxToken;
+use token::Token;
 use token::TokenType;
 use token::TokenSubType;
 use lexer::Lexer;
+
 use ast::AstNode;
 use ast::AstType;
 use ast::FunctionInfo;
@@ -16,11 +17,11 @@ use ast::IdentifierInfo;
 */
 
 pub struct Parser {
-    lexer: Lexer,
+    lexer: Box<Lexer>,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Parser {
+    pub fn new(lexer: Box<Lexer>) -> Parser {
         Parser {
             lexer: lexer,
         }
@@ -42,13 +43,13 @@ impl Parser {
     }
 
     fn parse_function(&mut self) -> Result<AstNode, String> {
-        try!(self.expect(TokenType::Fn));
-        let identifier = try!(self.expect(TokenType::Identifier));
-        try!(self.expect(TokenType::LParen));
-        try!(self.expect(TokenType::RParen));
-        try!(self.expect(TokenType::Colon));
-        let type_token = try!(self.expect(TokenType::VarType));
-        let node = try!(self.parse_block());
+        self.expect(TokenType::Fn)?;
+        let identifier = self.expect(TokenType::Identifier)?;
+        self.expect(TokenType::LParen)?;
+        self.expect(TokenType::RParen)?;
+        self.expect(TokenType::Colon)?;
+        let type_token = self.expect(TokenType::VarType)?;
+        let node = self.parse_block()?;
 
         Ok(AstNode::new(&identifier, vec![node], AstType::Function(
             FunctionInfo::new(&identifier, &type_token))))
@@ -109,7 +110,7 @@ impl Parser {
     }
 
 
-    fn parse_assignment(&mut self, identifier: SyntaxToken) -> Result<AstNode, String> {
+    fn parse_assignment(&mut self, identifier: Token) -> Result<AstNode, String> {
         try!(self.expect(TokenType::Assign));
         let expression_node = try!(self.parse_expression());
         try!(self.expect(TokenType::SemiColon));
@@ -135,12 +136,10 @@ impl Parser {
         children.push(condition_node);
         children.push(block);
 
-        // handle elseif/else
+        // handle else
         loop {
             let next_token = try!(self.lexer.peek_token());
-            if next_token.token_type == TokenType::ElseIf { 
-                children.push(try!(self.parse_else_if_statement()));
-            } else if next_token.token_type == TokenType::Else {
+            if next_token.token_type == TokenType::Else {
                 children.push(try!(self.parse_else_statement()));
                 break;
             } else {
@@ -149,20 +148,6 @@ impl Parser {
         }
 
         let branch_node = AstNode::new(&if_node, children, AstType::If);
-
-        Ok(branch_node)
-    }
-
-    fn parse_else_if_statement(&mut self) -> Result<AstNode, String> {
-        let else_if_node = try!(self.expect(TokenType::ElseIf));
-        let condition_node = try!(self.parse_expression());
-        let block = try!(self.parse_block());
-
-        let mut children = vec![];
-        children.push(condition_node);
-        children.push(block);
-
-        let branch_node = AstNode::new(&else_if_node, children, AstType::ElseIf);
 
         Ok(branch_node)
     }
@@ -234,8 +219,10 @@ impl Parser {
                 match token.token_subtype {
                     TokenSubType::Identifier(_) => Ok(AstNode::new(&token, vec![],
                         AstType::Identifier(IdentifierInfo::new(&token)))),
-                    _ => panic!(
-                        "Internal compiler error - invalid token {} passed when identifier expected", token),
+                    TokenSubType::ErrorToken =>
+                        Ok(AstNode::new(&token, vec![], AstType::ErrorNode)),
+                    _ => ice!(
+                        "invalid token '{}' passed when identifier expected", token),
                 }
             },
             TokenType::Number => {
@@ -249,7 +236,10 @@ impl Parser {
                     TokenSubType::FloatNumber(i) => {
                         Ok(AstNode::new(&token, vec![], AstType::Float(i)))
                     },
-                    _ => panic!("Internal compiler error: Invalid token {} when number expected", token)
+                    TokenSubType::ErrorToken => {
+                        Ok(AstNode::new(&token, vec![], AstType::ErrorNode))
+                    },
+                    _ => ice!("Invalid token '{}' passed when number expected", token)
                 }
             },
             TokenType::LParen => {
@@ -261,11 +251,14 @@ impl Parser {
                 match token.token_subtype {
                     TokenSubType::Text(ref text) =>
                         Ok(AstNode::new(&token, vec![], AstType::Text(text.clone()))),
-                    _ => panic!("Internal compiler error - invalid token {} when text expected", token),
+                    TokenSubType::ErrorToken => 
+                        Ok(AstNode::new(&token, vec![], AstType::ErrorNode)),
+                    _ => ice!("Invalid token '{}' passed when text expected", token),
                 }
             }
-            _ => return Err(
-                format!("Internal compiler error - invalid token '{}' passed to match statement in parse_factor", token)),
+            _ => ice!(
+                    "Invalid token '{}' passed to match statement in parse_factor", 
+                    token),
         }
     }
 
@@ -317,7 +310,7 @@ impl Parser {
         Ok(node)
     }
 
-    fn expect(&mut self, token_type: TokenType) -> Result<SyntaxToken, String> {
+    fn expect(&mut self, token_type: TokenType) -> Result<Token, String> {
         let next_token = try!(self.lexer.next_token());
         if next_token.token_type != token_type {
             Err(format!("{}:{}: Unexpected token '{}'. '{}' was expected instead",
@@ -330,7 +323,7 @@ impl Parser {
         }
     }
 
-    fn expect_one_of(&mut self, types: Vec<TokenType>) -> Result<SyntaxToken, String> {
+    fn expect_one_of(&mut self, types: Vec<TokenType>) -> Result<Token, String> {
         let next_token = try!(self.lexer.next_token());
         for token_type in &types {
             if next_token.token_type == *token_type {
