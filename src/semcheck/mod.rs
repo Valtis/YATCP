@@ -1,11 +1,12 @@
 use ast::AstNode;
-use ast::AstType;
-use ast::IdentifierInfo;
+use ast::ArithmeticInfo;
+use ast::FunctionInfo;
+use ast::NodeInfo;
+use ast::DeclarationInfo;
 
 use symbol_table::SymbolTable;
 use symbol_table::Symbol;
-use symbol_table::SymbolType;
-use symbol_table::VariableInfo;
+use symbol_table::TableEntry;
 
 use error_reporter::Error;
 use error_reporter::ErrorReporter;
@@ -44,14 +45,12 @@ impl Display for Type {
   }
 }
 
-
 pub struct SemanticsCheck {
     pub errors: u32,
     symbol_table: SymbolTable,
     error_reporter: Rc<RefCell<ErrorReporter>>,
     id_counter: u32,
 }
-
 
 impl SemanticsCheck {
     pub fn new(reporter: Rc<RefCell<ErrorReporter>>) -> SemanticsCheck {
@@ -63,8 +62,14 @@ impl SemanticsCheck {
         }
     }
 
-    pub fn get_id_counter(&self) -> u32 {
+    pub fn get_current_id(&self) -> u32 {
         self.id_counter
+    }
+
+    fn get_next_id(&mut self) -> u32 {
+        let id = self.id_counter;
+        self.id_counter += 1;
+        id
     }
 
     pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
@@ -73,370 +78,473 @@ impl SemanticsCheck {
     }
 
     fn do_check(&mut self, node: &mut AstNode) {
-        match node.node_type {
-            AstType::Block(_) => self.handle_block_node(node),
-            AstType::Function(_) =>self.handle_function_node(node),
-            AstType::VariableDeclaration(_) => self.handle_variable_declaration_node(node),
-            AstType::VariableAssignment(_) => self.handle_variable_assignment_node(node),
-            AstType::Return => self.handle_return_statement_node(node),
-            AstType::Plus(_) | AstType::Minus(_) | AstType::Multiply(_) | AstType::Divide(_) =>
-                self.handle_arithmetic_node(node),
-            AstType::Integer(_) | AstType::Double(_) |
-            AstType::Float(_) | AstType::Text(_) => { assert!(node.get_children().len() == 0); },
-            AstType::Identifier(_) => self.handle_identifier_node(node),
-            AstType::Equals => self.handle_equals_node(node),
-            AstType::If => self.handle_if_node(node),
-            AstType::ElseIf => self.handle_else_if_node(node),
-            AstType::Else => self.handle_else_node(node),
-            AstType::ErrorNode => {},
+        match *node {
+            AstNode::Block(ref mut children, ref mut tab_ent, ref ni) => 
+                self.handle_block(children, tab_ent, ni),
+            AstNode::Function(ref mut child, ref fi) => 
+                self.handle_function(child, fi),
+            AstNode::VariableDeclaration(ref mut child, ref vi) => 
+                self.handle_variable_declaration(child, vi),
+            AstNode::VariableAssignment(ref mut child, ref name, ref ni) => 
+                self.handle_variable_assignment(child, name, ni), 
+            AstNode::Plus(_, _, _) |
+            AstNode::Minus(_, _, _) |
+            AstNode::Multiply(_, _, _) |
+            AstNode::Divide(_, _, _) => {
+                self.handle_arithmetic_operation_with_operator_type_check(node);
+            },
+            AstNode::Negate(ref mut child, ref mut ai) => 
+                self.handle_negation(child, ai),
+            AstNode::Return(ref mut child, ref mut ai) =>
+                self.handle_return(child, ai),
+            AstNode::Integer(_, _) => {},
+            AstNode::Float(_, _) => {},
+            AstNode::Double(_, _) => {},
+            AstNode::Text(_, _) => {},
+            AstNode::Identifier(ref name, ref info) => 
+                { self.check_identifier_is_initialized(name, info); }
+            AstNode::Boolean(_, _) => {},
+            AstNode::ErrorNode => {},
         }
     }
 
-    fn handle_block_node(&mut self, node: &mut AstNode) {
+    fn handle_block(
+        &mut self, children: 
+        &mut Vec<AstNode>, 
+        tab_ent: &mut Option<TableEntry>, 
+        _node_info: &NodeInfo) {
+
         self.symbol_table.push_empty();
-        for ref mut child in node.get_mutable_children() {
+        for ref mut child in children {
             self.do_check(child);
         }
-
-
-        if let AstType::Block(ref mut table_entry) = node.node_type {
-            *table_entry = self.symbol_table.pop();
-        } else {
-            panic!("Internal compiler error: Expected Block node but was {:?}", node.node_type);
-        }
+       
+        *tab_ent = self.symbol_table.pop();
     }
 
-    fn handle_function_node(&mut self, node: &mut AstNode) {
-        // work around the borrow checker - otherwise the borrow will live too long
-        let info = {
-            match node.node_type {
-                AstType::Function(ref i) => i.clone(),
-                _ => panic!("Internal compiler error: Expected function ast node but was {}",
-                        node),
-            }
-        };
-
-        match self.symbol_table.find_symbol(&info.name) {
+    fn handle_function(
+        &mut self, 
+        child: &mut AstNode, 
+        function_info: &FunctionInfo) {
+    
+        match self.symbol_table.find_symbol(&function_info.name) {
             Some(symbol) => {
-                /*self.report_error(Error::NameError, node.line, node.column,
-                    format!("Redefinition of function '{}'. Previously defined at {}:{}",
-                    info.name, symbol.line, symbol.column));*/
-                    panic!("Not implemented");
-            },
-            None => {
-                self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), node.line, node.column, node.length,
-                        SymbolType::Function(info.clone())));
-            },
-        }
-
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-        }
-    }
-
-    fn handle_variable_declaration_node(&mut self, node: &mut AstNode) {
-        assert!(node.get_children().len() == 1);
-        // borrow checker workarounds
-        let info = {
-            let mut info = {
-                match node.node_type {
-                AstType::VariableDeclaration(ref mut i) => i,
-                _ => panic!("Internal compiler error: Expected variable declaration ast node but was {}",
-                        node),
-                }
-            };
-            info.id = self.id_counter;
-            self.id_counter += 1;
-            info.clone() // need to end mutable borrow here, but still need the values
-        };
-
-        match self.symbol_table.find_symbol(&info.name) {
-            Some(symbol) => {
-                let err_text = match symbol.symbol_type {
-                    SymbolType::Function(_) => format!("Variable '{}' shadows function declared at {}:{}",
-                        info.name, symbol.line, symbol.column),
-                    SymbolType::Variable(_) => format!("Redefinition of variable '{}'. Previously defined at {}:{}",
-                        info.name, symbol.line, symbol.column),
+                let (prev_line, prev_column, prev_length) = match symbol {
+                    Symbol::Function(fi) => 
+                        (fi.node_info.line,
+                         fi.node_info.column,
+                         fi.node_info.length),
+                    _ => unimplemented!(),
                 };
 
-                /*self.report_error(Error::NameError, node.line, node.column, err_text); */ panic!("Not implemented");
+                self.report_error(
+                    Error::NameError, 
+                    function_info.node_info.line, 
+                    function_info.node_info.column,
+                    function_info.node_info.length,
+                    format!("Redefinition of function '{}'",
+                        function_info.name));
+                    
+                self.report_error(
+                    Error::Note, 
+                    prev_line,
+                    prev_column,
+                    prev_length,
+                    "Previously declared here".to_string());
             },
             None => {
                 self.symbol_table.add_symbol(
-                    Symbol::new(info.name.clone(), node.line, node.column, node.length,
-                        SymbolType::Variable(VariableInfo::new(info.variable_type, info.id))));
+                    Symbol::Function(function_info.clone()));
+            },
+        }
+        self.do_check(child);
+    }
+
+    fn handle_variable_declaration(
+        &mut self, 
+        child: &mut AstNode, 
+        variable_info: &DeclarationInfo) {
+
+        match self.symbol_table.find_symbol(&variable_info.name) {
+            Some(symbol) => {
+                let (err_text, prev_line, prev_column, prev_length) = 
+                    match symbol {
+                    Symbol::Function(fi) => 
+                        (format!(
+                            "Variable '{}' previously declared as a function", 
+                            fi.name),
+                         fi.node_info.line,
+                         fi.node_info.column,
+                         fi.node_info.length,
+                        ),
+                    Symbol::Variable(vi, _) => 
+                        (format!("Redefinition of variable '{}'",
+                            vi.name),
+                         vi.node_info.line,
+                         vi.node_info.column,
+                         vi.node_info.length
+                        ),
+                };
+
+                self.report_error(
+                    Error::NameError, 
+                    variable_info.node_info.line, 
+                    variable_info.node_info.column,
+                    variable_info.node_info.length, 
+                    err_text);
+
+                self.report_error(
+                    Error::Note,
+                    prev_line,
+                    prev_column,
+                    prev_length,
+                    "Previously declared here".to_string()); 
+            },
+            None => {
+                let id = self.get_next_id();
+                self.symbol_table.add_symbol(
+                    Symbol::Variable(variable_info.clone(), id));
             },
         }
 
+        self.do_check(child);        
+        let child_type = self.get_type(child);
 
-        let mut types = vec![];
-        // borrow checker workarounds
-        let (node_line, node_column, node_length) = (node.line, node.column, node.length);
-        let child = &mut node.get_mutable_children()[0];       
-        self.do_check(child);
-        types.push(self.get_type(child));
-
-        types.push(info.variable_type);
-        let widened_type = SemanticsCheck::get_widening_conversion(&types);
         // if type is invalid, errors has already been reported
-        if info.variable_type != widened_type && types[0] != Type::Invalid {
-            self.report_error(Error::TypeError, child.line, child.column, child.length,
-                format!("Expected '{}' but got '{}'",
-                info.variable_type, types[0]));
-
-            self.report_error(Error::Note, node_line, node_column, node_length, format!(
-                "Variable '{}', declared here, has type {}", info.name, info.variable_type));
+        if variable_info.variable_type != child_type && 
+            child_type != Type::Invalid {
+            self.report_type_error(variable_info, child, child_type);
         }
 
     }
 
-    fn handle_variable_assignment_node(&mut self, node: &mut AstNode) {
-       
-        if node.get_children().len() != 1 {
-            panic!("Internal compiler error: Invalid child count for assignment node: Expected 1 but was {}", node.get_children().len());
-        }
+    fn handle_variable_assignment(
+        &mut self, 
+        child: &mut AstNode, 
+        name: &String,
+        node_info: &NodeInfo
+        ) {
 
-        let info = {
-            match node.node_type {
-                AstType::VariableAssignment(ref i) => i.clone(),
-                _ => panic!("Internal compiler error: Expected variable assignment ast node but was {}",
-                        node),
-            }
-        };
-
-        let id = self.check_variable_is_declared_and_get_id(node, &info);
-        SemanticsCheck::update_identifier_id(node, id);
-
-
-        let child = &mut node.get_mutable_children()[0];
         self.do_check(child);
+        let child_type = self.get_type(child);
         
-        let mut types = vec![];
-        types.push(self.get_type(child));
+        let opt_symbol = self.check_identifier_is_initialized(name, node_info);
+
+        let symbol = if let Some(sym) = opt_symbol {
+            sym
+        } else {
+            // no valid variable. This has already been reported, so just return
+            return;
+        };
     
         // do type check only for a declared variable     
-        if let Some(symbol) = self.symbol_table.find_symbol(&info.name) {
-            if let SymbolType::Variable(variable_info) = symbol.symbol_type { 
-                types.push(variable_info.variable_type);
-                let widened_type = SemanticsCheck::get_widening_conversion(&types);
+        if let Symbol::Variable(ref sym_info, _) = symbol {
+            // if type is invalid, errors has already been reported
+            if sym_info.variable_type != child_type && 
+                child_type != Type::Invalid  {
 
-                // if type is invalid, errors has already been reported
-                if variable_info.variable_type != widened_type && types[0] != Type::Invalid {
-                    self.report_error(Error::TypeError, child.line, child.column, child.length, format!(
-                        "Expected '{}' but got '{}'",
-                         variable_info.variable_type, types[0]));
+            self.report_error(
+                Error::TypeError, 
+                child.line(), 
+                child.column(),   
+                child.length(), 
+                format!(
+                    "Expected '{}' but got '{}'",
+                     sym_info.variable_type, child_type));
 
-                    self.report_error(
-                        Error::Note, 
-                        symbol.line, 
-                        symbol.column, 
-                        symbol.length, 
-                        format!("Variable '{}', declared here, has type {}", 
-                            info.name, 
-                            variable_info.variable_type));
-                }
+            self.report_error(
+                Error::Note, 
+                sym_info.node_info.line, 
+                sym_info.node_info.column, 
+                sym_info.node_info.length, 
+                format!("Variable '{}', declared here, has type {}", 
+                    name, 
+                    sym_info.variable_type));
             }
+        
+        } else {
+            // should not happen, only variables should be returned
+            ice!(
+                "Non-variable symbol '{:?}' returned when variable expected", 
+                symbol);
         }
     }
 
-    fn handle_return_statement_node(&mut self, node: &mut AstNode) {
+    fn handle_return(
+        &mut self, 
+        opt_child: &mut Option<Box<AstNode>>,
+        arith_info: &mut ArithmeticInfo) {
         
-        let mut types = vec![];
+        let function_info = self.symbol_table.
+            get_enclosing_function_info().
+            unwrap_or_else(
+                || ice!(
+                    "No enclosing function found when handling return node {:?}", opt_child));
 
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-            types.push(self.get_type(child));
-        }
-        
-        assert!(types.len() == 1);
+        let child = if let Some(ref mut c) = *opt_child {
+            c
+        } else {
+            arith_info.node_type = Type::Void;
+            // no return expression -> void type 
+            if function_info.return_type != Type::Void {
+                self.report_error(
+                    Error::TypeError,
+                    arith_info.node_info.line,
+                    arith_info.node_info.column,
+                    arith_info.node_info.length,
+                    "Return statement without expression in non-void function".
+                        to_string());
 
-        let info = self.symbol_table.get_enclosing_function_info();
-        types.push(info.return_type);
-        let widened_type = SemanticsCheck::get_widening_conversion(&types);
-        // if type is invalid, errors has already been reported
-        if info.return_type != widened_type && types[0] != Type::Invalid {
-            /*self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot return {} from a function '{}' with return type of {}",
-                types[0], info.name, info.return_type));*/
-                panic!("Not implemented");
-        }
-
-
-    }
-
-    fn handle_arithmetic_node(&mut self, node: &mut AstNode) {
-
-        let mut types = vec![];
-
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-            types.push(self.get_type(child));
-        }
-
-        // borrow checker workarounds
-        let info = {
-            let mut info = {
-                match node.node_type {
-                    AstType::Plus(ref mut i) | AstType::Minus(ref mut i) |
-                    AstType::Multiply(ref mut i) | AstType::Divide(ref mut i) => i,
-                    _ => panic!("Internal compiler error: Expected plus/minus/multipy/divide ast node but was {}",
-                            node),
-                }
-            };
-            assert!(types.len() == 2);
-            info.node_type = SemanticsCheck::get_widening_conversion(&types);
-            info.clone() // need to end mutable borrow here, but still need the values
+                self.report_error(
+                    Error::Note,
+                    function_info.node_info.line,
+                    function_info.node_info.column,
+                    function_info.node_info.length,
+                    format!("Function '{}', declared here, is expected to return '{}'",
+                        function_info.name,
+                        function_info.return_type));
+                arith_info.node_type = Type::Invalid;
+            }
+            return;            
         };
 
-        // if types contains Type::Invalid, error has been reported already
-        if info.node_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            self.report_error(Error::TypeError, node.line, node.column, node.length, format!(
-                        "Not a valid operation for {} and {}", types[0], types[1]));
-        } else if info.node_type == Type::String {
-            match node.node_type {
-                AstType::Plus(_) => { /* Ok */},
-                _ => /*self.report_error(Error::TypeError, node.line, node.column, 
-                    format!("Operator '{}' is not a valid operator for strings", node))*/ panic!("Not implemented"),
-            }
-        }
-    }
-
-    fn handle_identifier_node(&mut self, node: &mut AstNode) {
-        assert!(node.get_children().len() == 0);
-  
-        let info = {
-            match node.node_type {
-                AstType::Identifier(ref i) => i.clone(),
-                _ => panic!("Internal compiler error: Expected identifier node but was {}",
-                        node),
-            }
-        };
-        let id = self.check_variable_is_declared_and_get_id(node, &info);
-        SemanticsCheck::update_identifier_id(node, id);
-    }
-
-    fn handle_equals_node(&mut self, node: &mut AstNode) {
-        let mut types = vec![];
-
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-            types.push(self.get_type(child));
-        }
-        let widened_type = SemanticsCheck::get_widening_conversion(&types);
-     
-        // if types contains Type::Invalid, error has been reported already
-        if widened_type == Type::Invalid && !types.contains(&Type::Invalid) {
-            /*self.report_error(Error::TypeError, node.line, node.column, format!(
-                "Cannot convert between {} and {}", types[0], types[1]))0;*/ panic!("Not implemented");
-        } 
-    }
-
-    fn handle_if_node(&mut self, node: &mut AstNode) {
+        self.do_check(child);
+        let child_type = self.get_type(child);
        
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
-        }        
+        arith_info.node_type = child_type;
+        // if type is invalid, errors has already been reported
+        if function_info.return_type != child_type && child_type != Type::Invalid {
+            
+            let (err_str, note_str) = if function_info.return_type == Type::Void {
+                (format!("Return statement has type '{}' in void function",
+                    child_type), 
+                format!("Function '{}', declared here, has return type '{}' and is not expected to return a value",
+                    function_info.name,
+                    function_info.return_type))
+            }   
+            else {
+                (format!("Return statement has type '{}' when '{}' was expected",
+                    child_type, function_info.return_type),
+                format!("Function '{}', declared here, is expected to return '{}'",
+                    function_info.name,
+                    function_info.return_type)
+                )
+            };
+            self.report_error(
+                Error::TypeError,
+                arith_info.node_info.line,
+                arith_info.node_info.column,
+                arith_info.node_info.length,
+                err_str);
 
-        let children = node.get_children();
-        assert!(children.len() >= 2);
-        
-        let condition_expression_type = self.get_type(&children[0]);
+            self.report_error(
+                Error::Note,
+                function_info.node_info.line,
+                function_info.node_info.column,
+                function_info.node_info.length,
+                note_str);
 
-        if condition_expression_type != Type::Boolean {
-            /*self.report_error(Error::TypeError, children[0].line, children[0].column, 
-                format!("{} expression expected but was {} instead", 
-                    Type::Boolean, condition_expression_type));*/ panic!("Not implemented");
-        }        
-    }
-
-    fn handle_else_if_node(&mut self, node: &mut AstNode) {
-        self.handle_if_node(node)
-    }
-
-    fn handle_else_node(&mut self, node: &mut AstNode) {
-        for ref mut child in node.get_mutable_children() {
-            self.do_check(child);
+            arith_info.node_type == Type::Invalid;
         }
     }
 
-    fn check_variable_is_declared_and_get_id(&mut self, node: &mut AstNode, info: &IdentifierInfo) -> u32 {
 
+    fn handle_arithmetic_operation_with_operator_type_check(
+        &mut self, 
+        node: &mut AstNode) {
 
-         match self.symbol_table.find_symbol(&info.name) {
+        let (ref valid_types, ref mut ai) = match *node {
+            AstNode::Plus(ref mut left, ref mut right, ref mut ai) => {
+                self.handle_arithmetic_node(left, right, ai);
+                (vec![
+                    Type::Integer, 
+                    Type::Float, 
+                    Type::Double, 
+                    Type::String, 
+                    Type::Invalid], 
+                 ai)
+            },
+            AstNode::Minus(ref mut left, ref mut right, ref mut ai) |
+            AstNode::Multiply(ref mut left, ref mut right, ref mut ai) |
+            AstNode::Divide(ref mut left, ref mut right, ref mut ai) => {
+                self.handle_arithmetic_node(left, right, ai);
+                (vec![
+                    Type::Integer, 
+                    Type::Float, 
+                    Type::Double, 
+                    Type::Invalid], 
+                 ai)
+            },
+            _ => ice!(
+                "Incorrect node passed to arithmetic node type checking: {}", 
+                node)
+        };
+
+        if !valid_types.iter().any(|t| *t == ai.node_type) {
+            self.report_error(
+                Error::TypeError,
+                ai.node_info.line,
+                ai.node_info.column,
+                ai.node_info.length,
+                format!("Operands of type '{}' are not valid for this operator",
+                    ai.node_type));
+            ai.node_type = Type::Invalid;
+        }
+    }
+
+    fn handle_arithmetic_node(
+        &mut self, 
+        left_child: &mut AstNode,
+        right_child: &mut AstNode,
+        arith_info: &mut ArithmeticInfo) {
+
+        self.do_check(left_child);
+        self.do_check(right_child);
+
+        let left_type = self.get_type(left_child);
+        let right_type = self.get_type(right_child);
+
+        // if left or right type is Type::Invalid, error has been reported 
+        // already. Just mark this node as invalid as well to propagate the 
+        // error upwards in the tree
+        if left_type == Type::Invalid || right_type == Type::Invalid {
+            arith_info.node_type = Type::Invalid;    
+        } else if left_type != right_type {
+            arith_info.node_type = Type::Invalid;  
+            self.report_error(
+                Error::TypeError, 
+                arith_info.node_info.line, 
+                arith_info.node_info.column, 
+                arith_info.node_info.length, 
+                format!(
+                    "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));       
+        } else {
+            arith_info.node_type = left_type;
+        }
+    }
+
+    fn handle_negation(
+        &mut self, 
+        child: &mut AstNode,
+        arith_info: &mut ArithmeticInfo) {
+
+        self.do_check(child);
+
+        let child_type = self.get_type(child);
+
+        // if type has type invalid, do not report, just set this node to invalid
+        // if type has non-arithmetic type, report it and set type to invalid
+        // otherwise just set the type to the type of the child
+
+        let valid_types = vec![Type::Integer, Type::Float, Type::Double];
+
+        if child_type == Type::Invalid {
+            arith_info.node_type = Type::Invalid;    
+        } else if !valid_types.iter().any(|t| *t == child_type) {
+            arith_info.node_type = Type::Invalid;  
+            self.report_error(
+                Error::TypeError, 
+                arith_info.node_info.line, 
+                arith_info.node_info.column, 
+                arith_info.node_info.length, 
+                format!(
+                    "Cannot negate operand with type '{}'", child_type));       
+        } else {
+            arith_info.node_type = child_type;
+        }
+    }
+    
+    fn check_identifier_is_initialized(&mut self, name: &String, info: &NodeInfo) ->
+        Option<Symbol> {
+        match self.symbol_table.find_symbol(name) {
             Some(symbol) => {
-                match symbol.symbol_type {
-                    SymbolType::Function(_)=>/* self.report_error(Error::TypeError, node.line, node.column,
-                        format!("Usage of function '{}' as a variable", info.name))*/ panic!("Not implemented"),
-                    SymbolType::Variable(symbol_info) => { 
-                       return symbol_info.id;
+                match symbol {
+                    Symbol::Function(function_info) => {
+                        self.report_error(
+                            Error::TypeError, 
+                            info.line, 
+                            info.column,
+                            info.length,
+                            format!(
+                                "Usage of function '{}' as a variable", 
+                                name));
+
+                        self.report_error(
+                            Error::Note,
+                            function_info.node_info.line,
+                            function_info.node_info.column,
+                            function_info.node_info.length,
+                            "Function declared here:".to_string());
                     }
+                    Symbol::Variable(_, _) => { return Some(symbol.clone()); }
 
                 };
             },
             None => {
                 self.report_error(
                     Error::NameError, 
-                    node.line, 
-                    node.column, 
-                    node.length,
+                    info.line, 
+                    info.column, 
+                    info.length,
                     format!("Undeclared identifier '{}'",
-                        info.name));
+                        name));
             },
         }
-        0
+        None
     }
 
     fn get_type(&self, node: &AstNode) -> Type {
-        match node.node_type {
-            AstType::Integer(_) => Type::Integer,
-            AstType::Double(_) => Type::Double,
-            AstType::Plus(ref i) | AstType::Minus(ref i) |
-            AstType::Multiply(ref i) | AstType::Divide(ref i) =>i.node_type,
-            AstType::Identifier(ref i) => {
-                match self.symbol_table.find_symbol(&i.name) {
+        match *node {
+            AstNode::Integer(_, _) => Type::Integer,
+            AstNode::Float(_, _) => Type::Float,
+            AstNode::Double(_, _) => Type::Double,
+            AstNode::Boolean(_, _) => Type::Boolean,
+            AstNode::Plus(_, _, ref info) | 
+            AstNode::Minus(_, _, ref info) |
+            AstNode::Multiply(_, _,  ref info) | 
+            AstNode::Divide(_, _, ref info) => info.node_type,
+            AstNode::Negate(_, ref info) => info.node_type,
+            AstNode::Identifier(ref name, _) => {
+                match self.symbol_table.find_symbol(name) {
                     Some(symbol) => {
-                        match symbol.symbol_type {
-                            SymbolType::Variable(x) => x.variable_type,
+                        match symbol {
+                            Symbol::Variable(info, _) => info.variable_type,
                             _ => Type::Invalid,
                         }
                     },
                     None => Type::Invalid,
                 }
             },
-            AstType::Float(_) => Type::Float,
-            AstType::Text(_) => Type::String,
-            AstType::Equals => Type::Boolean,
-            AstType::ErrorNode => Type::Invalid,
-            _ => panic!("Internal compiler error: Invalid node type {}", node),
-        }
-    }
-
-    fn get_widening_conversion(types: &Vec<Type>) -> Type {
-        assert!(types.len() == 2);
-        if types[0] == types[1] {
-            types[0]
-        } else {
-            if types.contains(&Type::Double) && (types.contains(&Type::Integer) ||
-                types.contains(&Type::Float)) {
-                Type::Double
-            } else {
-                Type::Invalid
-            }
-        }
-    }
-
-    fn update_identifier_id(node: &mut AstNode, id: u32) {
-        match node.node_type {
-            AstType::Identifier(ref mut i) => i.id = id,
-            AstType::VariableAssignment(ref mut i) => i.id = id,
-            _ => panic!("Internal compiler error: Expected identifier node but was {}",
-                    node),
+            AstNode::Text(_, _) => Type::String,
+            AstNode::ErrorNode => Type::Invalid,
+            _ => ice!("Invalid node '{}' when resolving node type", node),
         }
     }
 
     fn report_error(&mut self, error_type: Error, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
         self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);        
+    }
+
+    fn report_type_error(
+        &mut self,
+        variable_info: &DeclarationInfo,
+        actual_node: &AstNode,
+        actual_type: Type
+        ) {
+        self.report_error(
+                Error::TypeError, 
+                actual_node.line(), 
+                actual_node.column(), 
+                actual_node.length(),
+                format!("Expected '{}' but got '{}'",
+                    variable_info.variable_type, actual_type));
+
+            self.report_error(
+                Error::Note, 
+                variable_info.node_info.line, 
+                variable_info.node_info.column, 
+                variable_info.node_info.length, 
+                format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
     }
 }

@@ -1,13 +1,10 @@
 use ast::AstNode;
-use ast::AstType;
-use ast::IdentifierInfo;
 use ast::FunctionInfo;
+use ast::DeclarationInfo;
 
 use semcheck::Type;
 
 use symbol_table::SymbolTable;
-use symbol_table::SymbolType;
-use symbol_table::VariableInfo;
 
 #[derive(Clone, Debug)]
 pub enum Operator {
@@ -19,7 +16,7 @@ pub enum Operator {
 
 #[derive(Clone, Debug)]
 pub enum Operand {
-    Variable(VariableInfo),
+    Variable(DeclarationInfo),
     Integer(i32),
     Float(f32),
     Double(f64),
@@ -71,7 +68,7 @@ impl TACGenerator {
         &self.functions
     }
 
-
+/*
     pub fn generate_tac(&mut self, node: &AstNode) {
         match node.node_type {
             AstType::Block(_) => self.handle_block(node),
@@ -94,10 +91,10 @@ impl TACGenerator {
                self.symbol_table.push(entry.clone());
             }
             else {
-                panic!("Internal compiler error: No symbol table information attached to AST block node");
+                ice!("No symbol table information attached to AST block node");
             }
         } else {
-            panic!("Internal compiler error: Expected block node but was {:?}", node.node_type)
+            ice!("Expected block node but was {:?}", node.node_type)
         }
 
         for ref child in node.get_children() {
@@ -116,7 +113,7 @@ impl TACGenerator {
         }
         self.functions.push(
             self.function_stack.pop().unwrap_or_else(
-                || panic!("Internal compiler error: Function stack empty when generating function 3AC")));        
+                || ice!("Function stack empty when generating function 3AC")));        
     }
 
     fn handle_variable_declaration(&mut self, node: &AstNode) {
@@ -162,7 +159,7 @@ impl TACGenerator {
 
         let id = self.get_next_id();
 
-        let variable = Operand::Variable(VariableInfo::new(self.get_type(&left), id));
+        let variable = Operand::Variable(DeclarationInfo::new(self.get_type(&left), id));
 
         self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(variable.clone()), Some(left), Some(right),
@@ -221,7 +218,7 @@ impl TACGenerator {
         ret
     }
 
-    fn get_variable_info(&self, name: &String) -> VariableInfo {
+    fn get_variable_info(&self, name: &String) -> DeclarationInfo {
         let symbol = self.symbol_table.find_symbol(name).unwrap_or_else(
                 || panic!("Internal compiler error: No symbol '{}' found during TAC construction", name));
 
@@ -234,5 +231,5 @@ impl TACGenerator {
     fn current_function(&mut self) -> &mut Function {
         self.function_stack.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Function stack empty"))
     } 
-
-}
+*/
+} 

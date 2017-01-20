@@ -1,46 +1,10 @@
 use ast::FunctionInfo;
-use semcheck::Type;
+use ast::DeclarationInfo;
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum SymbolType {
+pub enum Symbol {
     Function(FunctionInfo),
-    Variable(VariableInfo),
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct VariableInfo {
-    pub variable_type: Type,
-    pub id: u32,
-}
-
-impl VariableInfo {
-    pub fn new(v_type: Type, id: u32) -> VariableInfo {
-        VariableInfo {
-            variable_type: v_type,
-            id: id,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Symbol {
-    pub line: i32,
-    pub column: i32,
-    pub length: i32,
-    pub name: String,
-    pub symbol_type: SymbolType
-}
-
-impl Symbol {
-    pub fn new(name: String, line: i32, column: i32, length: i32, symbol_type:SymbolType) -> Symbol {
-        Symbol {
-            line: line,
-            column: column,
-            length: length,
-            name: name,
-            symbol_type: symbol_type,
-        }
-    }
+    Variable(DeclarationInfo, u32),
 }
 
 #[derive(Debug, Clone)]
@@ -62,17 +26,26 @@ impl TableEntry {
     }
 
     pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
-        for ref s in self.symbols.iter() {
-            if s.name == *name {
-                return Some((*s).clone());
+        for s in self.symbols.iter() {
+            match *s {
+                Symbol::Function(ref info) => {
+                    if info.name == *name {
+                        return Some(s.clone());
+                    } 
+                },
+                Symbol::Variable(ref info, _) => {
+                    if info.name == *name {
+                        return Some(s.clone());
+                    }
+                },
             }
         }
         None
     }
 
     pub fn find_enclosing_function_info(&self) -> Option<FunctionInfo> {
-       for ref s in self.symbols.iter().rev() {
-            if let SymbolType::Function(ref info) = s.symbol_type {
+       for s in self.symbols.iter().rev() {
+            if let &Symbol::Function(ref info) = s {
                 return Some(info.clone())
             }
         }
@@ -118,12 +91,12 @@ impl SymbolTable {
         None
     }
 
-    pub fn get_enclosing_function_info(&self) -> FunctionInfo {
+    pub fn get_enclosing_function_info(&self) -> Option<FunctionInfo> {
         for i in self.entries.iter().rev() {
             if let Some(entry) = i.find_enclosing_function_info() {
-                return entry;
+                return Some(entry);
             }
         }
-        panic!("Internal compiler error: No enclosing function was found");
+        None
     }
 }

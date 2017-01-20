@@ -1,5 +1,7 @@
 extern crate compiler;
+#[macro_use]
 mod test_reporter;
+
 
 use compiler::lexer::ReadLexer;
 use compiler::lexer::Lexer;
@@ -64,29 +66,18 @@ macro_rules! assert_eq_token {
     )
 }
 
-macro_rules! assert_eq_error {
-    ($error: expr, $e_type:expr, $line:expr, $column:expr, $length:expr) => (
-        {
-            assert_eq!($error.error_type, $e_type);
-            assert_eq!($error.line, $line);
-            assert_eq!($error.column, $column);
-            assert_eq!($error.token_length, $length);
-        }
-    )
-
-}
 
 #[cfg(test)]
 fn create_lexer(text: &str) -> (ReadLexer, Rc<RefCell<TestReporter>>) {
-    let error_handler = Rc::new(RefCell::new(TestReporter::new()));
+    let reporter = Rc::new(RefCell::new(TestReporter::new()));
 
     let reader = Box::new(StringReader::new(text));
-    (ReadLexer::new(reader, error_handler.clone()), error_handler)
+    (ReadLexer::new(reader, reporter.clone()), reporter)
 }
 
 #[test]
 fn empty_stream_returns_eofs() {
-    let (mut lexer, _) = create_lexer(r"");
+    let (mut lexer, reporter) = create_lexer(r"");
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
@@ -95,7 +86,6 @@ fn empty_stream_returns_eofs() {
       TokenType::Eof, 
       TokenSubType::NoSubType);
 
-
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
@@ -103,12 +93,14 @@ fn empty_stream_returns_eofs() {
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn valid_integers_are_accepted() {
 
-    let (mut lexer, _) = create_lexer(r"1234 111222 99887766");
+    let (mut lexer, reporter) = create_lexer(r"1234 111222 99887766");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -126,11 +118,13 @@ fn valid_integers_are_accepted() {
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn valid_floats_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"123f 456.78f .99f");
+    let (mut lexer, reporter) = create_lexer(r"123f 456.78f .99f");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -148,11 +142,13 @@ fn valid_floats_are_accepted() {
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn valid_doubles_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"123d 456.78 .99");
+    let (mut lexer, reporter) = create_lexer(r"123d 456.78 .99");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -170,12 +166,14 @@ fn valid_doubles_are_accepted() {
     assert_eq_token!(lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 
 #[test]
 fn keywords_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"if else while for let fn return new class 
+    let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class 
         public protected private int float double bool void string");
     
     assert_eq_token!(
@@ -272,11 +270,13 @@ fn keywords_are_accepted() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn identifiers_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"id ident while_ident ifff _a_ a123 a_1_2_3");
+    let (mut lexer, reporter) = create_lexer(r"id ident while_ident ifff _a_ a123 a_1_2_3");
     
     assert_eq_token!(
       lexer.next_token(), 
@@ -317,11 +317,13 @@ fn identifiers_are_accepted() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn operators_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"< <= == >= > ! != = + - * /");
+    let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * /");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -387,11 +389,13 @@ fn operators_are_accepted() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn parenthesis_and_other_symbols_are_accepted() {
-    let (mut lexer, _) = create_lexer(r"( ) { } [ ] ; : . ,");
+    let (mut lexer, reporter) = create_lexer(r"( ) { } [ ] ; : . ,");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -447,11 +451,13 @@ fn parenthesis_and_other_symbols_are_accepted() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test]
 fn whitespace_does_not_affect_parenthesis() {
-    let (mut lexer, _) = create_lexer(r"(){}[];:.,");
+    let (mut lexer, reporter) = create_lexer(r"(){}[];:.,");
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -507,6 +513,8 @@ fn whitespace_does_not_affect_parenthesis() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType);
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 // TODO - Test cases for bad tokens. Currently thinking of refactoring
@@ -514,7 +522,7 @@ fn whitespace_does_not_affect_parenthesis() {
 
 #[test]
 fn strings_are_accepted() {
-    let (mut lexer, _) = create_lexer(r#""hello world" "test""yarhar"identifier"#);
+    let (mut lexer, reporter) = create_lexer(r#""hello world" "test""yarhar"identifier"#);
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -540,31 +548,33 @@ fn strings_are_accepted() {
       lexer.next_token(), 
       TokenType::Eof, 
       TokenSubType::NoSubType); 
+    
+    assert_eq!(reporter.borrow().error_count(), 0); 
 }
 
 #[test] 
 fn invalid_number_type_letter_is_reported() {
-    let (mut lexer, handler) = create_lexer(r#"12rrr 123.4x123 .122y"#); 
+    let (mut lexer, reporter) = create_lexer(r#"12rrr 123.4x123 .122y"#); 
 
     lexer.next_token();
     lexer.next_token();
     lexer.next_token();
     
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 
-    assert_eq_error!(handler.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0], 
         Error::TokenError,
         1,
         3,
         3);
 
-    assert_eq_error!(handler.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1], 
         Error::TokenError,
         1,
         12,
         4);
 
-    assert_eq_error!(handler.borrow().errors()[2], 
+    assert_eq_error!(reporter.borrow().errors()[2], 
         Error::TokenError,
         1,
         21,
@@ -573,7 +583,7 @@ fn invalid_number_type_letter_is_reported() {
 
 #[test] 
 fn lexer_returns_error_token_number_when_number_has_invalid_type_letter() {
-    let (mut lexer, handler) = create_lexer(r#"12r 123.4x .122abcd"#);
+    let (mut lexer, reporter) = create_lexer(r#"12r 123.4x .122abcd"#);
    
     assert_eq_token!(
       lexer.next_token(), 
@@ -595,12 +605,12 @@ fn lexer_returns_error_token_number_when_number_has_invalid_type_letter() {
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 }
 
 #[test] 
 fn unterminated_string_is_reported() {
-    let (mut lexer, handler) = create_lexer(r#"
+    let (mut lexer, reporter) = create_lexer(r#"
         "unterminated string
         valid_token
         "another unterminated string
@@ -615,21 +625,21 @@ fn unterminated_string_is_reported() {
     lexer.next_token();
     lexer.next_token();
     
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 
-    assert_eq_error!(handler.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0], 
         Error::TokenError,
         2,
         9,
         19);
 
-    assert_eq_error!(handler.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1], 
         Error::TokenError,
         4,
         9,
         27);
 
-    assert_eq_error!(handler.borrow().errors()[2], 
+    assert_eq_error!(reporter.borrow().errors()[2], 
         Error::TokenError,
         6,
         13,
@@ -638,7 +648,7 @@ fn unterminated_string_is_reported() {
 
 #[test] 
 fn unterminated_string_produces_correct_error_tokens() {
-    let (mut lexer, handler) = create_lexer(r#"
+    let (mut lexer, reporter) = create_lexer(r#"
         "unterminated string
         valid_token
         "another unterminated string
@@ -685,12 +695,12 @@ fn unterminated_string_produces_correct_error_tokens() {
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 }
 
 #[test]
 fn unexpected_escape_characters_are_reported() {
-    let (mut lexer, handler) = create_lexer(r#"
+    let (mut lexer, reporter) = create_lexer(r#"
         "foo\x"
         "\y\z"
         "unterminated\"#); 
@@ -699,34 +709,34 @@ fn unexpected_escape_characters_are_reported() {
     lexer.next_token();
     lexer.next_token();
 
-    assert_eq!(handler.borrow().error_count(), 5); 
+    assert_eq!(reporter.borrow().error_count(), 5); 
 
 
-    assert_eq_error!(handler.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0], 
         Error::TokenError,
         2,
         13,
         2);
 
-    assert_eq_error!(handler.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1], 
         Error::TokenError,
         3,
         10,
         2);
 
-    assert_eq_error!(handler.borrow().errors()[2], 
+    assert_eq_error!(reporter.borrow().errors()[2], 
         Error::TokenError,
         3,
         12,
         2);
 
-    assert_eq_error!(handler.borrow().errors()[3], 
+    assert_eq_error!(reporter.borrow().errors()[3], 
         Error::TokenError,
         4,
         22,
         1);
 
-    assert_eq_error!(handler.borrow().errors()[4], 
+    assert_eq_error!(reporter.borrow().errors()[4], 
         Error::TokenError,
         4,
         9,
@@ -735,7 +745,7 @@ fn unexpected_escape_characters_are_reported() {
 
 #[test]
 fn unexpected_escape_characters_produce_correct_tokens() {
-       let (mut lexer, handler) = create_lexer(r#"
+       let (mut lexer, reporter) = create_lexer(r#"
         "foo\x"
         "\y\z"
         "unterminated\"#); 
@@ -760,13 +770,13 @@ fn unexpected_escape_characters_produce_correct_tokens() {
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
-    assert_eq!(handler.borrow().error_count(), 5); 
+    assert_eq!(reporter.borrow().error_count(), 5); 
 }
 
 
 #[test]
 fn multiple_decimal_separators_are_reported() {
-    let (mut lexer, handler) = create_lexer(r"
+    let (mut lexer, reporter) = create_lexer(r"
         12.3.4
         .342.1
         23..5
@@ -776,22 +786,22 @@ fn multiple_decimal_separators_are_reported() {
     lexer.next_token();
     lexer.next_token();
 
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 
 
-    assert_eq_error!(handler.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0], 
         Error::TokenError,
         2,
         13,
         1);
 
-    assert_eq_error!(handler.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1], 
         Error::TokenError,
         3,
         13,
         1);
 
-    assert_eq_error!(handler.borrow().errors()[2], 
+    assert_eq_error!(reporter.borrow().errors()[2], 
         Error::TokenError,
         4,
         12,
@@ -801,7 +811,7 @@ fn multiple_decimal_separators_are_reported() {
 
 #[test]
 fn multiple_decimal_separators_generate_error_tokens() {
-    let (mut lexer, handler) = create_lexer(r"
+    let (mut lexer, reporter) = create_lexer(r"
         12.3.4
         .342.1
         23..5
@@ -827,27 +837,27 @@ fn multiple_decimal_separators_generate_error_tokens() {
       TokenType::Eof, 
       TokenSubType::NoSubType); 
 
-    assert_eq!(handler.borrow().error_count(), 3); 
+    assert_eq!(reporter.borrow().error_count(), 3); 
 }
 
 #[test]
 fn unexpected_starting_symbol_are_reported() {
-    let (mut lexer, handler) = create_lexer(r"
+    let (mut lexer, reporter) = create_lexer(r"
         `hello
         |foo");
     lexer.next_token();
     lexer.next_token();
 
-    assert_eq!(handler.borrow().error_count(), 2); 
+    assert_eq!(reporter.borrow().error_count(), 2); 
 
 
-    assert_eq_error!(handler.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0], 
         Error::TokenError,
         2,
         9,
         1);
 
-    assert_eq_error!(handler.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1], 
         Error::TokenError,
         3,
         9,
@@ -857,7 +867,7 @@ fn unexpected_starting_symbol_are_reported() {
 
 #[test]
 fn unexpected_starting_symbol_are_ignored() {
-    let (mut lexer, handler) = create_lexer(r"
+    let (mut lexer, reporter) = create_lexer(r"
         `hello
         |foo");
 
@@ -877,5 +887,5 @@ fn unexpected_starting_symbol_are_ignored() {
       TokenSubType::NoSubType); 
 
 
-    assert_eq!(handler.borrow().error_count(), 2); 
+    assert_eq!(reporter.borrow().error_count(), 2); 
 }

@@ -19,6 +19,7 @@ use std::cell::RefCell;
 pub trait Lexer {
   fn next_token(&mut self) -> Token;
   fn peek_token(&mut self) -> Token;
+  fn current_token(&self) -> Option<Token>;
 }
 
 pub struct ReadLexer {
@@ -28,6 +29,7 @@ pub struct ReadLexer {
   token_start_column: i32,
   iter: Peekable<Bytes<BufReader<Box<Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
   next_token: Option<Token>, // used for storing token after peeking
+  current_token: Option<Token>, // token that was returned by next_token.
   error_reporter: Rc<RefCell<ErrorReporter>>,
 }
 
@@ -41,6 +43,7 @@ impl ReadLexer {
       token_start_column: 1,
       iter: BufReader::new(input).bytes().peekable(),
       next_token: None,
+      current_token: None,
       error_reporter: error_reporter,
     }
   }
@@ -512,7 +515,7 @@ impl Lexer for ReadLexer {
     self.token_start_line = self.line;
     self.token_start_column = self.column;
 
-    match self.next_char() {
+    let token = match self.next_char() {
       Some(ch) => {
         if self.starts_comment(ch) {
           self.skip_comment();
@@ -538,7 +541,9 @@ impl Lexer for ReadLexer {
         }
       }
       None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
-    }
+    };
+    self.current_token = Some(token.clone());
+    token    
   }
 
   fn peek_token(&mut self) -> Token {
@@ -549,6 +554,10 @@ impl Lexer for ReadLexer {
       let res = self.next_token();
       self.next_token = Some(res.clone());
       res
+  }
+
+  fn current_token(&self) -> Option<Token> {
+    self.current_token.clone()
   }
 
 }

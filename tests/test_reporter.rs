@@ -10,6 +10,19 @@ pub struct ReportedError {
     pub error_string: String,
 }
 
+#[macro_use]
+macro_rules! assert_eq_error {
+    ($error: expr, $e_type:expr, $line:expr, $column:expr, $length:expr) => (
+        {
+            assert_eq!($error.error_type, $e_type);
+            assert_eq!($error.line, $line);
+            assert_eq!($error.column, $column);
+            assert_eq!($error.token_length, $length);
+        }
+    )
+}
+
+
 pub struct TestReporter {
     errors: Vec<ReportedError>
 } 

@@ -20,39 +20,39 @@ use std::cell::RefCell;
 #[cfg(not(test))]
 fn main() {
 
+  run_frontend();
+  run_backend();
+ 
+}
+
+
+fn run_frontend() {
   let file_name = "file.txt";
   let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(file_name)));
   
   let file = File::open(file_name).unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
 
   let lexer = Box::new(ReadLexer::new(Box::new(file), error_reporter.clone()));
-  let mut parser = Parser::new(lexer);
-  let mut node = match parser.parse() {
-      Ok(node) => node,
-      Err(e) => {
-        println!("Syntax error: {}", e);
-        println!("Terminating compilation");
-        return;
-      }
-  };
+  let mut parser = Parser::new(lexer, error_reporter.clone());
+  let mut node = parser.parse();
 
-  print(&node, 0);
+  node.print();
   println!("");
 
-  let mut checker = SemanticsCheck::new(error_reporter);
+  let mut checker = SemanticsCheck::new(error_reporter.clone());
   checker.check_semantics(&mut node);
-  
-  if checker.errors > 0 {
-    let err = if checker.errors == 1 {
+
+  if error_reporter.borrow().has_errors() {
+    let err = if error_reporter.borrow().errors() == 1 {
       "error"
     } else {
       "errors"
     };
 
-    println!("Terminating compilation due to {} {}", checker.errors, err);
+    println!("Terminating compilation due to {} {}", error_reporter.borrow().errors(), err);
     return;
   }
-  
+  /*
   let mut tac_gen = TACGenerator::new(checker.get_id_counter());
   tac_gen.generate_tac(&mut node);
 
@@ -72,6 +72,8 @@ fn main() {
   byte_gen.generate_bytecode();
 
 
+
+
   println!("");
   counter = 1;
   for f in &byte_gen.bytecode_functions {
@@ -82,17 +84,12 @@ fn main() {
     }   
   }
 
-  let code_gen = CodeGenerator::new(byte_gen.bytecode_functions);
-  let asm_code = code_gen.generate_code();
-
-  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), file_name.to_string(), "test.o".to_owned(), asm_code);
+*/
 }
 
+fn run_backend() {
+ /* let code_gen = CodeGenerator::new(byte_gen.bytecode_functions);
+  let asm_code = code_gen.generate_code();
 
-fn print(node: &AstNode, intendation: usize) {
-   /* let int_str = std::iter::repeat(" ").take(intendation).collect::<String>();
-    println!("{}{}", int_str, node);
-    for child in node.get_children() {
-        print(&child, intendation + 4);
-    }*/
+  obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), file_name.to_string(), "test.o".to_owned(), asm_code);*/
 }
