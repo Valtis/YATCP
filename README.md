@@ -1,6 +1,8 @@
-Frontend
+YATCP
 =====
 
-Learning Rust by building a compiler frontend for a simple language (see docs for more info). As this is my first Rust project, the code is likely neither idiomatic or good.  
+Yet another toy compiler project, written in Rust.
 
-[![Build Status](https://travis-ci.org/Valtis/Frontend.svg)](https://travis-ci.org/Valtis/Frontend)
+Currently just reads 'file.txt' and produces 64 bit ELF object file.
+Should be linkable against C programs.
+
