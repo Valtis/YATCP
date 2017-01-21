@@ -41,7 +41,7 @@ const PUSH : u8 = 0x50;
 const POP : u8 = 0x58;
 
 
-const ACCUMULATOR : u32 = 999;
+const ACCUMULATOR : u32 = 99999;
 
 
 // wrxb bits for rex prefix
@@ -70,6 +70,18 @@ enum Register {
     R13,
     R14,
     R15,
+}
+
+enum Mode {
+    Register, // treat r/m field as a second register
+}
+
+// the reg bits in MODR/M section may either contain opcode extension
+// or a operand register. Encode this in enum so these two different
+// values won't be confused 
+enum ModReg {
+    Register(u32),
+    OpCode(u8),
 }
 
 impl Register {
@@ -138,7 +150,14 @@ impl X64CodeGen {
 
     pub fn generate_code(&mut self) {
 
+
         self.transform_code(); 
+        // horrible hack. initial transformation may leave some 
+        // operations in a state that requires secondary transformation
+        // TODO: Transformation is primarily a hack around the fact that
+        // register allocation does not exists yet. Replace and fix
+        self.transform_code(); 
+
         // TODO: Handle borrow checker errors more elegantly
         let functions = self.bytecode_functions.clone();
         for f in functions.iter() {
@@ -183,32 +202,32 @@ impl X64CodeGen {
                 match *b {
                     ByteCode::Add(ref op) | ByteCode::Sub(ref op) | ByteCode::Mul(ref op) | ByteCode::Div(ref op) => {
                         if let Source::Register(val) = op.dest {
-                            if free_register <= val {
+                            if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
                         } 
 
                         if let Source::Register(val) = op.src1 {
-                            if free_register <= val {
+                            if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
                         } 
 
                         if let Source::Register(val) = op.src2 {
-                            if free_register <= val {
+                            if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
                         } 
                     },
                     ByteCode::Mov(ref op) | ByteCode::SignExtend(ref op) => {
                         if let Source::Register(val) = op.dest {
-                            if free_register <= val {
+                            if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
                         } 
 
                         if let Source::Register(val) = op.src {
-                            if free_register <= val {
+                            if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
                         } 
@@ -256,21 +275,16 @@ impl X64CodeGen {
                                 }
 
                               
-                            },
+                            }
                             Source::Register(reg) => {
                                 if let Source::Register(reg2) = operands.dest {
                                     if reg != reg2 {
-                                        // dest register is actually ignored when add is emitted, as 
-                                        // the src1 is also the destination. Move the value from
-                                        // src1 to dest and update the operands to fix this
                                         new_code.push(ByteCode::Mov(UnaryOperation {
                                             src: operands.src1.clone(),
                                             dest: operands.dest.clone(),
                                         }));  
 
                                         new_operands.src1 = new_operands.dest.clone();
-
-
                                     }
                                 }
                             },
@@ -308,9 +322,12 @@ impl X64CodeGen {
                             Source::Register(reg) => {
                                 if let Source::Register(reg2) = operands.dest {
                                     if reg != reg2 {
-                                        // TODO: Handle the case where sub src1 and dest registers
-                                        // are different and generate a move to fix this (like above)
-                                        unimplemented!();
+
+                                        new_code.push(ByteCode::Mov(UnaryOperation {
+                                            src: operands.src1.clone(),
+                                            dest: operands.dest.clone(),
+                                        }));      
+                                        new_operands.src1 = operands.dest.clone(); 
                                     }
                                 }
                             }
@@ -430,64 +447,26 @@ impl X64CodeGen {
     }
 
     fn emit_mov(&mut self, operand: &UnaryOperation) {
-        let mut WRXB_bits = 0u8;
-        let mut register = 0u8;
-        match operand.dest {
-            Source::Register(reg) => {
-                // register encoding is is in form of 0x0y, where y is number between 0 - f.
-                // first bit toggles the registers r8 - r15 and must be encoded in the
-                // REX prefix. Rest of the bits form an octal that select the register.
-                if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits = REX_EXT_RM_BIT;
-                }
-                register = self.reg_map[&reg].encoding();
-            }
-            // SYSTEMV api returns value in rax
-            Source::ReturnRegister => {
-                if self.reg_map[&ACCUMULATOR].is_extended_reg() {
-                    WRXB_bits = REX_EXT_RM_BIT;
-                }
-                register = self.reg_map[&ACCUMULATOR].encoding();
-            },
-            _ => unimplemented!(), // mov to memory address needs to be implemented
-        };
-    
         match operand.src {
             Source::IntegerConstant(val) => {
-
-                // rex prefix, which contains bits that extend the 32 bit instruction set into 64 bit
-                let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
-                self.asm_code.push(prefix);
-                // opcode
-                self.asm_code.push(MOV_IMMEDIATE_32_BIT_TO_REG_MEM);
-                // ModR/M byte. First two bits encode addressing mode, 
-                // next three bits encode either op code extension (used by some instructions)
-                // or a 3 bit register reference, which is source or destination register on
-                // some instructions. REX.R bit extends this to 4 bits, so that r8 - r15 registers
-                // can be used 
-                self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | register);
-
-                let mut buffer = [0; 4];
-                LittleEndian::write_i32(&mut buffer, val);
-                for b in buffer.iter() {
-                    self.asm_code.push(*b);
-                }
+                let bytes_in_u32 = 4;
+                self.emit_instruction(
+                    MOV_IMMEDIATE_32_BIT_TO_REG_MEM,
+                    Mode::Register,
+                    ModReg::OpCode(0),
+                    &operand.dest,
+                    Some((val, bytes_in_u32)));
             },
             Source::Register(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits = WRXB_bits | REX_EXT_REG_BIT;
-                }
 
-                register = register | (self.reg_map[&reg].encoding() << 3);
-
-                // rex prefix, which contains bits that extend the 32 bit instruction set into 64 bit
-                let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
-                self.asm_code.push(prefix);
-                self.asm_code.push(MOV_REG_REG_32_BIT);
-                self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | register);
-
+                self.emit_instruction(
+                    MOV_REG_REG_32_BIT,
+                    Mode::Register,
+                    ModReg::Register(reg),
+                    &operand.dest,
+                    None);
             },
-            _ => { self.asm_code.push(0x00); self.asm_code.push(0x00); self.asm_code.push(0x00); self.asm_code.push(0x00); },
+            _ => unimplemented!(),
         }
     }
 
@@ -500,14 +479,14 @@ impl X64CodeGen {
 
         match operand.src1 {
             Source::IntegerConstant(val) => { 
-                panic!("Internal compiler error: Immediate operand as first argument to add: {:?}", operand);    
+                ice!("Immediate operand as first argument to add: {:?}", operand);    
             },
             _ => {},
         }
 
         match operand.src2 {
             Source::IntegerConstant(val) => {
-                self.emit_const_integer_add(dest, val, &operand.src1);
+                self.emit_const_integer_add(dest, val);
                 return;
             },
             _ => {},
@@ -552,14 +531,19 @@ impl X64CodeGen {
     }
 
     // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_add(&mut self, destination_reg: u32, constant: i32, src_val: &Source) {
+    fn emit_const_integer_add(&mut self, destination_reg: u32, constant: i32) {
         let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
             (1, ADD_WITH_8_BIT_CONSTANT)
         } else {
             (4, ADD_WITH_32_BIT_CONSTANT)
         };
 
-        self.emit_const_arith_op(opcode, None, constant, const_bytes, src_val);
+        self.emit_instruction(
+            opcode, 
+            Mode::Register,
+            ModReg::OpCode(0), 
+            &Source::Register(destination_reg),
+            Some((constant, const_bytes)));
     }
     
     fn emit_sub(&mut self, operand: &BinaryOperation) {
@@ -579,8 +563,7 @@ impl X64CodeGen {
         match operand.src2 {
             Source::IntegerConstant(val) => {
             // not tested so let's not invoke it yet
-            unimplemented!();
-            self.emit_const_integer_sub(dest, val, &operand.src1); return; },
+            self.emit_const_integer_sub(dest, val); return; },
             _ => {},
         }
 
@@ -623,33 +606,46 @@ impl X64CodeGen {
     }
 
     // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_sub(&mut self, destination_reg: u32, constant: i32, src_val: &Source) {
+    fn emit_const_integer_sub(&mut self, destination_reg: u32, constant: i32) {
         let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
             (1, SUB_WITH_8_BIT_CONSTANT)
         } else {
             (4, SUB_WITH_32_BIT_CONSTANT)
         };
-        self.emit_const_arith_op(opcode, Some(destination_reg), constant, const_bytes, src_val);
+        self.emit_instruction(
+            opcode,
+            Mode::Register,
+            ModReg::OpCode(5), 
+            &Source::Register(destination_reg),
+            Some((constant, const_bytes)));
     }
 
-    // Arithmetic operations currently generate a move to/from accumulator register
-    // if this src1/dest aren't accumulator already. 
     fn emit_mul(&mut self, operand: &BinaryOperation) {
 
-        let dest = if let Source::Register(reg) = operand.dest {
-            reg
-        } else {
-            panic!("Internal compiler error: Non-register destination for multiplication: {:?}", operand);
+        // sanity check - should always have register destination
+        let dest_reg_id = match operand.dest {
+            Source::Register(dest) => dest,
+            _ => ice!("Non-register destination for multiplication: {:?}", operand),
         };
 
         match operand.src1 {
             Source::IntegerConstant(val) => { 
-                self.emit_const_integer_mult(dest, val, &operand.src2); return },
+                self.emit_const_integer_mult(
+                    dest_reg_id, 
+                    &operand.src2, 
+                    val); 
+                return;
+             },
             _ => {},
         }
 
         match operand.src2 {
-            Source::IntegerConstant(val) => { self.emit_const_integer_mult(dest, val, &operand.src1); return; },
+            Source::IntegerConstant(val) => { 
+                self.emit_const_integer_mult(
+                    dest_reg_id, 
+                    &operand.src1, 
+                    val); 
+                return; },
             _ => {},
         }
 
@@ -657,54 +653,77 @@ impl X64CodeGen {
     }
 
     // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_mult(&mut self, destination_reg: u32, constant: i32, src_val: &Source) {
+    fn emit_const_integer_mult(&mut self, destination_reg: u32 ,  src_val: &Source, constant: i32) {
         let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
             (1, SIGNED_MUL_WITH_8_BIT_CONSTANT)
         } else {
             (4, SIGNED_MUL_WITH_32_BIT_CONSTANT)
         };
-        self.emit_const_arith_op(opcode, Some(destination_reg), constant, const_bytes, src_val);
+
+        self.emit_instruction(
+            opcode, 
+            Mode::Register, 
+            ModReg::Register(destination_reg), 
+            src_val,
+            Some((constant, const_bytes))); 
     }
 
-    fn emit_const_arith_op(
+    fn emit_instruction(
         &mut self, 
         opcode: u8,
-        reg: Option<u32>, 
-        constant: i32, 
-        const_bytes: usize, 
-        src_val: &Source) {
+        mode: Mode,
+        mod_reg: ModReg, 
+        mod_rm: &Source,
+        constant: Option<(i32, usize)>) {
         
         let mut WRXB_bits = 0u8;
-        let mut src_reg_bits = 0u8;
-        let mut reg_field_bits = 0u8;
-        if let Some(val) = reg {
-            if self.reg_map[&val].is_extended_reg() {
-                WRXB_bits |= REX_EXT_REG_BIT;
+        let mut regrm_field = 0u8;
+
+        regrm_field |= match mode {
+            Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING, 
+        };
+
+        match mod_reg {
+            ModReg::Register(reg_id) => {
+                if self.reg_map[&reg_id].is_extended_reg() {
+                    WRXB_bits |= REX_EXT_REG_BIT;
+                }
+                regrm_field |= self.reg_map[&reg_id].encoding() << 3;
             }
-            reg_field_bits = self.reg_map[&val].encoding() << 3;
+            ModReg::OpCode(opcode) => {
+                regrm_field |= opcode << 3;
+            }
+            
         }
-        match *src_val {
-            Source::Register(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
+        match *mod_rm {
+            Source::Register(reg_id) => {
+                if self.reg_map[&reg_id].is_extended_reg() {
                     WRXB_bits |= REX_EXT_RM_BIT;
                 }
-                src_reg_bits = self.reg_map[&reg].encoding();
+                regrm_field |= self.reg_map[&reg_id].encoding();
             },
+            Source::ReturnRegister => {
+                if self.reg_map[&ACCUMULATOR].is_extended_reg() {
+                    WRXB_bits |= REX_EXT_RM_BIT;
+                }
+                regrm_field |= self.reg_map[&ACCUMULATOR].encoding(); 
+            }
             _ => unimplemented!(), // operand from memory address needs to be handled
         }
 
         let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
-        self.asm_code.push(prefix);
-     
+        
+        self.asm_code.push(prefix);     
         self.asm_code.push(opcode);
+        self.asm_code.push(regrm_field);
 
-        self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | reg_field_bits);
+        if let Some((constant_val, constant_size)) = constant {
+            let mut buffer = [0; 4];
+            LittleEndian::write_i32(&mut buffer, constant_val);
 
-        let mut buffer = [0; 4];
-        LittleEndian::write_i32(&mut buffer, constant);
-
-        for i in 0..const_bytes {
-            self.asm_code.push(buffer[i]);
+            for i in 0..constant_size {
+                self.asm_code.push(buffer[i]);
+            }
         }
     }
 

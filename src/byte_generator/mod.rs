@@ -61,7 +61,7 @@ impl ByteGenerator {
     }
 
     pub fn generate_bytecode(&mut self) {
-     /*   // clone to fix borrow issue. TODO: Figure out how to avoid an unnecessary copy.
+        // clone to fix borrow issue. TODO: Figure out how to avoid an unnecessary copy.
         let functions = self.tac_functions.clone();
         for f in functions {
             self.bytecode_functions.push(Function {
@@ -80,9 +80,9 @@ impl ByteGenerator {
                    _ => panic!("Not implemented: {:?}", s),
                 }
             }
-        }*/
+        }
     }
-/*
+
     fn emit_return(&mut self, retval: Option<Operand>) {
         if let Some(op) = retval {
             let data = UnaryOperation { src: self.get_source(&op), dest: Source::ReturnRegister };
@@ -119,7 +119,7 @@ impl ByteGenerator {
 
     fn get_source(&mut self, op: &Operand) -> Source {
         match op {
-            &Operand::Variable(ref info) => self.get_register_for(info.id),
+            &Operand::Variable(_, id) => self.get_register_for(id),
             &Operand::Integer(i32) => Source::IntegerConstant(i32),
             _ => unimplemented!(),
         }
@@ -148,5 +148,5 @@ impl ByteGenerator {
 
     fn current_function(&mut self) -> &mut Function {
         self.bytecode_functions.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Empty function array"))
-    }*/
+    }
 }

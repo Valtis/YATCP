@@ -21,7 +21,15 @@ macro_rules! println_stderr(
 
 #[macro_use]
 macro_rules! ice {
-    ($fmt:expr, $($args:tt)+) => ( 
+    ($fmt:expr) => (
+      {
+        println_stderr!(
+            "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n", 
+            ::ice::red_string("Internal compiler error"), $fmt);
+          panic!("Stop");
+      }
+    );
+    ($fmt:expr, $($args:tt)+) => (
       {
         println_stderr!(
           "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n", 
