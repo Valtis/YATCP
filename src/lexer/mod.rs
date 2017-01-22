@@ -93,10 +93,22 @@ impl ReadLexer {
       ',' => self.create_token(TokenType::Comma, TokenSubType::NoSubType),
       '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
       ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
-      '=' => self.multi_char_operator_helper('=', TokenType::Equals, TokenType::Assign),
-      '>' => self.multi_char_operator_helper('=', TokenType::GreaterOrEq, TokenType::Greater),
-      '<' => self.multi_char_operator_helper('=', TokenType::LessOrEq, TokenType::Less),
-      '!' => self.multi_char_operator_helper('=', TokenType::NotEq, TokenType::Not),
+      '=' => self.multi_char_operator_helper(
+        '=', 
+        (TokenType::Comparison, TokenSubType::Equals), 
+        (TokenType::Assign, TokenSubType::NoSubType)),
+      '>' => self.multi_char_operator_helper(
+        '=', 
+        (TokenType::Comparison, TokenSubType::GreaterOrEq), 
+        (TokenType::Comparison, TokenSubType::Greater)),
+      '<' => self.multi_char_operator_helper(
+        '=', 
+        (TokenType::Comparison, TokenSubType::LessOrEq), 
+        (TokenType::Comparison, TokenSubType::Less)),
+      '!' => self.multi_char_operator_helper(
+        '=', 
+        (TokenType::Comparison, TokenSubType::NotEq), 
+        (TokenType::Not, TokenSubType::NoSubType)),
       _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
     }
   }
@@ -108,22 +120,24 @@ impl ReadLexer {
   fn multi_char_operator_helper (
     &mut self,
     optional_second_char: char,
-    type_if_matches: TokenType,
-    type_if_no_match: TokenType) -> Token {
+    type_if_matches: (TokenType, TokenSubType),
+    type_if_no_match: (TokenType, TokenSubType)) -> Token {
 
-      let mut next_char = ' ';
+        let mut next_char = ' ';
 
-      if let Some(ch) = self.peek_char() {
-        next_char = ch; 
-      }
+        if let Some(ch) = self.peek_char() {
+            next_char = ch; 
+        }
 
-      if next_char == optional_second_char {
-        // consume the next character
-        self.next_char();
-        self.create_token(type_if_matches, TokenSubType::NoSubType)
-      } else {
-        self.create_token(type_if_no_match, TokenSubType::NoSubType)
-      }
+        let (t, st) = if next_char == optional_second_char {
+            // consume the next character
+            self.next_char();
+            type_if_matches
+        } else {
+            type_if_no_match
+        };
+
+        self.create_token(t, st)
     }
 
 

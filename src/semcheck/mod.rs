@@ -90,13 +90,16 @@ impl SemanticsCheck {
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
-            AstNode::Divide(_, _, _) => {
-                self.handle_arithmetic_operation_with_operator_type_check(node);
-            },
+            AstNode::Divide(_, _, _) => 
+                self.handle_arithmetic_operation_with_operator_type_check(node),
             AstNode::Negate(ref mut child, ref mut ai) => 
                 self.handle_negation(child, ai),
             AstNode::Return(ref mut child, ref mut ai) =>
                 self.handle_return(child, ai),
+            AstNode::While(ref mut expr, ref mut child, ref ni) => 
+                self.handle_while(expr, child, ni),
+            AstNode::Less(_, _, _) => 
+                self.handle_comparison_operation(node),
             AstNode::Integer(_, _) => {},
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
@@ -348,6 +351,28 @@ impl SemanticsCheck {
         }
     }
 
+    fn handle_while(
+        &mut self, 
+        expr: &mut AstNode,
+        body: &mut AstNode,
+        info: &NodeInfo) {
+        
+       self.do_check(expr);
+       let expr_type = self.get_type(expr);
+
+       if expr_type != Type::Invalid && expr_type != Type::Boolean {
+            self.report_error(
+                Error::TypeError,
+                expr.line(),
+                expr.column(),
+                expr.length(),
+                format!("Expected '{}' for loop expression but was '{}'",
+                    Type::Boolean, expr_type));
+       } 
+
+       self.do_check(body);
+    }
+
 
     fn handle_arithmetic_operation_with_operator_type_check(
         &mut self, 
@@ -453,6 +478,32 @@ impl SemanticsCheck {
             arith_info.node_type = child_type;
         }
     }
+
+    fn handle_comparison_operation(&mut self, node: &mut AstNode) {
+        let (left_child, right_child, info) = match *node {
+            AstNode::Less(ref mut l_child, ref mut r_child, ref info) =>
+                (l_child, r_child, info),
+            _ => ice!("Invalid node '{}' passed to comparison handler", node),
+        };
+
+        self.do_check(left_child);
+        self.do_check(right_child);
+
+        let left_type = self.get_type(left_child);
+        let right_type = self.get_type(right_child);
+        
+        if left_type != right_type &&
+            left_type != Type::Invalid && right_type != Type::Invalid
+        {
+            self.report_error(
+                Error::TypeError, 
+                info.line, 
+                info.column, 
+                info.length, 
+                format!(
+                    "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));       
+        } 
+    }
     
     fn check_identifier_is_initialized(&mut self, name: &String, info: &NodeInfo) ->
         Option<Symbol> {
@@ -499,6 +550,7 @@ impl SemanticsCheck {
             AstNode::Float(_, _) => Type::Float,
             AstNode::Double(_, _) => Type::Double,
             AstNode::Boolean(_, _) => Type::Boolean,
+            AstNode::Less(_, _, _) => Type::Boolean,
             AstNode::Plus(_, _, ref info) | 
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _,  ref info) | 

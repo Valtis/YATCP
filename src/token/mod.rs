@@ -5,12 +5,7 @@ use std::fmt::Result;
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
   Assign,
-  Equals,
-  Less,
-  LessOrEq,
-  Greater,
-  GreaterOrEq,
-  NotEq,
+  Comparison, 
   Not,
   Number,
   Text,
@@ -50,13 +45,8 @@ impl Display for TokenType {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
     Display::fmt(
       match *self {
-        TokenType::Assign => "=",
-        TokenType::Equals => "==",
-        TokenType::Less => "<",
-        TokenType::Greater => ">",
-        TokenType::GreaterOrEq => ">=",
-        TokenType::LessOrEq => "<=",
-        TokenType::NotEq => "!=",
+        TokenType::Assign => "=",        
+        TokenType::Comparison => "comparison",
         TokenType::Not => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
@@ -112,6 +102,12 @@ pub enum TokenSubType {
   VoidType,
   StringType,
   NoSubType,
+  Equals,
+  Less,
+  LessOrEq,
+  Greater,
+  GreaterOrEq,
+  NotEq,
   ErrorToken
 }
 
@@ -135,6 +131,12 @@ impl Display for TokenSubType {
         TokenSubType::VoidType => "void".to_string(),
         TokenSubType::StringType => "string".to_string(),
         TokenSubType::NoSubType => "".to_string(),
+        TokenSubType::Equals => "==".to_string(),
+        TokenSubType::Less => "<".to_string(),
+        TokenSubType::Greater => ">".to_string(),
+        TokenSubType::GreaterOrEq => ">=".to_string(),
+        TokenSubType::LessOrEq => "<=".to_string(),
+        TokenSubType::NotEq => "!=".to_string(),
         TokenSubType::ErrorToken => "<Invalid token>".to_string(),
     }));
 

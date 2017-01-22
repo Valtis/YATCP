@@ -327,28 +327,28 @@ fn operators_are_accepted() {
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::Less, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::Less);
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::LessOrEq, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::LessOrEq);
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::Equals, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::Equals);
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::GreaterOrEq, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::GreaterOrEq);
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::Greater, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::Greater);
 
     assert_eq_token!(
       lexer.next_token(), 
@@ -357,8 +357,8 @@ fn operators_are_accepted() {
 
     assert_eq_token!(
       lexer.next_token(), 
-      TokenType::NotEq, 
-      TokenSubType::NoSubType);
+      TokenType::Comparison, 
+      TokenSubType::NotEq);
    
     assert_eq_token!(
       lexer.next_token(), 

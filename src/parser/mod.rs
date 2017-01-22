@@ -114,6 +114,8 @@ impl Parser {
                     self.parse_function_call_or_assignment(),
                 TokenType::Return => 
                     self.parse_return_statement(),
+                TokenType::While => 
+                    self.parse_while_statement(),
                 _ => return Ok(nodes)
             };
 
@@ -210,20 +212,32 @@ impl Parser {
             ArithmeticInfo::new(&return_node)))
     }
 
-    fn parse_expression(&mut self) -> Result<AstNode, ()> {
-        let node = self.parse_arithmetic_expression()?;
-        Ok(node)
-        /*let mut result = try!(self.parse_comparison_expression(node));
+    fn parse_while_statement(&mut self) -> Result<AstNode, ()> {
+        let while_node = self.expect(TokenType::While)?;
+        let expr = self.parse_expression()?;
+        let block = self.parse_block()?;
+        
+        Ok(AstNode::While(
+            Box::new(expr),
+            Box::new(block),
+            NodeInfo::new(
+                while_node.line,
+                while_node.column,
+                while_node.length)))
+    }
 
+    fn parse_expression(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_arithmetic_expression()?;
+        
         loop {
             let next_token = self.lexer.peek_token();
-            match next_token.token_type {
-                TokenType::Equals => 
-                    result = try!(self.parse_comparison_expression(result)),
-                _ => break,
+            if next_token.token_type == TokenType::Comparison {
+                node = self.parse_comparison_expression(node)?;
+            } else {
+                break;
             }
         }
-        Ok(result)*/
+        Ok(node)
     } 
 
     fn parse_arithmetic_expression(&mut self) -> Result<AstNode, ()> {
@@ -353,20 +367,33 @@ impl Parser {
         token.token_type ==TokenType::Text
     }
 
-/*
-    fn parse_comparison_expression(&mut self, node: AstNode) -> Result<AstNode, String> {
-        let next_token = self.lexer.peek_token();
-        if next_token.token_type == TokenType::Equals {
-            let mut nodes = vec![node];
+    fn parse_comparison_expression(
+        &mut self, node: AstNode) -> Result<AstNode, ()> {
 
+        let next_token = self.lexer.peek_token();
+        if next_token.token_type == TokenType::Comparison {
             self.lexer.next_token();
-            nodes.push(try!(self.parse_arithmetic_expression()));          
-            return Ok(AstNode::new(&next_token, nodes, AstType::Equals));            
+            let n_node = self.parse_arithmetic_expression()?;
+
+            match next_token.token_subtype {
+                TokenSubType::Less => {
+                    let less_node = AstNode::Less(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(less_node)
+                },
+                _ => ice!("Invalid token subtype '{}' for comparison", next_token),
+            }           
+        } else {
+            Ok(node)
         }
 
-        Ok(node)
     }
-    */
+    
     fn parse_plus_minus_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let next_token = self.lexer.peek_token();
 

@@ -951,6 +951,70 @@ fn function_with_return_with_expression_produces_correct_ast() {
 }
 
 #[test]
+fn simple_less_expression_produces_correct_ast() {
+   let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier, 
+                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier, 
+                TokenSubType::Identifier("a".to_string()), 7, 6, 5),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+            Token::new(TokenType::Comparison, TokenSubType::Less, 5, 6, 7),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 8, 9, 2),            
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+    let node = parser.parse();
+    
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+       assert_eq!(
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(AstNode::Block(vec![                    
+                    AstNode::VariableDeclaration(
+                        Box::new(AstNode::Less(                            
+                            Box::new(AstNode::Integer(
+                                1,
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            Box::new(AstNode::Integer(
+                                2,
+                                NodeInfo::new(8, 9, 2),
+                            )),
+                            NodeInfo::new(5, 6, 7)
+                        )),
+                        DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Boolean,
+                            7, 6, 5),
+                    )
+                ],
+                None,
+                NodeInfo::new(0, 0, 0),
+                )),
+                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            ],
+            None,
+            NodeInfo::new(0, 0, 0)),
+        node)  
+}
+
+#[test]
 fn missing_name_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),            

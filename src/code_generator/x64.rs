@@ -2,7 +2,9 @@
 use byte_generator::ByteCode; 
 use byte_generator::UnaryOperation;
 use byte_generator::BinaryOperation;
+use byte_generator::ComparisonOperation;
 use byte_generator::Source;
+use byte_generator::ComparisonType;
 
 use byte_generator;
 
@@ -16,8 +18,6 @@ use std::mem;
 const MOV_IMMEDIATE_32_BIT_TO_REG_MEM: u8 = 0xC7;
 const MOV_REG_REG_32_BIT : u8 = 0x89;
 
-
-
 const ADD_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const ADD_WITH_32_BIT_CONSTANT : u8 = 0x81;
 const ADD_REG_FROM_REG_MEM : u8 = 0x01;
@@ -28,6 +28,13 @@ const SUB_REG_FROM_REG_MEM : u8 = 0x29;
 
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
+
+const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
+const CMP_REG_WITH_CONSTANT : u8 = 0x81;
+
+const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
+
+const SET_BYTE_IF_LESS : u16 = 0x0F9C;
 
 const SIGNED_DIV_64_BIT : u8 = 0xF7;
 
@@ -51,6 +58,12 @@ const REX_EXT_REG_BIT: u8 = 0x04;
 
 // MOD bits for addressing
 const MOD_REGISTER_DIRECT_ADDRESSING : u8 = 0xC0;
+
+
+
+// flags for instruction emit
+const FLAG_64_BIT_OPERANDS : u32 = 0x01;
+
 
 #[derive(Clone, Copy)]
 enum Register {
@@ -82,6 +95,28 @@ enum Mode {
 enum ModReg {
     Register(u32),
     OpCode(u8),
+}
+
+enum SizedOpCode {
+    OpCode8(u8),
+    OpCode16(u16),
+}
+
+// used to store jumps that need the target patched afterwards
+enum JumpPatch {
+    Jump(u32, usize),
+}
+
+impl From<u8> for SizedOpCode {
+    fn from(val: u8) -> SizedOpCode {
+        SizedOpCode::OpCode8(val)
+    }
+}
+
+impl From<u16> for SizedOpCode {
+    fn from(val: u16) -> SizedOpCode {
+        SizedOpCode::OpCode16(val)
+    }
 }
 
 impl Register {
@@ -116,6 +151,8 @@ impl Register {
 pub struct X64CodeGen {
     bytecode_functions: Vec<byte_generator::Function>,
     asm_code: Vec<u8>,
+    label_pos: HashMap<u32, usize>,
+    jumps_requiring_updates: Vec<JumpPatch>,
     functions: Vec<code_generator::Function>,
     reg_map: HashMap<u32, Register>,
 }
@@ -143,6 +180,8 @@ impl X64CodeGen {
         X64CodeGen {
             bytecode_functions: bytecode_functions,
             asm_code: vec![],
+            label_pos: HashMap::new(),
+            jumps_requiring_updates: vec![],
             functions: vec![],
             reg_map: map,
         }
@@ -183,9 +222,14 @@ impl X64CodeGen {
                     ByteCode::Div(ref operands) => self.emit_div(operands),
                     ByteCode::Ret => self.emit_ret(),
                     ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
-                }
-            } 
-
+                    ByteCode::Compare(ref operands) => self.emit_comparison(operands),
+                    ByteCode::Label(id) => self.handle_label(id),
+                    ByteCode::Jump(id) => self.emit_unconditional_jump(id),
+                    ByteCode::JumpConditional(id, ref jmp_type) => 
+                        self.emit_conditional_jump(id, jmp_type),
+                 }
+            }
+            self.update_jumps(); 
             func.length = self.asm_code.len() - func.start;
             self.functions.push(func);           
         }
@@ -232,7 +276,24 @@ impl X64CodeGen {
                             }
                         } 
                     },  
-                    ByteCode::Nop | ByteCode::Ret => {},
+                    ByteCode::Compare(ref op) => {
+                        if let Source::Register(val) = op.src1 {
+                            if free_register <= val && val != ACCUMULATOR {
+                                free_register = val + 1;
+                            }
+                        } 
+
+                        if let Source::Register(val) = op.src2 {
+                            if free_register <= val && val != ACCUMULATOR {
+                                free_register = val + 1;
+                            }
+                        } 
+                    },
+                    ByteCode::Nop | 
+                    ByteCode::Ret | 
+                    ByteCode::Label(_) | 
+                    ByteCode::Jump(_) |
+                    ByteCode::JumpConditional(_, _) => {},
                 }
             }
 
@@ -416,12 +477,40 @@ impl X64CodeGen {
                         }));  
 
                     },
+
+                    ByteCode::Compare(ref operands) => {
+                    // convert compare(intconst, intconst into move rax - cmp rax, instconst)
+                        match (&operands.src1, &operands.src2) {
+                            (&Source::IntegerConstant(i1), &Source::IntegerConstant(i2)) => {
+                                // move first argument into RAX
+                                new_code.push(ByteCode::Mov(UnaryOperation {
+                                    src: operands.src1.clone(),
+                                    dest: Source::Register(ACCUMULATOR),
+                                }));
+
+                                // and use that in the comparison
+                                let mut new_operands = operands.clone();
+                                new_operands.src1 = Source::Register(ACCUMULATOR);
+
+                                new_code.push(ByteCode::Compare(new_operands));
+                                //panic!("Foo: {:?}", new_code[new_code.len() - 1]);
+                            },
+                            _ => { new_code.push(b.clone()) }, 
+                        }
+                    },
                     _ => new_code.push(b.clone())
-                };                       
+                }                       
             }
 
             f.code = new_code;
         }
+
+        self.fix_jumps();
+    }
+
+    // update jump locations
+    fn fix_jumps(&mut self) {
+
     }
 
     fn allocate_registers(&mut self) {
@@ -451,23 +540,50 @@ impl X64CodeGen {
             Source::IntegerConstant(val) => {
                 let bytes_in_u32 = 4;
                 self.emit_instruction(
-                    MOV_IMMEDIATE_32_BIT_TO_REG_MEM,
-                    Mode::Register,
-                    ModReg::OpCode(0),
-                    &operand.dest,
-                    Some((val, bytes_in_u32)));
+                    SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_REG_MEM),
+                    Some((
+                        Mode::Register,
+                        ModReg::OpCode(0),
+                        &operand.dest)),
+                    Some((val, bytes_in_u32)),
+                    FLAG_64_BIT_OPERANDS);
             },
             Source::Register(reg) => {
 
                 self.emit_instruction(
-                    MOV_REG_REG_32_BIT,
-                    Mode::Register,
-                    ModReg::Register(reg),
-                    &operand.dest,
-                    None);
+                    SizedOpCode::from(MOV_REG_REG_32_BIT),
+                    Some((
+                        Mode::Register,
+                        ModReg::Register(reg),
+                        &operand.dest)),
+                    None,
+            FLAG_64_BIT_OPERANDS);
+            },
+            Source::ComparisonResult(ref cmp_type) => {
+                self.emit_set_byte(cmp_type, operand);
             },
             _ => unimplemented!(),
         }
+    }
+
+    fn emit_set_byte(
+        &mut self, 
+        cmp_type: &ComparisonType,
+        operand: &UnaryOperation) {
+
+        let opcode = match *cmp_type {
+            ComparisonType::Less => SET_BYTE_IF_LESS,
+        };
+
+        self.emit_instruction(
+            SizedOpCode::from(opcode),
+            Some((
+                Mode::Register,
+                ModReg::OpCode(0),
+                &operand.dest)),
+            None,
+            0);
+
     }
 
     fn emit_add(&mut self, operand: &BinaryOperation) {
@@ -539,11 +655,12 @@ impl X64CodeGen {
         };
 
         self.emit_instruction(
-            opcode, 
-            Mode::Register,
+            SizedOpCode::from(opcode), 
+            Some((Mode::Register,
             ModReg::OpCode(0), 
-            &Source::Register(destination_reg),
-            Some((constant, const_bytes)));
+            &Source::Register(destination_reg))),
+            Some((constant, const_bytes)),
+            FLAG_64_BIT_OPERANDS);
     }
     
     fn emit_sub(&mut self, operand: &BinaryOperation) {
@@ -613,11 +730,12 @@ impl X64CodeGen {
             (4, SUB_WITH_32_BIT_CONSTANT)
         };
         self.emit_instruction(
-            opcode,
-            Mode::Register,
+            SizedOpCode::from(opcode),
+            Some((Mode::Register,
             ModReg::OpCode(5), 
-            &Source::Register(destination_reg),
-            Some((constant, const_bytes)));
+            &Source::Register(destination_reg))),
+            Some((constant, const_bytes)),
+            FLAG_64_BIT_OPERANDS);
     }
 
     fn emit_mul(&mut self, operand: &BinaryOperation) {
@@ -661,61 +779,138 @@ impl X64CodeGen {
         };
 
         self.emit_instruction(
-            opcode, 
-            Mode::Register, 
+            SizedOpCode::from(opcode), 
+            Some((Mode::Register, 
             ModReg::Register(destination_reg), 
-            src_val,
-            Some((constant, const_bytes))); 
+            src_val)),
+            Some((constant, const_bytes)),
+            FLAG_64_BIT_OPERANDS); 
+    }
+
+    fn emit_comparison(&mut self, operands: &ComparisonOperation)  {
+        match (&operands.src1, &operands.src2) {
+            (&Source::Register(ACCUMULATOR), &Source::IntegerConstant(i)) => {
+                self.emit_instruction(
+                    SizedOpCode::from(CMP_RAX_WITH_CONSTANT), 
+                    None,
+                    Some((i, 4)),
+                    FLAG_64_BIT_OPERANDS); 
+            },
+            (&Source::Register(reg), &Source::IntegerConstant(i)) => {
+                self.emit_instruction(
+                    SizedOpCode::from(CMP_REG_WITH_CONSTANT), 
+                    Some((
+                        Mode::Register,
+                        ModReg::OpCode(7),
+                        &Source::Register(reg),
+                    )),
+                    Some((i, 4)),
+                    FLAG_64_BIT_OPERANDS); 
+            },
+            _ => unimplemented!(),
+        }
+    } 
+
+    fn emit_unconditional_jump(&mut self, id: u32) {
+        if self.label_pos.contains_key(&id) {
+            unimplemented!();
+        } else {
+            self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
+            self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
+            // place for the 
+            for _ in 0..4 {
+                self.asm_code.push(0x00);
+            }
+        }
+    }
+
+    fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
+        match *jmp_type {
+            ComparisonType::Less => {
+                if self.label_pos.contains_key(&id) {
+                    let target = self.label_pos[&id];
+                    let op_size = 2i32;
+                    let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
+                    if offset < -128 || offset > 127 {
+                        panic!("Not implemented for jumps larger than a byte");
+                    }
+
+                    self.asm_code.push(0x7C);
+                    self.asm_code.push((offset as i8) as u8)
+                } else {
+                    unimplemented!();
+                }
+            },
+        }
     }
 
     fn emit_instruction(
-        &mut self, 
-        opcode: u8,
-        mode: Mode,
-        mod_reg: ModReg, 
-        mod_rm: &Source,
-        constant: Option<(i32, usize)>) {
+        &mut self,         
+        opcode: SizedOpCode,
+        modrm: Option<(Mode, ModReg, &Source)>,
+        constant: Option<(i32, usize)>,
+        flags: u32) {
         
         let mut WRXB_bits = 0u8;
-        let mut regrm_field = 0u8;
+        let regrm_field : Option<u8> = if let Some((mode, mod_reg, mod_rm)) = modrm {
+            let mut field = 0u8;  
+            field |= match mode {
+                Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING, 
+            };
 
-        regrm_field |= match mode {
-            Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING, 
+            match mod_reg {
+                ModReg::Register(reg_id) => {
+                    if self.reg_map[&reg_id].is_extended_reg() {
+                        WRXB_bits |= REX_EXT_REG_BIT;
+                    }
+                    field |= self.reg_map[&reg_id].encoding() << 3;
+                }
+                ModReg::OpCode(opcode) => {
+                    field |= opcode << 3;
+                }
+                
+            }
+            match *mod_rm {
+                Source::Register(reg_id) => {
+                    if self.reg_map[&reg_id].is_extended_reg() {
+                        WRXB_bits |= REX_EXT_RM_BIT;
+                    }
+                    field |= self.reg_map[&reg_id].encoding();
+                },
+                Source::ReturnRegister => {
+                    if self.reg_map[&ACCUMULATOR].is_extended_reg() {
+                        WRXB_bits |= REX_EXT_RM_BIT;
+                    }
+                    field |= self.reg_map[&ACCUMULATOR].encoding(); 
+                }
+                ref x => panic!("unimplemented: {:?}", x), // operand from memory address needs to be handled
+            }
+            Some(field)
+        } else {
+            None
         };
 
-        match mod_reg {
-            ModReg::Register(reg_id) => {
-                if self.reg_map[&reg_id].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_REG_BIT;
-                }
-                regrm_field |= self.reg_map[&reg_id].encoding() << 3;
-            }
-            ModReg::OpCode(opcode) => {
-                regrm_field |= opcode << 3;
-            }
-            
+        if flags & FLAG_64_BIT_OPERANDS != 0 { 
+            WRXB_bits |= REX_64_BIT_OPERAND;  
         }
-        match *mod_rm {
-            Source::Register(reg_id) => {
-                if self.reg_map[&reg_id].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_RM_BIT;
-                }
-                regrm_field |= self.reg_map[&reg_id].encoding();
-            },
-            Source::ReturnRegister => {
-                if self.reg_map[&ACCUMULATOR].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_RM_BIT;
-                }
-                regrm_field |= self.reg_map[&ACCUMULATOR].encoding(); 
-            }
-            _ => unimplemented!(), // operand from memory address needs to be handled
-        }
+            let prefix = self.create_rex_prefix(WRXB_bits);
+            self.asm_code.push(prefix);   
 
-        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
+        match opcode {
+            SizedOpCode::OpCode8(val) => self.asm_code.push(val),
+            SizedOpCode::OpCode16(val) => {
+                let mut buffer = [0; 2];
+                LittleEndian::write_u16(&mut buffer, val);
+                self.asm_code.push(buffer[1]);
+                self.asm_code.push(buffer[0]);              
+
+            }
+        }
         
-        self.asm_code.push(prefix);     
-        self.asm_code.push(opcode);
-        self.asm_code.push(regrm_field);
+
+        if let Some(field) = regrm_field {
+            self.asm_code.push(field);
+        }
 
         if let Some((constant_val, constant_size)) = constant {
             let mut buffer = [0; 4];
@@ -799,6 +994,38 @@ impl X64CodeGen {
     // B   1 bit   This 1-bit value is an extension to the MODRM.rm field or the SIB.base field. See 64-bit addressing.  
     fn create_rex_prefix(&self, wrxb: u8) -> u8 {
         0x40 | wrxb
+    }
+
+    fn handle_label(&mut self, id: u32) {
+        self.label_pos.insert(id, self.asm_code.len());
+    }
+
+    fn update_jumps(&mut self) {
+        for jump in self.jumps_requiring_updates.iter() {
+            match *jump {
+                JumpPatch::Jump(label_id, jump_opcode_location) => {
+                    if self.label_pos.contains_key(&label_id) {
+                        let jump_address = self.label_pos[&label_id];
+                        // Note: Breaks if the offset is larger than i32::maxval
+                        // (although jump of that size is hopefully unlikely)
+                        let unconditional_jump_size = 5; // 1 for opcode, 4 for location
+                        let offset : i32 = jump_address as i32 - jump_opcode_location as i32 - unconditional_jump_size;
+                        
+                        let mut buffer = [0; 4];
+                        LittleEndian::write_i32(&mut buffer, offset);
+                        
+                        for i in 0..4 {
+                            // +1 so that the opcode is skipped
+                            self.asm_code[jump_opcode_location + 1 + i] = buffer[i];
+                        }
+
+
+                    } else {
+                        ice!("No jump target for jump stored");
+                    }
+                },
+            } 
+        }
     }
 
     pub fn get_code(&self) -> Vec<u8> {

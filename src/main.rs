@@ -77,9 +77,9 @@ fn print_tac(tac_gen: &TACGenerator) {
         println!("Function '{}'\n", f.name);
         for s in &f.statements {
             println!("    {}: {}", counter, s);
+            counter += 1;
         }
         println!("");
-        counter += 1;
     }
     println!("");
 }

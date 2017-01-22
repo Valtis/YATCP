@@ -1636,3 +1636,108 @@ fn returning_value_from_void_function_is_reported() {
         5,
         4);
 }
+
+
+#[test]
+fn while_loop_with_non_boolean_expression_is_reported() {
+   let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : void {
+        while 4 {
+
+        }
+    }
+    */
+    
+    let mut node = 
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(vec![
+                        AstNode::While(
+                            Box::new(AstNode::Integer(
+                                4,
+                                NodeInfo::new(7, 23, 212)
+                                )), 
+                            Box::new(AstNode::Block(vec![
+                                ],
+                                None,
+                                NodeInfo::new(0, 0, 0))),
+                            NodeInfo::new(89, 54, 12)
+                        ),
+                    ], 
+                    None,
+                    NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt("foo".to_string(), Type::Void, 6, 5, 4)   
+            )],
+            None,
+            NodeInfo::new(0, 0, 0),
+        );
+
+    checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        7,
+        23,
+        212);
+}
+
+#[test]
+fn error_in_while_loop_body_is_handled() {
+   let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : void {
+        while 4 {
+
+        }
+    }
+    */
+    
+    let mut node = 
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(vec![
+                        AstNode::While(
+                            Box::new(AstNode::Boolean(
+                                true,
+                                NodeInfo::new(7, 23, 212)
+                                )), 
+                            Box::new(AstNode::Block(vec![
+                                AstNode::Plus(
+                                    Box::new(AstNode::Integer(
+                                        4,
+                                        NodeInfo::new(1, 2, 3))
+                                    ),
+                                    Box::new(AstNode::Text(
+                                        "hello".to_string(),
+                                        NodeInfo::new(4, 3, 1))
+                                    ),
+                                    ArithmeticInfo::new_alt(9, 7, 6))
+                                ],
+                                None,
+                                NodeInfo::new(0, 0, 0))),
+                            NodeInfo::new(89, 54, 12)
+                        ),
+                    ], 
+                    None,
+                    NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt("foo".to_string(), Type::Void, 6, 5, 4)   
+            )],
+            None,
+            NodeInfo::new(0, 0, 0),
+        );
+
+    checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        9,
+        7,
+        6);
+}

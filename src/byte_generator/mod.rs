@@ -19,9 +19,21 @@ pub struct BinaryOperation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ComparisonOperation {
+    pub src1: Source,
+    pub src2: Source,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ComparisonType {
+    Less,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     Register(u32),
     IntegerConstant(i32),
+    ComparisonResult(ComparisonType),
     ReturnRegister, // special register, signifies the register that the calling convention uses to return values
 }
 
@@ -34,6 +46,10 @@ pub enum ByteCode {
     Div(BinaryOperation),
     Mov(UnaryOperation),
     SignExtend(UnaryOperation),
+    Compare(ComparisonOperation),
+    Label(u32),
+    Jump(u32),
+    JumpConditional(u32, ComparisonType),
     Ret,
 }
 
@@ -48,6 +64,7 @@ pub struct ByteGenerator {
     tac_functions: Vec<tac_generator::Function>,
     next_register: u32,
     variable_id_to_register: HashMap<u32, u32>,
+    variable_to_comparison_result: HashMap<u32, ComparisonType>
 }
 
 impl ByteGenerator {
@@ -57,6 +74,7 @@ impl ByteGenerator {
             tac_functions: functions,
             next_register: 0,
             variable_id_to_register: HashMap::new(),
+            variable_to_comparison_result: HashMap::new(),
         }
     }
 
@@ -71,12 +89,22 @@ impl ByteGenerator {
             self.next_register = 0;
             for s in f.statements {
                 match s {
-                   Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
-                   Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
-                   Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
-                   Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
-                   Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
+                    Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
+                    Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
+                    Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
+                    Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
+                    Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
+                    Statement::Assignment(
+                        Some(Operator::Less), 
+                        Some(ref dest),
+                        Some(ref op1),
+                        Some(ref op2)) => 
+                        self.emit_comparison(Operator::Less, op1, op2, dest),
+
                    Statement::Return(val) => self.emit_return(val),
+                   Statement::Label(id) => self.emit_label(id),
+                   Statement::Jump(id) => self.emit_jump(id),
+                   Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_jump(operand, id),
                    _ => panic!("Not implemented: {:?}", s),
                 }
             }
@@ -95,6 +123,58 @@ impl ByteGenerator {
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {    
         let data = self.form_unary_operation(op, dest);
         self.current_function().code.push(ByteCode::Mov(data));
+    }
+
+    fn emit_comparison(&mut self,
+        operator: Operator, 
+        op1: &Operand, 
+        op2: &Operand,
+        dest: &Operand) {
+
+        let comparison_type = match operator {
+            Operator::Less => ComparisonType::Less,
+            _ => ice!("Invalid operator '{}' for comparison", operator),
+        };
+
+        let src1 = self.get_source(op1);
+        let src2 = self.get_source(op2);
+
+        if let Operand::Variable(_, id) = *dest {
+            // mark the variable as comparison result
+            // this is needed, so that code gen knows to generate appropriate
+            // jmp command or read from cpu status register
+            self.variable_to_comparison_result.
+                insert(id, comparison_type.clone());
+        } else {
+            ice!("Non-variable destination for comparison results");
+        }
+
+        self.current_function().code.push(
+            ByteCode::Compare(
+                ComparisonOperation{ 
+                    src1: src1,
+                    src2: src2,
+                }));
+    }
+
+    fn emit_label(&mut self, id: u32) {
+        self.current_function().code.push(ByteCode::Label(id));
+    }
+
+    fn emit_jump(&mut self, id: u32) {        
+        self.current_function().code.push(ByteCode::Jump(id));
+    }
+
+    fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
+        let src =  self.get_source(op);
+        if let Source::ComparisonResult(cmp_type) = src {
+            self.current_function().
+            code.
+            push(
+                ByteCode::JumpConditional(id, cmp_type));
+        } else {
+            ice!("Invalid operand type in conditional jump");
+        }
     }
 
     fn emit_binary_op(&mut self, operator: Operator, op1: &Operand, op2: &Operand, dest: &Operand) {
@@ -119,7 +199,15 @@ impl ByteGenerator {
 
     fn get_source(&mut self, op: &Operand) -> Source {
         match op {
-            &Operand::Variable(_, id) => self.get_register_for(id),
+            &Operand::Variable(_, id) => {
+                if self.variable_to_comparison_result.contains_key(&id) {
+                    Source::ComparisonResult(
+                        self.variable_to_comparison_result[&id].clone())
+                }
+                else {
+                    self.get_register_for(id)
+                }
+            },
             &Operand::Integer(i32) => Source::IntegerConstant(i32),
             _ => unimplemented!(),
         }
@@ -143,6 +231,7 @@ impl ByteGenerator {
             Operator::Minus => ByteCode::Sub(data),
             Operator::Multiply => ByteCode::Mul(data),
             Operator::Divide => ByteCode::Div(data),
+            _ => ice!("Invalid operator '{}'", operator),
         }
     }
 

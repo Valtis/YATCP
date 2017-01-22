@@ -40,6 +40,8 @@ pub enum AstNode {
     Divide(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Negate(Box<AstNode>, ArithmeticInfo),
     Return(Option<Box<AstNode>>, ArithmeticInfo),
+    While(Box<AstNode>, Box<AstNode>, NodeInfo),
+    Less(Box<AstNode>, Box<AstNode>, NodeInfo),
     Integer(i32, NodeInfo),
     Float(f32, NodeInfo),
     Double(f64, NodeInfo),
@@ -71,6 +73,8 @@ impl Display for AstNode {
           AstNode::Divide(_, _, _) => "Divide".to_string(),
           AstNode::Negate(_, _) => "Negate".to_string(),
           AstNode::Return(_, _) => "Return".to_string(),
+          AstNode::While(_, _, _) => "While".to_string(),
+          AstNode::Less(_, _, _) => "Less".to_string(),
           AstNode::ErrorNode => "<syntax error>".to_string(),
       })
   }
@@ -125,6 +129,14 @@ impl AstNode {
                 if let Some(ref child) = *opt_child {
                     string = format!("{}{}", string, child.print_impl(next_int))
                 }
+            },
+            AstNode::While(ref expr, ref child, _) => {
+                string = format!("{}{}", string, expr.print_impl(next_int));
+                string = format!("{}{}", string, child.print_impl(next_int));
+            },
+            AstNode::Less(ref left, ref right, _) => {
+                string = format!("{}{}", string, left.print_impl(next_int));
+                string = format!("{}{}", string, right.print_impl(next_int));
             }
             AstNode::ErrorNode => {}
         }
@@ -144,6 +156,8 @@ impl AstNode {
             AstNode::Divide(_, _, ref info) => info.node_info.line,            
             AstNode::Negate(_, ref info) => info.node_info.line,
             AstNode::Return(_, ref info) => info.node_info.line,
+            AstNode::While(_, _, ref info) => info.line,
+            AstNode::Less(_, _, ref info) => info.line,
             AstNode::Integer(_, ref info) => info.line,
             AstNode::Float(_, ref info) => info.line,
             AstNode::Double(_, ref info) => info.line,
@@ -166,6 +180,8 @@ impl AstNode {
             AstNode::Divide(_, _, ref info) => info.node_info.column,
             AstNode::Negate(_, ref info) => info.node_info.column,
             AstNode::Return(_, ref info) => info.node_info.column,
+            AstNode::While(_, _, ref info) => info.column,
+            AstNode::Less(_, _, ref info) => info.column,
             AstNode::Integer(_, ref info) => info.column,
             AstNode::Float(_, ref info) => info.column,
             AstNode::Double(_, ref info) => info.column,
@@ -188,6 +204,8 @@ impl AstNode {
             AstNode::Divide(_, _, ref info) => info.node_info.length,
             AstNode::Negate(_, ref info) => info.node_info.length,
             AstNode::Return(_, ref info) => info.node_info.length,
+            AstNode::While(_, _, ref info) => info.length,
+            AstNode::Less(_, _, ref info) => info.length,
             AstNode::Integer(_, ref info) => info.length,
             AstNode::Float(_, ref info) => info.length,
             AstNode::Double(_, ref info) => info.length,
@@ -261,6 +279,14 @@ impl PartialEq for AstNode {
             (&AstNode::Return(ref s_child, ref s_ai),
              &AstNode::Return(ref o_child, ref o_ai)) => {
                 s_child == o_child && s_ai == o_ai
+            },
+            (&AstNode::While(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::While(ref o_lchld, ref o_rchld, ref o_ni)) => {
+                s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
+            },
+            (&AstNode::Less(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::Less(ref o_lchld, ref o_rchld, ref o_ni)) => {
+                s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
             },
             (&AstNode::ErrorNode, &AstNode::ErrorNode) => true,
             _ => false,
