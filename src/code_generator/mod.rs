@@ -1,6 +1,5 @@
 mod x64;
 use byte_generator;
-use byte_generator::ByteCode;
 
 use self::x64::X64CodeGen;
 

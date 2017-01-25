@@ -365,7 +365,7 @@ impl SemanticsCheck {
         &mut self, 
         expr: &mut AstNode,
         body: &mut AstNode,
-        info: &NodeInfo) {
+        _info: &NodeInfo) {
         
        self.do_check(expr);
        let expr_type = self.get_type(expr);
@@ -388,7 +388,7 @@ impl SemanticsCheck {
         expr: &mut AstNode,
         if_blk: &mut AstNode,
         opt_else_blk: &mut Option<Box<AstNode>>,
-        info: &NodeInfo) {
+        _info: &NodeInfo) {
         
         self.do_check(expr);
         let expr_type = self.get_type(expr);

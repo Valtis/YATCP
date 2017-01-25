@@ -3,7 +3,7 @@ use obj_generator::Architecture;
 
 use code_generator::Code;
 
-use byteorder::{ByteOrder, LittleEndian, BigEndian };
+use byteorder::{ByteOrder, LittleEndian };
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -323,7 +323,7 @@ impl SectionHeader {
 
 impl Section for StringSection {
     
-    fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+    fn write(&self, file: &mut File, _architecture: Architecture) -> Result<(), Error> {
         for str in self.strings.iter() {
             file.write(str.as_bytes())?;
             file.write("\0".as_bytes())?;
@@ -334,7 +334,7 @@ impl Section for StringSection {
 
 impl Section for TextSection {
 
-    fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+    fn write(&self, file: &mut File, _architecture: Architecture) -> Result<(), Error> {
         file.write(self.code.as_slice())?;
         Ok(())
     }     
@@ -343,7 +343,7 @@ impl Section for TextSection {
 impl Section for SymbolSection {
      fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
         for v in self.entries.iter() {
-            v.write(file, architecture);
+            v.write(file, architecture)?;
         }
 
         Ok(())

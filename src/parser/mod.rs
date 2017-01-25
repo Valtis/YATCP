@@ -84,7 +84,7 @@ impl Parser {
     }
 
     fn parse_block(&mut self) -> Result<AstNode, ()> {
-        let token = self.expect(TokenType::LBrace)?;
+        self.expect(TokenType::LBrace)?;
         let nodes = self.parse_statements()?;
         self.expect(TokenType::RBrace)?;
         
@@ -253,7 +253,7 @@ impl Parser {
     }
 
     fn parse_else_block(&mut self) -> Result<AstNode, ()> {
-        self.expect(TokenType::Else);
+        self.expect(TokenType::Else)?;
         let token = self.lexer.peek_token();
         if token.token_type == TokenType::If {
             self.parse_if_statement()

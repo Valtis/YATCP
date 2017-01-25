@@ -262,8 +262,8 @@ impl AstNode {
 impl PartialEq for AstNode {   
     fn eq(&self, other: &AstNode) -> bool {
         match (self, other) {
-            (&AstNode::Block(ref s_chld, ref s_entry, ref s_info), 
-                &AstNode::Block(ref o_chld, ref o_entry, ref o_info)) => {
+            (&AstNode::Block(ref s_chld, ref _s_entry, ref s_info), 
+                &AstNode::Block(ref o_chld, ref _o_entry, ref o_info)) => {
                 // disregard symbol table contents for now
                 *s_chld == *o_chld && *s_info == *o_info 
             }

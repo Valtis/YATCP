@@ -451,7 +451,7 @@ impl X64CodeGen {
 
 
                         // if src2 is immediate value, store it in a register first
-                        if let Source::IntegerConstant(val) = operands.src2 {
+                        if let Source::IntegerConstant(_) = operands.src2 {
                             let divisor = Source::Register(free_register); 
                             free_register += 1;
 
@@ -482,7 +482,7 @@ impl X64CodeGen {
                     ByteCode::Compare(ref operands) => {
                     // convert compare(intconst, intconst into move rax - cmp rax, instconst)
                         match (&operands.src1, &operands.src2) {
-                            (&Source::IntegerConstant(i1), &Source::IntegerConstant(i2)) => {
+                            (&Source::IntegerConstant(_), &Source::IntegerConstant(_)) => {
                                 // move first argument into RAX
                                 new_code.push(ByteCode::Mov(UnaryOperation {
                                     src: operands.src1.clone(),
@@ -595,7 +595,7 @@ impl X64CodeGen {
         };
 
         match operand.src1 {
-            Source::IntegerConstant(val) => { 
+            Source::IntegerConstant(_) => {
                 ice!("Immediate operand as first argument to add: {:?}", operand);    
             },
             _ => {},
@@ -610,7 +610,7 @@ impl X64CodeGen {
         }
 
         // reg - reg sub or memory addresses
-        let mut WRXB_bits = 0u8;
+        let mut wrxb_bits = 0u8;
         let mut src_reg_bits = 0u8;
         let mut dest_reg_bits = 0u8;
 
@@ -622,9 +622,9 @@ impl X64CodeGen {
         match operand.dest {
             Source::Register(reg) => {
                 if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_RM_BIT;
+                    wrxb_bits |= REX_EXT_RM_BIT;
                 }
-                dest_reg_bits = self.reg_map[&reg].encoding();
+                dest_reg_bits |= self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(),
         }  
@@ -632,14 +632,14 @@ impl X64CodeGen {
         match operand.src2 {
             Source::Register(reg) => {
                 if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_REG_BIT;
+                    wrxb_bits |= REX_EXT_REG_BIT;
                 }
-                src_reg_bits = self.reg_map[&reg].encoding() << 3;
+                src_reg_bits |= self.reg_map[&reg].encoding() << 3;
             },
             _ => unimplemented!(), // operand from memory address needs to be handled
         }
 
-        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
+        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
         println!("WRXB byte: 0{:b}", prefix);
         self.asm_code.push(prefix);     
         self.asm_code.push(ADD_REG_FROM_REG_MEM);
@@ -672,7 +672,7 @@ impl X64CodeGen {
         };
 
         match operand.src1 {
-            Source::IntegerConstant(val) => { 
+            Source::IntegerConstant(_) => { 
                 panic!("Internal compiler error: Immediate operand as first argument to sub: {:?}", operand);    
             },
             _ => {},
@@ -686,7 +686,7 @@ impl X64CodeGen {
         }
 
         // reg - reg sub or memory addresses
-        let mut WRXB_bits = 0u8;
+        let mut wrxb_bits = 0u8;
         let mut src_reg_bits = 0u8;
         let mut dest_reg_bits = 0u8;
 
@@ -698,9 +698,9 @@ impl X64CodeGen {
         match operand.dest {
             Source::Register(reg) => {
                 if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_RM_BIT;
+                    wrxb_bits |= REX_EXT_RM_BIT;
                 }
-                dest_reg_bits = self.reg_map[&reg].encoding();
+                dest_reg_bits |= self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(),
         }  
@@ -708,14 +708,14 @@ impl X64CodeGen {
         match operand.src2 {
             Source::Register(reg) => {
                 if self.reg_map[&reg].is_extended_reg() {
-                    WRXB_bits |= REX_EXT_REG_BIT;
+                    wrxb_bits |= REX_EXT_REG_BIT;
                 }
-                src_reg_bits = self.reg_map[&reg].encoding() << 3;
+                src_reg_bits |= self.reg_map[&reg].encoding() << 3;
             },
             _ => unimplemented!(), // operand from memory address needs to be handled
         }
 
-        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | WRXB_bits);
+        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
         println!("WRXB byte: 0{:b}", prefix);
         self.asm_code.push(prefix);     
         self.asm_code.push(SUB_REG_FROM_REG_MEM);
@@ -861,7 +861,7 @@ impl X64CodeGen {
         constant: Option<(i32, usize)>,
         flags: u32) {
         
-        let mut WRXB_bits = 0u8;
+        let mut wrxb_bits = 0u8;
         let regrm_field : Option<u8> = if let Some((mode, mod_reg, mod_rm)) = modrm {
             let mut field = 0u8;  
             field |= match mode {
@@ -871,7 +871,7 @@ impl X64CodeGen {
             match mod_reg {
                 ModReg::Register(reg_id) => {
                     if self.reg_map[&reg_id].is_extended_reg() {
-                        WRXB_bits |= REX_EXT_REG_BIT;
+                        wrxb_bits |= REX_EXT_REG_BIT;
                     }
                     field |= self.reg_map[&reg_id].encoding() << 3;
                 }
@@ -883,13 +883,13 @@ impl X64CodeGen {
             match *mod_rm {
                 Source::Register(reg_id) => {
                     if self.reg_map[&reg_id].is_extended_reg() {
-                        WRXB_bits |= REX_EXT_RM_BIT;
+                        wrxb_bits |= REX_EXT_RM_BIT;
                     }
                     field |= self.reg_map[&reg_id].encoding();
                 },
                 Source::ReturnRegister => {
                     if self.reg_map[&ACCUMULATOR].is_extended_reg() {
-                        WRXB_bits |= REX_EXT_RM_BIT;
+                        wrxb_bits |= REX_EXT_RM_BIT;
                     }
                     field |= self.reg_map[&ACCUMULATOR].encoding(); 
                 }
@@ -901,9 +901,9 @@ impl X64CodeGen {
         };
 
         if flags & FLAG_64_BIT_OPERANDS != 0 { 
-            WRXB_bits |= REX_64_BIT_OPERAND;  
+            wrxb_bits |= REX_64_BIT_OPERAND;  
         }
-            let prefix = self.create_rex_prefix(WRXB_bits);
+            let prefix = self.create_rex_prefix(wrxb_bits);
             self.asm_code.push(prefix);   
 
         match opcode {
@@ -938,7 +938,7 @@ impl X64CodeGen {
         let mut src_reg_bits = 0;
 
         if let Source::Register(reg) = operand.src2 {
-            src_reg_bits = self.reg_map[&reg].encoding();
+            src_reg_bits |= self.reg_map[&reg].encoding();
             if self.reg_map[&reg].is_extended_reg() {
                 wrxb_bits |= REX_EXT_RM_BIT;
             }

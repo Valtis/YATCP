@@ -1,4 +1,3 @@
-use ansi_term;
 use ansi_term::Colour::Red;
 use std::io::Write;
 

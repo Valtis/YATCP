@@ -2,7 +2,6 @@ extern crate compiler;
 
 use compiler::lexer::ReadLexer;
 use compiler::parser::Parser;
-use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
 use compiler::tac_generator::TACGenerator;
 use compiler::byte_generator::ByteGenerator;

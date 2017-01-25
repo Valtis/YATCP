@@ -22,7 +22,7 @@ pub enum Operator {
     Less,
 }
 
-const tmp_name : &'static str = "tmp";
+const TMP_NAME : &'static str = "%tmp";
 
 impl Display for Operator {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
@@ -169,7 +169,7 @@ impl TACGenerator {
         &mut self,
         children: &Vec<AstNode>,
         table_entry: &Option<TableEntry>,
-        node_info: &NodeInfo) {
+        _node_info: &NodeInfo) {
 
         if let Some(ref entry) = *table_entry {
            self.symbol_table.push(entry.clone());
@@ -312,7 +312,7 @@ impl TACGenerator {
 
         let temp = Operand::Variable(
             DeclarationInfo::new_alt(
-                tmp_name.to_string(), 
+                TMP_NAME.to_string(), 
                 self.get_type(&left_op),
                 0, 0, 0),
             id);
@@ -427,7 +427,7 @@ impl TACGenerator {
 
         let temp = Operand::Variable(
             DeclarationInfo::new_alt(
-                tmp_name.to_string(), 
+                TMP_NAME.to_string(), 
                 self.get_type(&left_op),
                 0, 0, 0),
             id);

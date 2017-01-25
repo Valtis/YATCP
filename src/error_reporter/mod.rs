@@ -138,8 +138,7 @@ impl FileErrorReporter {
             Err(e) => panic!("Failed to open file {}: {}", self.file_path, e),
         };
 
-        let mut reader = BufReader::new(f);
-        let mut buffer = String::new();    
+        let reader = BufReader::new(f);
         for line in reader.lines()  {
             match line {
                 Ok(content) => lines.push(content), 

@@ -5,8 +5,6 @@ use token::TokenSubType;
 use error_reporter::ErrorReporter;
 use error_reporter::Error;
 
-use std::fs::File;
-
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Bytes;
