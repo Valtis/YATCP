@@ -31,6 +31,7 @@ const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
 
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
+const CMP_REG_WITH_REGMEM : u8 = 0x3B;
 
 const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 
@@ -807,21 +808,30 @@ impl X64CodeGen {
                     Some((i, 4)),
                     FLAG_64_BIT_OPERANDS); 
             },
+            (&Source::Register(reg1), &Source::Register(reg2)) => {
+                self.emit_instruction(
+                    SizedOpCode::from(CMP_REG_WITH_REGMEM), 
+                    Some((
+                        Mode::Register,
+                        ModReg::Register(reg1),
+                        &Source::Register(reg2),
+                    )),
+                    None,
+                    FLAG_64_BIT_OPERANDS); 
+            }
             _ => unimplemented!(),
         }
     } 
 
     fn emit_unconditional_jump(&mut self, id: u32) {
-        if self.label_pos.contains_key(&id) {
-            unimplemented!();
-        } else {
-            self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
-            self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
-            // place for the 
-            for _ in 0..4 {
-                self.asm_code.push(0x00);
-            }
+
+        self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
+        self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
+        // place for the 
+        for _ in 0..4 {
+            self.asm_code.push(0x00);
         }
+    
     }
 
     fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {

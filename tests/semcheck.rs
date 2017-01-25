@@ -506,6 +506,184 @@ fn return_with_correct_expression_type_is_allowed_in_function() {
 }
 
 #[test]
+fn correct_while_loop_is_accepted() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        while 1 >= 23 {
+            let a : int = 1;
+        } else {
+            let b : double = 1.23;
+        }
+    }
+    */
+    let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::While(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Integer(
+                                1,
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Integer,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+    checker.check_semantics(&mut node); 
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn if_statement_without_else_is_accepted() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        if 1 >= 23 {
+            let a : int = 1;
+        }
+    }
+    */
+    let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Integer(
+                                1,
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Integer,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    None,
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+    checker.check_semantics(&mut node); 
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn if_statement_with_else_is_accepted() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        if 1 >= 23 {
+            let a : int = 1;
+        } else {
+            let b : double = 1.23;
+        }
+    }
+    */
+    let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Integer(
+                                1,
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Integer,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    Some(Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Double(
+                                1.23,
+                                NodeInfo::new(7, 6, 5),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "b".to_string(),
+                            Type::Double,
+                            41, 51, 61)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0)
+                    ))),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+    checker.check_semantics(&mut node); 
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
 fn redeclaration_of_variable_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
@@ -1740,4 +1918,326 @@ fn error_in_while_loop_body_is_handled() {
         9,
         7,
         6);
+}
+
+
+#[test]
+fn if_statement_with_non_boolean_expression_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+        /*
+    fn foo() : int {
+        if 1 {
+            let a : string = "foo";
+        } else {
+            let b : double = 3.14159;
+        }
+    }*/
+
+   let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::Integer(
+                        1,
+                        NodeInfo::new(11, 22, 33),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Text(
+                                "foo".to_string(),
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::String,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    Some(Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Double(
+                                3.14159,
+                                NodeInfo::new(7, 6, 5),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "b".to_string(),
+                            Type::Double,
+                            41, 51, 61)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0)
+                    ))),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+   checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        11,
+        22,
+        33);
+}
+
+#[test]
+fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
+    
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        if 1 > 23 {
+            let a : string = "foo";
+        } else if 4 {
+            let b : double = 3.14159;
+        }
+    }*/
+
+   let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Text(
+                                "foo".to_string(),
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::String,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    Some(Box::new(AstNode::If(
+                        Box::new(AstNode::Integer(
+                            4,
+                            NodeInfo::new(99, 88, 77),
+                        )),
+                        Box::new(AstNode::Block(vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Double(
+                                    3.14159,
+                                    NodeInfo::new(7, 6, 5),
+                                )),
+                                DeclarationInfo::new_alt(
+                                "b".to_string(),
+                                Type::Double,
+                                41, 51, 61)),
+                            ],
+                            None,
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    ))),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+   checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        99,
+        88,
+        77);
+}
+
+#[test]
+fn error_in_if_statement_true_block_is_reported() {
+    
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        if 1 > 23 {
+            let a : int = "foo";
+        } else {
+            let b : double = 3.14159;
+        }
+    }*/
+
+   let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Text(
+                                "foo".to_string(),
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Integer,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    Some(Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Double(
+                                3.14159,
+                                NodeInfo::new(7, 6, 5),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "b".to_string(),
+                            Type::Double,
+                            41, 51, 61)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0)
+                    ))),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+   checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        1,
+        2,
+        3);
+
+    assert_eq_error!(reporter.borrow().errors()[1], 
+        Error::Note,
+        4,
+        5,
+        6);
+}
+
+#[test]
+fn error_in_else_block_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+    fn foo() : int {
+        if 1 > 23 {
+            let a : int = 1;
+        } else {
+            let b : double = 3;
+        }
+    }*/
+
+   let mut node = AstNode::Block(vec![
+        AstNode::Function(
+            Box::new(AstNode::Block(vec![                    
+                AstNode::If(
+                    Box::new(AstNode::GreaterOrEq(
+                        Box::new(AstNode::Integer(
+                            1,
+                            NodeInfo::new(11, 22, 33),
+                        )),
+                        Box::new(AstNode::Integer(
+                            23,
+                            NodeInfo::new(13, 14, 15))),
+                        NodeInfo::new(12, 23, 34),
+                    )),
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Integer(
+                                1,
+                                NodeInfo::new(1, 2, 3),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "a".to_string(),
+                            Type::Integer,
+                            4, 5, 6)),
+                            ],
+                        None,
+                        NodeInfo::new(0, 0, 0),
+                    )),
+                    Some(Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Integer(
+                                3,
+                                NodeInfo::new(7, 6, 5),
+                            )),
+                            DeclarationInfo::new_alt(
+                            "b".to_string(),
+                            Type::Double,
+                            41, 51, 61)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0)
+                    ))),
+                    NodeInfo::new(5, 6, 7),
+                ),
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+            )),
+            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+        ],
+        None,
+        NodeInfo::new(0, 0, 0));
+
+   checker.check_semantics(&mut node); 
+
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0], 
+        Error::TypeError,
+        7,
+        6,
+        5);
+
+    assert_eq_error!(reporter.borrow().errors()[1], 
+        Error::Note,
+        41,
+        51,
+        61);
 }

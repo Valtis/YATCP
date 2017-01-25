@@ -116,6 +116,8 @@ impl Parser {
                     self.parse_return_statement(),
                 TokenType::While => 
                     self.parse_while_statement(),
+                TokenType::If => 
+                    self.parse_if_statement(), 
                 _ => return Ok(nodes)
             };
 
@@ -224,6 +226,40 @@ impl Parser {
                 while_node.line,
                 while_node.column,
                 while_node.length)))
+    }
+
+    fn parse_if_statement(&mut self) -> Result<AstNode, ()> {
+        let if_node = self.expect(TokenType::If)?;
+        let expr = self.parse_expression()?;
+        let block = self.parse_block()?;
+        
+        let token = self.lexer.peek_token();
+
+        let opt_else_blk = if token.token_type == TokenType::Else {
+            let else_blk = self.parse_else_block()?;
+            Some(Box::new(else_blk))
+        } else {
+            None
+        };
+
+        Ok(AstNode::If(
+            Box::new(expr),
+            Box::new(block),
+            opt_else_blk,
+            NodeInfo::new(
+                if_node.line,
+                if_node.column,
+                if_node.length)))
+    }
+
+    fn parse_else_block(&mut self) -> Result<AstNode, ()> {
+        self.expect(TokenType::Else);
+        let token = self.lexer.peek_token();
+        if token.token_type == TokenType::If {
+            self.parse_if_statement()
+        } else {
+            self.parse_block()
+        }
     }
 
     fn parse_expression(&mut self) -> Result<AstNode, ()> {
@@ -385,6 +421,46 @@ impl Parser {
                             next_token.column,
                             next_token.length));
                     Ok(less_node)
+                },
+                TokenSubType::LessOrEq => {
+                    let less_or_eq_node = AstNode::LessOrEq(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(less_or_eq_node)
+                },
+                TokenSubType::Equals => {
+                    let equals_node = AstNode::Equals(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(equals_node)
+                },
+                TokenSubType::GreaterOrEq => {
+                    let greater_or_eq_node = AstNode::GreaterOrEq(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(greater_or_eq_node)
+                },
+                TokenSubType::Greater => {
+                    let greater_node = AstNode::Greater(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(greater_node)
                 },
                 _ => ice!("Invalid token subtype '{}' for comparison", next_token),
             }           

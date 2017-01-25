@@ -98,7 +98,17 @@ impl SemanticsCheck {
                 self.handle_return(child, ai),
             AstNode::While(ref mut expr, ref mut child, ref ni) => 
                 self.handle_while(expr, child, ni),
-            AstNode::Less(_, _, _) => 
+            AstNode::If(
+                ref mut expr, 
+                ref mut block, 
+                ref mut opt_else_blk, 
+                ref ni) => 
+                self.handle_if(expr, block, opt_else_blk, ni),
+            AstNode::Less(_, _, _) |
+            AstNode::LessOrEq(_, _, _) |
+            AstNode::Equals(_, _, _) |
+            AstNode::GreaterOrEq(_, _, _) |
+            AstNode::Greater(_, _, _) => 
                 self.handle_comparison_operation(node),
             AstNode::Integer(_, _) => {},
             AstNode::Float(_, _) => {},
@@ -370,7 +380,34 @@ impl SemanticsCheck {
                     Type::Boolean, expr_type));
        } 
 
-       self.do_check(body);
+       self.do_check(body); 
+    }
+
+    fn handle_if(
+        &mut self,
+        expr: &mut AstNode,
+        if_blk: &mut AstNode,
+        opt_else_blk: &mut Option<Box<AstNode>>,
+        info: &NodeInfo) {
+        
+        self.do_check(expr);
+        let expr_type = self.get_type(expr);
+
+        if expr_type != Type::Invalid && expr_type != Type::Boolean {
+            self.report_error(
+                Error::TypeError,
+                expr.line(),
+                expr.column(),
+                expr.length(),
+                format!("Expected '{}' for if expression but was '{}'",
+                    Type::Boolean, expr_type));
+        } 
+
+        self.do_check(if_blk); 
+        if let Some(ref mut else_blk) = *opt_else_blk {
+            self.do_check(else_blk); 
+        }
+
     }
 
 
@@ -481,7 +518,11 @@ impl SemanticsCheck {
 
     fn handle_comparison_operation(&mut self, node: &mut AstNode) {
         let (left_child, right_child, info) = match *node {
-            AstNode::Less(ref mut l_child, ref mut r_child, ref info) =>
+            AstNode::Less(ref mut l_child, ref mut r_child, ref info) |
+            AstNode::LessOrEq(ref mut l_child, ref mut r_child, ref info) |
+            AstNode::Equals(ref mut l_child, ref mut r_child, ref info) |
+            AstNode::GreaterOrEq(ref mut l_child, ref mut r_child, ref info) |
+            AstNode::Greater(ref mut l_child, ref mut r_child, ref info) =>
                 (l_child, r_child, info),
             _ => ice!("Invalid node '{}' passed to comparison handler", node),
         };
@@ -550,7 +591,11 @@ impl SemanticsCheck {
             AstNode::Float(_, _) => Type::Float,
             AstNode::Double(_, _) => Type::Double,
             AstNode::Boolean(_, _) => Type::Boolean,
-            AstNode::Less(_, _, _) => Type::Boolean,
+            AstNode::Less(_, _, _) |
+            AstNode::LessOrEq(_, _, _) |
+            AstNode::Equals(_, _, _) |
+            AstNode::GreaterOrEq(_, _, _) |
+            AstNode::Greater(_, _, _) => Type::Boolean,
             AstNode::Plus(_, _, ref info) | 
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _,  ref info) | 

@@ -34,20 +34,31 @@ pub enum AstNode {
     Function(Box<AstNode>, FunctionInfo),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
     VariableAssignment(Box<AstNode>, String, NodeInfo),
+
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Divide(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Negate(Box<AstNode>, ArithmeticInfo),
+
     Return(Option<Box<AstNode>>, ArithmeticInfo),
+
     While(Box<AstNode>, Box<AstNode>, NodeInfo),
+    If(Box<AstNode>, Box<AstNode>, Option<Box<AstNode>>, NodeInfo),
+
     Less(Box<AstNode>, Box<AstNode>, NodeInfo),
+    LessOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
+    Equals(Box<AstNode>, Box<AstNode>, NodeInfo),
+    GreaterOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
+    Greater(Box<AstNode>, Box<AstNode>, NodeInfo),
+
     Integer(i32, NodeInfo),
     Float(f32, NodeInfo),
     Double(f64, NodeInfo),
     Text(String, NodeInfo),
     Boolean(bool, NodeInfo),
     Identifier(String, NodeInfo),
+
     ErrorNode,
 }
 
@@ -74,7 +85,12 @@ impl Display for AstNode {
           AstNode::Negate(_, _) => "Negate".to_string(),
           AstNode::Return(_, _) => "Return".to_string(),
           AstNode::While(_, _, _) => "While".to_string(),
+          AstNode::If(_, _, _, _) => "If".to_string(),
           AstNode::Less(_, _, _) => "Less".to_string(),
+          AstNode::LessOrEq(_, _, _) => "LessOrEq".to_string(),
+          AstNode::Equals(_, _, _) => "Equals".to_string(),
+          AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
+          AstNode::Greater(_, _, _) => "Greater".to_string(),
           AstNode::ErrorNode => "<syntax error>".to_string(),
       })
   }
@@ -134,7 +150,18 @@ impl AstNode {
                 string = format!("{}{}", string, expr.print_impl(next_int));
                 string = format!("{}{}", string, child.print_impl(next_int));
             },
-            AstNode::Less(ref left, ref right, _) => {
+            AstNode::If(ref expr, ref child, ref opt_else_blk, _) => {
+                string = format!("{}{}", string, expr.print_impl(next_int));
+                string = format!("{}{}", string, child.print_impl(next_int));
+                if let Some(ref else_blk) = *opt_else_blk {
+                    string = format!("{}{}", string, else_blk.print_impl(next_int));
+                }
+            },
+            AstNode::Less(ref left, ref right, _) |
+            AstNode::LessOrEq(ref left, ref right, _) |
+            AstNode::Equals(ref left, ref right, _) | 
+            AstNode::GreaterOrEq(ref left, ref right, _) |
+            AstNode::Greater(ref left, ref right, _) => {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
             }
@@ -157,7 +184,12 @@ impl AstNode {
             AstNode::Negate(_, ref info) => info.node_info.line,
             AstNode::Return(_, ref info) => info.node_info.line,
             AstNode::While(_, _, ref info) => info.line,
-            AstNode::Less(_, _, ref info) => info.line,
+            AstNode::If(_, _, _, ref info) => info.line,
+            AstNode::Less(_, _, ref info) |
+            AstNode::LessOrEq(_, _, ref info) |
+            AstNode::Equals(_, _, ref info) |
+            AstNode::GreaterOrEq(_, _, ref info) |
+            AstNode::Greater(_, _, ref info) => info.line,
             AstNode::Integer(_, ref info) => info.line,
             AstNode::Float(_, ref info) => info.line,
             AstNode::Double(_, ref info) => info.line,
@@ -181,7 +213,12 @@ impl AstNode {
             AstNode::Negate(_, ref info) => info.node_info.column,
             AstNode::Return(_, ref info) => info.node_info.column,
             AstNode::While(_, _, ref info) => info.column,
-            AstNode::Less(_, _, ref info) => info.column,
+            AstNode::If(_, _, _, ref info) => info.column,
+            AstNode::Less(_, _, ref info) |
+            AstNode::LessOrEq(_, _, ref info) |
+            AstNode::Equals(_, _, ref info) |
+            AstNode::GreaterOrEq(_, _, ref info) |
+            AstNode::Greater(_, _, ref info) => info.column,
             AstNode::Integer(_, ref info) => info.column,
             AstNode::Float(_, ref info) => info.column,
             AstNode::Double(_, ref info) => info.column,
@@ -205,7 +242,12 @@ impl AstNode {
             AstNode::Negate(_, ref info) => info.node_info.length,
             AstNode::Return(_, ref info) => info.node_info.length,
             AstNode::While(_, _, ref info) => info.length,
-            AstNode::Less(_, _, ref info) => info.length,
+            AstNode::If(_, _, _, ref info) => info.length,
+            AstNode::Less(_, _, ref info) |
+            AstNode::LessOrEq(_, _, ref info) |
+            AstNode::Equals(_, _, ref info) |
+            AstNode::GreaterOrEq(_, _, ref info) |
+            AstNode::Greater(_, _, ref info) => info.length,
             AstNode::Integer(_, ref info) => info.length,
             AstNode::Float(_, ref info) => info.length,
             AstNode::Double(_, ref info) => info.length,
@@ -284,8 +326,23 @@ impl PartialEq for AstNode {
              &AstNode::While(ref o_lchld, ref o_rchld, ref o_ni)) => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
             },
+            (&AstNode::If(
+                ref s_lchld, ref s_rchld, ref s_opt_else_blk, ref s_ni),
+             &AstNode::If(
+                ref o_lchld, ref o_rchld, ref o_opt_else_blk, ref o_ni)) => {
+                s_lchld == o_lchld && s_rchld == o_rchld && 
+                s_opt_else_blk == o_opt_else_blk && s_ni == o_ni
+            }
             (&AstNode::Less(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::Less(ref o_lchld, ref o_rchld, ref o_ni)) => {
+             &AstNode::Less(ref o_lchld, ref o_rchld, ref o_ni)) |
+            (&AstNode::LessOrEq(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::LessOrEq(ref o_lchld, ref o_rchld, ref o_ni)) |
+            (&AstNode::Equals(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::Equals(ref o_lchld, ref o_rchld, ref o_ni)) |
+            (&AstNode::GreaterOrEq(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::GreaterOrEq(ref o_lchld, ref o_rchld, ref o_ni)) |
+            (&AstNode::Greater(ref s_lchld, ref s_rchld, ref s_ni),
+             &AstNode::Greater(ref o_lchld, ref o_rchld, ref o_ni)) => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
             },
             (&AstNode::ErrorNode, &AstNode::ErrorNode) => true,

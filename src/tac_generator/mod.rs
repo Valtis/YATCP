@@ -157,6 +157,8 @@ impl TACGenerator {
             AstNode::Return(ref child, _) => self.handle_return(child),
             AstNode::While(ref expr, ref block, _) => 
                 self.handle_while(expr, block),
+            AstNode::If(ref expr, ref if_blk, ref opt_else_blk, _) =>
+                self.handle_if(expr, if_blk, opt_else_blk),
             AstNode::Less(ref left, ref right, _) =>
                 self.handle_less(left, right),
             ref x => panic!("Three-address code generation not implemented for '{}'", x),
@@ -361,6 +363,58 @@ impl TACGenerator {
         let operand = self.get_operand(expr);
         self.current_function().statements.push(
             Statement::JumpIfTrue(operand, block_label_id)); 
+    }
+
+
+    fn handle_if(
+        &mut self, 
+        expr: &AstNode, 
+        if_blk: &AstNode, 
+        opt_else_blk: &Option<Box<AstNode>>) {
+
+        let comparison_label_id = self.get_label_id();
+        let if_blk_label = self.get_label_id();
+        let else_blk_label = self.get_label_id();
+        let out_label = self.get_label_id();
+
+
+        // jump to condition evaluation
+        self.current_function().statements.push(
+            Statement::Jump(comparison_label_id)); 
+        // true branch
+        self.current_function().statements.push(            
+            Statement::Label(if_blk_label)); 
+        self.generate_tac(if_blk); 
+        self.current_function().statements.push(
+            Statement::Jump(out_label)); 
+
+        // false branch, if present
+        if let Some(ref else_blk) = *opt_else_blk {
+            self.current_function().statements.push(            
+            Statement::Label(else_blk_label)); 
+            self.generate_tac(else_blk);                   
+            self.current_function().statements.push(
+                Statement::Jump(out_label));         
+        }
+
+        // perform comparison
+        self.current_function().statements.push(
+            Statement::Label(comparison_label_id)); 
+        let operand = self.get_operand(expr);
+
+        // jump to true branch, if comparison is true
+        self.current_function().statements.push(
+            Statement::JumpIfTrue(operand, if_blk_label)); 
+        // either fall through, or jump to else branch
+        if let Some(_) = *opt_else_blk {
+             self.current_function().statements.push(
+                Statement::Jump(else_blk_label));         
+        }
+        self.current_function().statements.push(
+            Statement::Label(out_label));
+
+
+
     }
 
     fn handle_less(&mut self, left: &AstNode, right: &AstNode) {
