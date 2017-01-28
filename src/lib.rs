@@ -11,6 +11,7 @@ pub mod ast;
 pub mod semcheck;
 pub mod symbol_table;
 pub mod tac_generator;
+pub mod cfg;
 pub mod ssa_generator;
 pub mod byte_generator;
 pub mod code_generator;

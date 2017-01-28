@@ -20,6 +20,10 @@ pub enum Operator {
     Multiply,
     Divide,
     Less,
+    LessOrEq,
+    Equals,
+    GreaterOrEq,
+    Greater
 }
 
 const TMP_NAME : &'static str = "%tmp";
@@ -32,6 +36,10 @@ impl Display for Operator {
             Operator::Multiply => "*".to_string(),
             Operator::Divide => "/".to_string(),
             Operator::Less => "<".to_string(),
+            Operator::LessOrEq => "<=".to_string(),
+            Operator::Equals => "==".to_string(),
+            Operator::GreaterOrEq => ">=".to_string(),
+            Operator::Greater => ">".to_string(),
         })
     }
 }
@@ -159,8 +167,13 @@ impl TACGenerator {
                 self.handle_while(expr, block),
             AstNode::If(ref expr, ref if_blk, ref opt_else_blk, _) =>
                 self.handle_if(expr, if_blk, opt_else_blk),
-            AstNode::Less(ref left, ref right, _) =>
-                self.handle_less(left, right),
+            AstNode::Less(_, _, _) |
+            AstNode::LessOrEq(_, _, _) |
+            AstNode::Equals(_, _, _) |
+            AstNode::GreaterOrEq(_, _, _) |
+            AstNode::Greater(_, _, _) =>
+                self.handle_comparison(node),
+
             ref x => panic!("Three-address code generation not implemented for '{}'", x),
         }
     }
@@ -412,14 +425,23 @@ impl TACGenerator {
         }
         self.current_function().statements.push(
             Statement::Label(out_label));
-
-
-
     }
 
-    fn handle_less(&mut self, left: &AstNode, right: &AstNode) {
+    fn handle_comparison(&mut self, node: &AstNode) {
+        let (operator, left, right) = match *node {
+            AstNode::Less(ref left, ref right, _) => 
+                (Operator::Less, left, right),
+            AstNode::LessOrEq(ref left, ref right, _) =>
+                (Operator::LessOrEq, left, right),        
+            AstNode::Equals(ref left, ref right, _) =>
+                (Operator::Equals, left, right),
+            AstNode::GreaterOrEq(ref left, ref right, _) =>
+                (Operator::GreaterOrEq, left, right),
+            AstNode::Greater(ref left, ref right, _) =>
+                (Operator::Greater, left, right),
+            _ => ice!("Invalid AstNode '{}' passed for comparison handling", node)
+        };
 
-        let operator = Operator::Less;
         let id = self.get_next_id();
         
         let left_op = self.get_operand(left);
