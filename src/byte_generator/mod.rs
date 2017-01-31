@@ -209,7 +209,7 @@ impl ByteGenerator {
                 }
             },
             &Operand::Integer(i32) => Source::IntegerConstant(i32),
-            _ => unimplemented!(),
+            x => panic!("Not implemented yet for {}", x),
         }
     }
 

@@ -1,6 +1,7 @@
 use tac_generator::Function;
 use tac_generator::Statement;
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct BasicBlock {
     pub start: usize,
     pub end: usize,

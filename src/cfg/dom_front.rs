@@ -8,39 +8,31 @@ use std::collections::HashSet;
 
 pub fn calculate_dominance_frontier(func_cfgs: &mut HashMap<String, CFG>) {
 
-    for (ref name, ref cfg) in func_cfgs.iter() {
-        let idom = calculate_immediate_dominator(cfg);
+    for (name, cfg) in func_cfgs.iter_mut() {
+        println!("Func {}", name);
+        
+        let dominators = calculate_dominators(cfg);
+        println!("Dominators for {}", name);
+        for i in 0..cfg.basic_blocks.len() {
+            println!("    Block {}: {:?}", i+1, dominators[&i].iter().map(|v| v + 1).collect::<Vec<usize>>());
+        }
+        println!("");
 
 
-        let mut dominance_frontier = vec![];
-        dominance_frontier.resize(cfg.basic_blocks.len(), vec![]);
+        cfg.immediate_dominators = calculate_immediate_dominator(cfg);
 
         for bb in 0..cfg.basic_blocks.len() {
-            let parents = get_parents(&cfg.adjancency_list, bb);
+            let parents = cfg.get_parent_blocks(bb);
             if parents.len() >= 2 {
                 for p in parents.iter() {
                     let mut runner = *p;
-                    while runner != idom[bb] {
-                        dominance_frontier[runner].push(bb);
-                        runner = idom[runner];
+                    while runner != cfg.immediate_dominators[bb] {
+                        cfg.dominance_frontier[runner].push(bb);
+                        runner = cfg.immediate_dominators[runner];
                     }
                 }
             }
         }        
-
-        for i in 0..dominance_frontier.len() {
-            println!("Dominance frontier for {}: {:?}", i, dominance_frontier[i]);
-        } 
-
-        // the dominators contain the list of dominators for given nodes.
-
-
-        let dominators = calculate_dominators(cfg);
-        println!("Dominators for {}", name);
-        for i in 0..cfg.basic_blocks.len() {
-            println!("    Block {}: {:?}", i, dominators[&i]);
-        }
-        println!("");
     }
 }
 
@@ -66,7 +58,7 @@ fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
         for i in 1..cfg.basic_blocks.len() {
             let len = dominators[&i].len();
 
-            let parents =  get_parents(&cfg.adjancency_list, i);
+            let parents =  cfg.get_parent_blocks(i);
 
             // iteratively set dominator of i as intersection of parent dominators and the i
             if parents.len() > 0 {
@@ -91,7 +83,7 @@ fn calculate_immediate_dominator(cfg: &CFG) -> Vec<usize> {
     let mut parents = vec![];
     for bb in 0..cfg.basic_blocks.len() {
         opt_idom.push(None);
-        parents.push(get_parents(&cfg.adjancency_list, bb));
+        parents.push(cfg.get_parent_blocks(bb));
     }
 
 
@@ -102,10 +94,9 @@ fn calculate_immediate_dominator(cfg: &CFG) -> Vec<usize> {
     // etc.
     // this is used during intersect to determine which node is smaller/larger
 
-    let mut node_pos = vec![];
-    node_pos.resize(reverse_postorder.len(), 0);
-    for i in 0..reverse_postorder.len() {
-        node_pos[reverse_postorder[i]] = (reverse_postorder.len() - 1) - i;
+    let mut node_pos = HashMap::new();
+    for (i, val) in reverse_postorder.iter().enumerate() {
+        node_pos.insert(*val, (reverse_postorder.len() - 1) - i);
     }
 
     println!("Rev postorder: {:?}", reverse_postorder);
@@ -174,16 +165,15 @@ fn intersect(
     parent: usize, 
     new_idom: usize, 
     opt_idom: &Vec<Option<usize>>,
-    node_pos: &Vec<usize>) -> usize {
+    node_pos: &HashMap<usize, usize>) -> usize {
     let mut finger1 = parent;
     let mut finger2 = new_idom;
 
-
     while finger1 != finger2 {        
-        while node_pos[finger1] < node_pos[finger2] {
+        while node_pos[&finger1] < node_pos[&finger2] {
             finger1 = opt_idom[finger1].unwrap();
         }
-        while node_pos[finger2] < node_pos[finger1] {
+        while node_pos[&finger2] < node_pos[&finger1] {
             finger2 = opt_idom[finger2].unwrap();
         }
     }
@@ -206,7 +196,7 @@ fn depth_first_search(node: usize,
     post_order: &mut Vec<usize>,
     cfg: &CFG) {
         visited.insert(node);
-        for child in cfg.adjancency_list[&node].iter() {
+        for child in cfg.adjancency_list[node].iter() {
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, post_order, cfg);
@@ -214,31 +204,4 @@ fn depth_first_search(node: usize,
             }
         }
         post_order.push(node);
-}
-
-
-
-fn get_parents(adjancency_list: &HashMap<usize, Vec<Adj>>, block: usize) -> Vec<usize> {
-    let mut parents = vec![];
-    for (i, ref list) in adjancency_list {
-        if *i == block {
-            continue;
-        } 
-
-        for b in list.iter() {
-            match *b {
-                Adj::Block(id) => {
-                    if id == block {
-                        if !parents.contains(i) {
-                            parents.push(*i);
-                            continue;
-                        }
-                    }
-                },
-                _ => {},
-            }
-            
-        }        
-    } 
-    return parents;
 }

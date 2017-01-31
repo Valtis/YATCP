@@ -6,12 +6,17 @@ use compiler::ast::AstNode;
 use compiler::semcheck::SemanticsCheck;
 use compiler::tac_generator::TACGenerator;
 use compiler::tac_generator::Function;
+use compiler::ssa_generator::convert_to_ssa;
+use compiler::ssa_generator::destroy_ssa;
+
 use compiler::byte_generator::ByteGenerator;
 use compiler::byte_generator;
 use compiler::code_generator::CodeGenerator;
 
 use compiler::cfg::generate_cfg;
 use compiler::cfg::CFG;
+
+use compiler::optimizer::optimize;
 
 use compiler::obj_generator;
 use compiler::obj_generator::ObjectType;
@@ -29,17 +34,24 @@ use std::collections::HashMap;
 fn main() {
 
     let file_name = "file.txt";
-    let opt_bytecode = run_frontend(file_name);
+    let opt_functions = run_frontend(file_name);
 
-    if let Some(bytecode) = opt_bytecode {
-     run_backend(file_name, bytecode);
-}
+    // hardcoded for now. Should be read from command line args
+    let optimize = true; 
+
+
+    if let Some(mut functions) = opt_functions {
+        if optimize {
+           functions = run_middleend(functions);
+        }
+        run_backend(file_name, functions);
+    }
  
 }
 
 
 fn run_frontend(
-    file_name: &'static str) -> Option<Vec<byte_generator::Function>> {
+    file_name: &'static str) -> Option<Vec<Function>> {
 
     let error_reporter = Rc::new(
         RefCell::new(FileErrorReporter::new(file_name)));
@@ -64,19 +76,11 @@ fn run_frontend(
             return None;
     }
 
-    let mut tac_gen = TACGenerator::new(checker.get_current_id());
-    tac_gen.generate_tac(&mut node);
-    print_tac(&tac_gen);
+    let tac_gen = TACGenerator::new(checker.get_current_id());
+    let mut tac_functions = tac_gen.generate_tac_functions(&mut node);
+    print_tac(&tac_functions);
 
-    let cfg = generate_cfg(tac_gen.functions());
-    print_cfg(&cfg, tac_gen.functions());
-
-    let mut byte_gen = ByteGenerator::new((*tac_gen.functions()).clone());
-
-    byte_gen.generate_bytecode();
-    print_bytecode(&byte_gen); 
-
-    Some(byte_gen.bytecode_functions)
+    Some(tac_functions)
 }
 
 fn parse_code(
@@ -90,9 +94,9 @@ fn parse_code(
     parser.parse()
 }
 
-fn print_tac(tac_gen: &TACGenerator) {
+fn print_tac(tac_functions: &Vec<Function>) {
     let mut counter = 1; 
-    for f in tac_gen.functions() {
+    for f in tac_functions.iter() {
         println!("Function '{}'\n", f.name);
         for s in &f.statements {
             println!("    {}: {}", counter, s);
@@ -119,7 +123,7 @@ fn print_cfg(cfg: &HashMap<String, CFG>, functions: &Vec<Function>) {
         println!("Adjancency:\n");
 
         for i in 0..cfg[&f.name].basic_blocks.len()  {
-            let mut adj_str = cfg[&f.name].adjancency_list[&i].
+            let mut adj_str = cfg[&f.name].adjancency_list[i].
                 iter().
                 fold(String::new(), |acc, ref val| format!("{}, {}", val, acc));
 
@@ -130,6 +134,11 @@ fn print_cfg(cfg: &HashMap<String, CFG>, functions: &Vec<Function>) {
             println!("{}: {}", i+1, adj_str);
 
         }
+        println!("\nDominance frontiers\n");
+        for i in 0..cfg[&f.name].dominance_frontier.len() {
+            println!("{}: {:?}", i+1, cfg[&f.name].dominance_frontier[i].iter().map(|v| v + 1).collect::<Vec<usize>>());
+        } 
+
 
         println!("\n");
     }    
@@ -148,7 +157,30 @@ fn print_bytecode(byte_gen: &ByteGenerator) {
     println!("");
 }
 
-fn run_backend(file_name: &'static str, bytecode: Vec<byte_generator::Function> ) {
+fn run_middleend(mut functions: Vec<Function>) -> Vec<Function> {
+
+    let mut cfg = generate_cfg(&mut functions);
+    print_cfg(&cfg, &functions);
+    convert_to_ssa(&mut functions, &mut cfg);
+    println!("\nBefore optimizations\n");
+    print_tac(&functions);
+    optimize(&mut functions, &mut cfg);
+    println!("\nAfter optimizations\n");
+    print_cfg(&cfg, &functions);
+    destroy_ssa(&mut functions, &mut cfg);
+
+    println!("\nAfter SSA destruction\n");
+    print_cfg(&cfg, &functions);
+    functions
+}
+
+fn run_backend(file_name: &'static str, functions: Vec<Function> ) {
+    let mut byte_gen = ByteGenerator::new(functions.clone());
+    byte_gen.generate_bytecode();
+    print_bytecode(&byte_gen); 
+
+    let bytecode = byte_gen.bytecode_functions;
+
     let code_gen = CodeGenerator::new(bytecode);
     let asm_code = code_gen.generate_code();
 
