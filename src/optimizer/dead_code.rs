@@ -1,5 +1,8 @@
 use cfg::CFG;
 use cfg::Adj;
+
+use super::merge_block::merge_linear_blocks;
+
 use tac_generator::Function;
 use tac_generator::Operand;
 use tac_generator::Operator;
@@ -7,6 +10,7 @@ use tac_generator::Statement;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+
 
 
 pub fn remove_dead_code(
@@ -52,15 +56,15 @@ fn change_conditional_jumps_with_constants_to_unconditional_jumps(
             Statement::JumpIfTrue(Operand::Boolean(val), label_id) => {
                 if val {
                     function.statements[bb.end-1] = Statement::Jump(label_id);
-                    // remove the next block from adjancency_list, as this is
+                    // remove the next block from adjacency_list, as this is
                     // no longer connected to this block
-                    cfg.adjancency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
+                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
 
                 } else {
                     remove_list.push(bb.end-1);
                     let target = label_to_block[&label_id];
                     // remove the target block, as this is no longer reachable from this block
-                    cfg.adjancency_list[bb_id].retain(|v| *v != Adj::Block(target));
+                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(target));
                 }
             },
             _ => {},
@@ -146,7 +150,7 @@ fn blocks_not_connected_to_entry(
         cfg: &CFG) {
     
         visited.insert(node);
-        for child in cfg.adjancency_list[node].iter() {
+        for child in cfg.adjacency_list[node].iter() {
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, cfg);
@@ -156,199 +160,6 @@ fn blocks_not_connected_to_entry(
     }
 
     all_blocks.difference(&visited).cloned().collect()
-}
-
-
-fn merge_linear_blocks(
-    function: &mut Function, 
-    cfg: &mut CFG) {
-
-    let mut changes = true;
-    'outer: while changes {
-        changes = false;
-        for id in 0..cfg.basic_blocks.len() {
-            if cfg.adjancency_list[id].len() == 1 {
-
-                let child = if let Adj::Block(val) = cfg.adjancency_list[id][0] {
-                    val
-                } else {
-                    continue;
-                };
-
-                if cfg.get_parent_blocks(child).len() == 1 {
-                    merge_blocks(function, cfg, id, child);
-                    changes = true;
-                    continue 'outer; 
-                }
-            }
-        }
-    }
-}
-
-fn merge_blocks(
-    function: &mut Function, 
-    cfg: &mut CFG,
-    mut parent: usize,
-    child: usize) {
-    println!("Parent: {}  Child: {}", parent, child);
-    println!("CFG before merge:");
-    print_cfg(function, cfg);
-
-
-    println!("BBs before operations:\n") ;
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
-    }
-
-    // copy instructions from child start - end to parent-end
-    // update all blocks to take account new instructions
-    // update adj list
-    // erase child block
-    // update all blocks to take account deletion (maybe merge with first update)
-
-    let parent_block = cfg.basic_blocks[parent].clone();
-    let child_block = cfg.basic_blocks[child].clone();
-
-    println!("\n\nParent block: {:?}, len: {}", parent_block, function.statements.len());
-    println!("Child block: {:?}", child_block);
-
-    let mut remove_list = vec![];
-
-    // first, remove the potential jump and label, as these are not needed after merge
-    if let Statement::Jump(_) = function.statements[parent_block.end-1] {
-        remove_list.push(parent_block.end-1);
-    }  
-
-    if let Statement::Label(_) = function.statements[child_block.start] {
-        remove_list.push(child_block.start);
-    }
-
-    println!("Removal: {:?}", remove_list);
-    cfg.remove_statements(function, remove_list);        
-
-
-    let parent_block = cfg.basic_blocks[parent].clone();
-    // update child block info, as this may be out of date after the 
-    // instruction removals
-    let child_block = cfg.basic_blocks[child].clone();
-    println!("Parent block after update: {:?}", parent_block);
-    println!("Child block after update: {:?}", child_block);
-
-    println!("Statements after jmp/label removal: {}",  function.statements.len());
-
-    // copy the instructions from the child block and insert them after
-    // the parent block. Remove child block
-    // TODO: This and the removal are, again, O(n^2) in the worst case
-    // -----> really should optimize this
-
-    let mut instructions = vec![];
-    for i in child_block.start..child_block.end {
-        instructions.push(function.statements[i].clone());
-    }
-
-    println!("Instructions: {:?}", instructions);
-
-
-    println!("Instructions before child removal: {}", function.statements.len());
-
-    println!("BBs before removal:\n") ;
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
-    }
-
-    cfg.remove_block(function, child);
-
-    println!("BBs after removal:\n") ;
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
-    }
-
-    if child < parent {
-        parent -= 1;
-    }
-
-    println!("Instructions after removal: {}", function.statements.len());
-    // update, as might be out of date now
-    let parent_block = cfg.basic_blocks[parent].clone();
-
-    // pre-emptively update all the blocks start/end points that will be affected
-    // by the instruction insertion
-
-    for bb in cfg.basic_blocks.iter_mut() {
-        if bb.start >= parent_block.end && *bb != parent_block {
-            println!("Updating {} {}", bb.start, bb.end);
-            bb.start += instructions.len();
-            bb.end += instructions.len();
-            println!("Now {} {}", bb.start, bb.end);
-        }
-    }
-
-    println!("Parent block: {:?}, len: {}", parent_block, function.statements.len());
-    // update, as might be out of date now
-    let parent_block = cfg.basic_blocks[parent].clone();
-    // and update the parent block
-    cfg.basic_blocks.get_mut(parent).unwrap().end += instructions.len();
-
-    // finally, insert the instructions
-
-    let mut i = 0;
-    println!("Parent block (old) before insertion: {:?}", parent_block);
-    for inst in instructions {
-        println!("Inserting into {} (len: {})", parent_block.end + i, function.statements.len());
-        function.statements.insert(parent_block.end + i, inst);
-        i += 1;
-    }
-
-    for (i, s) in function.statements.iter().enumerate() {
-        println!("{}  {}", i, s);
-    }
-
-    // finally, if the last instruction is a jump statement, update adjancency list
-    // with that
-    // otherwise, the following block is the next neighbour
-    let parent_block = cfg.basic_blocks[parent].clone();
-    println!("Parent block: {:?}, len: {}", parent_block, function.statements.len());
-    if let Statement::Jump(ref label_id) = function.statements[parent_block.end-1] {
-
-        for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
-            match function.statements[bb.start] {
-                Statement::Label(ref other_id) => {
-                    if *label_id == *other_id {
-                        println!("\nJump:");
-                        println!("Current adjancency: {:?}", cfg.adjancency_list[parent]);
-                        cfg.adjancency_list[parent].push(Adj::Block(bb_id));
-                        println!("New adjancency: {:?}", cfg.adjancency_list[parent]);
-                        break;
-                    }
-                },
-                _ => {},
-            }
-        }
-    } else if parent + 1 < cfg.basic_blocks.len()  {
-        println!("\nFallthrough:");
-        println!("Current adjancency: {:?}", cfg.adjancency_list[parent]);
-        cfg.adjancency_list[parent].push(Adj::Block(parent + 1));
-        println!("New adjancency: {:?}", cfg.adjancency_list[parent]);
-    } else {
-        println!("\nEnd block:");
-        println!("Current adjancency: {:?}", cfg.adjancency_list[parent]);
-        cfg.adjancency_list[parent].push(Adj::End);
-        println!("New adjancency: {:?}", cfg.adjancency_list[parent]);
-    }
-    
-
-
-    println!("\nCFG After merge:");
-    print_cfg(function, cfg);
-
-    println!("\nBBs after merge:\n") ;
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
-    }
 }
 
 // remove phi-functions that only have one operand
@@ -552,37 +363,6 @@ fn remove_dead_stores(
     }
 }
 
-fn print_cfg(f: &Function, cfg: &CFG) {
-
-        let mut counter = 1;
-        println!("Function {}", f.name);
-        for bb in cfg.basic_blocks.iter() {
-            println!("<BB {}>", counter);
-            for i in bb.start..bb.end {
-               println!("    {}", f.statements[i])
-            }
-            counter += 1;
-        }
-
-        println!("Adjancency:\n");
-
-        for i in 0..cfg.basic_blocks.len()  {
-            let mut adj_str = cfg.adjancency_list[i].
-                iter().
-                fold(String::new(), |acc, ref val| format!("{}, {}", val, acc));
-
-            adj_str.pop(); adj_str.pop(); // remove last comma + space
-            if adj_str.is_empty() {
-                adj_str = "<None>".to_string();
-            }
-            println!("{}: {}", i+1, adj_str);
-
-        }
-        println!("\n");
-}
-
-
-
 fn remove_dead_jumps(
     function: &mut Function,
     cfg: &mut CFG) {
@@ -610,3 +390,32 @@ fn remove_dead_jumps(
     cfg.remove_statements(function, remove_list);
 }
 
+// Temporary debug code, can be removed
+fn print_cfg(f: &Function, cfg: &CFG) {
+
+        let mut counter = 1;
+        println!("Function {}", f.name);
+        for bb in cfg.basic_blocks.iter() {
+            println!("<BB {}>", counter);
+            for i in bb.start..bb.end {
+               println!("    {}", f.statements[i])
+            }
+            counter += 1;
+        }
+
+        println!("adjacency:\n");
+
+        for i in 0..cfg.basic_blocks.len()  {
+            let mut adj_str = cfg.adjacency_list[i].
+                iter().
+                fold(String::new(), |acc, ref val| format!("{}, {}", val, acc));
+
+            adj_str.pop(); adj_str.pop(); // remove last comma + space
+            if adj_str.is_empty() {
+                adj_str = "<None>".to_string();
+            }
+            println!("{}: {}", i+1, adj_str);
+
+        }
+        println!("\n");
+}

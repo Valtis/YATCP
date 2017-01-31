@@ -204,7 +204,7 @@ fn search(
     }
 
     // add variables to the phi-functions in child blocks
-    for child in cfg.adjancency_list[block].iter() {
+    for child in cfg.adjacency_list[block].iter() {
         if let Adj::Block(block) = *child {
             'outer: for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
                 match function.statements[i] {

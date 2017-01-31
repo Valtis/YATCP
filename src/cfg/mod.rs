@@ -48,7 +48,7 @@ impl PartialOrd for Adj {
 
 pub struct CFG {
     pub basic_blocks: Vec<BasicBlock>,
-    pub adjancency_list: Vec<Vec<Adj>>,
+    pub adjacency_list: Vec<Vec<Adj>>,
     pub dominance_frontier: Vec<Vec<usize>>,
     pub immediate_dominators: Vec<usize>,
 }
@@ -56,21 +56,21 @@ pub struct CFG {
 impl CFG {
     fn new(
         basic_blocks: Vec<BasicBlock>, 
-        adjancency_list: Vec<Vec<Adj>>) -> CFG {
+        adjacency_list: Vec<Vec<Adj>>) -> CFG {
         
         let mut dominance_frontier = vec![];
         dominance_frontier.resize(basic_blocks.len(), vec![]);
 
         CFG {
             basic_blocks: basic_blocks,
-            adjancency_list: adjancency_list,
+            adjacency_list: adjacency_list,
             dominance_frontier: dominance_frontier,
             immediate_dominators: vec![],
         }        
     }
 
     pub fn get_parent_blocks(&self, block: usize) -> Vec<usize> {
-        get_parents(&self.adjancency_list, block)
+        get_parents(&self.adjacency_list, block)
     }
 
     pub fn remove_statements(&mut self, 
@@ -119,10 +119,10 @@ impl CFG {
         }
 
 
-        // update adjancency_list
-        self.adjancency_list.remove(id);
+        // update adjacency_list
+        self.adjacency_list.remove(id);
         
-        for vec in self.adjancency_list.iter_mut() {
+        for vec in self.adjacency_list.iter_mut() {
             vec.retain(|v| *v != Adj::Block(id));
             *vec = vec.iter().map(|v| 
                     match *v {             
@@ -139,9 +139,9 @@ impl CFG {
     }    
 }
 
-fn get_parents(adjancency_list: &Vec<Vec<Adj>>, block: usize) -> Vec<usize> {
+fn get_parents(adjacency_list: &Vec<Vec<Adj>>, block: usize) -> Vec<usize> {
     let mut parents = vec![];
-    for (i, bb) in adjancency_list.iter().enumerate() {
+    for (i, bb) in adjacency_list.iter().enumerate() {
         if i == block {
             continue;
         } 
@@ -174,10 +174,10 @@ pub fn generate_cfg(functions: &mut Vec<Function>) -> HashMap<String, CFG> {
     let mut cfgs = HashMap::new();
     for f in functions.iter_mut() {
         let mut basic_blocks = BasicBlock::construct_basic_blocks(&f);
-        let mut adjancency_list = create_adj_list(&basic_blocks, f);
+        let mut adjacency_list = create_adj_list(&basic_blocks, f);
 
-        remove_dead_blocks(&mut basic_blocks, &mut adjancency_list, f);
-        cfgs.insert(f.name.clone(), CFG::new(basic_blocks, adjancency_list));
+        remove_dead_blocks(&mut basic_blocks, &mut adjacency_list, f);
+        cfgs.insert(f.name.clone(), CFG::new(basic_blocks, adjacency_list));
     }
 
     calculate_dominance_frontier(&mut cfgs);
@@ -197,13 +197,13 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
     }
 
 
-    let mut adjancency_list = vec![];
-    adjancency_list.resize(basic_blocks.len(), vec![]);
+    let mut adjacency_list = vec![];
+    adjacency_list.resize(basic_blocks.len(), vec![]);
 
     pos = 0;
 
     for bb in basic_blocks.iter() {
-        let vec = &mut adjancency_list[pos];
+        let vec = &mut adjacency_list[pos];
         match f.statements[bb.end-1] {
             Statement::Jump(id) => {
                 insert_if_not_present(
@@ -240,7 +240,7 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
         vec.sort();
         pos += 1;
     }
-    adjancency_list
+    adjacency_list
 }
 
 
@@ -249,7 +249,7 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
 // after peephole optimizations.
 fn remove_dead_blocks(
     basic_blocks: &mut Vec<BasicBlock>,
-    adjancency_list: &mut Vec<Vec<Adj>>,
+    adjacency_list: &mut Vec<Vec<Adj>>,
     function: &mut Function) {
     let mut changes = true; 
     while changes {
@@ -258,7 +258,7 @@ fn remove_dead_blocks(
         println!("BB len: {}", basic_blocks.len());
 
         for (bb_id, _) in basic_blocks.iter().enumerate() {
-            if get_parents(adjancency_list, bb_id).is_empty() && bb_id != 0 {
+            if get_parents(adjacency_list, bb_id).is_empty() && bb_id != 0 {
                 block_to_kill = Some(bb_id);
                 changes = true;
                 break;
@@ -285,10 +285,10 @@ fn remove_dead_blocks(
                     remaining_bb.end -= bb_len;
                 }
             }
-            adjancency_list.remove(bb_id);
+            adjacency_list.remove(bb_id);
 
             // update adjacencies by decrementing ids that are greater than current block id
-            for vec in adjancency_list.iter_mut() {
+            for vec in adjacency_list.iter_mut() {
                 for adj in vec.iter_mut() {
                     match *adj {
                         Adj::Block(ref mut id) => {

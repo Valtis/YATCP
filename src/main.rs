@@ -120,10 +120,10 @@ fn print_cfg(cfg: &HashMap<String, CFG>, functions: &Vec<Function>) {
             counter += 1;
         }
 
-        println!("Adjancency:\n");
+        println!("adjacency:\n");
 
         for i in 0..cfg[&f.name].basic_blocks.len()  {
-            let mut adj_str = cfg[&f.name].adjancency_list[i].
+            let mut adj_str = cfg[&f.name].adjacency_list[i].
                 iter().
                 fold(String::new(), |acc, ref val| format!("{}, {}", val, acc));
 

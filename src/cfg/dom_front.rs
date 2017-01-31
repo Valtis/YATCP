@@ -196,7 +196,7 @@ fn depth_first_search(node: usize,
     post_order: &mut Vec<usize>,
     cfg: &CFG) {
         visited.insert(node);
-        for child in cfg.adjancency_list[node].iter() {
+        for child in cfg.adjacency_list[node].iter() {
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, post_order, cfg);
