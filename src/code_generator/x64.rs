@@ -37,7 +37,20 @@ const CMP_REG_WITH_REGMEM : u8 = 0x3B;
 
 const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 
+const JUMP_IF_LESS : u8 = 0x7C;
+const JUMP_IF_LESS_OR_EQ : u8 = 0x7E;
+const JUMP_IF_EQ : u8 = 0x74;
+const JUMP_IF_GREATER_OR_EQ : u8= 0x7D;
+const JUMP_IF_GREATER : u8 = 0x7F;
+
 const SET_BYTE_IF_LESS : u16 = 0x0F9C;
+const SET_BYTE_IF_LESS_OR_EQ : u16 = 0x0F9E;
+const SET_BYTE_IF_EQ : u16 = 0x0F94;
+const SET_BYTE_IF_GREATER_OR_EQ : u16 = 0x0F9D;
+const SET_BYTE_IF_GREATER : u16 = 0x0F9F;
+
+
+
 
 const SIGNED_DIV_64_BIT : u8 = 0xF7;
 
@@ -108,6 +121,7 @@ enum SizedOpCode {
 // used to store jumps that need the target patched afterwards
 enum JumpPatch {
     Jump(u32, usize),
+    ConditionalShortJump(u32, usize),
 }
 
 impl From<u8> for SizedOpCode {
@@ -639,6 +653,10 @@ impl X64CodeGen {
 
         let opcode = match *cmp_type {
             ComparisonType::Less => SET_BYTE_IF_LESS,
+            ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
+            ComparisonType::Equals => SET_BYTE_IF_EQ,
+            ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
+            ComparisonType::Greater => SET_BYTE_IF_GREATER,
         };
 
         self.emit_instruction(
@@ -926,23 +944,31 @@ impl X64CodeGen {
     }
 
     fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
-        match *jmp_type {
-            ComparisonType::Less => {
-                if self.label_pos.contains_key(&id) {
-                    let target = self.label_pos[&id];
-                    let op_size = 2i32;
-                    let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
-                    if offset < -128 || offset > 127 {
-                        panic!("Not implemented for jumps larger than a byte");
-                    }
+        let jmp_code = match *jmp_type {
+            ComparisonType::Less => JUMP_IF_LESS,
+            ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
+            ComparisonType::Equals => JUMP_IF_EQ,
+            ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
+            ComparisonType::Greater => JUMP_IF_GREATER,     
+        };
 
-                    self.asm_code.push(0x7C);
-                    self.asm_code.push((offset as i8) as u8)
-                } else {
-                    unimplemented!();
-                }
-            },
-        }
+        self.jumps_requiring_updates.push(JumpPatch::ConditionalShortJump(id, self.asm_code.len()));
+        self.asm_code.push(jmp_code);         
+        self.asm_code.push(0x00); // target placeholder
+
+/*        if self.label_pos.contains_key(&id) {
+            let target = self.label_pos[&id];
+            let op_size = 2i32;
+            let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
+            if offset < -128 || offset > 127 {
+                panic!("Not implemented for jumps larger than a byte");
+            }
+
+            self.asm_code.push(jmp_code);
+            self.asm_code.push((offset as i8) as u8)
+        } else {
+            unimplemented!();
+        }*/
     }
 
     fn emit_instruction(
@@ -1147,7 +1173,7 @@ impl X64CodeGen {
                         LittleEndian::write_i32(&mut buffer, offset);
                         
                         for i in 0..4 {
-                            // +1 so that the opcode is skipped
+                            // +1 so that the one-byte opcode is skipped 
                             self.asm_code[jump_opcode_location + 1 + i] = buffer[i];
                         }
 
@@ -1156,10 +1182,24 @@ impl X64CodeGen {
                         ice!("No jump target for jump stored");
                     }
                 },
+                JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) => {
+                    if self.label_pos.contains_key(&label_id) {
+                        let target = self.label_pos[&label_id];                      
+                        let op_size = 2i32; // size of the whole operation (opcode + operand)
+                        let offset : i32 = target as i32 - jump_opcode_location as i32 - op_size;
+                        if offset < -128 || offset > 127 {
+                            panic!("Not implemented for jumps larger than a byte");
+                        }
+                        // +1 so that the one-byte opcocde is skipped
+                        self.asm_code[jump_opcode_location + 1] = (offset as i8) as u8;
+                    } else {
+                        ice!("No jump target for conditional short jump stored");
+                    }
+                }
             } 
         }
     }
-
+    
     pub fn get_code(&self) -> Vec<u8> {
         self.asm_code.clone()
     }

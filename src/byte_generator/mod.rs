@@ -27,6 +27,10 @@ pub struct ComparisonOperation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComparisonType {
     Less,
+    LessOrEq,
+    Equals,
+    GreaterOrEq,    
+    Greater,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +91,9 @@ impl ByteGenerator {
                 code: vec![],
             });
             self.next_register = 0;
+
+            let cmp = vec![Operator::Less, Operator::LessOrEq, Operator::Equals, Operator::GreaterOrEq, Operator::Greater];
+
             for s in f.statements {
                 match s {
                     Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
@@ -95,11 +102,11 @@ impl ByteGenerator {
                     Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
                     Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
                     Statement::Assignment(
-                        Some(Operator::Less), 
+                        Some(ref x), 
                         Some(ref dest),
                         Some(ref op1),
-                        Some(ref op2)) => 
-                        self.emit_comparison(Operator::Less, op1, op2, dest),
+                        Some(ref op2)) if cmp.contains(x) => 
+                        self.emit_comparison(x, op1, op2, dest),
 
                    Statement::Return(val) => self.emit_return(val),
                    Statement::Label(id) => self.emit_label(id),
@@ -126,13 +133,17 @@ impl ByteGenerator {
     }
 
     fn emit_comparison(&mut self,
-        operator: Operator, 
+        operator: &Operator, 
         op1: &Operand, 
         op2: &Operand,
         dest: &Operand) {
 
-        let comparison_type = match operator {
+        let comparison_type = match *operator {
             Operator::Less => ComparisonType::Less,
+            Operator::LessOrEq => ComparisonType::LessOrEq,
+            Operator::Equals => ComparisonType::Equals,
+            Operator::GreaterOrEq => ComparisonType::GreaterOrEq,
+            Operator::Greater => ComparisonType::Greater,
             _ => ice!("Invalid operator '{}' for comparison", operator),
         };
 

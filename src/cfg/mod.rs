@@ -35,7 +35,7 @@ impl Ord for Adj {
             (&Adj::End, &Adj::End) => Ordering::Equal,
             (&Adj::Block(_), &Adj::End) => Ordering::Less,
             (&Adj::End, &Adj::Block(_)) => Ordering::Greater,
-            (&Adj::Block(val1), &Adj::Block(val2)) => val2.cmp(&val1),
+            (&Adj::Block(val1), &Adj::Block(val2)) => val1.cmp(&val2),
         }
     }
 }
@@ -73,6 +73,28 @@ impl CFG {
         get_parents(&self.adjacency_list, block)
     }
 
+    pub fn insert_statement(&mut self,
+        function: &mut Function,
+        position: usize,
+        statement: Statement) {
+
+        function.statements.insert(position, statement);
+
+        for i in 0..self.basic_blocks.len() {
+            // insertion into this block -> increment end. For blocks after this, increment start & end
+            if (self.basic_blocks[i].start <= position && self.basic_blocks[i].end > position) ||
+                (self.basic_blocks[i].start == self.basic_blocks[i].end && self.basic_blocks[i].start == position) {
+                 
+                self.basic_blocks[i].end += 1;
+                for j in i+1..self.basic_blocks.len() {
+                    self.basic_blocks[j].start += 1;
+                    self.basic_blocks[j].end += 1;
+                }
+                return;
+            }
+        }
+    }
+
     pub fn remove_statements(&mut self, 
         function: &mut Function, 
         mut remove_list: Vec<usize>) {
@@ -94,6 +116,36 @@ impl CFG {
             for j in (i+1)..remove_list.len() {
                 remove_list[j] -= 1;
             }
+        }
+    }
+
+    pub fn create_block(&mut self, position: usize) {
+        let (start, end) = if position == 0 {
+            (0, 0)
+        } else if position <= self.basic_blocks.len() {
+            let prev_end = self.basic_blocks[position - 1].end;
+            (prev_end, prev_end)
+        } else {
+            ice!("Out of bounds basic block insertion: Insertion at position {} when only {} basic blocks exists (one past end is allowed)", position, self.basic_blocks.len());
+        };
+
+        self.basic_blocks.insert(position, BasicBlock {
+            start: start, 
+            end: end,
+        });
+        self.adjacency_list.insert(position, vec![]);
+
+        for adj_list in self.adjacency_list.iter_mut() {
+            *adj_list = adj_list.iter().map(|v|
+                if let Adj::Block(block_id) = *v {
+                    if block_id >= position {
+                        Adj::Block(block_id+1)
+                    } else {
+                        v.clone()
+                    }
+                } else {
+                    v.clone()
+                }).collect();
         }
     }
     

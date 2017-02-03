@@ -558,6 +558,283 @@ fn merging_two_successive_blocks_where_child_is_connected_to_end_and_has_only_la
     assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
 }
 
+#[test]
+fn merge_of_two_successive_blocks_where_child_has_conditional_jump_and_false_branch_will_follow_the_merged_block_is_correct() {
+    /*
+        Block 1 
+        Block 2--| 
+     |->Block 3  |
+     |--Block 4<-|
+     
+
+    Block 1: Fallthrough to 2
+    Block 2: Conditional jump to 4, fallthrough to 3,
+    Block 3: Fallthrough to 4
+    Block 4: Unconditional jump to 3
+
+    After merge, should be
+
+    Block 1 + 2 --| 
+ |->Block 3       | 
+ |--Block 4<------|
+    
+    Block 1 + 2: Fallthrough to 3, conditional jump to 4
+    Block 3: Fallthrough to 4,
+    Block 4: Unconditional jump to 3
+    */
+
+    let statements = vec![
+        // block 1 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        // block 2
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),    
+        // block 3        
+        Statement::Label(0), 
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None), 
+        // block 4:        
+        Statement::Label(1), 
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+        Statement::Jump(0),
+    ];
+
+    let mut f = Function {
+        name: "foo".to_string(),
+        statements: statements,
+    };
+
+    let mut cfg = CFG {
+        basic_blocks: vec![
+            BasicBlock{
+                start: 0,
+                end: 1,
+            },
+            BasicBlock{
+                start: 1,
+                end: 3,
+            },
+            BasicBlock{
+                start: 3,
+                end: 5,
+            },
+            BasicBlock{
+                start: 5,
+                end: 8,
+            },
+        ],
+        adjacency_list: vec![
+            vec![Adj::Block(1)],
+            vec![Adj::Block(2), Adj::Block(3)],
+            vec![Adj::Block(3), ],
+            vec![Adj::Block(2)],
+        ],
+        dominance_frontier: vec![],
+        immediate_dominators: vec![],
+    };
+
+    merge_linear_blocks(&mut f, &mut cfg);
+
+    // adjacency should now be:
+    // 0: End
+
+    assert_eq!(3, cfg.basic_blocks.len());
+
+    assert_eq!(0, cfg.basic_blocks[0].start);
+    assert_eq!(3, cfg.basic_blocks[0].end);
+
+    assert_eq!(3, cfg.basic_blocks[1].start);
+    assert_eq!(5, cfg.basic_blocks[1].end);
+
+    assert_eq!(5, cfg.basic_blocks[2].start);
+    assert_eq!(8, cfg.basic_blocks[2].end);
+
+    assert_eq!(8, f.statements.len());
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        f.statements[0]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        f.statements[1]);
+
+    assert_eq!(
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        f.statements[2]);
+
+    assert_eq!(
+        Statement::Label(0),
+        f.statements[3]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        f.statements[4]);
+
+    // this + next op is kinda silly, but that can/will be killed by a separate pass
+    assert_eq!(
+        Statement::Label(1),
+        f.statements[5]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+        f.statements[6]);
+
+    assert_eq!(
+        Statement::Jump(0),
+        f.statements[7]);
+
+
+    assert_eq!(3, cfg.adjacency_list.len());
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    assert_eq!(vec![Adj::Block(2)], cfg.adjacency_list[1]);
+    assert_eq!(vec![Adj::Block(1)], cfg.adjacency_list[2]);
+}
+
+#[test]
+fn merge_of_block_with_conditional_jump_to_block_that_follows_the_merge_block_is_correct() {
+    /*
+        Block 1--|
+     |->Block 2  | --|
+     |--Block 3<-|   |
+        Block 4 <----|
+
+    Block 1: Unconditional jump to 3
+    Block 2: Unconditional jump to to 4 
+    Block 3: Conditional jump to 2
+    Block 4: Connects to end
+
+    After merge, should be
+
+    Block 1 + 3--|
+ ---Block 2      |
+ |  Block 4 <----|
+ |->Block 5
+
+    Block 1 + 3: Conditional jump to 4, fallthrough to 2
+    Block 2: Unconditional jump to 5
+    Block 4: Fallthrough to 5
+    Block 5: End
+
+    */
+
+    let statements = vec![
+        // block 1 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        Statement::Jump(0),
+        // block 2
+        Statement::Label(1),
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
+        Statement::Jump(2),    
+        // block 3
+        Statement::Label(0),  
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        Statement::JumpIfTrue(Operand::Boolean(true), 1), 
+        // block 4:        
+        Statement::Label(2), 
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+    ];
+
+    let mut f = Function {
+        name: "foo".to_string(),
+        statements: statements,
+    };
+
+    let mut cfg = CFG {
+        basic_blocks: vec![
+            BasicBlock{
+                start: 0,
+                end: 2,
+            },
+            BasicBlock{
+                start: 2,
+                end: 5,
+            },
+            BasicBlock{
+                start: 5,
+                end: 8,
+            },
+            BasicBlock{
+                start: 8,
+                end: 10,
+            },
+        ],
+        adjacency_list: vec![
+            vec![Adj::Block(2)],
+            vec![Adj::Block(3)],
+            vec![Adj::Block(1), Adj::Block(3)],
+            vec![Adj::End],
+        ],
+        dominance_frontier: vec![],
+        immediate_dominators: vec![],
+    };
+
+    merge_linear_blocks(&mut f, &mut cfg);
+
+    // adjacency should now be:
+    // 0: End
+
+    assert_eq!(4, cfg.basic_blocks.len());
+
+    assert_eq!(0, cfg.basic_blocks[0].start);
+    assert_eq!(3, cfg.basic_blocks[0].end);
+
+    assert_eq!(3, cfg.basic_blocks[1].start);
+    assert_eq!(4, cfg.basic_blocks[1].end);
+
+    assert_eq!(4, cfg.basic_blocks[2].start);
+    assert_eq!(7, cfg.basic_blocks[2].end);
+
+    assert_eq!(7, cfg.basic_blocks[3].start);
+    assert_eq!(9, cfg.basic_blocks[3].end);
+
+    assert_eq!(9, f.statements.len());
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        f.statements[0]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        f.statements[1]);
+
+    assert_eq!(
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        f.statements[2]);
+
+    assert_eq!(
+        Statement::Jump(2),
+        f.statements[3]);
+
+    assert_eq!(
+        Statement::Label(1),
+        f.statements[4]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        f.statements[5]);
+
+    // this + next op is kinda silly, but that can/will be killed by a separate pass
+    assert_eq!(
+        Statement::Jump(2),
+        f.statements[6]);
+
+    assert_eq!(
+        Statement::Label(2),
+        f.statements[7]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+        f.statements[8]);
+
+
+    assert_eq!(4, cfg.adjacency_list.len());
+    // blocks are likely no longer in order. Sorting makes the testing easier
+    cfg.adjacency_list[0].sort(); 
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[1]);
+    assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[2]);
+    assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
+}
 
 
 
@@ -569,3 +846,5 @@ fn merging_two_successive_blocks_where_child_is_connected_to_end_and_has_only_la
 // ---> check this is handled correctly after merge
 
 // TODO: child block is connected to end block -> jump generated correctly
+
+// TODO: child before parent, combinations with above
