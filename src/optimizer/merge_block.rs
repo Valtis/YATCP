@@ -306,12 +306,13 @@ fn handle_two_successors(
 }
 
 fn get_false_branch_and_label(
-    function: &Function,
-    cfg: &CFG,
+    function: &mut Function,
+    cfg: &mut CFG,
     parent: usize,
     jump_label_id: u32) -> (usize, u32) {
-    for adj in cfg.adjacency_list[parent].iter() {
-        if let Adj::Block(adj_block) = *adj {
+    for i in 0..cfg.adjacency_list[parent].len() {
+        let adj = cfg.adjacency_list[parent][i].clone();
+        if let Adj::Block(adj_block) = adj {
             if let Statement::Label(id) =  function.statements[cfg.basic_blocks[adj_block].start] {
                 if id != jump_label_id {
                     // id is not the same than in the true branch, must be the false branch
@@ -322,7 +323,21 @@ fn get_false_branch_and_label(
                 // have a label for the conditional jump.
 
                 // Insert a new label here for the unconditional jump
-                unimplemented!(); 
+
+                let mut label_id = 0;
+                // find a free label id
+                for b in cfg.basic_blocks.iter() {  
+                    if let Statement::Label(cur_id) =  function.statements[b.start] {
+                        if cur_id >= label_id {
+                            label_id = cur_id + 1;
+                        }
+                    }
+                }
+
+                let false_block_start = cfg.basic_blocks[adj_block].start;
+                cfg.insert_statement(function, false_block_start, Statement::Label(label_id));
+
+                return (adj_block, label_id);
             }
 
         }

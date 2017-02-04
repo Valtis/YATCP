@@ -691,7 +691,7 @@ fn merge_of_two_successive_blocks_where_child_has_conditional_jump_and_false_bra
 }
 
 #[test]
-fn merge_of_block_with_conditional_jump_to_block_that_follows_the_merge_block_is_correct() {
+fn merge_of_block_with_conditional_jump_to_block_that_follows_the_original_child_block_is_correct() {
     /*
         Block 1--|
      |->Block 2  | --|
@@ -836,14 +836,170 @@ fn merge_of_block_with_conditional_jump_to_block_that_follows_the_merge_block_is
     assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
 }
 
+#[test]
+fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_target_block_has_no_label_works() {
+    /*
+        Block 1--|
+     |->Block 2  | --|
+     |--Block 3<-|   |
+        Block 4      |
+        Block 5<-----|
+    
+    Block 1: Unconditional jump to 3
+    Block 2: Unconditional jump to to 5 
+    Block 3: Conditional jump to 2, fallthrough to 4
+    Block 4: Fallthrough to 5
+    Block 5: Connects to end
 
 
+    After merge, should be
+
+    Block 1 + 3----|
+ ---Block 1.5 + 4  |
+ |  Block 2<-------|
+ |->Block 4
+    Block 5 
+
+    Block 1 + 3: Fallthrough to 1.5+4, conditional jump to 2
+    Block 1.5 + 4: Unconditional jump to 5
+    Block 2: Fallthrough to 5
+    Block 5: Connects to end
+
+    When initially merging 1 and 3, a label needs to be placed in block 4
+    This then gets merged with 1.5 in next pass, put this is ok
+
+    */
+
+    let statements = vec![
+        // block 1 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        Statement::Jump(0),
+        // block 2
+        Statement::Label(1),
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
+        Statement::Jump(2),    
+        // block 3
+        Statement::Label(0),  
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        Statement::JumpIfTrue(Operand::Boolean(true), 1), 
+        // block 4:         
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+        // block 5
+        Statement::Label(2),
+        Statement::Assignment(None, Some(Operand::Integer(5)), None, None),
+    ];
+
+    let mut f = Function {
+        name: "foo".to_string(),
+        statements: statements,
+    };
+
+    let mut cfg = CFG {
+        basic_blocks: vec![
+            BasicBlock{
+                start: 0,
+                end: 2,
+            },
+            BasicBlock{
+                start: 2,
+                end: 5,
+            },
+            BasicBlock{
+                start: 5,
+                end: 8,
+            },
+            BasicBlock{
+                start: 8,
+                end: 9,
+            },
+            BasicBlock{
+                start: 9,
+                end: 11,
+            },
+        ],
+        adjacency_list: vec![
+            vec![Adj::Block(2)],
+            vec![Adj::Block(4)],
+            vec![Adj::Block(1), Adj::Block(3)],
+            vec![Adj::Block(4)],
+            vec![Adj::End],
+        ],
+        dominance_frontier: vec![],
+        immediate_dominators: vec![],
+    };
+
+    merge_linear_blocks(&mut f, &mut cfg);
+
+    // adjacency should now be:
+    // 0: End
+
+    assert_eq!(4, cfg.basic_blocks.len());
+
+    assert_eq!(0, cfg.basic_blocks[0].start);
+    assert_eq!(3, cfg.basic_blocks[0].end);
+
+    assert_eq!(3, cfg.basic_blocks[1].start);
+    assert_eq!(5, cfg.basic_blocks[1].end);
+
+    assert_eq!(5, cfg.basic_blocks[2].start);
+    assert_eq!(8, cfg.basic_blocks[2].end);
+
+    assert_eq!(8, cfg.basic_blocks[3].start);
+    assert_eq!(10, cfg.basic_blocks[3].end);
+
+    assert_eq!(10, f.statements.len());
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        f.statements[0]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        f.statements[1]);
+
+    assert_eq!(
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        f.statements[2]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+        f.statements[3]);
+    
+    assert_eq!(
+        Statement::Jump(2),
+        f.statements[4]);
+
+    assert_eq!(
+        Statement::Label(1),
+        f.statements[5]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        f.statements[6]);
+
+    assert_eq!(
+        Statement::Jump(2),
+        f.statements[7]);
+
+    assert_eq!(
+        Statement::Label(2),
+        f.statements[8]);
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(5)), None, None),
+        f.statements[9]);
 
 
+    assert_eq!(4, cfg.adjacency_list.len());
+    // blocks are likely no longer in order. Sorting makes the testing easier
+    cfg.adjacency_list[0].sort(); 
+    cfg.adjacency_list[0].sort(); 
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[1]);
+    assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[2]);
+    assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
+}
 
-
-// TODO: Test cases for when the child block has conditional jump to another block
-// ---> check this is handled correctly after merge
 
 // TODO: child block is connected to end block -> jump generated correctly
 
