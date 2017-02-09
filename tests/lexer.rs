@@ -6,11 +6,9 @@ mod test_reporter;
 use compiler::lexer::ReadLexer;
 use compiler::lexer::Lexer;
 use compiler::token::*;
-use compiler::error_reporter::ErrorReporter;
 use compiler::error_reporter::Error;
 
 use self::test_reporter::TestReporter;
-use self::test_reporter::ReportedError;
 
 use std::io::Read;
 use std::io;

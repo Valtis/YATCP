@@ -13,6 +13,7 @@ use code_generator;
 use byteorder::{ByteOrder, LittleEndian };
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::mem;
 
 const MOV_IMMEDIATE_32_BIT_TO_REG_MEM: u8 = 0xC7;
@@ -28,6 +29,7 @@ const SUB_REG_FROM_REG_MEM : u8 = 0x29;
 
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
+const SIGNED_MUL_WITH_64_BIT_REGISTERS : u16 = 0x0FAF; 
 
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
@@ -35,7 +37,20 @@ const CMP_REG_WITH_REGMEM : u8 = 0x3B;
 
 const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 
+const JUMP_IF_LESS : u8 = 0x7C;
+const JUMP_IF_LESS_OR_EQ : u8 = 0x7E;
+const JUMP_IF_EQ : u8 = 0x74;
+const JUMP_IF_GREATER_OR_EQ : u8= 0x7D;
+const JUMP_IF_GREATER : u8 = 0x7F;
+
 const SET_BYTE_IF_LESS : u16 = 0x0F9C;
+const SET_BYTE_IF_LESS_OR_EQ : u16 = 0x0F9E;
+const SET_BYTE_IF_EQ : u16 = 0x0F94;
+const SET_BYTE_IF_GREATER_OR_EQ : u16 = 0x0F9D;
+const SET_BYTE_IF_GREATER : u16 = 0x0F9F;
+
+
+
 
 const SIGNED_DIV_64_BIT : u8 = 0xF7;
 
@@ -66,7 +81,7 @@ const MOD_REGISTER_DIRECT_ADDRESSING : u8 = 0xC0;
 const FLAG_64_BIT_OPERANDS : u32 = 0x01;
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Register {
     RAX,
     RCX,
@@ -106,6 +121,7 @@ enum SizedOpCode {
 // used to store jumps that need the target patched afterwards
 enum JumpPatch {
     Jump(u32, usize),
+    ConditionalShortJump(u32, usize),
 }
 
 impl From<u8> for SizedOpCode {
@@ -156,6 +172,7 @@ pub struct X64CodeGen {
     jumps_requiring_updates: Vec<JumpPatch>,
     functions: Vec<code_generator::Function>,
     reg_map: HashMap<u32, Register>,
+    used_registers: HashSet<Register>,
 }
 
 impl X64CodeGen {
@@ -185,6 +202,7 @@ impl X64CodeGen {
             jumps_requiring_updates: vec![],
             functions: vec![],
             reg_map: map,
+            used_registers: HashSet::new(),
         }
     }
 
@@ -198,10 +216,12 @@ impl X64CodeGen {
         // register allocation does not exists yet. Replace and fix
         self.transform_code(); 
 
+
         // TODO: Handle borrow checker errors more elegantly
         let functions = self.bytecode_functions.clone();
         for f in functions.iter() {
             self.allocate_registers();
+            self.get_used_registers(&f.code);
 
             let mut func = code_generator::Function {
                 name: f.name.clone(),
@@ -233,6 +253,50 @@ impl X64CodeGen {
             self.update_jumps(); 
             func.length = self.asm_code.len() - func.start;
             self.functions.push(func);           
+        }
+    }
+
+    fn get_used_registers(&mut self, code: &Vec<ByteCode>) {
+        for b in code.iter() {
+            println!(    "{:?}", b);
+            match *b {
+                ByteCode::Mov(ref operands) | 
+                ByteCode::SignExtend(ref operands) => {
+                    if let Source::Register(reg) = operands.src {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+
+                    if let Source::Register(reg) = operands.dest {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+                },
+                ByteCode::Add(ref operands) |
+                ByteCode::Sub(ref operands) |
+                ByteCode::Mul(ref operands) |
+                ByteCode::Div(ref operands)  => {
+                    if let Source::Register(reg) = operands.src1 {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+
+                    if let Source::Register(reg) = operands.src2 {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+
+                    if let Source::Register(reg) = operands.dest {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+                },            
+                ByteCode::Compare(ref operands) => {
+                    if let Source::Register(reg) = operands.src1 {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+
+                    if let Source::Register(reg) = operands.src2 {
+                        self.used_registers.insert(self.reg_map[&reg].clone());
+                    }
+                },
+                _ => {},
+             }
         }
     }
 
@@ -401,25 +465,45 @@ impl X64CodeGen {
                     // change multiplications of two constants
                     // into mov + multiplication with register & constant
                     // so this can actually be encoded using
+                    // 
+                    // change multiplication in form of r1 = r2 * r3 into
+                    // mov r2 -> r1
+                    // r1 = r1 * r3
                     ByteCode::Mul(ref operands) => {
                         let mut new_operands = operands.clone();
 
-                        match operands.src1 {
-                            Source::IntegerConstant(_) => {
-                                // only transform if the second arg is an integer as well
-                                if let Source::IntegerConstant(_) = operands.src2 {                                  
+                        match (&operands.dest, &operands.src1, &operands.src2) {
+                            (_, &Source::IntegerConstant(_), &Source::IntegerConstant(_)) => {
+                                new_code.push(ByteCode::Mov(UnaryOperation {
+                                    src: operands.src1.clone(),
+                                    dest: Source::Register(free_register),
+                                }));      
+
+                                new_operands.src1 = Source::Register(free_register); 
+                                free_register += 1;  
+                            },
+                            (&Source::Register(r1), 
+                                &Source::Register(r2), 
+                                &Source::Register(r3)) =>  {
+                                // swap source registers
+                                if r1 != r2 && r1 == r3 {
+                                    let tmp = new_operands.src1;
+                                    new_operands.src1 = new_operands.src2;
+                                    new_operands.src2 = tmp;
+                                } else if r1 != r2 && r1 != r3 {
                                     new_code.push(ByteCode::Mov(UnaryOperation {
                                         src: operands.src1.clone(),
-                                        dest: Source::Register(free_register),
+                                        dest: operands.dest.clone(),
                                     }));      
 
-                                    new_operands.src1 = Source::Register(free_register); 
-                                    free_register += 1;  
-                                }                             
+                                    new_operands.src1 = new_operands.dest.clone();
+                                } 
 
-                            },
+                            }
                             _ => {},
                         };
+
+
 
                         new_code.push(ByteCode::Mul(new_operands));
                     },
@@ -506,13 +590,8 @@ impl X64CodeGen {
             f.code = new_code;
         }
 
-        self.fix_jumps();
     }
 
-    // update jump locations
-    fn fix_jumps(&mut self) {
-
-    }
 
     fn allocate_registers(&mut self) {
         // TODO - implement. 
@@ -574,6 +653,10 @@ impl X64CodeGen {
 
         let opcode = match *cmp_type {
             ComparisonType::Less => SET_BYTE_IF_LESS,
+            ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
+            ComparisonType::Equals => SET_BYTE_IF_EQ,
+            ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
+            ComparisonType::Greater => SET_BYTE_IF_GREATER,
         };
 
         self.emit_instruction(
@@ -768,7 +851,33 @@ impl X64CodeGen {
             _ => {},
         }
 
+
+        match (&operand.dest, &operand.src1, &operand.src2) {
+            (
+                &Source::Register(dest), 
+                &Source::Register(src1),
+                &Source::Register(src2)
+            ) => {
+                if src1 != dest {
+                    ice!(
+                        "Invalid mul opcode - src1 and dest do not match: {:?}", 
+                        operand);
+                }
+                self.emit_instruction(
+                    SizedOpCode::from(SIGNED_MUL_WITH_64_BIT_REGISTERS),
+                    Some(
+                        (Mode::Register,
+                        ModReg::Register(dest), 
+                        &Source::Register(src2))),
+                    None,
+                    FLAG_64_BIT_OPERANDS);
+                return;
+            } ,
+            _ => {},
+        }
+
         unimplemented!();
+
     }
 
     // emits code for reg <- reg/mem address * 32 bit integer constant
@@ -835,23 +944,31 @@ impl X64CodeGen {
     }
 
     fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
-        match *jmp_type {
-            ComparisonType::Less => {
-                if self.label_pos.contains_key(&id) {
-                    let target = self.label_pos[&id];
-                    let op_size = 2i32;
-                    let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
-                    if offset < -128 || offset > 127 {
-                        panic!("Not implemented for jumps larger than a byte");
-                    }
+        let jmp_code = match *jmp_type {
+            ComparisonType::Less => JUMP_IF_LESS,
+            ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
+            ComparisonType::Equals => JUMP_IF_EQ,
+            ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
+            ComparisonType::Greater => JUMP_IF_GREATER,     
+        };
 
-                    self.asm_code.push(0x7C);
-                    self.asm_code.push((offset as i8) as u8)
-                } else {
-                    unimplemented!();
-                }
-            },
-        }
+        self.jumps_requiring_updates.push(JumpPatch::ConditionalShortJump(id, self.asm_code.len()));
+        self.asm_code.push(jmp_code);         
+        self.asm_code.push(0x00); // target placeholder
+
+/*        if self.label_pos.contains_key(&id) {
+            let target = self.label_pos[&id];
+            let op_size = 2i32;
+            let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
+            if offset < -128 || offset > 127 {
+                panic!("Not implemented for jumps larger than a byte");
+            }
+
+            self.asm_code.push(jmp_code);
+            self.asm_code.push((offset as i8) as u8)
+        } else {
+            unimplemented!();
+        }*/
     }
 
     fn emit_instruction(
@@ -959,24 +1076,55 @@ impl X64CodeGen {
     }
 
     fn emit_function_prologue(&mut self) {
-        // currently just save all the registers that are expected
-        // to be callee-saved, whether they are used or not
-        // save RBP, RBX, and R12–R15,
-        self.push(Register::RBP);
-        self.push(Register::RBX);
-        self.push(Register::R12);
-        self.push(Register::R13);
-        self.push(Register::R14);
-        self.push(Register::R15);
+        if self.used_registers.contains(&Register::RBP) {
+            self.push(Register::RBP);
+        }
+
+        if self.used_registers.contains(&Register::RBX) {
+            self.push(Register::RBX);
+        }
+
+        if self.used_registers.contains(&Register::R12) {
+            self.push(Register::R12);
+        }
+
+        if self.used_registers.contains(&Register::R13) {
+            self.push(Register::R13);
+        }
+
+        if self.used_registers.contains(&Register::R14) {
+            self.push(Register::R14);
+        }
+
+        if self.used_registers.contains(&Register::R15) {
+            self.push(Register::R15);
+        }
     }
 
     fn emit_function_epilogue(&mut self) {
-        self.pop(Register::R15);
-        self.pop(Register::R14);
-        self.pop(Register::R13);
-        self.pop(Register::R12);
-        self.pop(Register::RBX);
-        self.pop(Register::RBP);
+        if self.used_registers.contains(&Register::R15) {
+            self.pop(Register::R15);
+        }
+
+        if self.used_registers.contains(&Register::R14) {
+            self.pop(Register::R14);
+        }
+
+        if self.used_registers.contains(&Register::R13) {
+            self.pop(Register::R13);
+        }
+
+        if self.used_registers.contains(&Register::R12) {
+            self.pop(Register::R12);
+        }
+
+        if self.used_registers.contains(&Register::RBX) {
+            self.pop(Register::RBX);
+        }
+
+        if self.used_registers.contains(&Register::RBP) {
+            self.pop(Register::RBP);
+        }
     }
 
     fn push(&mut self, register: Register) {
@@ -1025,7 +1173,7 @@ impl X64CodeGen {
                         LittleEndian::write_i32(&mut buffer, offset);
                         
                         for i in 0..4 {
-                            // +1 so that the opcode is skipped
+                            // +1 so that the one-byte opcode is skipped 
                             self.asm_code[jump_opcode_location + 1 + i] = buffer[i];
                         }
 
@@ -1034,10 +1182,24 @@ impl X64CodeGen {
                         ice!("No jump target for jump stored");
                     }
                 },
+                JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) => {
+                    if self.label_pos.contains_key(&label_id) {
+                        let target = self.label_pos[&label_id];                      
+                        let op_size = 2i32; // size of the whole operation (opcode + operand)
+                        let offset : i32 = target as i32 - jump_opcode_location as i32 - op_size;
+                        if offset < -128 || offset > 127 {
+                            panic!("Not implemented for jumps larger than a byte");
+                        }
+                        // +1 so that the one-byte opcocde is skipped
+                        self.asm_code[jump_opcode_location + 1] = (offset as i8) as u8;
+                    } else {
+                        ice!("No jump target for conditional short jump stored");
+                    }
+                }
             } 
         }
     }
-
+    
     pub fn get_code(&self) -> Vec<u8> {
         self.asm_code.clone()
     }

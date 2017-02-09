@@ -9,14 +9,12 @@ use compiler::ast::NodeInfo;
 use compiler::ast::FunctionInfo;
 use compiler::ast::DeclarationInfo;
 
-use compiler::error_reporter::ErrorReporter;
 use compiler::error_reporter::Error;
 
 use compiler::semcheck::SemanticsCheck;
 use compiler::semcheck::Type;
 
 use self::test_reporter::TestReporter;
-use self::test_reporter::ReportedError;
 
 use std::rc::Rc;
 use std::cell::RefCell;

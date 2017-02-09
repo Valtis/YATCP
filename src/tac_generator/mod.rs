@@ -1,3 +1,6 @@
+mod peephole_optimizations;
+use self::peephole_optimizations::optimize;
+
 use ast::AstNode;
 use ast::FunctionInfo;
 use ast::DeclarationInfo;
@@ -13,13 +16,17 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Plus,
     Minus,
     Multiply,
     Divide,
     Less,
+    LessOrEq,
+    Equals,
+    GreaterOrEq,
+    Greater
 }
 
 const TMP_NAME : &'static str = "%tmp";
@@ -32,13 +39,18 @@ impl Display for Operator {
             Operator::Multiply => "*".to_string(),
             Operator::Divide => "/".to_string(),
             Operator::Less => "<".to_string(),
+            Operator::LessOrEq => "<=".to_string(),
+            Operator::Equals => "==".to_string(),
+            Operator::GreaterOrEq => ">=".to_string(),
+            Operator::Greater => ">".to_string(),
         })
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operand {
     Variable(DeclarationInfo, u32),
+    SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
     Float(f32),
     Double(f64),
@@ -49,6 +61,8 @@ impl Display for Operand {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
+            Operand::SSAVariable(ref info, id, ssa_id) => 
+                format!("{}_{}:{}", info.name, id, ssa_id),
             Operand::Integer(v) => format!("{}i", v),
             Operand::Float(v) => format!("{}f", v),
             Operand::Double(v) => format!("{}d", v),
@@ -58,13 +72,14 @@ impl Display for Operand {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Assignment(Option<Operator>, Option<Operand>, Option<Operand>, Option<Operand>),
     Label(u32),
     Jump(u32),
     JumpIfTrue(Operand, u32),
-    Return(Option<Operand>)
+    Return(Option<Operand>),
+    PhiFunction(Operand, Vec<Operand>)
 }
 
 fn opt_to_str<T: Display>(op: &Option<T>) -> String {
@@ -88,7 +103,17 @@ impl Display for Statement {
             Statement::Label(id) => format!("Label {}", id),
             Statement::Jump(id) => format!("Jump {}", id),
             Statement::JumpIfTrue(ref op, id) => 
-                format!("Jump {} if {}", id, op),  
+                format!("Jump {} if {}", id, op),
+            Statement::PhiFunction(ref dest, ref operands) => {
+                let mut op_str = operands.
+                    iter().
+                    fold(
+                        String::new(), 
+                        |acc, ref t| format!("'{}', {}", t, acc));
+
+                op_str.pop(); op_str.pop();
+                format!("{} = phi<{}>", dest, op_str)
+            },
         })
     }
 }
@@ -131,12 +156,13 @@ impl TACGenerator {
         }
     }
 
-    pub fn functions(&self) -> &Vec<Function> {
-        &self.functions
+    pub fn generate_tac_functions(mut self, node: &AstNode) -> Vec<Function> {
+        self.generate_tac(node);
+        optimize(&mut self.functions);
+        self.functions
     }
 
-
-    pub fn generate_tac(&mut self, node: &AstNode) {
+    fn generate_tac(&mut self, node: &AstNode) {
         match *node {
             AstNode::Block(ref children, ref sym_tab, ref node_info) => 
                 self.handle_block(children, sym_tab, node_info),
@@ -151,7 +177,8 @@ impl TACGenerator {
             AstNode::Multiply(_, _, _) | 
             AstNode::Divide(_, _, _) => 
                 self.handle_arithmetic_node(node),
-            AstNode::Integer(_, _) => self.handle_constant(node),
+            AstNode::Integer(_, _) |
+            AstNode::Boolean(_, _) => self.handle_constant(node),
             AstNode::Identifier(ref name, _) => 
                 self.handle_identifier(name),
             AstNode::Return(ref child, _) => self.handle_return(child),
@@ -159,8 +186,13 @@ impl TACGenerator {
                 self.handle_while(expr, block),
             AstNode::If(ref expr, ref if_blk, ref opt_else_blk, _) =>
                 self.handle_if(expr, if_blk, opt_else_blk),
-            AstNode::Less(ref left, ref right, _) =>
-                self.handle_less(left, right),
+            AstNode::Less(_, _, _) |
+            AstNode::LessOrEq(_, _, _) |
+            AstNode::Equals(_, _, _) |
+            AstNode::GreaterOrEq(_, _, _) |
+            AstNode::Greater(_, _, _) =>
+                self.handle_comparison(node),
+
             ref x => panic!("Three-address code generation not implemented for '{}'", x),
         }
     }
@@ -215,57 +247,16 @@ impl TACGenerator {
         &mut self, 
         child: &AstNode,
         name: &String) {
-
         self.generate_tac(child);
         
         let (variable_info, id) = self.get_variable_info_and_id(name);
 
         let operand = self.operands.pop();
 
-        /* 
-        complex expressions (eg. a = 3*12 + 124 ...etc) create temporaries
-        when the operations are split into three-address code form. The way
-        the temporaries are generated currently will cause a unnecessary
-        temporary to be created, for example the expression
-
-        a = 4 + 8 + 12
-
-        would generate the following operations:
-
-        tmp_1 = 4 + 8
-        tmp_2 = tmp_1 + 12
-        a = tmp_2
-        
-        that is, the last two operations could be combined. So let's do that         
-        */
-
-        // peek the last operation in statements
-        let len = self.current_function().statements.len();
-        let mut gen_new = true;
-        if len > 0 {
-            match self.current_function().statements[len - 1] {
-                Statement::Assignment(
-                    Some(_), // don't care 
-                    Some(Operand::Variable(ref mut tmp_info, ref mut tmp_id)), 
-                    Some(_), // don't care
-                    Some(_), // don't care
-                    ) => {                    
-
-                    *tmp_info = variable_info.clone();
-                    *tmp_id = id; 
-                    // do not generate new assignment
-                    gen_new = false;
-                },
-                _ => {}
-            }
-        } 
-
-        if gen_new {
-            self.generate_assignment(
-                variable_info,
-                 id, 
-                 operand)
-        }
+        self.generate_assignment(
+            variable_info,
+            id, 
+            operand)
     }
 
     fn generate_assignment(
@@ -333,6 +324,7 @@ impl TACGenerator {
     fn handle_constant(&mut self, node : &AstNode) {
         let operand = match *node {
             AstNode::Integer(val, _) => Operand::Integer(val),
+            AstNode::Boolean(val, _) => Operand::Boolean(val),
             _ => ice!("Unexpected node '{:?}' encountered when constant was expected during TAC generation", node),
         };
 
@@ -412,14 +404,23 @@ impl TACGenerator {
         }
         self.current_function().statements.push(
             Statement::Label(out_label));
-
-
-
     }
 
-    fn handle_less(&mut self, left: &AstNode, right: &AstNode) {
+    fn handle_comparison(&mut self, node: &AstNode) {
+        let (operator, left, right) = match *node {
+            AstNode::Less(ref left, ref right, _) => 
+                (Operator::Less, left, right),
+            AstNode::LessOrEq(ref left, ref right, _) =>
+                (Operator::LessOrEq, left, right),        
+            AstNode::Equals(ref left, ref right, _) =>
+                (Operator::Equals, left, right),
+            AstNode::GreaterOrEq(ref left, ref right, _) =>
+                (Operator::GreaterOrEq, left, right),
+            AstNode::Greater(ref left, ref right, _) =>
+                (Operator::Greater, left, right),
+            _ => ice!("Invalid AstNode '{}' passed for comparison handling", node)
+        };
 
-        let operator = Operator::Less;
         let id = self.get_next_id();
         
         let left_op = self.get_operand(left);
@@ -446,6 +447,8 @@ impl TACGenerator {
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,
             Operand::Boolean(_) => Type::Boolean,
+            Operand::SSAVariable(_, _, _) => 
+                ice!("Unexpected SSA variable during TAC generation"),
         }
     }
 
