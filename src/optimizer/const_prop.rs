@@ -20,15 +20,14 @@ fn optimize_function(f: &mut Function) {
     while changes {
         changes = false;
         for s in f.statements.iter_mut() {
-            changes = changes || do_constant_folding(s, &mut known_constants); 
+            changes = changes || do_constant_folding(s); 
             changes = changes || do_constant_propagation(s, &mut known_constants);             
         }        
     }    
 }
 
 fn do_constant_folding(
-    s: &mut Statement, 
-    known_constants: &mut HashMap<(u32, u32), Operand>) -> bool {
+    s: &mut Statement) -> bool {
     
     match s.clone() {
         // integer assignment

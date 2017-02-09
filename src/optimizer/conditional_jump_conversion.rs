@@ -15,8 +15,6 @@ pub fn convert_jumps(
     let mut remove_list = vec![];
     
     let mut label_to_block = HashMap::new();
-    let mut removed_edges = vec![];
-    removed_edges.resize(cfg.basic_blocks.len(), vec![]);
 
     for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
         match function.statements[bb.start] {
@@ -32,12 +30,10 @@ pub fn convert_jumps(
                     function.statements[bb.end-1] = Statement::Jump(label_id);
                     // remove the next block from adjacency_list, as this is
                     // no longer connected to this block
-                    removed_edges[bb_id].push(bb_id + 1);
                     cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
                 } else {
                     remove_list.push(bb.end-1);
                     let target = label_to_block[&label_id];
-                    removed_edges[bb_id].push(target);
                     // remove the target block, as this is no longer reachable from this block
                     cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(target));
                 }
@@ -48,13 +44,12 @@ pub fn convert_jumps(
     }
 
     cfg.remove_statements(function, remove_list);
-    update_phi_functions(function, cfg, removed_edges);
+    update_phi_functions(function, cfg);
 }
 
 fn update_phi_functions(
     function: &mut Function,
-    cfg: &mut CFG,
-    removed_edges: Vec<Vec<usize>>) {
+    cfg: &mut CFG) {
 
     let reaching_defs = calculate_definitions_reaching_end_of_block(
         function, 

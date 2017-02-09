@@ -67,8 +67,6 @@ fn merge_blocks(
     }
     cfg.remove_statements(function, remove_list);        
 
-
-    let parent_block = cfg.basic_blocks[parent].clone();
     // update child block info, as this may be out of date after the 
     // instruction removals
     let child_block = cfg.basic_blocks[child].clone();
@@ -103,10 +101,6 @@ fn merge_blocks(
     if child < parent {
         parent -= 1;
     }
-
-    // update, as might be out of date now
-    let parent_block = cfg.basic_blocks[parent].clone();
-
 
     update_adjacency_list(
         function,
@@ -332,37 +326,3 @@ fn get_false_branch_and_label(
 
     ice!("Failed to determine the false branch of conditional jump when merging block with conditional jump");
 }
-
-
-// Temporary debug code, can be removed
-fn print_cfg(f: &Function, cfg: &CFG) {
-
-        let mut counter = 1;
-        println!("Function {}", f.name);
-        for bb in cfg.basic_blocks.iter() {
-            println!("<BB {}>", counter);
-            for i in bb.start..bb.end {
-               println!("    {}", f.statements[i])
-            }
-            counter += 1;
-        }
-
-        println!("adjacency:\n");
-
-        for i in 0..cfg.basic_blocks.len()  {
-            let mut adj_str = cfg.adjacency_list[i].
-                iter().
-                fold(String::new(), |acc, ref val| format!("{}, {}", val, acc));
-
-            adj_str.pop(); adj_str.pop(); // remove last comma + space
-            if adj_str.is_empty() {
-                adj_str = "<None>".to_string();
-            }
-            println!("{}: {}", i+1, adj_str);
-
-        }
-        println!("\n");
-}
-
-
-

@@ -5,7 +5,6 @@ use super::merge_block::merge_linear_blocks;
 use super::conditional_jump_conversion::convert_jumps;
 use tac_generator::Function;
 use tac_generator::Operand;
-use tac_generator::Operator;
 use tac_generator::Statement;
 
 use std::collections::HashMap;

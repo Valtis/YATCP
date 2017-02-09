@@ -103,7 +103,6 @@ impl CFG {
             
             function.statements.remove(remove_list[i]);
 
-            let mut blocks = 0;
             for bb in self.basic_blocks.iter_mut() {
                 if bb.start > remove_list[i] {
                     bb.start -= 1;

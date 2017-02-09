@@ -10,7 +10,6 @@ use compiler::ssa_generator::convert_to_ssa;
 use compiler::ssa_generator::destroy_ssa;
 
 use compiler::byte_generator::ByteGenerator;
-use compiler::byte_generator;
 use compiler::code_generator::CodeGenerator;
 
 use compiler::cfg::generate_cfg;
@@ -77,7 +76,7 @@ fn run_frontend(
     }
 
     let tac_gen = TACGenerator::new(checker.get_current_id());
-    let mut tac_functions = tac_gen.generate_tac_functions(&mut node);
+    let tac_functions = tac_gen.generate_tac_functions(&mut node);
     print_tac(&tac_functions);
 
     Some(tac_functions)
