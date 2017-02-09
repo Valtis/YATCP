@@ -34,11 +34,6 @@ fn merge_blocks(
     cfg: &mut CFG,
     mut parent: usize,
     child: usize) {
-    print_cfg(function, cfg);
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
-    }
 
     // copy instructions from child start - end to parent-end
     // update all blocks to take account new instructions
@@ -46,23 +41,30 @@ fn merge_blocks(
     // erase child block
     // update all blocks to take account deletion (maybe merge with first update)
 
+    println!("BB count: {}", cfg.basic_blocks.len());
+    println!("Adj list, parent ({}): {:?}", parent, cfg.adjacency_list[parent]);
+    println!("Adj list, child ({}): {:?}", child, cfg.adjacency_list[child]);
+
     let parent_block = cfg.basic_blocks[parent].clone();
     let child_block = cfg.basic_blocks[child].clone();
 
     let mut remove_list = vec![];
 
     // first, remove the potential jump and label, as these are not needed after merge
-    match function.statements[parent_block.end-1] {
-        Statement::Jump(_) |
-        Statement::JumpIfTrue(_, _) =>
-            remove_list.push(parent_block.end-1),
-        _ => {},
-    }  
-
-    if let Statement::Label(_) = function.statements[child_block.start] {
-        remove_list.push(child_block.start);
+    if parent_block.end - parent_block.start != 0 { 
+        match function.statements[parent_block.end-1] {
+            Statement::Jump(_) |
+            Statement::JumpIfTrue(_, _) =>
+                remove_list.push(parent_block.end-1),
+            _ => {},
+        }  
     }
 
+    if child_block.end - child_block.start != 0 {
+        if let Statement::Label(_) = function.statements[child_block.start] {
+            remove_list.push(child_block.start);
+        }
+    }
     cfg.remove_statements(function, remove_list);        
 
 
@@ -78,10 +80,6 @@ fn merge_blocks(
     let mut instructions = vec![];
     for i in child_block.start..child_block.end {
         instructions.push(function.statements[i].clone());
-    }
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
     }
 
     let child_adjacency = cfg.adjacency_list[child].clone();
@@ -140,14 +138,6 @@ fn merge_blocks(
     for inst in instructions {
         function.statements.insert(parent_block.end + i, inst);
         i += 1;
-    }
-
-    for (i, s) in function.statements.iter().enumerate() {
-        println!("{}  {}", i, s);
-    }
-
-    for bb in cfg.basic_blocks.iter() {
-        println!("    {:?}", bb);
     }
 }
 
@@ -300,9 +290,6 @@ fn handle_two_successors(
 
     // update the new block adjacency to point towards the false branch.
     cfg.adjacency_list[parent+1].push(Adj::Block(false_block));
-
-
-    print_cfg(function, cfg);
 }
 
 fn get_false_branch_and_label(

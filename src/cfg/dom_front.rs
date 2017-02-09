@@ -19,7 +19,13 @@ pub fn calculate_dominance_frontier(func_cfgs: &mut HashMap<String, CFG>) {
         println!("");
 
 
-        cfg.immediate_dominators = calculate_immediate_dominator(cfg);
+        cfg.immediate_dominators = calculate_immediate_dominator_opt(cfg).
+            iter().
+            enumerate().
+            map(
+                |(n, v)| v.unwrap_or_else(
+                    || ice!("Unitialized immediate dominator for node {}", n)) ).
+            collect();
 
         for bb in 0..cfg.basic_blocks.len() {
             let parents = cfg.get_parent_blocks(bb);
@@ -78,7 +84,7 @@ fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
     dominators
 }
 
-fn calculate_immediate_dominator(cfg: &CFG) -> Vec<usize> {
+pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
     let mut opt_idom = vec![];
     let mut parents = vec![];
     for bb in 0..cfg.basic_blocks.len() {
@@ -155,10 +161,7 @@ fn calculate_immediate_dominator(cfg: &CFG) -> Vec<usize> {
         println!("IDOM({}): {:?}", i, opt_idom[i]);
     }
 
-    opt_idom.
-    iter().
-    map(|v| v.unwrap_or_else(|| ice!("Unitialized immediate dominator")) ).
-    collect()
+    opt_idom
 }
 
 fn intersect(

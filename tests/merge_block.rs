@@ -1000,6 +1000,131 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
     assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
 }
 
+#[test]
+fn merge_where_parent_block_is_empty_works() {
+        /*
+        block 1
+        block 2
+        1 falls through to 2
+
+        after merge, should be:
+
+        block 1 + 2           
+    */
+
+    let statements = vec![
+        // block 1 
+        // empty intentionally
+        // block 2
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+    ];
+
+    let mut f = Function {
+        name: "foo".to_string(),
+        statements: statements,
+    };
+
+    let mut cfg = CFG {
+        basic_blocks: vec![
+            BasicBlock{
+                start: 0,
+                end: 0,
+            },
+            BasicBlock{
+                start: 0,
+                end: 1,
+            },
+        ],
+        adjacency_list: vec![
+            vec![Adj::Block(1)],
+            vec![Adj::End],
+        ],
+        dominance_frontier: vec![],
+        immediate_dominators: vec![],
+    };
+
+    merge_linear_blocks(&mut f, &mut cfg);
+
+
+    assert_eq!(1, cfg.basic_blocks.len());
+
+    assert_eq!(0, cfg.basic_blocks[0].start);
+    assert_eq!(1, cfg.basic_blocks[0].end);
+
+    assert_eq!(1, f.statements.len());
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        f.statements[0]);
+    
+
+    assert_eq!(1, cfg.adjacency_list.len());
+    assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+}
+
+#[test]
+fn merge_where_child_block_is_empty_works() {
+        /*
+        block 1
+        block 2
+        1 falls through to 2
+
+        after merge, should be:
+
+        block 1 + 2           
+    */
+
+    let statements = vec![
+        // block 1 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        // block 2
+        // empty intentionally
+    ];
+
+    let mut f = Function {
+        name: "foo".to_string(),
+        statements: statements,
+    };
+
+    let mut cfg = CFG {
+        basic_blocks: vec![
+            BasicBlock{
+                start: 0,
+                end: 1,
+            },
+            BasicBlock{
+                start: 1,
+                end: 1,
+            },
+        ],
+        adjacency_list: vec![
+            vec![Adj::Block(1)],
+            vec![Adj::End],
+        ],
+        dominance_frontier: vec![],
+        immediate_dominators: vec![],
+    };
+
+    merge_linear_blocks(&mut f, &mut cfg);
+
+
+    assert_eq!(1, cfg.basic_blocks.len());
+
+    assert_eq!(0, cfg.basic_blocks[0].start);
+    assert_eq!(1, cfg.basic_blocks[0].end);
+
+    assert_eq!(1, f.statements.len());
+
+    assert_eq!(
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+        f.statements[0]);
+    
+
+    assert_eq!(1, cfg.adjacency_list.len());
+    assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+}
+
+
 
 // TODO: child block is connected to end block -> jump generated correctly
 

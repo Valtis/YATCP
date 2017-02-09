@@ -17,12 +17,12 @@ pub fn optimize(functions: &mut Vec<Function>) {
 
         remove_unconditional_jumps_into_unconditional_jumps(function);
         remove_unnecessary_temporaries(function);
+        merge_successive_labels(function);
 
         println!("\nAfter peephole opt:\n");
         for s in function.statements.iter() {
             println!("{}", s);    
         }
-
     }
 }
 
@@ -135,5 +135,48 @@ fn remove_unnecessary_temporaries(function: &mut Function) {
         for j in i..remove_list.len() {
             remove_list[j] -= 1;
         }
+    }
+}
+
+
+// constructs like while foo { if bar { } } create empty blocks with label,
+// that are followed with non-empty block with label. In this case, we
+// can merge the two labels
+fn merge_successive_labels(function: &mut Function) {
+    let mut i = 1;
+    loop {
+        if i >= function.statements.len() {
+            break;
+        }
+        match function.statements[i] {
+            Statement::Label(cur_label) => {
+                if let Statement::Label(prev_label) = function.statements[i-1] {
+                    i -= 1;
+                    merge_labels(function, i, cur_label, prev_label);
+                }
+            },
+            _ => {}, 
+        }
+
+        i += 1;
+    }    
+}
+
+fn merge_labels(
+    function: &mut Function, 
+    pos: usize,
+    cur_label: u32,
+    prev_label: u32) {
+    function.statements.remove(pos);
+
+    for s in function.statements.iter_mut() {
+        match *s {                             
+            Statement::Jump(ref mut label_id) |
+            Statement::JumpIfTrue(_, ref mut label_id) 
+            if *label_id == prev_label => {
+                *label_id = cur_label;
+            }
+            _ => {},   
+        }    
     }
 }

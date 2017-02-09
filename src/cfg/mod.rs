@@ -45,7 +45,7 @@ impl PartialOrd for Adj {
         Some(self.cmp(other))
     }
 }
-
+#[derive(Clone)]
 pub struct CFG {
     pub basic_blocks: Vec<BasicBlock>,
     pub adjacency_list: Vec<Vec<Adj>>,

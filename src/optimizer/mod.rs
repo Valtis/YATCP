@@ -1,6 +1,7 @@
 pub mod const_prop;
 pub mod dead_code;
 pub mod merge_block;
+pub mod conditional_jump_conversion;
 
 use cfg::CFG;
 use self::const_prop::propagate_and_fold_constants;

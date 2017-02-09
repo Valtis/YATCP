@@ -2,7 +2,7 @@ use cfg::CFG;
 use cfg::Adj;
 
 use super::merge_block::merge_linear_blocks;
-
+use super::conditional_jump_conversion::convert_jumps;
 use tac_generator::Function;
 use tac_generator::Operand;
 use tac_generator::Operator;
@@ -19,61 +19,38 @@ pub fn remove_dead_code(
 
     for f in functions.iter_mut() {
         let cfg = &mut function_cfgs.get_mut(&f.name).unwrap();
-        change_conditional_jumps_with_constants_to_unconditional_jumps(f, cfg);
+
+        println!("\n\nBefore dead code elimination pass trivial conditional jump removal\n\n");
+        print_cfg(f, cfg);  
+        convert_jumps(f, cfg);
+        println!("\n\nAfter trivial conditional jump removal\n\n");
+        print_cfg(f, cfg);  
         remove_dead_blocks(f, cfg);
+        println!("\n\nAfter dead block removal\n\n");;
+        print_cfg(f, cfg);  
+
         remove_trivial_phi_functions(f, cfg);
         remove_dead_stores(f, cfg);     
+        println!("\n\nAfter dead store elimination\n\n");;
+        print_cfg(f, cfg);  
         merge_linear_blocks(f, cfg);
+        println!("\n\nAfter merging linear blocks\n\n");;
+        print_cfg(f, cfg);  
+
         remove_dead_jumps(f, cfg);
         
+        println!("\n\nAfter removing dead jumps\n\n");;
+        print_cfg(f, cfg); 
+
+        remove_trivial_jumps(f, cfg);
+        
+
         // right now the optimizations do not update these values
         // clear them instead, so that the old values aren't accidentally used
         // later on. 
         cfg.immediate_dominators.clear();
         cfg.dominance_frontier.clear();
-
-
-        print_cfg(f, cfg);   
     }
-}
-
-fn change_conditional_jumps_with_constants_to_unconditional_jumps(
-    function: &mut Function, 
-    cfg: &mut CFG) {
-    let mut remove_list = vec![];
-    let mut label_to_block = HashMap::new();
-
-    for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
-        match function.statements[bb.start] {
-            Statement::Label(ref label_id) => {label_to_block.insert(*label_id, bb_id); },
-            _ => {},
-        }
-    }
-
-
-    for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
-        match function.statements[bb.end-1] {
-            Statement::JumpIfTrue(Operand::Boolean(val), label_id) => {
-                if val {
-                    function.statements[bb.end-1] = Statement::Jump(label_id);
-                    // remove the next block from adjacency_list, as this is
-                    // no longer connected to this block
-                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
-
-                } else {
-                    remove_list.push(bb.end-1);
-                    let target = label_to_block[&label_id];
-                    // remove the target block, as this is no longer reachable from this block
-                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(target));
-                }
-            },
-            _ => {},
-        }  
-    }
-
-
-    cfg.remove_statements(function, remove_list);
-
 }
 
 fn remove_dead_blocks(
@@ -388,6 +365,35 @@ fn remove_dead_jumps(
     }
 
     cfg.remove_statements(function, remove_list);
+}
+
+// remove unconditional jumps that jump to a label that immediately follows the
+// jump 
+fn remove_trivial_jumps(
+    function: &mut Function,
+    cfg: &mut CFG) {
+
+    let mut i = 1;
+    loop {
+        if i >= function.statements.len() {
+            break;
+        }
+
+        match function.statements[i] { 
+            Statement::Label(label_id) => {
+                if let Statement::Jump(jump_id) = function.statements[i-1] {
+                    if jump_id == label_id {
+                        i -= 1;
+                        cfg.remove_statements(function, vec![i]);
+                    }
+                }
+            },
+            _ => {},
+        }
+
+        i += 1;
+    }
+
 }
 
 // Temporary debug code, can be removed
