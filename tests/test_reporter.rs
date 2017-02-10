@@ -22,10 +22,9 @@ macro_rules! assert_eq_error {
     )
 }
 
-
 pub struct TestReporter {
     errors: Vec<ReportedError>
-} 
+}
 
 impl TestReporter {
     pub fn new() -> TestReporter {
@@ -45,11 +44,11 @@ impl TestReporter {
 
 impl ErrorReporter for TestReporter {
     fn report_error(
-        &mut self, 
-        error_type: Error, 
-        line: i32, 
-        column: i32, 
-        token_length : i32, 
+        &mut self,
+        error_type: Error,
+        line: i32,
+        column: i32,
+        token_length : i32,
         error_string: String) {
 
         self.errors.push(ReportedError {

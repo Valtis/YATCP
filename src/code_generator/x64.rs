@@ -1,5 +1,5 @@
 
-use byte_generator::ByteCode; 
+use byte_generator::ByteCode;
 use byte_generator::UnaryOperation;
 use byte_generator::BinaryOperation;
 use byte_generator::ComparisonOperation;
@@ -29,7 +29,7 @@ const SUB_REG_FROM_REG_MEM : u8 = 0x29;
 
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
-const SIGNED_MUL_WITH_64_BIT_REGISTERS : u16 = 0x0FAF; 
+const SIGNED_MUL_WITH_64_BIT_REGISTERS : u16 = 0x0FAF;
 
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
@@ -68,9 +68,9 @@ const ACCUMULATOR : u32 = 99999;
 
 
 // wrxb bits for rex prefix
-const REX_64_BIT_OPERAND: u8 = 0x08; 
-const REX_EXT_RM_BIT: u8 = 0x01; 
-const REX_EXT_REG_BIT: u8 = 0x04; 
+const REX_64_BIT_OPERAND: u8 = 0x08;
+const REX_EXT_RM_BIT: u8 = 0x01;
+const REX_EXT_REG_BIT: u8 = 0x04;
 
 // MOD bits for addressing
 const MOD_REGISTER_DIRECT_ADDRESSING : u8 = 0xC0;
@@ -107,7 +107,7 @@ enum Mode {
 
 // the reg bits in MODR/M section may either contain opcode extension
 // or a operand register. Encode this in enum so these two different
-// values won't be confused 
+// values won't be confused
 enum ModReg {
     Register(u32),
     OpCode(u8),
@@ -148,7 +148,7 @@ impl Register {
             Register::RSI | Register::R14 => 0x06,
             Register::RDI | Register::R15 => 0x07,
         }
-    } 
+    }
 
     fn is_extended_reg(&self) -> bool {
        match *self {
@@ -161,7 +161,7 @@ impl Register {
             Register::R14 |
             Register::R15 => true,
             _ => false
-        }  
+        }
     }
 }
 
@@ -185,15 +185,15 @@ impl X64CodeGen {
         map.insert(2, Register::RBX);
         map.insert(3, Register::RSI);
         map.insert(4, Register::RDI);
-        map.insert(5, Register::R8); 
-        map.insert(6, Register::R9); 
+        map.insert(5, Register::R8);
+        map.insert(6, Register::R9);
         map.insert(7, Register::R10);
         map.insert(8, Register::R11);
-        map.insert(9, Register::R12); 
-        map.insert(10, Register::R13); 
-        map.insert(11, Register::R14); 
-        map.insert(12, Register::R15); 
-        map.insert(ACCUMULATOR, Register::RAX); 
+        map.insert(9, Register::R12);
+        map.insert(10, Register::R13);
+        map.insert(11, Register::R14);
+        map.insert(12, Register::R15);
+        map.insert(ACCUMULATOR, Register::RAX);
 
         X64CodeGen {
             bytecode_functions: bytecode_functions,
@@ -209,12 +209,12 @@ impl X64CodeGen {
     pub fn generate_code(&mut self) {
 
 
-        self.transform_code(); 
-        // horrible hack. initial transformation may leave some 
+        self.transform_code();
+        // horrible hack. initial transformation may leave some
         // operations in a state that requires secondary transformation
         // TODO: Transformation is primarily a hack around the fact that
         // register allocation does not exists yet. Replace and fix
-        self.transform_code(); 
+        self.transform_code();
 
 
         // TODO: Handle borrow checker errors more elegantly
@@ -235,7 +235,7 @@ impl X64CodeGen {
             for b in f.code.iter() {
                 println!(    "{:?}", b);
                 match *b {
-                    ByteCode::Nop => self.emit_nop(), 
+                    ByteCode::Nop => self.emit_nop(),
                     ByteCode::Mov(ref operands) => self.emit_mov(operands),
                     ByteCode::Add(ref operands) => self.emit_add(operands),
                     ByteCode::Sub(ref operands) => self.emit_sub(operands),
@@ -246,13 +246,13 @@ impl X64CodeGen {
                     ByteCode::Compare(ref operands) => self.emit_comparison(operands),
                     ByteCode::Label(id) => self.handle_label(id),
                     ByteCode::Jump(id) => self.emit_unconditional_jump(id),
-                    ByteCode::JumpConditional(id, ref jmp_type) => 
+                    ByteCode::JumpConditional(id, ref jmp_type) =>
                         self.emit_conditional_jump(id, jmp_type),
                  }
             }
-            self.update_jumps(); 
+            self.update_jumps();
             func.length = self.asm_code.len() - func.start;
-            self.functions.push(func);           
+            self.functions.push(func);
         }
     }
 
@@ -260,7 +260,7 @@ impl X64CodeGen {
         for b in code.iter() {
             println!(    "{:?}", b);
             match *b {
-                ByteCode::Mov(ref operands) | 
+                ByteCode::Mov(ref operands) |
                 ByteCode::SignExtend(ref operands) => {
                     if let Source::Register(reg) = operands.src {
                         self.used_registers.insert(self.reg_map[&reg].clone());
@@ -285,7 +285,7 @@ impl X64CodeGen {
                     if let Source::Register(reg) = operands.dest {
                         self.used_registers.insert(self.reg_map[&reg].clone());
                     }
-                },            
+                },
                 ByteCode::Compare(ref operands) => {
                     if let Source::Register(reg) = operands.src1 {
                         self.used_registers.insert(self.reg_map[&reg].clone());
@@ -314,49 +314,49 @@ impl X64CodeGen {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
 
                         if let Source::Register(val) = op.src1 {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
 
                         if let Source::Register(val) = op.src2 {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
                     },
                     ByteCode::Mov(ref op) | ByteCode::SignExtend(ref op) => {
                         if let Source::Register(val) = op.dest {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
 
                         if let Source::Register(val) = op.src {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
-                    },  
+                        }
+                    },
                     ByteCode::Compare(ref op) => {
                         if let Source::Register(val) = op.src1 {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
 
                         if let Source::Register(val) = op.src2 {
                             if free_register <= val && val != ACCUMULATOR {
                                 free_register = val + 1;
                             }
-                        } 
+                        }
                     },
-                    ByteCode::Nop | 
-                    ByteCode::Ret | 
-                    ByteCode::Label(_) | 
+                    ByteCode::Nop |
+                    ByteCode::Ret |
+                    ByteCode::Label(_) |
                     ByteCode::Jump(_) |
                     ByteCode::JumpConditional(_, _) => {},
                 }
@@ -372,9 +372,9 @@ impl X64CodeGen {
                     // into mov + addition.
                     //
                     // Also transform add const, reg into add reg, const
-                    // as this simplifies code gen a bit. 
+                    // as this simplifies code gen a bit.
                     //
-                    // Also handle the case where the dest and src1 are different registers, 
+                    // Also handle the case where the dest and src1 are different registers,
                     // as x86 sub instruction implicitly uses src1 as dest as well
                     ByteCode::Add(ref operands) => {
 
@@ -389,9 +389,9 @@ impl X64CodeGen {
                                         new_code.push(ByteCode::Mov(UnaryOperation {
                                         src: operands.src1.clone(),
                                         dest: operands.dest.clone(),
-                                    }));      
+                                    }));
 
-                                    new_operands.src1 = operands.dest.clone(); 
+                                    new_operands.src1 = operands.dest.clone();
                                     },
                                     // swap operands
                                     Source::Register(_) => {
@@ -400,7 +400,7 @@ impl X64CodeGen {
                                     _ => {},
                                 }
 
-                              
+
                             }
                             Source::Register(reg) => {
                                 if let Source::Register(reg2) = operands.dest {
@@ -408,7 +408,7 @@ impl X64CodeGen {
                                         new_code.push(ByteCode::Mov(UnaryOperation {
                                             src: operands.src1.clone(),
                                             dest: operands.dest.clone(),
-                                        }));  
+                                        }));
 
                                         new_operands.src1 = new_operands.dest.clone();
                                     }
@@ -428,7 +428,7 @@ impl X64CodeGen {
                     // as the x86 sub operation does not allow subtracting two constants
                     // from each other, or subtracting register from constant
                     //
-                    // Also handle the case where the dest and src1 are different registers, 
+                    // Also handle the case where the dest and src1 are different registers,
                     // as x86 sub instruction implicitly uses src1 as dest as well
 
                     ByteCode::Sub(ref operands) => {
@@ -441,9 +441,9 @@ impl X64CodeGen {
                                 new_code.push(ByteCode::Mov(UnaryOperation {
                                     src: operands.src1.clone(),
                                     dest: operands.dest.clone(),
-                                }));      
+                                }));
 
-                                new_operands.src1 = operands.dest.clone(); 
+                                new_operands.src1 = operands.dest.clone();
                             },
                             Source::Register(reg) => {
                                 if let Source::Register(reg2) = operands.dest {
@@ -452,8 +452,8 @@ impl X64CodeGen {
                                         new_code.push(ByteCode::Mov(UnaryOperation {
                                             src: operands.src1.clone(),
                                             dest: operands.dest.clone(),
-                                        }));      
-                                        new_operands.src1 = operands.dest.clone(); 
+                                        }));
+                                        new_operands.src1 = operands.dest.clone();
                                     }
                                 }
                             }
@@ -465,7 +465,7 @@ impl X64CodeGen {
                     // change multiplications of two constants
                     // into mov + multiplication with register & constant
                     // so this can actually be encoded using
-                    // 
+                    //
                     // change multiplication in form of r1 = r2 * r3 into
                     // mov r2 -> r1
                     // r1 = r1 * r3
@@ -477,13 +477,13 @@ impl X64CodeGen {
                                 new_code.push(ByteCode::Mov(UnaryOperation {
                                     src: operands.src1.clone(),
                                     dest: Source::Register(free_register),
-                                }));      
+                                }));
 
-                                new_operands.src1 = Source::Register(free_register); 
-                                free_register += 1;  
+                                new_operands.src1 = Source::Register(free_register);
+                                free_register += 1;
                             },
-                            (&Source::Register(r1), 
-                                &Source::Register(r2), 
+                            (&Source::Register(r1),
+                                &Source::Register(r2),
                                 &Source::Register(r3)) =>  {
                                 // swap source registers
                                 if r1 != r2 && r1 == r3 {
@@ -494,10 +494,10 @@ impl X64CodeGen {
                                     new_code.push(ByteCode::Mov(UnaryOperation {
                                         src: operands.src1.clone(),
                                         dest: operands.dest.clone(),
-                                    }));      
+                                    }));
 
                                     new_operands.src1 = new_operands.dest.clone();
-                                } 
+                                }
 
                             }
                             _ => {},
@@ -513,53 +513,53 @@ impl X64CodeGen {
                     ByteCode::Div(ref operands) => {
                         let mut new_operands = operands.clone();
 
-                        let rdx_backup = Source::Register(free_register); 
+                        let rdx_backup = Source::Register(free_register);
                         free_register += 1;
 
                         new_code.push(ByteCode::Mov(UnaryOperation {
                             src: Source::Register(1), // 1 -> RDX
                             dest: rdx_backup.clone(),
-                        }));    
+                        }));
 
                         // move src1 into rax and zero r
                         new_code.push(ByteCode::Mov(UnaryOperation {
-                            src: operands.src1.clone(), 
+                            src: operands.src1.clone(),
                             dest: Source::Register(ACCUMULATOR),
-                        }));  
+                        }));
 
                         // sign extend rax into rdx
                         new_code.push(ByteCode::SignExtend(UnaryOperation {
-                                src: Source::Register(ACCUMULATOR), 
+                                src: Source::Register(ACCUMULATOR),
                                 dest: Source::Register(1),
-                        }));  
+                        }));
 
 
                         // if src2 is immediate value, store it in a register first
                         if let Source::IntegerConstant(_) = operands.src2 {
-                            let divisor = Source::Register(free_register); 
+                            let divisor = Source::Register(free_register);
                             free_register += 1;
 
                             new_code.push(ByteCode::Mov(UnaryOperation {
                                 src: operands.src2.clone(), // 1 -> RDX
                                 dest: divisor.clone(),
-                            }));  
+                            }));
 
                             new_operands.src2 = divisor;
 
                         }
-                        
+
                         new_code.push(ByteCode::Div(new_operands));
 
                         // restore old value of rdx
                         new_code.push(ByteCode::Mov(UnaryOperation {
                             src: rdx_backup, // 1 -> RDX
                             dest: Source::Register(1),
-                        })); 
+                        }));
                         // move the value to the expected destination
                         new_code.push(ByteCode::Mov(UnaryOperation {
                                 src: Source::Register(ACCUMULATOR), // 1 -> RDX
                                 dest: operands.dest.clone(),
-                        }));  
+                        }));
 
                     },
 
@@ -580,11 +580,11 @@ impl X64CodeGen {
                                 new_code.push(ByteCode::Compare(new_operands));
                                 //panic!("Foo: {:?}", new_code[new_code.len() - 1]);
                             },
-                            _ => { new_code.push(b.clone()) }, 
+                            _ => { new_code.push(b.clone()) },
                         }
                     },
                     _ => new_code.push(b.clone())
-                }                       
+                }
             }
 
             f.code = new_code;
@@ -594,7 +594,7 @@ impl X64CodeGen {
 
 
     fn allocate_registers(&mut self) {
-        // TODO - implement. 
+        // TODO - implement.
     }
 
     fn emit_nop(&mut self) {
@@ -609,8 +609,8 @@ impl X64CodeGen {
                     self.asm_code.push(SIGN_EXTENSION);
                     return;
                 }
-            } 
-        } 
+            }
+        }
 
         unimplemented!();
     }
@@ -647,7 +647,7 @@ impl X64CodeGen {
     }
 
     fn emit_set_byte(
-        &mut self, 
+        &mut self,
         cmp_type: &ComparisonType,
         operand: &UnaryOperation) {
 
@@ -679,7 +679,7 @@ impl X64CodeGen {
 
         match operand.src1 {
             Source::IntegerConstant(_) => {
-                ice!("Immediate operand as first argument to add: {:?}", operand);    
+                ice!("Immediate operand as first argument to add: {:?}", operand);
             },
             _ => {},
         }
@@ -710,7 +710,7 @@ impl X64CodeGen {
                 dest_reg_bits |= self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(),
-        }  
+        }
 
         match operand.src2 {
             Source::Register(reg) => {
@@ -724,7 +724,7 @@ impl X64CodeGen {
 
         let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
         println!("WRXB byte: 0{:b}", prefix);
-        self.asm_code.push(prefix);     
+        self.asm_code.push(prefix);
         self.asm_code.push(ADD_REG_FROM_REG_MEM);
         self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
         println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
@@ -739,14 +739,14 @@ impl X64CodeGen {
         };
 
         self.emit_instruction(
-            SizedOpCode::from(opcode), 
+            SizedOpCode::from(opcode),
             Some((Mode::Register,
-            ModReg::OpCode(0), 
+            ModReg::OpCode(0),
             &Source::Register(destination_reg))),
             Some((constant, const_bytes)),
             FLAG_64_BIT_OPERANDS);
     }
-    
+
     fn emit_sub(&mut self, operand: &BinaryOperation) {
         let dest = if let Source::Register(reg) = operand.dest {
             reg
@@ -755,8 +755,8 @@ impl X64CodeGen {
         };
 
         match operand.src1 {
-            Source::IntegerConstant(_) => { 
-                panic!("Internal compiler error: Immediate operand as first argument to sub: {:?}", operand);    
+            Source::IntegerConstant(_) => {
+                panic!("Internal compiler error: Immediate operand as first argument to sub: {:?}", operand);
             },
             _ => {},
         }
@@ -786,7 +786,7 @@ impl X64CodeGen {
                 dest_reg_bits |= self.reg_map[&reg].encoding();
             },
             _ => unimplemented!(),
-        }  
+        }
 
         match operand.src2 {
             Source::Register(reg) => {
@@ -800,7 +800,7 @@ impl X64CodeGen {
 
         let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
         println!("WRXB byte: 0{:b}", prefix);
-        self.asm_code.push(prefix);     
+        self.asm_code.push(prefix);
         self.asm_code.push(SUB_REG_FROM_REG_MEM);
         self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
         println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
@@ -816,7 +816,7 @@ impl X64CodeGen {
         self.emit_instruction(
             SizedOpCode::from(opcode),
             Some((Mode::Register,
-            ModReg::OpCode(5), 
+            ModReg::OpCode(5),
             &Source::Register(destination_reg))),
             Some((constant, const_bytes)),
             FLAG_64_BIT_OPERANDS);
@@ -831,22 +831,22 @@ impl X64CodeGen {
         };
 
         match operand.src1 {
-            Source::IntegerConstant(val) => { 
+            Source::IntegerConstant(val) => {
                 self.emit_const_integer_mult(
-                    dest_reg_id, 
-                    &operand.src2, 
-                    val); 
+                    dest_reg_id,
+                    &operand.src2,
+                    val);
                 return;
              },
             _ => {},
         }
 
         match operand.src2 {
-            Source::IntegerConstant(val) => { 
+            Source::IntegerConstant(val) => {
                 self.emit_const_integer_mult(
-                    dest_reg_id, 
-                    &operand.src1, 
-                    val); 
+                    dest_reg_id,
+                    &operand.src1,
+                    val);
                 return; },
             _ => {},
         }
@@ -854,20 +854,20 @@ impl X64CodeGen {
 
         match (&operand.dest, &operand.src1, &operand.src2) {
             (
-                &Source::Register(dest), 
+                &Source::Register(dest),
                 &Source::Register(src1),
                 &Source::Register(src2)
             ) => {
                 if src1 != dest {
                     ice!(
-                        "Invalid mul opcode - src1 and dest do not match: {:?}", 
+                        "Invalid mul opcode - src1 and dest do not match: {:?}",
                         operand);
                 }
                 self.emit_instruction(
                     SizedOpCode::from(SIGNED_MUL_WITH_64_BIT_REGISTERS),
                     Some(
                         (Mode::Register,
-                        ModReg::Register(dest), 
+                        ModReg::Register(dest),
                         &Source::Register(src2))),
                     None,
                     FLAG_64_BIT_OPERANDS);
@@ -889,58 +889,58 @@ impl X64CodeGen {
         };
 
         self.emit_instruction(
-            SizedOpCode::from(opcode), 
-            Some((Mode::Register, 
-            ModReg::Register(destination_reg), 
+            SizedOpCode::from(opcode),
+            Some((Mode::Register,
+            ModReg::Register(destination_reg),
             src_val)),
             Some((constant, const_bytes)),
-            FLAG_64_BIT_OPERANDS); 
+            FLAG_64_BIT_OPERANDS);
     }
 
     fn emit_comparison(&mut self, operands: &ComparisonOperation)  {
         match (&operands.src1, &operands.src2) {
             (&Source::Register(ACCUMULATOR), &Source::IntegerConstant(i)) => {
                 self.emit_instruction(
-                    SizedOpCode::from(CMP_RAX_WITH_CONSTANT), 
+                    SizedOpCode::from(CMP_RAX_WITH_CONSTANT),
                     None,
                     Some((i, 4)),
-                    FLAG_64_BIT_OPERANDS); 
+                    FLAG_64_BIT_OPERANDS);
             },
             (&Source::Register(reg), &Source::IntegerConstant(i)) => {
                 self.emit_instruction(
-                    SizedOpCode::from(CMP_REG_WITH_CONSTANT), 
+                    SizedOpCode::from(CMP_REG_WITH_CONSTANT),
                     Some((
                         Mode::Register,
                         ModReg::OpCode(7),
                         &Source::Register(reg),
                     )),
                     Some((i, 4)),
-                    FLAG_64_BIT_OPERANDS); 
+                    FLAG_64_BIT_OPERANDS);
             },
             (&Source::Register(reg1), &Source::Register(reg2)) => {
                 self.emit_instruction(
-                    SizedOpCode::from(CMP_REG_WITH_REGMEM), 
+                    SizedOpCode::from(CMP_REG_WITH_REGMEM),
                     Some((
                         Mode::Register,
                         ModReg::Register(reg1),
                         &Source::Register(reg2),
                     )),
                     None,
-                    FLAG_64_BIT_OPERANDS); 
+                    FLAG_64_BIT_OPERANDS);
             }
             _ => unimplemented!(),
         }
-    } 
+    }
 
     fn emit_unconditional_jump(&mut self, id: u32) {
 
         self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
         self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
-        // place for the 
+        // place for the
         for _ in 0..4 {
             self.asm_code.push(0x00);
         }
-    
+
     }
 
     fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
@@ -949,11 +949,11 @@ impl X64CodeGen {
             ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
             ComparisonType::Equals => JUMP_IF_EQ,
             ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
-            ComparisonType::Greater => JUMP_IF_GREATER,     
+            ComparisonType::Greater => JUMP_IF_GREATER,
         };
 
         self.jumps_requiring_updates.push(JumpPatch::ConditionalShortJump(id, self.asm_code.len()));
-        self.asm_code.push(jmp_code);         
+        self.asm_code.push(jmp_code);
         self.asm_code.push(0x00); // target placeholder
 
 /*        if self.label_pos.contains_key(&id) {
@@ -972,17 +972,17 @@ impl X64CodeGen {
     }
 
     fn emit_instruction(
-        &mut self,         
+        &mut self,
         opcode: SizedOpCode,
         modrm: Option<(Mode, ModReg, &Source)>,
         constant: Option<(i32, usize)>,
         flags: u32) {
-        
+
         let mut wrxb_bits = 0u8;
         let regrm_field : Option<u8> = if let Some((mode, mod_reg, mod_rm)) = modrm {
-            let mut field = 0u8;  
+            let mut field = 0u8;
             field |= match mode {
-                Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING, 
+                Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING,
             };
 
             match mod_reg {
@@ -995,7 +995,7 @@ impl X64CodeGen {
                 ModReg::OpCode(opcode) => {
                     field |= opcode << 3;
                 }
-                
+
             }
             match *mod_rm {
                 Source::Register(reg_id) => {
@@ -1008,7 +1008,7 @@ impl X64CodeGen {
                     if self.reg_map[&ACCUMULATOR].is_extended_reg() {
                         wrxb_bits |= REX_EXT_RM_BIT;
                     }
-                    field |= self.reg_map[&ACCUMULATOR].encoding(); 
+                    field |= self.reg_map[&ACCUMULATOR].encoding();
                 }
                 ref x => panic!("unimplemented: {:?}", x), // operand from memory address needs to be handled
             }
@@ -1017,11 +1017,11 @@ impl X64CodeGen {
             None
         };
 
-        if flags & FLAG_64_BIT_OPERANDS != 0 { 
-            wrxb_bits |= REX_64_BIT_OPERAND;  
+        if flags & FLAG_64_BIT_OPERANDS != 0 {
+            wrxb_bits |= REX_64_BIT_OPERAND;
         }
             let prefix = self.create_rex_prefix(wrxb_bits);
-            self.asm_code.push(prefix);   
+            self.asm_code.push(prefix);
 
         match opcode {
             SizedOpCode::OpCode8(val) => self.asm_code.push(val),
@@ -1029,11 +1029,11 @@ impl X64CodeGen {
                 let mut buffer = [0; 2];
                 LittleEndian::write_u16(&mut buffer, val);
                 self.asm_code.push(buffer[1]);
-                self.asm_code.push(buffer[0]);              
+                self.asm_code.push(buffer[0]);
 
             }
         }
-        
+
 
         if let Some(field) = regrm_field {
             self.asm_code.push(field);
@@ -1149,7 +1149,7 @@ impl X64CodeGen {
     //
     // R   1 bit   This 1-bit value is an extension to the MODRM.reg field. See Registers.
     // X   1 bit   This 1-bit value is an extension to the SIB.index field. See 64-bit addressing.
-    // B   1 bit   This 1-bit value is an extension to the MODRM.rm field or the SIB.base field. See 64-bit addressing.  
+    // B   1 bit   This 1-bit value is an extension to the MODRM.rm field or the SIB.base field. See 64-bit addressing.
     fn create_rex_prefix(&self, wrxb: u8) -> u8 {
         0x40 | wrxb
     }
@@ -1168,12 +1168,12 @@ impl X64CodeGen {
                         // (although jump of that size is hopefully unlikely)
                         let unconditional_jump_size = 5; // 1 for opcode, 4 for location
                         let offset : i32 = jump_address as i32 - jump_opcode_location as i32 - unconditional_jump_size;
-                        
+
                         let mut buffer = [0; 4];
                         LittleEndian::write_i32(&mut buffer, offset);
-                        
+
                         for i in 0..4 {
-                            // +1 so that the one-byte opcode is skipped 
+                            // +1 so that the one-byte opcode is skipped
                             self.asm_code[jump_opcode_location + 1 + i] = buffer[i];
                         }
 
@@ -1184,7 +1184,7 @@ impl X64CodeGen {
                 },
                 JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) => {
                     if self.label_pos.contains_key(&label_id) {
-                        let target = self.label_pos[&label_id];                      
+                        let target = self.label_pos[&label_id];
                         let op_size = 2i32; // size of the whole operation (opcode + operand)
                         let offset : i32 = target as i32 - jump_opcode_location as i32 - op_size;
                         if offset < -128 || offset > 127 {
@@ -1196,10 +1196,10 @@ impl X64CodeGen {
                         ice!("No jump target for conditional short jump stored");
                     }
                 }
-            } 
+            }
         }
     }
-    
+
     pub fn get_code(&self) -> Vec<u8> {
         self.asm_code.clone()
     }

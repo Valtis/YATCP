@@ -11,7 +11,7 @@ pub enum Symbol {
 pub struct TableEntry {
     // I would really like to use LinkedHashMap here, but as of writing this, it does not
     // work on a stable compiler
-    symbols: Vec<Symbol>, 
+    symbols: Vec<Symbol>,
 }
 
 impl TableEntry {
@@ -29,12 +29,12 @@ impl TableEntry {
         for s in self.symbols.iter() {
             match *s {
                 Symbol::Function(ref info) => {
-                    if info.name == *name {
+                    if *info.name == *name {
                         return Some(s.clone());
-                    } 
+                    }
                 },
                 Symbol::Variable(ref info, _) => {
-                    if info.name == *name {
+                    if *info.name == *name {
                         return Some(s.clone());
                     }
                 },

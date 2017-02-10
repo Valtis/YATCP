@@ -10,43 +10,44 @@ use tac_generator::Statement;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use std::rc::Rc;
 
 
 pub fn remove_dead_code(
-    functions: &mut Vec<Function>, 
-    function_cfgs: &mut HashMap<String, CFG>) {
+    functions: &mut Vec<Function>,
+    function_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
     for f in functions.iter_mut() {
         let cfg = &mut function_cfgs.get_mut(&f.name).unwrap();
 
         println!("\n\nBefore dead code elimination pass trivial conditional jump removal\n\n");
-        print_cfg(f, cfg);  
+        print_cfg(f, cfg);
         convert_jumps(f, cfg);
         println!("\n\nAfter trivial conditional jump removal\n\n");
-        print_cfg(f, cfg);  
+        print_cfg(f, cfg);
         remove_dead_blocks(f, cfg);
         println!("\n\nAfter dead block removal\n\n");;
-        print_cfg(f, cfg);  
+        print_cfg(f, cfg);
 
         remove_trivial_phi_functions(f, cfg);
-        remove_dead_stores(f, cfg);     
+        remove_dead_stores(f, cfg);
         println!("\n\nAfter dead store elimination\n\n");;
-        print_cfg(f, cfg);  
+        print_cfg(f, cfg);
         merge_linear_blocks(f, cfg);
         println!("\n\nAfter merging linear blocks\n\n");;
-        print_cfg(f, cfg);  
+        print_cfg(f, cfg);
 
         remove_dead_jumps(f, cfg);
-        
+
         println!("\n\nAfter removing dead jumps\n\n");;
-        print_cfg(f, cfg); 
+        print_cfg(f, cfg);
 
         remove_trivial_jumps(f, cfg);
-        
+
 
         // right now the optimizations do not update these values
         // clear them instead, so that the old values aren't accidentally used
-        // later on. 
+        // later on.
         cfg.immediate_dominators.clear();
         cfg.dominance_frontier.clear();
     }
@@ -66,19 +67,19 @@ fn remove_dead_blocks(
         for i in cfg.basic_blocks[id].start..cfg.basic_blocks[id].end {
            match function.statements[i] {
                 Statement::Assignment(
-                    _, 
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)), 
-                    _, 
+                    _,
+                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),
+                    _,
                     _) => { writes.insert((*var_id, *ssa_id)); },
                 Statement::PhiFunction(
                      Operand::SSAVariable(_, ref var_id, ref ssa_id),
                     _) => { writes.insert((*var_id, *ssa_id)); },
                 _ => {},
-            }         
+            }
         }
 
         // and erase the above writes from any phi functions
-        
+
         for s in function.statements.iter_mut() {
             match *s {
                 Statement::PhiFunction(
@@ -97,7 +98,7 @@ fn remove_dead_blocks(
         }
 
 
-        cfg.remove_block(function, id);           
+        cfg.remove_block(function, id);
 
         // decrement block number if block above was removed
         for j in i..unconnected_blocks.len() {
@@ -120,17 +121,17 @@ fn blocks_not_connected_to_entry(
     let mut visited = HashSet::new();
     depth_first_search(0, &mut visited, cfg);
 
-    
-    fn depth_first_search(node: usize, 
+
+    fn depth_first_search(node: usize,
         visited: &mut HashSet<usize>,
         cfg: &CFG) {
-    
+
         visited.insert(node);
         for child in cfg.adjacency_list[node].iter() {
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, cfg);
-                }   
+                }
             }
         }
     }
@@ -142,19 +143,19 @@ fn blocks_not_connected_to_entry(
 fn remove_trivial_phi_functions(
     function: &mut Function,
     cfg: &mut CFG) {
-    
+
     let mut renames : HashMap<(u32, u32), (u32, u32)> = HashMap::new();
 
     let mut remove_list = vec![];
     for (i, s) in function.statements.iter().enumerate() {
         match *s {
             Statement::PhiFunction(
-                Operand::SSAVariable(_, dst_var_id, dst_ssa_id), 
+                Operand::SSAVariable(_, dst_var_id, dst_ssa_id),
                 ref operands) => {
                 if operands.len() == 1 {
                     if let Operand::SSAVariable(_, src_var_id, src_ssa_id) = operands[0] {
                         remove_list.push(i);
-                        
+
                         // ensure trivial phi-functions that refer to other trivial
                         // phi functions are handled correctly
                         if renames.contains_key(&(src_var_id, src_ssa_id)) {
@@ -173,16 +174,16 @@ fn remove_trivial_phi_functions(
             },
             _ => {},
         }
-    }   
+    }
 
     cfg.remove_statements(function, remove_list);
 
     for s in function.statements.iter_mut() {
         match *s {
             Statement::Assignment(
-                _, 
                 _,
-                Some(ref mut val), 
+                _,
+                Some(ref mut val),
                 Some(ref mut val2)) => {
 
                 match *val {
@@ -195,7 +196,7 @@ fn remove_trivial_phi_functions(
                     },
                     _ => {},
                 }
-    
+
                 match *val2 {
                     Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id) => {
                         if renames.contains_key(&(*var_id, *ssa_id)) {
@@ -214,7 +215,7 @@ fn remove_trivial_phi_functions(
                         let (new_var_id, new_ssa_id) = renames[&(*var_id, *ssa_id)];
                         *var_id = new_var_id;
                         *ssa_id = new_ssa_id;
-                    }   
+                    }
             },
             Statement::Return(
                 Some(Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id))) => {
@@ -226,8 +227,8 @@ fn remove_trivial_phi_functions(
             },
             Statement::PhiFunction(
                 _,
-                ref mut operands) => { 
-      
+                ref mut operands) => {
+
                 for o in operands.iter_mut() {
                     match *o {
                         Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id) => {
@@ -236,13 +237,13 @@ fn remove_trivial_phi_functions(
                                 *var_id = new_var_id;
                                 *ssa_id = new_ssa_id;
                             }
-                        },            
+                        },
                         _ => ice!("Invalid operand present in phi-function: {}", o),
                     }
                 }
             },
             _ => {},
-    
+
         }
     }
 }
@@ -262,9 +263,9 @@ fn remove_dead_stores(
             // writes
             match *s {
                 Statement::Assignment(
-                    _, 
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)), 
-                    _, 
+                    _,
+                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),
+                    _,
                     _) => { writes.insert((*var_id, *ssa_id), i); },
                 Statement::PhiFunction(
                      Operand::SSAVariable(_, ref var_id, ref ssa_id),
@@ -274,9 +275,9 @@ fn remove_dead_stores(
 
             match *s {
                  Statement::Assignment(
-                    _, 
                     _,
-                    Some(ref val), 
+                    _,
+                    Some(ref val),
                     Some(ref val2)) => {
 
                     match *val {
@@ -301,18 +302,18 @@ fn remove_dead_stores(
                 },
                 Statement::Return(
                     Some(Operand::SSAVariable(_, ref var_id, ref ssa_id))) => {
-                    
+
                     reads.insert((*var_id, *ssa_id));
                 },
                 Statement::PhiFunction(
                     _,
-                    ref operands) => { 
-          
+                    ref operands) => {
+
                     for o in operands.iter() {
                         match *o {
                             Operand::SSAVariable(_, ref var_id, ref ssa_id) => {
                                 reads.insert((*var_id, *ssa_id));
-                            },            
+                            },
                             _ => ice!("Invalid operand present in phi-function: {}", o),
                         }
                     }
@@ -354,7 +355,7 @@ fn remove_dead_jumps(
     let mut remove_list = vec![];
     for (i, s) in function.statements.iter().enumerate() {
         match *s {
-            Statement::Jump(ref label_id) => { 
+            Statement::Jump(ref label_id) => {
                 if !labels.contains(label_id) {
                     remove_list.push(i);
                 }
@@ -367,7 +368,7 @@ fn remove_dead_jumps(
 }
 
 // remove unconditional jumps that jump to a label that immediately follows the
-// jump 
+// jump
 fn remove_trivial_jumps(
     function: &mut Function,
     cfg: &mut CFG) {
@@ -378,7 +379,7 @@ fn remove_trivial_jumps(
             break;
         }
 
-        match function.statements[i] { 
+        match function.statements[i] {
             Statement::Label(label_id) => {
                 if let Statement::Jump(jump_id) = function.statements[i-1] {
                     if jump_id == label_id {

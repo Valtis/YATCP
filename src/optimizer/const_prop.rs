@@ -10,7 +10,7 @@ pub fn propagate_and_fold_constants(
 
     for f in functions.iter_mut() {
         optimize_function(f);
-    }   
+    }
 }
 
 fn optimize_function(f: &mut Function) {
@@ -20,21 +20,21 @@ fn optimize_function(f: &mut Function) {
     while changes {
         changes = false;
         for s in f.statements.iter_mut() {
-            changes = changes || do_constant_folding(s); 
-            changes = changes || do_constant_propagation(s, &mut known_constants);             
-        }        
-    }    
+            changes = changes || do_constant_folding(s);
+            changes = changes || do_constant_propagation(s, &mut known_constants);
+        }
+    }
 }
 
 fn do_constant_folding(
     s: &mut Statement) -> bool {
-    
+
     match s.clone() {
         // integer assignment
         Statement::Assignment(
             Some(operator),
             Some(var @ Operand::SSAVariable(_, _, _)),
-            Some(Operand::Integer(val)) , 
+            Some(Operand::Integer(val)) ,
             Some(Operand::Integer(val2))) => {
 
             let new_val = match operator {
@@ -48,7 +48,7 @@ fn do_constant_folding(
                 Operator::GreaterOrEq => Operand::Boolean(val >= val2),
                 Operator::Greater => Operand::Boolean(val > val2),
             };
-            *s = Statement::Assignment(None, 
+            *s = Statement::Assignment(None,
                 Some(var), None, Some(new_val));
 
             return true;
@@ -60,22 +60,22 @@ fn do_constant_folding(
 }
 
 fn do_constant_propagation(
-    s: &mut Statement, 
+    s: &mut Statement,
     known_constants: &mut HashMap<(u32, u32), Operand>) -> bool {
-    
+
     match s.clone() {
-        // 
+        //
         Statement::Assignment(
             None,
             Some(Operand::SSAVariable(_, var_id, ssa_id)),
             None,
             Some(ref val)) => {
 
-            if is_constant(val) && 
+            if is_constant(val) &&
                 !known_constants.contains_key(&(var_id, ssa_id)) {
                 known_constants.insert((var_id, ssa_id), val.clone());
                 return true;
-            }            
+            }
             return false;
         },
         Statement::Assignment(
@@ -91,7 +91,7 @@ fn do_constant_propagation(
 
                         if let Statement::Assignment(_, _, ref mut op, _) = *s {
                             *op = Some(known_constants[&(var_id, ssa_id)].clone());
-                            changes = true;                
+                            changes = true;
                         }
                     }
                 }
@@ -103,13 +103,13 @@ fn do_constant_propagation(
                     if known_constants.contains_key(&(var_id, ssa_id)) {
                         if let Statement::Assignment(_, _, _, ref mut op) = *s {
                             *op = Some(known_constants[&(var_id, ssa_id)].clone());
-                            changes = true;                
+                            changes = true;
                         }
                     }
                 }
                 _ => {},
             }
-            
+
             return changes;
         },
         Statement::JumpIfTrue(ref val, _) => {
@@ -118,7 +118,7 @@ fn do_constant_propagation(
                     if known_constants.contains_key(&(var_id, ssa_id)) {
                         if let Statement::JumpIfTrue(ref mut op, _) = *s {
                             *op = known_constants[&(var_id, ssa_id)].clone();
-                            return true;                
+                            return true;
                         }
                     }
                 }
@@ -131,7 +131,7 @@ fn do_constant_propagation(
                     if known_constants.contains_key(&(var_id, ssa_id)) {
                         if let Statement::Return(ref mut op) = *s {
                             *op = Some(known_constants[&(var_id, ssa_id)].clone());
-                            return true;                
+                            return true;
                         }
                     }
                 }

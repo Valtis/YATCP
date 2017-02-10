@@ -10,11 +10,13 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Error;
 
+use std::rc::Rc;
+
 // elf file magic number
 const MAGIC_NUMBER : &'static str  ="\u{007f}ELF";
 
 // 32 and 64 bit architecture definitions
-const ELFCLASSNONE : u8 = 0; 
+const ELFCLASSNONE : u8 = 0;
 const ELFCLASS32 : u8 = 1;
 const ELFCLASS64 : u8 = 2;
 
@@ -50,14 +52,14 @@ const PADDING_BYTE : u8 = 0;
 
 // object file type
 const ET_NONE : u16 = 0;
-const ET_REL : u16 = 1; 
+const ET_REL : u16 = 1;
 const ET_EXEC : u16 = 2;
-const ET_DYN : u16 = 3; 
+const ET_DYN : u16 = 3;
 const ET_CORE : u16 = 4;
 const ET_LOOS : u16 = 0xfe00;
 const ET_HIOS : u16 = 0xfeff;
 const ET_LOPROC : u16 = 0xff00;
-const ET_HIPROC : u16 = 0xffff;  
+const ET_HIPROC : u16 = 0xffff;
 
 
 // cpu architecture
@@ -112,7 +114,7 @@ const STB_LOCAL : u8 = 0;
 const STB_GLOBAL : u8 = 1;
 const STB_WEAK : u8 = 2;
 const STB_LOPROC : u8 = 13;
-const STB_HIPROC: u8 = 15;  
+const STB_HIPROC: u8 = 15;
 
 // symbol types
 const STT_NOTYPE : u8 = 0;
@@ -169,7 +171,7 @@ trait Section {
 }
 
 struct StringSection {
-    strings: Vec<String>,
+    strings: Vec<Rc<String>>,
 }
 
 struct TextSection {
@@ -186,7 +188,7 @@ struct SymbolEntry {
     other: u8,
     section_header_index : u16,
     value: ElfSize,
-    size: ElfSize, 
+    size: ElfSize,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -203,7 +205,7 @@ impl ElfHeader {
 
         ElfHeader {
             magic_number: MAGIC_NUMBER,
-            format: format, 
+            format: format,
             endianess: endianess,
             ident_version: EV_CURRENT,
             os_abi: ELFOSABI_NONE,
@@ -233,7 +235,7 @@ impl ElfHeader {
 
         if self.program_header_entry_count != 0 {
             self.program_header_table_offset = if self.format == ELFCLASS64 {
-                ElfSize::Elf64(self.header_size as u64) 
+                ElfSize::Elf64(self.header_size as u64)
             } else {
                 ElfSize::Elf32(self.header_size as u32)
             };
@@ -253,7 +255,7 @@ impl ElfHeader {
     fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
         file.write(self.magic_number.as_bytes())?;
         file.write(&[
-            self.format, 
+            self.format,
             self.endianess,
             self.ident_version,
             self.os_abi,
@@ -313,23 +315,23 @@ impl SectionHeader {
         write_elfsize(file, self.virtual_address, architecture)?;
         write_elfsize(file, self.offset, architecture)?;
         write_elfsize(file, self.size, architecture)?;
-        write_u32(file, self.link, architecture)?; 
-        write_u32(file, self.info, architecture)?;  
+        write_u32(file, self.link, architecture)?;
+        write_u32(file, self.info, architecture)?;
         write_elfsize(file, self.address_alignment, architecture)?;
-        write_elfsize(file, self.entry_size, architecture)?;             
+        write_elfsize(file, self.entry_size, architecture)?;
         Ok(())
     }
-} 
+}
 
 impl Section for StringSection {
-    
+
     fn write(&self, file: &mut File, _architecture: Architecture) -> Result<(), Error> {
         for str in self.strings.iter() {
             file.write(str.as_bytes())?;
             file.write("\0".as_bytes())?;
         }
         Ok(())
-    }    
+    }
 }
 
 impl Section for TextSection {
@@ -337,7 +339,7 @@ impl Section for TextSection {
     fn write(&self, file: &mut File, _architecture: Architecture) -> Result<(), Error> {
         file.write(self.code.as_slice())?;
         Ok(())
-    }     
+    }
 }
 
 impl Section for SymbolSection {
@@ -347,7 +349,7 @@ impl Section for SymbolSection {
         }
 
         Ok(())
-    }  
+    }
 }
 
 impl SymbolEntry {
@@ -368,15 +370,15 @@ pub struct ElfGenerator {
     elf_header: ElfHeader,
     section_headers: Vec<SectionHeader>,
     sections: Vec<Box<Section>>,
-    string_pos: HashMap<String, u32>,  
-    code: Code, 
+    string_pos: HashMap<Rc<String>, u32>,
+    code: Code,
 }
 
 impl ElfGenerator {
     pub fn new(
-        architecture: Architecture, 
-        input_file: String, 
-        output_file: String, 
+        architecture: Architecture,
+        input_file: String,
+        output_file: String,
         code: Code) -> ElfGenerator {
         ElfGenerator {
             architecture: architecture,
@@ -392,7 +394,7 @@ impl ElfGenerator {
 
     pub fn generate(mut self) {
         let mut file = File::create(&self.output_file).expect("An IO error occured when creating object file");
-       
+
         self.add_undefined_header();
 
         self.add_section_string_table();
@@ -406,7 +408,7 @@ impl ElfGenerator {
         // TODO: Better error handling (retain/show the IO error)
         self.elf_header.write(&mut file, self.architecture).expect("An IO error occured during ELF header write");
         self.write_section_headers(&mut file).expect("An IO error occured during ELF section header write");
-        self.write_sections(&mut file).expect("An IO error occured during ELF section write");        
+        self.write_sections(&mut file).expect("An IO error occured during ELF section write");
     }
 
     fn add_undefined_header(&mut self) {
@@ -418,19 +420,19 @@ impl ElfGenerator {
     fn add_section_string_table(&mut self) {
 
         let strings = vec![
-            "".to_string(), 
-            ".shstrtab".to_string(), 
-            ".strtab".to_string(), 
-            ".symtab".to_string(), 
-            ".data".to_string(), 
-            ".text".to_string()];
+            Rc::new("".to_string()),
+            Rc::new(".shstrtab".to_string()),
+            Rc::new(".strtab".to_string()),
+            Rc::new(".symtab".to_string()),
+            Rc::new(".data".to_string()),
+            Rc::new(".text".to_string())];
 
         // string.len() -> null terminator count
         let string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
-        println!("Size: {}", string_size); 
+        println!("Size: {}", string_size);
 
         let section = Box::new(StringSection {
-            strings: strings,                     
+            strings: strings,
         });
 
         let mut header = SectionHeader::new(self.architecture);
@@ -439,7 +441,7 @@ impl ElfGenerator {
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(string_size as u64),
         };
-       
+
         header.address_alignment = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(1),
         };
@@ -453,24 +455,24 @@ impl ElfGenerator {
     fn add_string_table(&mut self) {
         // hard coding for now for testing
         let mut strings = vec![
-            "".to_string(), 
-            self.input_file.clone(), 
+            Rc::new("".to_string()),
+            Rc::new(self.input_file.clone()),
             ];
 
         // string.len() -> null terminator count
         let mut string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
-        
+
         for f in self.code.functions.iter() {
             strings.push(f.name.clone());
             self.string_pos.insert(f.name.clone(), string_size as u32);
             string_size += f.name.len() + 1; // +1 for null terminatoe
-        } 
+        }
 
-      
-        println!("Size: {}", string_size); 
+
+        println!("Size: {}", string_size);
 
         let section = Box::new(StringSection {
-            strings: strings,                     
+            strings: strings,
         });
 
         let mut header = SectionHeader::new(self.architecture);
@@ -479,7 +481,7 @@ impl ElfGenerator {
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(string_size as u64),
         };
-       
+
         header.address_alignment = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(1),
         };
@@ -532,7 +534,7 @@ impl ElfGenerator {
         let entries_len = entries.len();
 
         let section = Box::new(SymbolSection {
-            entries: entries,                     
+            entries: entries,
         });
 
         let mut header = SectionHeader::new(self.architecture);
@@ -541,7 +543,7 @@ impl ElfGenerator {
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64((entries_len*24) as u64),
         };
-        
+
         header.entry_size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(24),
         };
@@ -558,11 +560,11 @@ impl ElfGenerator {
     }
 
     fn add_text_table(&mut self) {
-      
+
         let len = self.code.code.len();
 
         let section = Box::new(TextSection {
-            code: self.code.code.clone(),                     
+            code: self.code.code.clone(),
         });
 
         let mut header = SectionHeader::new(self.architecture);
@@ -574,7 +576,7 @@ impl ElfGenerator {
         };
 
         println!("Text table header size: {:?}", header.size);
-       
+
         header.address_alignment = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(1),
         };
@@ -609,14 +611,14 @@ impl ElfGenerator {
             Architecture::X64 => {
                 if let ElfSize::Elf64(val) = self.elf_header.section_header_table_offset {
 
-                    let section_headers_size = 
+                    let section_headers_size =
                         (self.elf_header.section_header_entry_size*self.elf_header.section_header_entry_count) as u64;
                     println!("section string offset: {}", val + section_headers_size);
-                    ElfSize::Elf64(val + section_headers_size) 
+                    ElfSize::Elf64(val + section_headers_size)
                 } else {
                     panic!("Internal compiler error: Invalid variable size for architecture in ELF header");
                 }
-            } 
+            }
         };
     }
 
@@ -630,16 +632,16 @@ impl ElfGenerator {
             current_header.offset = match self.architecture {
                 Architecture::X64 => {
                     if let (ElfSize::Elf64(val), ElfSize::Elf64(val2)) = (prev_header.offset, prev_header.size) {
-                        ElfSize::Elf64(val + val2) 
+                        ElfSize::Elf64(val + val2)
                     } else {
                         panic!("Internal compiler error: Invalid variable size for architecture in ELF header");
                     }
-                } 
+                }
             };
 
             println!("Current header: {:?} {:?}", current_header.offset, current_header.size);
         }
-           
+
 
     }
 
@@ -666,8 +668,8 @@ fn write_u16(file: &mut File, value: u16, architecture: Architecture) -> Result<
     match architecture {
         Architecture::X64 => LittleEndian::write_u16(&mut buffer, value),
     };
-   
-    file.write(&buffer)?;            
+
+    file.write(&buffer)?;
     Ok(())
 }
 
@@ -677,7 +679,7 @@ fn write_u32(file: &mut File, value: u32, architecture: Architecture) -> Result<
         Architecture::X64 => LittleEndian::write_u32(&mut buffer, value),
     };
 
-    file.write(&buffer)?;            
+    file.write(&buffer)?;
     Ok(())
 }
 
@@ -688,7 +690,7 @@ fn write_u64(file: &mut File, value: u64, architecture: Architecture) -> Result<
         Architecture::X64 => LittleEndian::write_u64(&mut buffer, value),
     };
 
-    file.write(&buffer)?;            
+    file.write(&buffer)?;
     Ok(())
 }
 

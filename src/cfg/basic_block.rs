@@ -15,23 +15,23 @@ impl BasicBlock {
         BasicBlock {
             start: start,
             end: end,
-        } 
+        }
     }
 
     pub fn construct_basic_blocks(function: &Function) -> Vec<BasicBlock> {
-        let mut basic_blocks = vec![]; 
+        let mut basic_blocks = vec![];
         let mut start = 0;
         let mut end = 0;
 
-        for s in function.statements.iter() {           
+        for s in function.statements.iter() {
             match *s {
                 Statement::Label(_) => {
                     if end - start  > 0 {
-                        basic_blocks.push(BasicBlock::new(start, end));     
+                        basic_blocks.push(BasicBlock::new(start, end));
                         start = end;
                     }
                 },
-                Statement::Jump(_) | 
+                Statement::Jump(_) |
                 Statement::JumpIfTrue(_, _) |
                 Statement::Return(_)  => {
                     // include the jump in the block
@@ -40,7 +40,7 @@ impl BasicBlock {
                 },
                 _ => { },
             }
-            end += 1; 
+            end += 1;
         }
         if start <= end && start < function.statements.len() {
             basic_blocks.push(BasicBlock::new(start, end));

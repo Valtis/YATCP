@@ -5,9 +5,13 @@ use cfg::basic_block::BasicBlock;
 use tac_generator::Function;
 use tac_generator::Statement;
 use tac_generator::Operand;
-use std::collections::HashMap;
 
-pub fn convert_to_ssa(functions: &mut Vec<Function>, function_cfgs: &mut HashMap<String, CFG>) {
+use std::collections::HashMap;
+use std::rc::Rc;
+
+pub fn convert_to_ssa(
+    functions: &mut Vec<Function>,
+    function_cfgs: &mut HashMap<Rc<String>, CFG>) {
     for f in functions.iter_mut() {
 
         let cfg = &mut function_cfgs.get_mut(&f.name).unwrap();
@@ -38,10 +42,10 @@ pub fn convert_to_ssa(functions: &mut Vec<Function>, function_cfgs: &mut HashMap
 
 fn place_phi_functions(
     function: &mut Function,
-    cfg: &mut CFG, 
+    cfg: &mut CFG,
     definitions: &HashMap<u32, Vec<usize>>,
     decl_info: &HashMap<u32, DeclarationInfo>) {
-    
+
     for variable in definitions.keys() {
         // only assigned into in a single block - phi node is not needed
         if definitions[variable].len() == 1 {
@@ -52,7 +56,7 @@ fn place_phi_functions(
         let mut work_list = vec![];
         for bb_id in definitions[variable].iter() {
             work_list.push(*bb_id);
-        }   
+        }
 
         while !work_list.is_empty() {
             let bb = work_list.pop().unwrap();
@@ -61,16 +65,16 @@ fn place_phi_functions(
                 if !blocks_with_phi.contains(dom_bb) {
                     println!("Inserting into bb {}", dom_bb);
                     insert_phi_function_into(
-                        function, 
+                        function,
                         *variable,
                         *dom_bb,
-                        &mut cfg.basic_blocks, 
-                        decl_info); 
+                        &mut cfg.basic_blocks,
+                        decl_info);
 
-                    blocks_with_phi.push(*dom_bb);              
+                    blocks_with_phi.push(*dom_bb);
                     if !definitions[variable].contains(dom_bb) {
                         work_list.push(*dom_bb);
-                    }   
+                    }
                 }
             }
         }
@@ -80,7 +84,7 @@ fn place_phi_functions(
 fn insert_phi_function_into(
     function: &mut Function,
     variable: u32,
-    block: usize, 
+    block: usize,
     basic_blocks: &mut Vec<BasicBlock>,
     decl_info: &HashMap<u32, DeclarationInfo>) {
 
@@ -93,12 +97,12 @@ fn insert_phi_function_into(
 
     let end = basic_blocks[block].end;
     function.statements.insert(
-        insertion, 
+        insertion,
         Statement::PhiFunction(
             Operand::Variable(
                 decl_info[&variable].clone(),
                 variable,
-            ), 
+            ),
             vec![]));
 
 
@@ -113,11 +117,11 @@ fn insert_phi_function_into(
 }
 
 // for each variable, get the list of basic blocks where this variable is defined
-// (assigned into) 
+// (assigned into)
 fn get_variable_definitions(
     function: &Function,
     basic_blocks: &Vec<BasicBlock>) -> (HashMap<u32, Vec<usize>>, HashMap<u32, DeclarationInfo>) {
-    
+
     let mut definitions = HashMap::new();
     let mut decl_info = HashMap::new();
 
@@ -137,7 +141,7 @@ fn get_variable_definitions(
                     }
 
                 },
-                _ => {}, 
+                _ => {},
             }
         }
     }
@@ -154,16 +158,16 @@ fn rename_variables(
     let mut variable_definition_stack = HashMap::new();
 
     search(
-        0, 
-        cfg, 
-        function, 
-        &mut ssa_ids, 
-        &mut variable_definition_stack, 
+        0,
+        cfg,
+        function,
+        &mut ssa_ids,
+        &mut variable_definition_stack,
         decl_info);
 }
 
 fn search(
-    block: usize, 
+    block: usize,
     cfg: &CFG,
     function: &mut Function,
     ssa_ids: &mut HashMap<u32, u32>,
@@ -175,9 +179,9 @@ fn search(
     for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
         match function.statements[i] {
             Statement::Assignment(
-                _, 
-                ref mut dest, 
-                ref mut src1, 
+                _,
+                ref mut dest,
+                ref mut src1,
                 ref mut src2) => {
 
                 update_rhs_operand(src1, variable_definition_stack);
@@ -211,7 +215,7 @@ fn search(
                     Statement::PhiFunction(Operand::Variable(_, var_id), ref mut operands) |
                     Statement::PhiFunction(Operand::SSAVariable(_, var_id, _), ref mut operands) => {
 
-                        let stack = &variable_definition_stack[&var_id];                    
+                        let stack = &variable_definition_stack[&var_id];
                         let ssa_id = stack[stack.len()-1];
 
                         operands.push(Operand::SSAVariable(
@@ -221,24 +225,24 @@ fn search(
                     },
                     _ => {},
                 }
-            }   
-        }        
+            }
+        }
     }
 
     for child in immediately_dominated_nodes(cfg, block) {
         search(
-            child, 
-            cfg, 
-            function, 
-            ssa_ids, 
-            variable_definition_stack, 
-            decl_info);    
+            child,
+            cfg,
+            function,
+            ssa_ids,
+            variable_definition_stack,
+            decl_info);
     }
 
     for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
         match function.statements[i] {
             Statement::Assignment(
-                _, 
+                _,
                 ref dest,
                 _,
                 _) => {
@@ -260,14 +264,14 @@ fn search(
 }
 
 fn update_rhs_operand(
-    src: &mut Option<Operand>, 
+    src: &mut Option<Operand>,
     variable_definition_stack: &HashMap<u32, Vec<u32>>) {
     if let Some(Operand::Variable(ref info, ref id)) = src.clone() {
         let stack = &variable_definition_stack[id];
         let new_id = stack[stack.len()-1];
         *src = Some(Operand::SSAVariable(
-            info.clone(), 
-            *id, 
+            info.clone(),
+            *id,
             new_id));
     }
 }
@@ -290,11 +294,11 @@ fn update_lhs_operand(
             ssa_ids.insert(*id, 0);
         }
 
-        let new_id = ssa_ids[id];  
+        let new_id = ssa_ids[id];
 
         *dest = Some(Operand::SSAVariable(
-            info.clone(), 
-            *id, 
+            info.clone(),
+            *id,
             new_id));
         println!("Pushing into {}", id);
         stack.push(new_id);
@@ -321,8 +325,8 @@ fn immediately_dominated_nodes(cfg: &CFG, block: usize) -> Vec<usize> {
 
 
 pub fn destroy_ssa(
-    functions: &mut Vec<Function>, 
-    function_cfgs: &mut HashMap<String, CFG>) {
+    functions: &mut Vec<Function>,
+    function_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
     for f in functions.iter_mut() {
         let mut remove_list = vec![];
@@ -340,7 +344,7 @@ pub fn destroy_ssa(
                 Statement::JumpIfTrue(ref mut operand, _) => {
                     change_to_regular_variable(operand);
                 },
-                Statement::Return(ref mut operand) => {                    
+                Statement::Return(ref mut operand) => {
                     change_to_regular_variable_opt(operand);
                 },
                 Statement::PhiFunction(_, _) => {
@@ -361,12 +365,12 @@ pub fn destroy_ssa(
 
 fn change_to_regular_variable(operand: &mut Operand) {
     if let Operand::SSAVariable(info, var_id, _) = operand.clone() {
-        *operand = Operand::Variable(info, var_id); 
+        *operand = Operand::Variable(info, var_id);
     }
 }
 
 fn change_to_regular_variable_opt(operand: &mut Option<Operand>) {
     if let Some(Operand::SSAVariable(info, var_id, _)) = operand.clone() {
-        *operand = Some(Operand::Variable(info, var_id)); 
+        *operand = Some(Operand::Variable(info, var_id));
     }
 }

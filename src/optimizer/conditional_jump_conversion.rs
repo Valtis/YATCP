@@ -10,10 +10,10 @@ use std::collections::HashMap;
 
 // convert conditional jumps with constant operand into unconditional jumps
 pub fn convert_jumps(
-    function: &mut Function, 
+    function: &mut Function,
     cfg: &mut CFG) {
     let mut remove_list = vec![];
-    
+
     let mut label_to_block = HashMap::new();
 
     for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
@@ -40,7 +40,7 @@ pub fn convert_jumps(
 
             },
             _ => {},
-        }  
+        }
     }
 
     cfg.remove_statements(function, remove_list);
@@ -52,7 +52,7 @@ fn update_phi_functions(
     cfg: &mut CFG) {
 
     let reaching_defs = calculate_definitions_reaching_end_of_block(
-        function, 
+        function,
         cfg);
 
 
@@ -61,23 +61,23 @@ fn update_phi_functions(
         for s in bb.start..bb.end {
             match function.statements[s] {
                 Statement::PhiFunction(
-                    Operand::SSAVariable(_, id, _), 
+                    Operand::SSAVariable(_, id, _),
                     ref mut operands) => {
                     remove_non_reaching_defs_from_phi(
-                        operands, 
+                        operands,
                         &reaching_defs,
                         bb_id,
                         id,
                         &parents);
                 },
                 _ => {},
-    
+
             }
         }
     }
 }
 
-// return vector of vectors, where outer vector is indexed by 
+// return vector of vectors, where outer vector is indexed by
 // basic block id, and inner vector contains all the variable id/ssa variable id
 // pairs which definition reaches the end of the block
 fn calculate_definitions_reaching_end_of_block(
@@ -88,7 +88,7 @@ fn calculate_definitions_reaching_end_of_block(
 
     let mut reaching_defs = vec![];
     reaching_defs.resize(cfg.basic_blocks.len(), HashMap::new());
-  
+
     calculate_definitions(function, cfg, 0, &immediate_dominators, &mut reaching_defs);
 
     reaching_defs
@@ -103,13 +103,13 @@ fn calculate_definitions(
 
     println!("\n\nCalculating definitions for block {}", cur_block+1);
     let mut cur_hashmap = HashMap::new();
-    
+
     // populate the hashmap with parent info
     let parents = cfg.get_parent_blocks(cur_block);
     for parent in parents.iter() {
             println!("Pre-populating with values from parent block {}", parent);
             for (key, value) in reaching_defs[*parent].iter() {
-                cur_hashmap.insert(*key, *value);                
+                cur_hashmap.insert(*key, *value);
             }
     }
 
@@ -120,12 +120,12 @@ fn calculate_definitions(
 
         match function.statements[i] {
               Statement::PhiFunction(
-                Operand::SSAVariable(_, id, ssa_id), 
+                Operand::SSAVariable(_, id, ssa_id),
                 _) |
             Statement::Assignment(
-                _, 
-                Some(Operand::SSAVariable(_, id, ssa_id)), 
-                _, 
+                _,
+                Some(Operand::SSAVariable(_, id, ssa_id)),
+                _,
                 _) => {
                 println!("Found local definition {}:{} from {}", id, ssa_id, function.statements[i]);
                 cur_hashmap.insert(id, ssa_id);
@@ -139,10 +139,10 @@ fn calculate_definitions(
     // finally recursively call this with immediately dominated values
     for block in immediately_dominated_nodes(cur_block, immediate_dominators) {
         calculate_definitions(
-            function, 
-            cfg, 
-            block, 
-            immediate_dominators, 
+            function,
+            cfg,
+            block,
+            immediate_dominators,
             reaching_defs);
     }
 }
@@ -172,7 +172,7 @@ fn remove_non_reaching_defs_from_phi(
     reaching_defs: &Vec<HashMap<u32, u32>>,
     block_id: usize,
     var_id: u32,
-    parents: &Vec<usize>) {    
+    parents: &Vec<usize>) {
 
     println!("\nHandling block {} for variable {}", block_id+1, var_id);
     println!("Parents: {:?}", parents.iter().map(|v| v+1).collect::<Vec<usize>>());
@@ -185,7 +185,7 @@ fn remove_non_reaching_defs_from_phi(
                 if reaching_defs[*p].get(&var_id) == Some(&ssa_id) {
                     println!("Keeping ssa id: {}", ssa_id);
                     return true;
-                }   
+                }
             }
             println!("Removing ssa id: {}", ssa_id);
             return false;

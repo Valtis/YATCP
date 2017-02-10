@@ -36,7 +36,7 @@ fn main() {
     let opt_functions = run_frontend(file_name);
 
     // hardcoded for now. Should be read from command line args
-    let optimize = true; 
+    let optimize = true;
 
 
     if let Some(mut functions) = opt_functions {
@@ -45,7 +45,6 @@ fn main() {
         }
         run_backend(file_name, functions);
     }
- 
 }
 
 
@@ -55,7 +54,10 @@ fn run_frontend(
     let error_reporter = Rc::new(
         RefCell::new(FileErrorReporter::new(file_name)));
 
-    let mut node = parse_code(file_name, error_reporter.clone());
+
+    let mut node = parse_code(
+        file_name,
+        error_reporter.clone());
 
     node.print();
     println!("");
@@ -85,16 +87,19 @@ fn run_frontend(
 fn parse_code(
     file_name: &'static str,
     error_reporter: Rc<RefCell<FileErrorReporter>>) -> AstNode {
-    
+
     let file = File::open(file_name).unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
 
-    let lexer = Box::new(ReadLexer::new(Box::new(file), error_reporter.clone()));
+    let lexer = Box::new(
+        ReadLexer::new(Box::new(file),
+            error_reporter.clone()));
+
     let mut parser = Parser::new(lexer, error_reporter);
     parser.parse()
 }
 
 fn print_tac(tac_functions: &Vec<Function>) {
-    let mut counter = 1; 
+    let mut counter = 1;
     for f in tac_functions.iter() {
         println!("Function '{}'\n", f.name);
         for s in &f.statements {
@@ -106,7 +111,7 @@ fn print_tac(tac_functions: &Vec<Function>) {
     println!("");
 }
 
-fn print_cfg(cfg: &HashMap<String, CFG>, functions: &Vec<Function>) {
+fn print_cfg(cfg: &HashMap<Rc<String>, CFG>, functions: &Vec<Function>) {
 
     for f in functions {
         let mut counter = 1;
@@ -136,11 +141,11 @@ fn print_cfg(cfg: &HashMap<String, CFG>, functions: &Vec<Function>) {
         println!("\nDominance frontiers\n");
         for i in 0..cfg[&f.name].dominance_frontier.len() {
             println!("{}: {:?}", i+1, cfg[&f.name].dominance_frontier[i].iter().map(|v| v + 1).collect::<Vec<usize>>());
-        } 
+        }
 
 
         println!("\n");
-    }    
+    }
 }
 
 fn print_bytecode(byte_gen: &ByteGenerator) {
@@ -151,7 +156,7 @@ fn print_bytecode(byte_gen: &ByteGenerator) {
         for c in &f.code {
             println!("    {}: {:?}", counter, c);
             counter += 1;
-        }   
+        }
     }
     println!("");
 }
@@ -176,7 +181,7 @@ fn run_middleend(mut functions: Vec<Function>) -> Vec<Function> {
 fn run_backend(file_name: &'static str, functions: Vec<Function> ) {
     let mut byte_gen = ByteGenerator::new(functions.clone());
     byte_gen.generate_bytecode();
-    print_bytecode(&byte_gen); 
+    print_bytecode(&byte_gen);
 
     let bytecode = byte_gen.bytecode_functions;
 

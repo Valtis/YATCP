@@ -16,6 +16,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
+use std::rc::Rc;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Plus,
@@ -61,7 +63,7 @@ impl Display for Operand {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
-            Operand::SSAVariable(ref info, id, ssa_id) => 
+            Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
             Operand::Integer(v) => format!("{}i", v),
             Operand::Float(v) => format!("{}f", v),
@@ -92,23 +94,23 @@ fn opt_to_str<T: Display>(op: &Option<T>) -> String {
 impl Display for Statement {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
-            Statement::Assignment(ref op, ref v1, ref v2, ref v3) => 
-                format!("({}, {}, {}, {})", 
-                    opt_to_str(op), 
-                    opt_to_str(v1), 
-                    opt_to_str(v2), 
-                    opt_to_str(v3)),       
-            Statement::Return(ref v1) => 
-                format!("(return {})", opt_to_str(v1)), 
+            Statement::Assignment(ref op, ref v1, ref v2, ref v3) =>
+                format!("({}, {}, {}, {})",
+                    opt_to_str(op),
+                    opt_to_str(v1),
+                    opt_to_str(v2),
+                    opt_to_str(v3)),
+            Statement::Return(ref v1) =>
+                format!("(return {})", opt_to_str(v1)),
             Statement::Label(id) => format!("Label {}", id),
             Statement::Jump(id) => format!("Jump {}", id),
-            Statement::JumpIfTrue(ref op, id) => 
+            Statement::JumpIfTrue(ref op, id) =>
                 format!("Jump {} if {}", id, op),
             Statement::PhiFunction(ref dest, ref operands) => {
                 let mut op_str = operands.
                     iter().
                     fold(
-                        String::new(), 
+                        String::new(),
                         |acc, ref t| format!("'{}', {}", t, acc));
 
                 op_str.pop(); op_str.pop();
@@ -121,12 +123,12 @@ impl Display for Statement {
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: String,
+    pub name: Rc<String>,
     pub statements: Vec<Statement>
 }
 
 impl Function {
-    fn new(name: String) -> Function {
+    fn new(name: Rc<String>) -> Function {
         Function {
             name: name,
             statements: vec![],
@@ -138,10 +140,11 @@ impl Function {
 pub struct TACGenerator {
     functions: Vec<Function>,
     function_stack: Vec<Function>,
-    operands: Vec<Operand>, 
+    operands: Vec<Operand>,
     id_counter: u32,
     label_counter: u32,
     symbol_table: SymbolTable,
+    tmp_name: Rc<String>
 }
 
 impl TACGenerator {
@@ -152,7 +155,8 @@ impl TACGenerator {
             operands: vec![],
             id_counter: start_id,
             label_counter: 0,
-            symbol_table: SymbolTable::new(),            
+            symbol_table: SymbolTable::new(),
+            tmp_name: Rc::new(TMP_NAME.to_string()),
         }
     }
 
@@ -164,25 +168,25 @@ impl TACGenerator {
 
     fn generate_tac(&mut self, node: &AstNode) {
         match *node {
-            AstNode::Block(ref children, ref sym_tab, ref node_info) => 
+            AstNode::Block(ref children, ref sym_tab, ref node_info) =>
                 self.handle_block(children, sym_tab, node_info),
-            AstNode::Function(ref child, ref info) => 
+            AstNode::Function(ref child, ref info) =>
                 self.handle_function(child, info),
-            AstNode::VariableDeclaration(ref child, ref info) => 
+            AstNode::VariableDeclaration(ref child, ref info) =>
                 self.handle_variable_declaration(child, info),
-            AstNode::VariableAssignment(ref child, ref name, _) => 
+            AstNode::VariableAssignment(ref child, ref name, _) =>
                 self.handle_variable_assignment(child, name),
-            AstNode::Plus(_, _, _) | 
+            AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
-            AstNode::Multiply(_, _, _) | 
-            AstNode::Divide(_, _, _) => 
+            AstNode::Multiply(_, _, _) |
+            AstNode::Divide(_, _, _) =>
                 self.handle_arithmetic_node(node),
             AstNode::Integer(_, _) |
             AstNode::Boolean(_, _) => self.handle_constant(node),
-            AstNode::Identifier(ref name, _) => 
+            AstNode::Identifier(ref name, _) =>
                 self.handle_identifier(name),
             AstNode::Return(ref child, _) => self.handle_return(child),
-            AstNode::While(ref expr, ref block, _) => 
+            AstNode::While(ref expr, ref block, _) =>
                 self.handle_while(expr, block),
             AstNode::If(ref expr, ref if_blk, ref opt_else_blk, _) =>
                 self.handle_if(expr, if_blk, opt_else_blk),
@@ -209,7 +213,7 @@ impl TACGenerator {
         else {
             ice!("No symbol table information attached to AST block node");
         }
-    
+
         for ref child in children {
             self.generate_tac(child);
         }
@@ -223,67 +227,67 @@ impl TACGenerator {
         self.function_stack.push(function);
 
         self.generate_tac(child);
-    
+
         self.functions.push(
             self.function_stack.pop().unwrap_or_else(
                 || ice!("Function stack empty when generating function 3AC")));
     }
 
     fn handle_variable_declaration(
-        &mut self, 
+        &mut self,
         child: &AstNode,
         info: &DeclarationInfo) {
         self.declaration_assignment_common(child, &info.name);
     }
 
     fn handle_variable_assignment(
-        &mut self, 
+        &mut self,
         child: &AstNode,
         name: &String) {
         self.declaration_assignment_common(child, name);
     }
 
     fn declaration_assignment_common(
-        &mut self, 
+        &mut self,
         child: &AstNode,
         name: &String) {
         self.generate_tac(child);
-        
+
         let (variable_info, id) = self.get_variable_info_and_id(name);
 
         let operand = self.operands.pop();
 
         self.generate_assignment(
             variable_info,
-            id, 
+            id,
             operand)
     }
 
     fn generate_assignment(
-        &mut self, 
-        var_info: DeclarationInfo, 
+        &mut self,
+        var_info: DeclarationInfo,
         id: u32,
         operand: Option<Operand>) {
         self.current_function().statements.push(
             Statement::Assignment(
-                None, 
+                None,
                 Some(
                     Operand::Variable(
-                        var_info, id)), 
-                None, 
+                        var_info, id)),
+                None,
                 operand));
     }
 
     fn handle_arithmetic_node(&mut self, node: &AstNode) {
-      
+
        let (operator, left_child, right_child) = match *node {
-            AstNode::Plus(ref left, ref right, _) => 
+            AstNode::Plus(ref left, ref right, _) =>
                 (Operator::Plus, left, right),
-            AstNode::Minus(ref left, ref right, _) => 
+            AstNode::Minus(ref left, ref right, _) =>
                 (Operator::Minus, left, right),
-            AstNode::Multiply(ref left, ref right, _) => 
+            AstNode::Multiply(ref left, ref right, _) =>
                 (Operator::Multiply, left, right),
-            AstNode::Divide(ref left, ref right, _) => 
+            AstNode::Divide(ref left, ref right, _) =>
                 (Operator::Divide, left, right),
             _ => ice!("Invalid node '{}' passed when arithmetic node expected", node),
         };
@@ -303,7 +307,7 @@ impl TACGenerator {
 
         let temp = Operand::Variable(
             DeclarationInfo::new_alt(
-                TMP_NAME.to_string(), 
+                self.tmp_name.clone(),
                 self.get_type(&left_op),
                 0, 0, 0),
             id);
@@ -312,7 +316,7 @@ impl TACGenerator {
             Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
         ));
 
-        self.operands.push(temp) 
+        self.operands.push(temp)
     }
 
     fn handle_identifier(&mut self, name: &String) {
@@ -331,7 +335,7 @@ impl TACGenerator {
         self.operands.push(operand);
     }
 
-    fn handle_return(&mut self, child: &Option<Box<AstNode>>) {        
+    fn handle_return(&mut self, child: &Option<Box<AstNode>>) {
         let operand = if let Some(ref node) = *child {
             Some(self.get_operand(node))
         } else {
@@ -346,22 +350,22 @@ impl TACGenerator {
         let block_label_id = self.get_label_id();
 
         self.current_function().statements.push(
-            Statement::Jump(comparison_label_id)); 
+            Statement::Jump(comparison_label_id));
         self.current_function().statements.push(
-            Statement::Label(block_label_id)); 
-        self.generate_tac(block);        
+            Statement::Label(block_label_id));
+        self.generate_tac(block);
         self.current_function().statements.push(
-            Statement::Label(comparison_label_id)); 
+            Statement::Label(comparison_label_id));
         let operand = self.get_operand(expr);
         self.current_function().statements.push(
-            Statement::JumpIfTrue(operand, block_label_id)); 
+            Statement::JumpIfTrue(operand, block_label_id));
     }
 
 
     fn handle_if(
-        &mut self, 
-        expr: &AstNode, 
-        if_blk: &AstNode, 
+        &mut self,
+        expr: &AstNode,
+        if_blk: &AstNode,
         opt_else_blk: &Option<Box<AstNode>>) {
 
         let comparison_label_id = self.get_label_id();
@@ -372,35 +376,35 @@ impl TACGenerator {
 
         // jump to condition evaluation
         self.current_function().statements.push(
-            Statement::Jump(comparison_label_id)); 
+            Statement::Jump(comparison_label_id));
         // true branch
-        self.current_function().statements.push(            
-            Statement::Label(if_blk_label)); 
-        self.generate_tac(if_blk); 
         self.current_function().statements.push(
-            Statement::Jump(out_label)); 
+            Statement::Label(if_blk_label));
+        self.generate_tac(if_blk);
+        self.current_function().statements.push(
+            Statement::Jump(out_label));
 
         // false branch, if present
         if let Some(ref else_blk) = *opt_else_blk {
-            self.current_function().statements.push(            
-            Statement::Label(else_blk_label)); 
-            self.generate_tac(else_blk);                   
             self.current_function().statements.push(
-                Statement::Jump(out_label));         
+            Statement::Label(else_blk_label));
+            self.generate_tac(else_blk);
+            self.current_function().statements.push(
+                Statement::Jump(out_label));
         }
 
         // perform comparison
         self.current_function().statements.push(
-            Statement::Label(comparison_label_id)); 
+            Statement::Label(comparison_label_id));
         let operand = self.get_operand(expr);
 
         // jump to true branch, if comparison is true
         self.current_function().statements.push(
-            Statement::JumpIfTrue(operand, if_blk_label)); 
+            Statement::JumpIfTrue(operand, if_blk_label));
         // either fall through, or jump to else branch
         if let Some(_) = *opt_else_blk {
              self.current_function().statements.push(
-                Statement::Jump(else_blk_label));         
+                Statement::Jump(else_blk_label));
         }
         self.current_function().statements.push(
             Statement::Label(out_label));
@@ -408,10 +412,10 @@ impl TACGenerator {
 
     fn handle_comparison(&mut self, node: &AstNode) {
         let (operator, left, right) = match *node {
-            AstNode::Less(ref left, ref right, _) => 
+            AstNode::Less(ref left, ref right, _) =>
                 (Operator::Less, left, right),
             AstNode::LessOrEq(ref left, ref right, _) =>
-                (Operator::LessOrEq, left, right),        
+                (Operator::LessOrEq, left, right),
             AstNode::Equals(ref left, ref right, _) =>
                 (Operator::Equals, left, right),
             AstNode::GreaterOrEq(ref left, ref right, _) =>
@@ -422,13 +426,13 @@ impl TACGenerator {
         };
 
         let id = self.get_next_id();
-        
+
         let left_op = self.get_operand(left);
         let right_op = self.get_operand(right);
 
         let temp = Operand::Variable(
             DeclarationInfo::new_alt(
-                TMP_NAME.to_string(), 
+                self.tmp_name.clone(),
                 self.get_type(&left_op),
                 0, 0, 0),
             id);
@@ -447,7 +451,7 @@ impl TACGenerator {
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,
             Operand::Boolean(_) => Type::Boolean,
-            Operand::SSAVariable(_, _, _) => 
+            Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }
     }
@@ -481,6 +485,5 @@ impl TACGenerator {
 
     fn current_function(&mut self) -> &mut Function {
         self.function_stack.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Function stack empty"))
-    } 
-
-} 
+    }
+}

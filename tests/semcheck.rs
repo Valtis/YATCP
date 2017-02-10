@@ -25,7 +25,6 @@ fn create_sem_checker() -> (Rc<RefCell<TestReporter>>, SemanticsCheck) {
     (reporter.clone(), SemanticsCheck::new(reporter))
 }
 
-
 #[test]
 fn assigning_boolean_is_allowed() {
    let (reporter, mut checker) = create_sem_checker();
@@ -36,32 +35,32 @@ fn assigning_boolean_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
-                    AstNode::VariableDeclaration(                    
+                    AstNode::VariableDeclaration(
                         Box::new(AstNode::Boolean(
                             true,
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Boolean,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 0);    
+    assert_eq!(reporter.borrow().error_count(), 0);
 }
 
 #[test]
@@ -72,37 +71,37 @@ fn concatenation_is_allowed() {
             let a : string = "hello " + "world";
         }
     */
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Plus(
                             Box::new(AstNode::Text(
-                                "hello ".to_string(),
+                                Rc::new("hello ".to_string()),
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Text(
-                                "world".to_string(),
+                                Rc::new("world".to_string()),
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -117,7 +116,7 @@ fn artihmetic_operation_with_integers_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -126,28 +125,28 @@ fn artihmetic_operation_with_integers_is_allowed() {
                             Box::new(AstNode::Integer(
                                 3,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Integer(
                                 14,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -162,7 +161,7 @@ fn artihmetic_operation_with_floats_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -171,28 +170,28 @@ fn artihmetic_operation_with_floats_is_allowed() {
                             Box::new(AstNode::Float(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Float(
                                 14f32,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Float,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -207,7 +206,7 @@ fn artihmetic_operation_with_doubles_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -216,28 +215,28 @@ fn artihmetic_operation_with_doubles_is_allowed() {
                             Box::new(AstNode::Double(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Double(
                                 14f64,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Double,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -252,7 +251,7 @@ fn negation_of_number_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -265,22 +264,22 @@ fn negation_of_number_is_allowed() {
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Double,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 0);    
+    assert_eq!(reporter.borrow().error_count(), 0);
 }
 
 #[test]
@@ -293,7 +292,7 @@ fn expression_using_variables_is_allowed() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -306,14 +305,14 @@ fn expression_using_variables_is_allowed() {
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Double,
                             1, 1, 1),
                         ),
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Multiply(
                             Box::new(AstNode::Identifier(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 NodeInfo::new(9, 7, 4)
                             )),
                             Box::new(AstNode::Double(
@@ -323,22 +322,22 @@ fn expression_using_variables_is_allowed() {
                             ArithmeticInfo::new_alt(4, 5, 6)
                         )),
                         DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             2, 2, 2),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 0);    
+    assert_eq!(reporter.borrow().error_count(), 0);
 }
 
 #[test]
@@ -350,38 +349,38 @@ fn undeclared_variable_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Identifier(
-                                "c".to_string(),
+                                Rc::new("c".to_string()),
                                 NodeInfo::new(9, 7, 4)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Double,
                             1, 1, 1),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);  
+    assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::NameError,
         9,
         7,
-        4); 
+        4);
 }
 
 #[test]
@@ -391,12 +390,12 @@ fn redeclaration_of_variable_is_allowed_if_scopes_do_not_overlap() {
     fn foo() {
         {
         let a : int = 4;
-        }        
+        }
         let a : float = 6.2f;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -408,7 +407,7 @@ fn redeclaration_of_variable_is_allowed_if_scopes_do_not_overlap() {
                                     NodeInfo::new(8, 6, 3)
                                 )),
                                 DeclarationInfo::new_alt(
-                                    "a".to_string(),
+                                    Rc::new("a".to_string()),
                                     Type::Integer,
                                     1, 2, 3),
                             ),
@@ -422,20 +421,20 @@ fn redeclaration_of_variable_is_allowed_if_scopes_do_not_overlap() {
                                 NodeInfo::new(12, 65, 4)
                             )),
                             DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Float,
                                 2, 3, 4),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -448,23 +447,23 @@ fn return_without_expression_in_void_function_is_allowed() {
         return;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
                     AstNode::Block(vec![
                         AstNode::Return(None, ArithmeticInfo::new_alt(5, 6, 7)),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -477,8 +476,8 @@ fn return_with_correct_expression_type_is_allowed_in_function() {
         return 5;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -487,18 +486,18 @@ fn return_with_correct_expression_type_is_allowed_in_function() {
                             Some(Box::new(AstNode::Integer(
                                 4,
                                 NodeInfo::new(7, 23, 212)
-                                ))), 
+                                ))),
                             ArithmeticInfo::new_alt(5, 6, 7)),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 0);
 }
@@ -517,7 +516,7 @@ fn correct_while_loop_is_accepted() {
     */
     let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::While(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -536,7 +535,7 @@ fn correct_while_loop_is_accepted() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -549,12 +548,12 @@ fn correct_while_loop_is_accepted() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
     assert_eq!(reporter.borrow().error_count(), 0);
 }
 
@@ -570,7 +569,7 @@ fn if_statement_without_else_is_accepted() {
     */
     let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -589,7 +588,7 @@ fn if_statement_without_else_is_accepted() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -603,12 +602,12 @@ fn if_statement_without_else_is_accepted() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
     assert_eq!(reporter.borrow().error_count(), 0);
 }
 
@@ -626,7 +625,7 @@ fn if_statement_with_else_is_accepted() {
     */
     let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -645,7 +644,7 @@ fn if_statement_with_else_is_accepted() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -659,7 +658,7 @@ fn if_statement_with_else_is_accepted() {
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             41, 51, 61)),
                         ],
@@ -672,12 +671,12 @@ fn if_statement_with_else_is_accepted() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
     assert_eq!(reporter.borrow().error_count(), 0);
 }
 
@@ -690,8 +689,8 @@ fn redeclaration_of_variable_is_reported() {
         let a : float = 6.2f;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -702,7 +701,7 @@ fn redeclaration_of_variable_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Integer,
                                 1, 2, 3),
                         ),
@@ -712,30 +711,30 @@ fn redeclaration_of_variable_is_reported() {
                                 NodeInfo::new(12, 65, 4)
                             )),
                             DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Float,
                                 2, 3, 4),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::NameError,
         2,
         3,
         4);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         2,
@@ -748,14 +747,14 @@ fn declaration_of_variable_which_shares_name_with_function_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
     fn a() : void {
-    
+
     }
 
     fn foo() : void {
         let a : int = 4;
     }
     */
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -765,7 +764,7 @@ fn declaration_of_variable_which_shares_name_with_function_is_reported() {
                         NodeInfo::new(0, 0, 0)
                     )
                 ),
-                FunctionInfo::new_alt("a".to_string(), Type::Void, 4, 5, 6)
+                FunctionInfo::new_alt(Rc::new("a".to_string()), Type::Void, 4, 5, 6)
             ),
             AstNode::Function(
                 Box::new(
@@ -776,30 +775,30 @@ fn declaration_of_variable_which_shares_name_with_function_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Integer,
                                 1, 2, 3),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::NameError,
         1,
         2,
         3);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         4,
         5,
@@ -811,44 +810,44 @@ fn redefinition_of_a_function_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
         fn foo() : void {
-    
+
         }
 
         fn foo : void() {
-    
+
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![], 
+                Box::new(AstNode::Block(vec![],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 1, 2, 3)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 2, 3)
                 ),
             AstNode::Function(
-                Box::new(AstNode::Block(vec![], 
+                Box::new(AstNode::Block(vec![],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 2, 3, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 2, 3, 4)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::NameError,
         2,
         3,
         4);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         2,
@@ -860,55 +859,55 @@ fn using_function_as_variable_in_expression_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
         fn foo() : void {
-    
+
         }
 
         fn bar : void() {
-            let a : int = foo;  
+            let a : int = foo;
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![], 
+                Box::new(AstNode::Block(vec![],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 1, 2, 3)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 2, 3)
                 ),
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Identifier(
-                                "foo".to_string(),
+                                Rc::new("foo".to_string()),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Integer,
                                 1, 2, 3),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("bar".to_string(), Type::Void, 2, 3, 4)   
+                FunctionInfo::new_alt(Rc::new("bar".to_string()), Type::Void, 2, 3, 4)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         8,
         6,
         3);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         2,
@@ -920,7 +919,7 @@ fn assigning_into_function_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
         fn foo() : void {
-    
+
         }
 
         fn bar : void() {
@@ -928,13 +927,13 @@ fn assigning_into_function_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![], 
+                Box::new(AstNode::Block(vec![],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 1, 2, 3)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 2, 3)
                 ),
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -943,34 +942,34 @@ fn assigning_into_function_is_reported() {
                                 4,
                                 NodeInfo::new(8, 6, 3)
                             )),
-                            "foo".to_string(),
-                            NodeInfo::new(9, 10, 11) 
+                            Rc::new("foo".to_string()),
+                            NodeInfo::new(9, 10, 11)
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("bar".to_string(), Type::Void, 2, 3, 4)   
+                FunctionInfo::new_alt(Rc::new("bar".to_string()), Type::Void, 2, 3, 4)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         9,
         10,
         11);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         2,
-        3);   
+        3);
 }
 
 #[test]
@@ -983,7 +982,7 @@ fn type_error_when_variable_is_declared_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -993,30 +992,30 @@ fn type_error_when_variable_is_declared_is_reported() {
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
-                    )], 
+                    )],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         8,
         6,
         3);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         1,
@@ -1033,7 +1032,7 @@ fn type_error_in_plus_expression_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1042,32 +1041,32 @@ fn type_error_in_plus_expression_is_reported() {
                             Box::new(AstNode::Float(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Integer(
                                 14,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1084,7 +1083,7 @@ fn type_error_in_minus_expression_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1093,32 +1092,32 @@ fn type_error_in_minus_expression_is_reported() {
                             Box::new(AstNode::Float(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Integer(
                                 14,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1135,7 +1134,7 @@ fn type_error_in_multiplication_expression_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1144,32 +1143,32 @@ fn type_error_in_multiplication_expression_is_reported() {
                             Box::new(AstNode::Float(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Integer(
                                 14,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1186,7 +1185,7 @@ fn type_error_in_division_expression_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1195,32 +1194,32 @@ fn type_error_in_division_expression_is_reported() {
                             Box::new(AstNode::Float(
                                 3.2,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Integer(
                                 14,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1235,7 +1234,7 @@ fn arithmetic_operation_on_booleans_is_reported() {
             let a : bool = true * false;
         }
     */
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1244,31 +1243,31 @@ fn arithmetic_operation_on_booleans_is_reported() {
                             Box::new(AstNode::Boolean(
                                 true,
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Boolean(
                                 false,
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Boolean,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1283,40 +1282,40 @@ fn non_concatenation_arithmetic_operation_on_text_is_reported() {
             let a : string = "hello " - "world";
         }
     */
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Minus(
                             Box::new(AstNode::Text(
-                                "hello ".to_string(),
+                                Rc::new("hello ".to_string()),
                                 NodeInfo::new(8, 6, 3)
-                            )),                       
+                            )),
                             Box::new(AstNode::Text(
-                                "world".to_string(),
+                                Rc::new("world".to_string()),
                                 NodeInfo::new(9, 7, 2)
-                            )),   
+                            )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1334,37 +1333,37 @@ fn negation_of_string_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Negate(
                             Box::new(AstNode::Text(
-                                "hello".to_string(),
+                                Rc::new("hello".to_string()),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1374,7 +1373,7 @@ fn negation_of_string_is_reported() {
 #[test]
 fn negation_of_string_variable_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
-    
+
     /*
         fn foo() {
             let a : string = "hello";
@@ -1382,45 +1381,45 @@ fn negation_of_string_variable_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Text(
-                            "hello".to_string(),
+                            Rc::new("hello".to_string()),
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 1, 1),
                         ),
                     AstNode::VariableAssignment(
                         Box::new(AstNode::Negate(
                             Box::new(AstNode::Identifier(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 NodeInfo::new(11, 112, 1112),
                                 )),
                             ArithmeticInfo::new_alt(21, 22, 23)
                         )),
-                        "a".to_string(),
+                        Rc::new("a".to_string()),
                         NodeInfo::new(2, 6, 34),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         21,
         22,
@@ -1437,7 +1436,7 @@ fn negation_of_boolean_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1450,24 +1449,24 @@ fn negation_of_boolean_is_reported() {
                             ArithmeticInfo::new_alt(3, 4, 1)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Boolean,
                             1, 1, 1),
                         )
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         3,
         4,
@@ -1477,7 +1476,7 @@ fn negation_of_boolean_is_reported() {
 #[test]
 fn negation_of_boolean_variable_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
-    
+
     /*
         fn foo() {
             let a : bool = true;
@@ -1485,7 +1484,7 @@ fn negation_of_boolean_variable_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
@@ -1495,35 +1494,35 @@ fn negation_of_boolean_variable_is_reported() {
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Boolean,
                             1, 1, 1),
                         ),
                     AstNode::VariableAssignment(
                         Box::new(AstNode::Negate(
                             Box::new(AstNode::Identifier(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 NodeInfo::new(11, 112, 1112),
                                 )),
                             ArithmeticInfo::new_alt(21, 22, 23)
                         )),
-                        "a".to_string(),
+                        Rc::new("a".to_string()),
                         NodeInfo::new(2, 6, 34),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         21,
         22,
@@ -1533,7 +1532,7 @@ fn negation_of_boolean_variable_is_reported() {
 #[test]
 fn type_error_involving_variables_in_expression_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
-    
+
     /*
         fn foo() {
             let a : string = "hello";
@@ -1541,24 +1540,24 @@ fn type_error_involving_variables_in_expression_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Text(
-                            "hello".to_string(),
+                            Rc::new("hello".to_string()),
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 4, 8),
                         ),
                     AstNode::VariableAssignment(
                         Box::new(AstNode::Divide(
                             Box::new(AstNode::Identifier(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 NodeInfo::new(33, 34, 35),
                             )),
                             Box::new(AstNode::Integer(
@@ -1567,33 +1566,33 @@ fn type_error_involving_variables_in_expression_is_reported() {
                             )),
                             ArithmeticInfo::new_alt(14, 41, 342)
                         )),
-                        "a".to_string(),
+                        Rc::new("a".to_string()),
                         NodeInfo::new(2, 6, 34),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 1);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         14,
         41,
         342);
-} 
+}
 
 #[test]
 fn type_error_when_assigning_into_variable_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
-    
+
     /*
         fn foo() {
             let a : string = "hello";
@@ -1601,17 +1600,17 @@ fn type_error_when_assigning_into_variable_is_reported() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Text(
-                            "hello".to_string(),
+                            Rc::new("hello".to_string()),
                             NodeInfo::new(8, 6, 3)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 4, 8),
                         ),
@@ -1620,29 +1619,29 @@ fn type_error_when_assigning_into_variable_is_reported() {
                             23,
                             NodeInfo::new(11, 112, 1112),
                         )),
-                        "a".to_string(),
+                        Rc::new("a".to_string()),
                         NodeInfo::new(2, 6, 34),
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 2);    
-    
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         11,
         112,
         1112);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         1,
         4,
@@ -1659,30 +1658,30 @@ fn syntax_error_node_is_handled_correctly() {
         }
     */
 
-    let mut node = 
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::ErrorNode),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             1, 4, 8),
                         ),
                     AstNode::ErrorNode,
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
-    assert_eq!(reporter.borrow().error_count(), 0);    
+    assert_eq!(reporter.borrow().error_count(), 0);
 }
 
 #[test]
@@ -1693,33 +1692,33 @@ fn missing_expression_in_return_is_reported_if_function_has_non_void_return_type
         return;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
                     AstNode::Block(vec![
                         AstNode::Return(None, ArithmeticInfo::new_alt(5, 6, 7)),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 6, 5, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 6, 5, 4)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         5,
         6,
         7);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         6,
         5,
@@ -1734,33 +1733,33 @@ fn incorrect_type_of_return_expression_is_reported() {
         return;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
                     AstNode::Block(vec![
                         AstNode::Return(None, ArithmeticInfo::new_alt(5, 6, 7)),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::String, 6, 5, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::String, 6, 5, 4)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         5,
         6,
         7);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         6,
         5,
@@ -1775,8 +1774,8 @@ fn returning_value_from_void_function_is_reported() {
         return 5;
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -1785,28 +1784,28 @@ fn returning_value_from_void_function_is_reported() {
                             Some(Box::new(AstNode::Integer(
                                 4,
                                 NodeInfo::new(7, 23, 212)
-                                ))), 
+                                ))),
                             ArithmeticInfo::new_alt(5, 6, 7)),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 6, 5, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 6, 5, 4)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         5,
         6,
         7);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         6,
         5,
@@ -1824,8 +1823,8 @@ fn while_loop_with_non_boolean_expression_is_reported() {
         }
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -1834,27 +1833,27 @@ fn while_loop_with_non_boolean_expression_is_reported() {
                             Box::new(AstNode::Integer(
                                 4,
                                 NodeInfo::new(7, 23, 212)
-                                )), 
+                                )),
                             Box::new(AstNode::Block(vec![
                                 ],
                                 None,
                                 NodeInfo::new(0, 0, 0))),
                             NodeInfo::new(89, 54, 12)
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 6, 5, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 6, 5, 4)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         7,
         23,
@@ -1871,8 +1870,8 @@ fn error_in_while_loop_body_is_handled() {
         }
     }
     */
-    
-    let mut node = 
+
+    let mut node =
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
@@ -1881,7 +1880,7 @@ fn error_in_while_loop_body_is_handled() {
                             Box::new(AstNode::Boolean(
                                 true,
                                 NodeInfo::new(7, 23, 212)
-                                )), 
+                                )),
                             Box::new(AstNode::Block(vec![
                                 AstNode::Plus(
                                     Box::new(AstNode::Integer(
@@ -1889,7 +1888,7 @@ fn error_in_while_loop_body_is_handled() {
                                         NodeInfo::new(1, 2, 3))
                                     ),
                                     Box::new(AstNode::Text(
-                                        "hello".to_string(),
+                                        Rc::new("hello".to_string()),
                                         NodeInfo::new(4, 3, 1))
                                     ),
                                     ArithmeticInfo::new_alt(9, 7, 6))
@@ -1898,20 +1897,20 @@ fn error_in_while_loop_body_is_handled() {
                                 NodeInfo::new(0, 0, 0))),
                             NodeInfo::new(89, 54, 12)
                         ),
-                    ], 
+                    ],
                     None,
                     NodeInfo::new(0, 0, 0))),
-                FunctionInfo::new_alt("foo".to_string(), Type::Void, 6, 5, 4)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 6, 5, 4)
             )],
             None,
             NodeInfo::new(0, 0, 0),
         );
 
-    checker.check_semantics(&mut node); 
+    checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         9,
         7,
@@ -1933,7 +1932,7 @@ fn if_statement_with_non_boolean_expression_is_reported() {
 
    let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::Integer(
                         1,
@@ -1942,11 +1941,11 @@ fn if_statement_with_non_boolean_expression_is_reported() {
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Text(
-                                "foo".to_string(),
+                                Rc::new("foo".to_string()),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             4, 5, 6)),
                             ],
@@ -1960,7 +1959,7 @@ fn if_statement_with_non_boolean_expression_is_reported() {
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             41, 51, 61)),
                         ],
@@ -1973,16 +1972,16 @@ fn if_statement_with_non_boolean_expression_is_reported() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-   checker.check_semantics(&mut node); 
+   checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         11,
         22,
@@ -1991,7 +1990,7 @@ fn if_statement_with_non_boolean_expression_is_reported() {
 
 #[test]
 fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
-    
+
     let (reporter, mut checker) = create_sem_checker();
     /*
     fn foo() : int {
@@ -2004,7 +2003,7 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
 
    let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -2019,11 +2018,11 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Text(
-                                "foo".to_string(),
+                                Rc::new("foo".to_string()),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::String,
                             4, 5, 6)),
                             ],
@@ -2042,7 +2041,7 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
                                     NodeInfo::new(7, 6, 5),
                                 )),
                                 DeclarationInfo::new_alt(
-                                "b".to_string(),
+                                Rc::new("b".to_string()),
                                 Type::Double,
                                 41, 51, 61)),
                             ],
@@ -2058,16 +2057,16 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-   checker.check_semantics(&mut node); 
+   checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         99,
         88,
@@ -2076,7 +2075,7 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
 
 #[test]
 fn error_in_if_statement_true_block_is_reported() {
-    
+
     let (reporter, mut checker) = create_sem_checker();
     /*
     fn foo() : int {
@@ -2089,7 +2088,7 @@ fn error_in_if_statement_true_block_is_reported() {
 
    let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -2104,11 +2103,11 @@ fn error_in_if_statement_true_block_is_reported() {
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Text(
-                                "foo".to_string(),
+                                Rc::new("foo".to_string()),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -2122,7 +2121,7 @@ fn error_in_if_statement_true_block_is_reported() {
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             41, 51, 61)),
                         ],
@@ -2135,22 +2134,22 @@ fn error_in_if_statement_true_block_is_reported() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-   checker.check_semantics(&mut node); 
+   checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         1,
         2,
         3);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         4,
         5,
@@ -2172,7 +2171,7 @@ fn error_in_else_block_is_reported() {
 
    let mut node = AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
@@ -2191,7 +2190,7 @@ fn error_in_else_block_is_reported() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -2205,7 +2204,7 @@ fn error_in_else_block_is_reported() {
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             41, 51, 61)),
                         ],
@@ -2218,22 +2217,22 @@ fn error_in_else_block_is_reported() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0));
 
-   checker.check_semantics(&mut node); 
+   checker.check_semantics(&mut node);
 
     assert_eq!(reporter.borrow().error_count(), 2);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         7,
         6,
         5);
 
-    assert_eq_error!(reporter.borrow().errors()[1], 
+    assert_eq_error!(reporter.borrow().errors()[1],
         Error::Note,
         41,
         51,

@@ -26,9 +26,9 @@ impl Error {
     fn get_color(&self) -> ansi_term::Colour {
         match *self {
             Error::Note => Cyan,
-            Error::TokenError 
+            Error::TokenError
                 | Error::SyntaxError
-                | Error::TypeError 
+                | Error::TypeError
                 | Error::NameError=> Red,
         }
     }
@@ -42,9 +42,9 @@ impl Display for Error {
             Error::TokenError => color.bold().paint("Token error").to_string(),
             Error::SyntaxError => color.bold().paint("Syntax error").to_string(),
             Error::TypeError => color.bold().paint("Type error").to_string(),
-            Error::NameError => color.bold().paint("Name error").to_string(),           
+            Error::NameError => color.bold().paint("Name error").to_string(),
         };
-   
+
         write!(formatter, "{}", str)
     }
 }
@@ -102,14 +102,14 @@ impl FileErrorReporter {
 
             write_stderr(
                 format!(
-                    "{}:{} {}: {}\n", 
-                    msg.line, 
-                    msg.column, 
-                    msg.error, 
+                    "{}:{} {}: {}\n",
+                    msg.line,
+                    msg.column,
+                    msg.error,
                     msg.message));
 
             let line = &lines[(msg.line-1) as usize];
-            
+
             write_stderr(format!("{}", line));
             if !line.ends_with("\n") {
                 write_stderr("\n".to_string());
@@ -141,7 +141,7 @@ impl FileErrorReporter {
         let reader = BufReader::new(f);
         for line in reader.lines()  {
             match line {
-                Ok(content) => lines.push(content), 
+                Ok(content) => lines.push(content),
                 Err(e) => panic!("IO error: {}", e),
             }
         }
@@ -151,10 +151,10 @@ impl FileErrorReporter {
 
 impl ErrorReporter for FileErrorReporter {
     fn report_error(&mut self, error_type: Error, line: i32, column: i32, token_length : i32, message : String) {
-     
+
         match error_type {
-            Error::TokenError 
-            | Error::TypeError 
+            Error::TokenError
+            | Error::TypeError
             | Error::NameError
             | Error::SyntaxError => self.errors += 1,
             Error::Note => {},

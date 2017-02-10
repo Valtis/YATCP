@@ -1,16 +1,17 @@
 
-use cfg::CFG; 
+use cfg::CFG;
 use cfg::Adj;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::rc::Rc;
 
-
-pub fn calculate_dominance_frontier(func_cfgs: &mut HashMap<String, CFG>) {
+pub fn calculate_dominance_frontier(
+    func_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
     for (name, cfg) in func_cfgs.iter_mut() {
         println!("Func {}", name);
-        
+
         let dominators = calculate_dominators(cfg);
         println!("Dominators for {}", name);
         for i in 0..cfg.basic_blocks.len() {
@@ -38,7 +39,7 @@ pub fn calculate_dominance_frontier(func_cfgs: &mut HashMap<String, CFG>) {
                     }
                 }
             }
-        }        
+        }
     }
 }
 
@@ -74,7 +75,7 @@ fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
                 }
                 parent_set.insert(i);
                 *dominators.get_mut(&i).unwrap() = parent_set;
-                
+
                 // if any of the dominators lists have changed, new iteration
                 // is required
                 changes = changes || dominators[&i].len() != len;
@@ -127,22 +128,22 @@ pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
                 if processed_nodes.contains(parent) {
                     opt_new_idom = Some(*parent);
                     break;
-                } 
-            } 
+                }
+            }
             let mut new_idom = opt_new_idom.unwrap_or_else(|| {
                 ice!("No processed parent node found for bb '{}'", bb)
             });
 
             for parent in parents[*bb].iter() {
                 if new_idom == *parent {
-                    continue;    
+                    continue;
                 }
 
                 if opt_idom[*parent] != None {
                     new_idom = intersect(
-                        *parent, 
-                        new_idom, 
-                        &opt_idom, 
+                        *parent,
+                        new_idom,
+                        &opt_idom,
                         &node_pos);
                 }
             }
@@ -165,14 +166,14 @@ pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
 }
 
 fn intersect(
-    parent: usize, 
-    new_idom: usize, 
+    parent: usize,
+    new_idom: usize,
     opt_idom: &Vec<Option<usize>>,
     node_pos: &HashMap<usize, usize>) -> usize {
     let mut finger1 = parent;
     let mut finger2 = new_idom;
 
-    while finger1 != finger2 {        
+    while finger1 != finger2 {
         while node_pos[&finger1] < node_pos[&finger2] {
             finger1 = opt_idom[finger1].unwrap();
         }
@@ -183,7 +184,7 @@ fn intersect(
     finger1
 }
 
-// depth-first search of the graph, append nodes into 
+// depth-first search of the graph, append nodes into
 fn calculate_reverse_post_order(cfg: &CFG) -> Vec<usize> {
 
     let mut visited = HashSet::new();
@@ -193,8 +194,8 @@ fn calculate_reverse_post_order(cfg: &CFG) -> Vec<usize> {
     post_order.reverse();
     post_order
 }
-    
-fn depth_first_search(node: usize, 
+
+fn depth_first_search(node: usize,
     visited: &mut HashSet<usize>,
     post_order: &mut Vec<usize>,
     cfg: &CFG) {
@@ -203,7 +204,7 @@ fn depth_first_search(node: usize,
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, post_order, cfg);
-                }   
+                }
             }
         }
         post_order.push(node);

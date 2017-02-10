@@ -9,7 +9,9 @@ use std::fmt::Result;
 use std::fmt::Debug;
 use std::iter;
 
-fn get_text_from_identifier(identifier: &Token) -> String {
+use std::rc::Rc;
+
+fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
     match identifier.token_subtype {
         TokenSubType::Identifier(ref text) => text.clone(),
         _ => ice!("Expected identifier but was '{}' instead", identifier),
@@ -33,7 +35,7 @@ pub enum AstNode {
     Block(Vec<AstNode>, Option<symbol_table::TableEntry>, NodeInfo),
     Function(Box<AstNode>, FunctionInfo),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
-    VariableAssignment(Box<AstNode>, String, NodeInfo),
+    VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
 
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -55,9 +57,9 @@ pub enum AstNode {
     Integer(i32, NodeInfo),
     Float(f32, NodeInfo),
     Double(f64, NodeInfo),
-    Text(String, NodeInfo),
+    Text(Rc<String>, NodeInfo),
     Boolean(bool, NodeInfo),
-    Identifier(String, NodeInfo),
+    Identifier(Rc<String>, NodeInfo),
 
     ErrorNode,
 }
@@ -66,11 +68,11 @@ impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match *self {
           AstNode::Block(_, _, _) => "Block".to_string(),
-          AstNode::Function(_, ref i) => 
+          AstNode::Function(_, ref i) =>
                 format!("Function '{}' -> {}", i.name, i.return_type),
-          AstNode::VariableDeclaration(_, ref i) => 
+          AstNode::VariableDeclaration(_, ref i) =>
                 format!("Variable declaration '{}' : {}", i.name, i.variable_type),
-          AstNode::VariableAssignment(_, ref name, _ ) => 
+          AstNode::VariableAssignment(_, ref name, _ ) =>
                 format!("Variable assignment '{}'", name),
           AstNode::Integer(val, _) => format!("Integer: {}", val),
           AstNode::Float(val, _) => format!("Float: {}", val),
@@ -112,18 +114,18 @@ impl AstNode {
     fn print_impl(&self, intendation: usize) -> String {
         let int_str = iter::repeat(" ").take(intendation).collect::<String>();
         let mut string = format!("{}{}\n", int_str, self);
-        
+
         let next_int = intendation + 2;
         match *self {
             AstNode::Block(ref children, _, _) => {
                 for c in children {
-                    string = format!("{}{}", string, c.print_impl(next_int));          
+                    string = format!("{}{}", string, c.print_impl(next_int));
                 }
             },
             AstNode::Function(ref child, _) => string = format!("{}{}", string, child.print_impl(next_int)),
             AstNode::VariableDeclaration(ref child, _) =>
                 string = format!("{}{}", string, child.print_impl(next_int)),
-            AstNode::VariableAssignment(ref child, _, _) => 
+            AstNode::VariableAssignment(ref child, _, _) =>
                 string = format!("{}{}", string, child.print_impl(next_int)),
             AstNode::Integer(_, _) |
             AstNode::Float(_, _) |
@@ -133,7 +135,7 @@ impl AstNode {
             AstNode::Boolean(_, _) => {},
             AstNode::Plus(ref left, ref right, _) |
             AstNode::Minus(ref left, ref right, _) |
-            AstNode::Multiply(ref left, ref right, _ ) | 
+            AstNode::Multiply(ref left, ref right, _ ) |
             AstNode::Divide(ref left, ref right, _) => {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
@@ -159,7 +161,7 @@ impl AstNode {
             },
             AstNode::Less(ref left, ref right, _) |
             AstNode::LessOrEq(ref left, ref right, _) |
-            AstNode::Equals(ref left, ref right, _) | 
+            AstNode::Equals(ref left, ref right, _) |
             AstNode::GreaterOrEq(ref left, ref right, _) |
             AstNode::Greater(ref left, ref right, _) => {
                 string = format!("{}{}", string, left.print_impl(next_int));
@@ -180,7 +182,7 @@ impl AstNode {
             AstNode::Plus(_, _, ref info) |
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _, ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_info.line,            
+            AstNode::Divide(_, _, ref info) => info.node_info.line,
             AstNode::Negate(_, ref info) => info.node_info.line,
             AstNode::Return(_, ref info) => info.node_info.line,
             AstNode::While(_, _, ref info) => info.line,
@@ -193,9 +195,9 @@ impl AstNode {
             AstNode::Integer(_, ref info) => info.line,
             AstNode::Float(_, ref info) => info.line,
             AstNode::Double(_, ref info) => info.line,
-            AstNode::Text(_, ref info) => info.line, 
+            AstNode::Text(_, ref info) => info.line,
             AstNode::Identifier(_, ref info) => info.line,
-            AstNode::Boolean(_, ref info) => info.line, 
+            AstNode::Boolean(_, ref info) => info.line,
             AstNode::ErrorNode => 0,
         }
     }
@@ -224,7 +226,7 @@ impl AstNode {
             AstNode::Double(_, ref info) => info.column,
             AstNode::Text(_, ref info) => info.column,
             AstNode::Identifier(_, ref info) => info.column,
-            AstNode::Boolean(_, ref info) => info.column, 
+            AstNode::Boolean(_, ref info) => info.column,
             AstNode::ErrorNode => 0,
         }
     }
@@ -253,35 +255,35 @@ impl AstNode {
             AstNode::Double(_, ref info) => info.length,
             AstNode::Text(_, ref info) => info.length,
             AstNode::Identifier(_, ref info) => info.length,
-            AstNode::Boolean(_, ref info) => info.column, 
+            AstNode::Boolean(_, ref info) => info.column,
             AstNode::ErrorNode => 0,
         }
     }
 }
 
-impl PartialEq for AstNode {   
+impl PartialEq for AstNode {
     fn eq(&self, other: &AstNode) -> bool {
         match (self, other) {
-            (&AstNode::Block(ref s_chld, ref _s_entry, ref s_info), 
+            (&AstNode::Block(ref s_chld, ref _s_entry, ref s_info),
                 &AstNode::Block(ref o_chld, ref _o_entry, ref o_info)) => {
                 // disregard symbol table contents for now
-                *s_chld == *o_chld && *s_info == *o_info 
+                *s_chld == *o_chld && *s_info == *o_info
             }
-            (&AstNode::Function(ref s_blk, ref s_fi), 
+            (&AstNode::Function(ref s_blk, ref s_fi),
              &AstNode::Function(ref o_blk, ref o_fi)) => {
                 s_blk == o_blk && s_fi == o_fi
             }
-            (&AstNode::VariableDeclaration(ref s_chld, ref s_vi), 
+            (&AstNode::VariableDeclaration(ref s_chld, ref s_vi),
              &AstNode::VariableDeclaration(ref o_chld, ref o_vi)) => {
                 s_chld == o_chld && s_vi == o_vi
             },
-            (&AstNode::VariableAssignment(ref s_chld, ref s_name, ref s_ni), 
+            (&AstNode::VariableAssignment(ref s_chld, ref s_name, ref s_ni),
              &AstNode::VariableAssignment(ref o_chld, ref o_name, ref o_ni)) => {
                 s_chld == o_chld && s_name == o_name && s_ni == o_ni
             },
             (&AstNode::Integer(s_num, ref s_ni),
              &AstNode::Integer(o_num, ref o_ni)) => {
-                s_num == o_num && s_ni == o_ni 
+                s_num == o_num && s_ni == o_ni
             },
             (&AstNode::Float(s_num, ref s_ni),
              &AstNode::Float(o_num, ref o_ni)) => {
@@ -330,7 +332,7 @@ impl PartialEq for AstNode {
                 ref s_lchld, ref s_rchld, ref s_opt_else_blk, ref s_ni),
              &AstNode::If(
                 ref o_lchld, ref o_rchld, ref o_opt_else_blk, ref o_ni)) => {
-                s_lchld == o_lchld && s_rchld == o_rchld && 
+                s_lchld == o_lchld && s_rchld == o_rchld &&
                 s_opt_else_blk == o_opt_else_blk && s_ni == o_ni
             }
             (&AstNode::Less(ref s_lchld, ref s_rchld, ref s_ni),
@@ -347,7 +349,7 @@ impl PartialEq for AstNode {
             },
             (&AstNode::ErrorNode, &AstNode::ErrorNode) => true,
             _ => false,
-        }        
+        }
     }
 }
 
@@ -370,33 +372,33 @@ impl NodeInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionInfo {
-    pub name: String,
+    pub name: Rc<String>,
     pub return_type: Type,
     pub node_info: NodeInfo,
 }
 
 impl FunctionInfo {
     pub fn new(
-        identifier: &Token, 
+        identifier: &Token,
         return_type: &Token) -> FunctionInfo {
 
         FunctionInfo::new_alt(
             get_text_from_identifier(identifier),
             get_type_from_type_token(return_type),
-            identifier.line, 
-            identifier.column, 
+            identifier.line,
+            identifier.column,
             identifier.length)
     }
 
     pub fn new_alt(
-        name: String,
+        name: Rc<String>,
         return_type: Type,
         line: i32,
         column: i32,
         length: i32,
         ) -> FunctionInfo {
         FunctionInfo {
-            name: name.to_string(),
+            name: name,
             return_type: return_type,
             node_info: NodeInfo::new(
                 line, column, length),
@@ -407,7 +409,7 @@ impl FunctionInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeclarationInfo {
-    pub name: String,
+    pub name: Rc<String>,
     pub variable_type: Type,
     pub node_info: NodeInfo,
 }
@@ -419,16 +421,16 @@ impl DeclarationInfo {
             get_type_from_type_token(variable_type),
             identifier.line,
             identifier.column,
-            identifier.length)        
+            identifier.length)
     }
 
     pub fn new_alt(
-        name: String, 
-        var_type: Type, 
-        line: i32, 
+        name: Rc<String>,
+        var_type: Type,
+        line: i32,
         column: i32,
         length: i32) -> DeclarationInfo {
-        
+
         DeclarationInfo {
             name: name,
             variable_type: var_type,
@@ -449,10 +451,10 @@ impl ArithmeticInfo {
     }
 
     pub fn new_alt(
-        line: i32, 
+        line: i32,
         column: i32,
         length: i32) -> ArithmeticInfo {
-        
+
         ArithmeticInfo {
             node_type: Type::Uninitialized,
             node_info: NodeInfo::new(line, column, length)

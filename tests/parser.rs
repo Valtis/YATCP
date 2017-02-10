@@ -16,6 +16,7 @@ use compiler::token::Token;
 use compiler::token::TokenType;
 use compiler::token::TokenSubType;
 
+use compiler::string_table::StringTable;
 
 use self::test_reporter::TestReporter;
 
@@ -32,8 +33,8 @@ impl Lexer for TestLexer {
         let token = self.peek_token();
         self.pos += 1;
         token
-    }   
-    
+    }
+
     fn peek_token(&mut self) -> Token {
         if self.pos < self.tokens.len() {
             self.tokens[self.pos].clone()
@@ -50,7 +51,7 @@ impl Lexer for TestLexer {
         } else {
             Some(Token::new(TokenType::Eof, TokenSubType::NoSubType, 0, 0, 0))
         }
-    } 
+    }
 }
 
 impl TestLexer {
@@ -62,18 +63,23 @@ impl TestLexer {
     }
 }
 
-fn create_parser(tokens: Vec<Token>) -> (Parser, Rc<RefCell<TestReporter>>) {
+fn create_parser(
+    tokens: Vec<Token>) -> (Parser, Rc<RefCell<TestReporter>>) {
     let reporter = Rc::new(RefCell::new(TestReporter::new()));
-    (Parser::new(Box::new(TestLexer::new(tokens)), reporter.clone()), reporter)
+    (Parser::new(
+        Box::new(TestLexer::new(tokens)),
+        reporter.clone()),
+     reporter)
 }
 
 #[test]
 fn empty_function_produces_correct_ast() {
+
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
@@ -82,8 +88,9 @@ fn empty_function_produces_correct_ast() {
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
+
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -92,11 +99,11 @@ fn empty_function_produces_correct_ast() {
                 AstNode::Function(
                     Box::new(
                         AstNode::Block(
-                            vec![], 
+                            vec![],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
@@ -110,30 +117,30 @@ fn single_variable_declaration_with_integer_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -151,21 +158,21 @@ fn single_variable_declaration_with_integer_produces_correct_ast() {
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Integer,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -173,30 +180,30 @@ fn single_variable_declaration_with_float_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::FloatType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::FloatNumber(4.2), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -214,21 +221,21 @@ fn single_variable_declaration_with_float_produces_correct_ast() {
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Float,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -236,30 +243,30 @@ fn single_variable_declaration_with_double_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::DoubleNumber(4.2), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -277,21 +284,21 @@ fn single_variable_declaration_with_double_produces_correct_ast() {
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Double,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -299,30 +306,30 @@ fn single_variable_declaration_with_string_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Text, TokenSubType::Text("hello, world".to_string()), 0, 0, 0),
+            Token::new(TokenType::Text, TokenSubType::Text(Rc::new("hello, world".to_string())), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -335,26 +342,26 @@ fn single_variable_declaration_with_string_produces_correct_ast() {
                                 AstNode::VariableDeclaration(
                                     Box::new(
                                         AstNode::Text(
-                                            "hello, world".to_string(),
+                                            Rc::new("hello, world".to_string()),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::String,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -362,30 +369,30 @@ fn single_variable_declaration_with_boolean_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -403,21 +410,21 @@ fn single_variable_declaration_with_boolean_produces_correct_ast() {
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Boolean,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -425,18 +432,18 @@ fn assignment_with_negative_number_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -448,12 +455,12 @@ fn assignment_with_negative_number_produces_correct_ast() {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -468,7 +475,7 @@ fn assignment_with_negative_number_produces_correct_ast() {
                                         Box::new(AstNode::Integer(
                                             85,
                                             NodeInfo::new(0, 0, 0))),
-                                        ArithmeticInfo::new_alt(0, 0, 0)            
+                                        ArithmeticInfo::new_alt(0, 0, 0)
                                     )),
                                     Box::new(AstNode::Multiply(
                                         Box::new(AstNode::Integer(
@@ -476,60 +483,63 @@ fn assignment_with_negative_number_produces_correct_ast() {
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         Box::new(AstNode::Integer(
-                                            8, 
+                                            8,
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
                                     )),
-                                   
+
                                     ArithmeticInfo::new_alt(0, 0, 0)
                                 )),
                                 DeclarationInfo::new_alt(
-                                    "a".to_string(),
+                                    Rc::new("a".to_string()),
                                     Type::Integer,
                                     0, 0, 0),
                             ),
-                        ], 
+                        ],
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
-#[test] 
+#[test]
 fn variable_in_expression_produces_correct_ast() {
            let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Identifier, TokenSubType::Identifier("ident".to_string()), 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("ident".to_string())),
+                0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -540,24 +550,24 @@ fn variable_in_expression_produces_correct_ast() {
                         vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Identifier(
-                                    "ident".to_string(),
+                                    Rc::new("ident".to_string()),
                                     NodeInfo::new(0, 0, 0))),
                                 DeclarationInfo::new_alt(
-                                    "a".to_string(),
+                                    Rc::new("a".to_string()),
                                     Type::Integer,
                                     0, 0, 0),
                             ),
-                        ], 
+                        ],
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -565,18 +575,18 @@ fn function_with_single_variable_declaration_with_addition_produces_correct_ast(
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -585,12 +595,12 @@ fn function_with_single_variable_declaration_with_addition_produces_correct_ast(
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -611,7 +621,7 @@ fn function_with_single_variable_declaration_with_addition_produces_correct_ast(
                                             ),
                                             Box::new(
                                                 AstNode::Integer(
-                                                    8, 
+                                                    8,
                                                     NodeInfo::new(0, 0, 0)
                                                 ),
                                             ),
@@ -619,21 +629,21 @@ fn function_with_single_variable_declaration_with_addition_produces_correct_ast(
                                         )
                                     ),
                                     DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Integer,
                                         0, 0, 0),
                                 ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -641,18 +651,18 @@ fn function_with_single_variable_declaration_with_subtraction_and_addition_produ
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -663,12 +673,12 @@ fn function_with_single_variable_declaration_with_subtraction_and_addition_produ
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
@@ -685,7 +695,7 @@ fn function_with_single_variable_declaration_with_subtraction_and_addition_produ
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         Box::new(AstNode::Integer(
-                                            4, 
+                                            4,
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
@@ -697,21 +707,21 @@ fn function_with_single_variable_declaration_with_subtraction_and_addition_produ
                                     ArithmeticInfo::new_alt(0, 0, 0)
                                 )),
                                 DeclarationInfo::new_alt(
-                                    "a".to_string(),
+                                    Rc::new("a".to_string()),
                                     Type::Integer,
                                     0, 0, 0),
                             ),
-                        ], 
+                        ],
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -719,18 +729,18 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -755,18 +765,18 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Minus(
                             Box::new(AstNode::Plus(
@@ -785,7 +795,7 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                                             NodeInfo::new(0, 0, 0),
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
-                                    )),                                    
+                                    )),
                                     ArithmeticInfo::new_alt(0, 0, 0),
                                 )),
                                 Box::new(AstNode::Multiply(
@@ -803,7 +813,7 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                                     Box::new(AstNode::Integer(
                                         6,
                                         NodeInfo::new(0, 0, 0),
-                                    )),                                    
+                                    )),
                                     ArithmeticInfo::new_alt(0, 0, 0),
                                 )),
                                 ArithmeticInfo::new_alt(0, 0, 0)
@@ -817,19 +827,19 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                                     Box::new(AstNode::Integer(
                                         8,
                                         NodeInfo::new(0, 0, 0),
-                                    )),  
+                                    )),
                                     Box::new(AstNode::Integer(
                                         9,
                                         NodeInfo::new(0, 0, 0),
                                     )),
-                                    ArithmeticInfo::new_alt(0, 0, 0),   
+                                    ArithmeticInfo::new_alt(0, 0, 0),
                                 )),
                                 ArithmeticInfo::new_alt(0, 0, 0),
                             )),
                             ArithmeticInfo::new_alt(0, 0, 0),
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             0, 0, 0),
                     )
@@ -837,11 +847,11 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node)  
+        node)
 }
 
 #[test]
@@ -849,40 +859,40 @@ fn function_with_return_without_expression_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 4, 1),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::Return(
                         None,
                         ArithmeticInfo::new_alt(5, 4, 1),
-                    )   
+                    )
                 ],
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node); 
+        node);
 }
 
 #[test]
@@ -890,18 +900,18 @@ fn function_with_return_with_expression_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 4, 1),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 3, 4, 5),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 3, 4, 5),
             Token::new(TokenType::Plus, TokenSubType::NoSubType, 8, 7, 6),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 55, 44, 33),
             Token::new(TokenType::Multiply, TokenSubType::NoSubType, 1, 15, 53),
@@ -911,17 +921,17 @@ fn function_with_return_with_expression_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::Return(
                         Some(Box::new(AstNode::Plus(
                             Box::new(AstNode::Identifier(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 NodeInfo::new(3, 4, 5)
                                 )),
                             Box::new(AstNode::Multiply(
@@ -932,22 +942,22 @@ fn function_with_return_with_expression_produces_correct_ast() {
                                    Box::new(AstNode::Integer(
                                         3,
                                         NodeInfo::new(88, 77, 66),
-                                    )),                             
+                                    )),
                                     ArithmeticInfo::new_alt(1, 15, 53),
                                 )),
-                            ArithmeticInfo::new_alt(8, 7, 6)                               
+                            ArithmeticInfo::new_alt(8, 7, 6)
                         ))),
                         ArithmeticInfo::new_alt(5, 4, 1),
-                    )   
+                    )
                 ],
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node);      
+        node);
 }
 
 #[test]
@@ -955,39 +965,39 @@ fn simple_less_expression_produces_correct_ast() {
    let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 7, 6, 5),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 7, 6, 5),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
             Token::new(TokenType::Comparison, TokenSubType::Less, 5, 6, 7),
-            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 8, 9, 2),            
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 8, 9, 2),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
        assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::VariableDeclaration(
-                        Box::new(AstNode::Less(                            
+                        Box::new(AstNode::Less(
                             Box::new(AstNode::Integer(
                                 1,
                                 NodeInfo::new(1, 2, 3),
@@ -999,7 +1009,7 @@ fn simple_less_expression_produces_correct_ast() {
                             NodeInfo::new(5, 6, 7)
                         )),
                         DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Boolean,
                             7, 6, 5),
                     )
@@ -1007,11 +1017,11 @@ fn simple_less_expression_produces_correct_ast() {
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node)  
+        node)
 }
 
 #[test]
@@ -1019,22 +1029,22 @@ fn while_loop_produces_correct_ast() {
        let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
             Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 8, 6, 7),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 4, 5, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1047,15 +1057,15 @@ fn while_loop_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::While(
-                        Box::new(AstNode::Boolean(                            
+                        Box::new(AstNode::Boolean(
                             true,
                             NodeInfo::new(8, 6, 7)
                         )),
@@ -1066,7 +1076,7 @@ fn while_loop_produces_correct_ast() {
                                     NodeInfo::new(1, 2, 3),
                                 )),
                                 DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Integer,
                                 4, 5, 6)),
                                 ],
@@ -1079,11 +1089,11 @@ fn while_loop_produces_correct_ast() {
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node)  
+        node)
 }
 
 #[test]
@@ -1091,28 +1101,28 @@ fn while_loop_with_complex_expression_produces_correct_ast() {
        let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
             Token::new(
                 TokenType::Identifier,
-                TokenSubType::Identifier("aab".to_string()), 11, 22, 33),
+                TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
             Token::new(TokenType::Comparison, TokenSubType::Equals, 12, 23, 34),
             Token::new(
                 TokenType::Number,
-                TokenSubType::IntegerNumber(23), 13, 14, 15),            
+                TokenSubType::IntegerNumber(23), 13, 14, 15),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 4, 5, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1125,17 +1135,17 @@ fn while_loop_with_complex_expression_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
         AstNode::Block(vec![
             AstNode::Function(
-                Box::new(AstNode::Block(vec![                    
+                Box::new(AstNode::Block(vec![
                     AstNode::While(
                         Box::new(AstNode::Equals(
                             Box::new(AstNode::Identifier(
-                                "aab".to_string(),
+                                Rc::new("aab".to_string()),
                                 NodeInfo::new(11, 22, 33),
                             )),
                             Box::new(AstNode::Integer(
@@ -1150,7 +1160,7 @@ fn while_loop_with_complex_expression_produces_correct_ast() {
                                     NodeInfo::new(1, 2, 3),
                                 )),
                                 DeclarationInfo::new_alt(
-                                "a".to_string(),
+                                Rc::new("a".to_string()),
                                 Type::Integer,
                                 4, 5, 6)),
                                 ],
@@ -1163,11 +1173,11 @@ fn while_loop_with_complex_expression_produces_correct_ast() {
                 None,
                 NodeInfo::new(0, 0, 0),
                 )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
             ],
             None,
             NodeInfo::new(0, 0, 0)),
-        node) 
+        node)
 }
 
 #[test]
@@ -1175,28 +1185,28 @@ fn if_statement_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
             Token::new(
                 TokenType::Identifier,
-                TokenSubType::Identifier("aab".to_string()), 11, 22, 33),
+                TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
             Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 12, 23, 34),
             Token::new(
                 TokenType::Number,
-                TokenSubType::IntegerNumber(23), 13, 14, 15),            
+                TokenSubType::IntegerNumber(23), 13, 14, 15),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 4, 5, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1209,17 +1219,17 @@ fn if_statement_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
     AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::LessOrEq(
                         Box::new(AstNode::Identifier(
-                            "aab".to_string(),
+                            Rc::new("aab".to_string()),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
@@ -1234,7 +1244,7 @@ fn if_statement_produces_correct_ast() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -1248,11 +1258,11 @@ fn if_statement_produces_correct_ast() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0)),
-    node) 
+    node)
 }
 
 #[test]
@@ -1260,28 +1270,28 @@ fn if_statement_with_else_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
             Token::new(
                 TokenType::Identifier,
-                TokenSubType::Identifier("aab".to_string()), 11, 22, 33),
+                TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
             Token::new(TokenType::Comparison, TokenSubType::GreaterOrEq, 12, 23, 34),
             Token::new(
                 TokenType::Number,
-                TokenSubType::IntegerNumber(23), 13, 14, 15),            
+                TokenSubType::IntegerNumber(23), 13, 14, 15),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 4, 5, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1291,11 +1301,11 @@ fn if_statement_with_else_produces_correct_ast() {
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("b".to_string()), 41, 51, 61),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 41, 51, 61),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1309,17 +1319,17 @@ fn if_statement_with_else_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
     AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Identifier(
-                            "aab".to_string(),
+                            Rc::new("aab".to_string()),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
@@ -1334,7 +1344,7 @@ fn if_statement_with_else_produces_correct_ast() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -1348,7 +1358,7 @@ fn if_statement_with_else_produces_correct_ast() {
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
-                            "b".to_string(),
+                            Rc::new("b".to_string()),
                             Type::Double,
                             41, 51, 61)),
                         ],
@@ -1361,11 +1371,11 @@ fn if_statement_with_else_produces_correct_ast() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0)),
-    node) 
+    node)
 }
 
 #[test]
@@ -1373,28 +1383,28 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
             Token::new(
                 TokenType::Identifier,
-                TokenSubType::Identifier("aab".to_string()), 11, 22, 33),
+                TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
             Token::new(TokenType::Comparison, TokenSubType::GreaterOrEq, 12, 23, 34),
             Token::new(
                 TokenType::Number,
-                TokenSubType::IntegerNumber(23), 13, 14, 15),            
+                TokenSubType::IntegerNumber(23), 13, 14, 15),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 4, 5, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1407,17 +1417,17 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
             Token::new(TokenType::If, TokenSubType::NoSubType, 55, 66, 77),
             Token::new(
                 TokenType::Identifier,
-                TokenSubType::Identifier("aab".to_string()), 11, 22, 33),
+                TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
             Token::new(TokenType::Comparison, TokenSubType::Greater, 12, 23, 34),
             Token::new(
                 TokenType::Number,
-                TokenSubType::IntegerNumber(53), 13, 14, 15),            
+                TokenSubType::IntegerNumber(53), 13, 14, 15),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("b".to_string()), 41, 51, 61),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 41, 51, 61),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1431,12 +1441,12 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
 
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("c".to_string()), 42, 52, 62),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 42, 52, 62),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Text, TokenSubType::Text("foo".to_string()), 71, 61, 51),
+            Token::new(TokenType::Text, TokenSubType::Text(Rc::new("foo".to_string())), 71, 61, 51),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -1444,17 +1454,17 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 0);
 
     assert_eq!(
     AstNode::Block(vec![
         AstNode::Function(
-            Box::new(AstNode::Block(vec![                    
+            Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Identifier(
-                            "aab".to_string(),
+                            Rc::new("aab".to_string()),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
@@ -1469,7 +1479,7 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
-                            "a".to_string(),
+                            Rc::new("a".to_string()),
                             Type::Integer,
                             4, 5, 6)),
                             ],
@@ -1479,7 +1489,7 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                     Some(Box::new(AstNode::If(
                         Box::new(AstNode::Greater(
                             Box::new(AstNode::Identifier(
-                                "aab".to_string(),
+                                Rc::new("aab".to_string()),
                                 NodeInfo::new(11, 22, 33),
                             )),
                             Box::new(AstNode::Integer(
@@ -1494,7 +1504,7 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                                         NodeInfo::new(7, 6, 5),
                                     )),
                                     DeclarationInfo::new_alt(
-                                    "b".to_string(),
+                                    Rc::new("b".to_string()),
                                     Type::Double,
                                     41, 51, 61))
                             ],
@@ -1504,11 +1514,11 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                         Some(Box::new(AstNode::Block(vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Text(
-                                    "foo".to_string(),
+                                    Rc::new("foo".to_string()),
                                     NodeInfo::new(71, 61, 51),
                                 )),
                                 DeclarationInfo::new_alt(
-                                "c".to_string(),
+                                Rc::new("c".to_string()),
                                 Type::String,
                                 42, 52, 62)),
                             ],
@@ -1523,17 +1533,17 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
             None,
             NodeInfo::new(0, 0, 0),
             )),
-            FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0))  
+            FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
         ],
         None,
         NodeInfo::new(0, 0, 0)),
-    node) 
+    node)
 }
 
 #[test]
 fn missing_name_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),            
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 2, 3, 1),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
@@ -1543,10 +1553,10 @@ fn missing_name_is_reported_in_function_definition() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         2,
         3,
@@ -1565,10 +1575,10 @@ fn missing_name_is_reported_in_function_definition() {
 #[test]
 fn missing_lparen_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 5, 6, 1),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
@@ -1577,10 +1587,10 @@ fn missing_lparen_is_reported_in_function_definition() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         5,
         6,
@@ -1598,10 +1608,10 @@ fn missing_lparen_is_reported_in_function_definition() {
 #[test]
 fn missing_rparen_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 8, 9, 1),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
@@ -1610,10 +1620,10 @@ fn missing_rparen_is_reported_in_function_definition() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         8,
         9,
@@ -1632,10 +1642,10 @@ fn missing_rparen_is_reported_in_function_definition() {
 #[test]
 fn missing_colon_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 8, 1, 1),
@@ -1644,10 +1654,10 @@ fn missing_colon_is_reported_in_function_definition() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         8,
         1,
@@ -1665,10 +1675,10 @@ fn missing_colon_is_reported_in_function_definition() {
 #[test]
 fn missing_variable_type_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::IntegerType, 0, 0, 0),
@@ -1677,10 +1687,10 @@ fn missing_variable_type_is_reported_in_function_definition() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         1,
         1,
@@ -1698,22 +1708,22 @@ fn missing_variable_type_is_reported_in_function_definition() {
 #[test]
 fn missing_lbrace_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),         
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 4, 4, 2),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         4,
         4,
@@ -1731,22 +1741,22 @@ fn missing_lbrace_is_reported_in_function_definition() {
 #[test]
 fn missing_rbrace_is_reported_in_function_definition() {
     let (mut parser, reporter) = create_parser(vec![
-            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),                   
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),     
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),         
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         0,
         0,
@@ -1766,31 +1776,31 @@ fn variable_declaration_without_initialization_is_error() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("aaaaa".to_string()), 5, 6, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("aaaaa".to_string())), 5, 6, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         5,
         6,
@@ -1802,17 +1812,17 @@ fn variable_declaration_without_initialization_is_error() {
                 AstNode::Function(
                     Box::new(
                         AstNode::Block(
-                            vec![], 
+                            vec![],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -1820,26 +1830,26 @@ fn variable_declaration_after_variable_with_missing_declaration_is_handled_corre
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("aaaaa".to_string()), 5, 6, 6),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("aaaaa".to_string())), 5, 6, 6),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-          
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("bbb".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("bbb".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1850,10 +1860,10 @@ fn variable_declaration_after_variable_with_missing_declaration_is_handled_corre
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         5,
         6,
@@ -1874,21 +1884,21 @@ fn variable_declaration_after_variable_with_missing_declaration_is_handled_corre
                                             )
                                         ),
                                         DeclarationInfo::new_alt(
-                                            "bbb".to_string(),
+                                            Rc::new("bbb".to_string()),
                                             Type::Integer,
                                             0, 0, 0),
                                     ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -1896,27 +1906,27 @@ fn variable_declaration_after_bad_declaration_is_handled_correctly() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("aaaaa".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("aaaaa".to_string())), 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 6, 7, 8),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(16), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-          
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("bbb".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("bbb".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1927,10 +1937,10 @@ fn variable_declaration_after_bad_declaration_is_handled_correctly() {
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         6,
         7,
@@ -1951,21 +1961,21 @@ fn variable_declaration_after_bad_declaration_is_handled_correctly() {
                                             )
                                         ),
                                         DeclarationInfo::new_alt(
-                                            "bbb".to_string(),
+                                            Rc::new("bbb".to_string()),
                                             Type::Integer,
                                             0, 0, 0),
                                     ),
-                            ], 
+                            ],
                             None,
                             NodeInfo::new(0, 0, 0)
                         )),
-                    FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
             None,
             NodeInfo::new(0, 0, 0),
         ),
-        node)  
+        node)
 }
 
 #[test]
@@ -1973,18 +1983,18 @@ fn missing_operand_in_arithmetic_operation_is_reported() {
         let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -1992,15 +2002,15 @@ fn missing_operand_in_arithmetic_operation_is_reported() {
             Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 9, 8, 7),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         9,
         8,
@@ -2010,11 +2020,11 @@ fn missing_operand_in_arithmetic_operation_is_reported() {
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
-                    AstNode::Block(vec![], 
+                    AstNode::Block(vec![],
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),
@@ -2027,18 +2037,18 @@ fn missing_operator_in_arithmetic_operation_is_reported() {
             let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("foo".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            
+
             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
-                TokenType::Identifier, 
-                TokenSubType::Identifier("a".to_string()), 0, 0, 0),
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
@@ -2046,15 +2056,15 @@ fn missing_operator_in_arithmetic_operation_is_reported() {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 8, 7, 6),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-             
+
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
     let node = parser.parse();
-    
+
     assert_eq!(reporter.borrow().error_count(), 1);
 
-    assert_eq_error!(reporter.borrow().errors()[0], 
+    assert_eq_error!(reporter.borrow().errors()[0],
         Error::SyntaxError,
         8,
         7,
@@ -2064,11 +2074,11 @@ fn missing_operator_in_arithmetic_operation_is_reported() {
         AstNode::Block(vec![
             AstNode::Function(
                 Box::new(
-                    AstNode::Block(vec![], 
+                    AstNode::Block(vec![],
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
-                FunctionInfo::new_alt("foo".to_string(), Type::Integer, 0, 0, 0)   
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
             )],
             None,
             NodeInfo::new(0, 0, 0),

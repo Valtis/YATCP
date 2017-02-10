@@ -4,7 +4,7 @@ use tac_generator::Function;
 use tac_generator::Statement;
 
 pub fn merge_linear_blocks(
-    function: &mut Function, 
+    function: &mut Function,
     cfg: &mut CFG) {
 
     let mut changes = true;
@@ -22,7 +22,7 @@ pub fn merge_linear_blocks(
                 if cfg.get_parent_blocks(child).len() == 1 {
                     merge_blocks(function, cfg, id, child);
                     changes = true;
-                    continue 'outer; 
+                    continue 'outer;
                 }
             }
         }
@@ -30,7 +30,7 @@ pub fn merge_linear_blocks(
 }
 
 fn merge_blocks(
-    function: &mut Function, 
+    function: &mut Function,
     cfg: &mut CFG,
     mut parent: usize,
     child: usize) {
@@ -51,13 +51,13 @@ fn merge_blocks(
     let mut remove_list = vec![];
 
     // first, remove the potential jump and label, as these are not needed after merge
-    if parent_block.end - parent_block.start != 0 { 
+    if parent_block.end - parent_block.start != 0 {
         match function.statements[parent_block.end-1] {
             Statement::Jump(_) |
             Statement::JumpIfTrue(_, _) =>
                 remove_list.push(parent_block.end-1),
             _ => {},
-        }  
+        }
     }
 
     if child_block.end - child_block.start != 0 {
@@ -65,9 +65,9 @@ fn merge_blocks(
             remove_list.push(child_block.start);
         }
     }
-    cfg.remove_statements(function, remove_list);        
+    cfg.remove_statements(function, remove_list);
 
-    // update child block info, as this may be out of date after the 
+    // update child block info, as this may be out of date after the
     // instruction removals
     let child_block = cfg.basic_blocks[child].clone();
     // copy the instructions from the child block and insert them after
@@ -85,7 +85,7 @@ fn merge_blocks(
     cfg.remove_block(function, child);
 
     // any successor that were after the child block have their index
-    // decremented by one. Update the list to account for this 
+    // decremented by one. Update the list to account for this
     let child_adjacency = child_adjacency.
         iter().
         map(|v| { let val = if let Adj::Block(id) = *v {
@@ -115,7 +115,7 @@ fn merge_blocks(
 
     for bb in cfg.basic_blocks.iter_mut() {
         if bb.start >= parent_block.end && *bb != parent_block {
-          
+
             bb.start += instructions.len();
             bb.end += instructions.len();
         }
@@ -149,7 +149,7 @@ fn update_adjacency_list(
         handle_two_successors(function, cfg, instructions, parent);
     } else {
        ice!("Merging a block with more than two successors");
-    }   
+    }
 }
 
 fn handle_single_successor_case(
@@ -158,10 +158,10 @@ fn handle_single_successor_case(
     child_instructions: &mut Vec<Statement>,
     parent: usize) {
 
-    // if the successor block is the next one, or the successor block is the 
+    // if the successor block is the next one, or the successor block is the
     // end block and we are the last block, no need to do anything, can just
     // fall through
-    if cfg.adjacency_list[parent][0] == Adj::Block(parent+1) || 
+    if cfg.adjacency_list[parent][0] == Adj::Block(parent+1) ||
         (parent == cfg.basic_blocks.len() - 1 && cfg.adjacency_list[parent][0] == Adj::End) {
             return;
     }
@@ -206,7 +206,7 @@ fn handle_single_successor_case(
                 if let Statement::Label(id) = *s {
                     if new_label_id > id {
                         new_label_id = id + 1;
-                    } 
+                    }
                 }
             }
             // generate jump to this label id
@@ -220,7 +220,7 @@ fn handle_single_successor_case(
             }
             // update the remaining basic blocks
             for i in successor+1..cfg.basic_blocks.len() {
-                let blk = cfg.basic_blocks.get_mut(i).unwrap(); 
+                let blk = cfg.basic_blocks.get_mut(i).unwrap();
                 blk.start += 1;
                 blk.end += 1;
             }
@@ -242,10 +242,10 @@ fn handle_two_successors(
         ice!("Missing conditional jump in child block when block has two successors");
     };
 
-    if cfg.adjacency_list[parent].contains(&Adj::Block(parent+1)) {         
+    if cfg.adjacency_list[parent].contains(&Adj::Block(parent+1)) {
         if let Statement::Label(follower_label) = function.statements[cfg.basic_blocks[parent+1].start] {
 
-            // if the label the true branch jumps is not in the following branch, 
+            // if the label the true branch jumps is not in the following branch,
             // the false branch is the following branch. We can bail out without
             // doing anything, as true branch jumps to correct label and false
             // branch correctly falls through to the following basic block.
@@ -280,7 +280,7 @@ fn handle_two_successors(
     cfg.adjacency_list[parent].retain(|v| *v != Adj::Block(false_block));
 
     // and add the new jump block as connected node
-    cfg.adjacency_list[parent].push(Adj::Block(parent+1)); 
+    cfg.adjacency_list[parent].push(Adj::Block(parent+1));
 
     // update the new block adjacency to point towards the false branch.
     cfg.adjacency_list[parent+1].push(Adj::Block(false_block));
@@ -300,14 +300,14 @@ fn get_false_branch_and_label(
                     return (adj_block, id);
                 }
             } else {
-                // Not a label, must be the false branch, as true branch must 
+                // Not a label, must be the false branch, as true branch must
                 // have a label for the conditional jump.
 
                 // Insert a new label here for the unconditional jump
 
                 let mut label_id = 0;
                 // find a free label id
-                for b in cfg.basic_blocks.iter() {  
+                for b in cfg.basic_blocks.iter() {
                     if let Statement::Label(cur_id) =  function.statements[b.start] {
                         if cur_id >= label_id {
                             label_id = cur_id + 1;

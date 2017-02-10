@@ -23,7 +23,7 @@ macro_rules! ice {
     ($fmt:expr) => (
       {
         println_stderr!(
-            "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n", 
+            "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n",
             ::ice::red_string("Internal compiler error"), $fmt);
           panic!("Stop");
       }
@@ -31,7 +31,7 @@ macro_rules! ice {
     ($fmt:expr, $($args:tt)+) => (
       {
         println_stderr!(
-          "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n", 
+          "\n{}: {}\n\nThis is a bug in the compiler, not in the source file.\n",
           ::ice::red_string("Internal compiler error"),
           format!($fmt, $($args)+));
         panic!("Stop");

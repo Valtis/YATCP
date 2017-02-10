@@ -1,11 +1,13 @@
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
- 
+
+use std::rc::Rc;
+
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
   Assign,
-  Comparison, 
+  Comparison,
   Not,
   Number,
   Text,
@@ -45,7 +47,7 @@ impl Display for TokenType {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
     Display::fmt(
       match *self {
-        TokenType::Assign => "=",        
+        TokenType::Assign => "=",
         TokenType::Comparison => "comparison",
         TokenType::Not => "!",
         TokenType::Number => "number",
@@ -89,11 +91,11 @@ impl Display for TokenType {
 // we can use epsilon for floating point numbers when doing equality comparison
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenSubType {
-  Text(String), // index to text table
+  Text(Rc<String>),
   FloatNumber(f32),
   DoubleNumber(f64),
   IntegerNumber(i32),
-  Identifier(String), // index to text table
+  Identifier(Rc<String>),
   BooleanValue(bool),
   FloatType,
   DoubleType,
@@ -118,7 +120,7 @@ impl Display for TokenSubType {
           _ => "(".to_string(),
      }));
     try!(write!(formatter, "{}", match *self {
-        TokenSubType::Text(ref text) => format!("{}{}{}", "\"", text.clone(), "\""),
+        TokenSubType::Text(ref text) => format!("{}{}{}", "\"", text, "\""),
         TokenSubType::FloatNumber(value) => format!("{}f", value.to_string()),
         TokenSubType::DoubleNumber(value) => format!("{}d", value.to_string()),
         TokenSubType::IntegerNumber(value) => value.to_string(),

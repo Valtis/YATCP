@@ -3,13 +3,15 @@ use byte_generator;
 
 use self::x64::X64CodeGen;
 
+use std::rc::Rc;
+
 pub struct CodeGenerator {
     bytecode_functions: Vec<byte_generator::Function>
 }
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: String,
+    pub name: Rc<String>,
     pub start: usize,
     pub length: usize,
 }
@@ -24,7 +26,7 @@ impl CodeGenerator {
         CodeGenerator {
             bytecode_functions: bytecode_functions,
         }
-    }   
+    }
 
     pub fn generate_code(self) -> Code {
         // TODO - remove hard coded architecture

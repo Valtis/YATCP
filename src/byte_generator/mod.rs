@@ -4,6 +4,7 @@ use tac_generator::Operand;
 use tac_generator;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOperation {
@@ -29,7 +30,7 @@ pub enum ComparisonType {
     Less,
     LessOrEq,
     Equals,
-    GreaterOrEq,    
+    GreaterOrEq,
     Greater,
 }
 
@@ -59,8 +60,8 @@ pub enum ByteCode {
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: String,
-    pub code: Vec<ByteCode> 
+    pub name: Rc<String>,
+    pub code: Vec<ByteCode>
 }
 
 pub struct ByteGenerator {
@@ -102,10 +103,10 @@ impl ByteGenerator {
                     Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
                     Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
                     Statement::Assignment(
-                        Some(ref x), 
+                        Some(ref x),
                         Some(ref dest),
                         Some(ref op1),
-                        Some(ref op2)) if cmp.contains(x) => 
+                        Some(ref op2)) if cmp.contains(x) =>
                         self.emit_comparison(x, op1, op2, dest),
 
                    Statement::Return(val) => self.emit_return(val),
@@ -124,17 +125,17 @@ impl ByteGenerator {
             self.current_function().code.push(ByteCode::Mov(data));
         }
 
-        self.current_function().code.push(ByteCode::Ret); 
+        self.current_function().code.push(ByteCode::Ret);
     }
 
-    fn emit_move(&mut self, op: &Operand, dest: &Operand) {    
+    fn emit_move(&mut self, op: &Operand, dest: &Operand) {
         let data = self.form_unary_operation(op, dest);
         self.current_function().code.push(ByteCode::Mov(data));
     }
 
     fn emit_comparison(&mut self,
-        operator: &Operator, 
-        op1: &Operand, 
+        operator: &Operator,
+        op1: &Operand,
         op2: &Operand,
         dest: &Operand) {
 
@@ -162,7 +163,7 @@ impl ByteGenerator {
 
         self.current_function().code.push(
             ByteCode::Compare(
-                ComparisonOperation{ 
+                ComparisonOperation{
                     src1: src1,
                     src2: src2,
                 }));
@@ -172,7 +173,7 @@ impl ByteGenerator {
         self.current_function().code.push(ByteCode::Label(id));
     }
 
-    fn emit_jump(&mut self, id: u32) {        
+    fn emit_jump(&mut self, id: u32) {
         self.current_function().code.push(ByteCode::Jump(id));
     }
 

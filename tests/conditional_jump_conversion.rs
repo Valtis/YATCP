@@ -12,10 +12,12 @@ use compiler::cfg::CFG;
 use compiler::cfg::basic_block::BasicBlock;
 use compiler::optimizer::conditional_jump_conversion::convert_jumps;
 
+use std::rc::Rc;
+
 #[test]
-fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_true() {    
+fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_true() {
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::JumpIfTrue(Operand::Boolean(true), 0),
         // block 2
@@ -26,7 +28,7 @@ fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -59,19 +61,19 @@ fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_
     assert_eq!(5, f.statements.len());
 
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(1)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         f.statements[0]);
     assert_eq!(
-        Statement::Jump(0), 
+        Statement::Jump(0),
         f.statements[1]);
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(2)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
         f.statements[2]);
     assert_eq!(
-        Statement::Label(0), 
+        Statement::Label(0),
         f.statements[3]);
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(3)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
         f.statements[4]);
 
     assert_eq!(3, cfg.adjacency_list.len());
@@ -82,9 +84,9 @@ fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_
 }
 
 #[test]
-fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {    
+fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::JumpIfTrue(Operand::Boolean(false), 0),
         // block 2
@@ -95,7 +97,7 @@ fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -128,16 +130,16 @@ fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {
     assert_eq!(4, f.statements.len());
 
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(1)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         f.statements[0]);
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(2)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
         f.statements[1]);
     assert_eq!(
-        Statement::Label(0), 
+        Statement::Label(0),
         f.statements[2]);
     assert_eq!(
-        Statement::Assignment(None, Some(Operand::Integer(3)), None, None), 
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
         f.statements[3]);
 
     assert_eq!(3, cfg.adjacency_list.len());
@@ -151,39 +153,39 @@ fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {
 fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is_true() {
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(
                 DeclarationInfo::new_alt(
-                    "a".to_string(),
+                    Rc::new("a".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 0)), 
-            None, 
+                    0, 0, 0),
+                0, 0)),
+            None,
             Some(Operand::Integer(5))),
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 0)), 
-            None, 
+                    0, 0, 0),
+                1, 0)),
+            None,
             Some(Operand::Integer(6))),
         Statement::Jump(0),
         // block 2
         Statement::Label(1),
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 1)), 
-            None, 
+                    0, 0, 0),
+                1, 1)),
+            None,
             Some(Operand::Integer(8))),
-        Statement::Jump(3),        
+        Statement::Jump(3),
         // block 3
         Statement::Label(0),
         Statement::JumpIfTrue(Operand::Boolean(true), 1),
@@ -191,32 +193,32 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
         Statement::Label(3),
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "b".to_string(),
+                Rc::new("b".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 2),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 0),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 1)
             ]),
         Statement::Return(Some(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
             1, 2))),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -265,15 +267,15 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
     assert_eq!(
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "b".to_string(),
+                Rc::new("b".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 2),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 1)
             ]),
         f.statements[9]);
@@ -283,39 +285,39 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
 fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is_false() {
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(
                 DeclarationInfo::new_alt(
-                    "a".to_string(),
+                    Rc::new("a".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 0)), 
-            None, 
+                    0, 0, 0),
+                0, 0)),
+            None,
             Some(Operand::Integer(5))),
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 0)), 
-            None, 
+                    0, 0, 0),
+                1, 0)),
+            None,
             Some(Operand::Integer(6))),
         Statement::Jump(0),
         // block 2
         Statement::Label(1),
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 1)), 
-            None, 
+                    0, 0, 0),
+                1, 1)),
+            None,
             Some(Operand::Integer(8))),
-        Statement::Jump(3),        
+        Statement::Jump(3),
         // block 3
         Statement::Label(0),
         Statement::JumpIfTrue(Operand::Boolean(false), 1),
@@ -323,32 +325,32 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
         Statement::Label(3),
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "b".to_string(),
+                Rc::new("b".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 2),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 0),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 1)
             ]),
         Statement::Return(Some(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
             1, 2))),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -377,7 +379,7 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
             vec![Adj::Block(1), Adj::Block(3)],
             vec![Adj::End],
         ],
-        dominance_frontier: vec![], 
+        dominance_frontier: vec![],
         immediate_dominators: vec![],
     };
 
@@ -407,15 +409,15 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
 
     if let Statement::PhiFunction(ref op, ref ops) = Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "b".to_string(),
+                Rc::new("b".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 2),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 1)
             ]) {
         println!("\nexp Variable: {:?}", op);
@@ -426,15 +428,15 @@ fn variable_is_removed_from_phi_function_if_the_edge_is_removed_and_condition_is
     assert_eq!(
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "b".to_string(),
+                Rc::new("b".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 2),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "b".to_string(),
+                    Rc::new("b".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 0)
             ]),
         f.statements[8]);
@@ -449,197 +451,197 @@ fn phi_functions_are_not_modified_if_no_edges_are_removed() {
             let j : int = 0;
             while i < 20 {
                 j = j + i;
-                i = i + 1;     
+                i = i + 1;
                 if i > 10 {
                     j = j*2;
-                }   
+                }
             }
             return j;
         }
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(
                 DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 0)), 
-            None, 
+                    0, 0, 0),
+                0, 0)),
+            None,
             Some(Operand::Integer(0))),
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 0)), 
-            None, 
+                    0, 0, 0),
+                1, 0)),
+            None,
             Some(Operand::Integer(0))),
         Statement::Jump(0),
         // block 2
         Statement::Label(1),
         Statement::Assignment(
-            Some(Operator::Plus), 
+            Some(Operator::Plus),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 2)),             
+                    0, 0, 0),
+                1, 2)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 1)), 
+                    0, 0, 0),
+                1, 1)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 0, 1))),
         Statement::Assignment(
-            Some(Operator::Plus), 
+            Some(Operator::Plus),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 2)), 
+                    0, 0, 0),
+                0, 2)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 1)), 
+                    0, 0, 0),
+                0, 1)),
             Some(Operand::Integer(1))),
-        Statement::Jump(2),        
+        Statement::Jump(2),
         // block 3
         Statement::Label(3),
         Statement::Assignment(
-            Some(Operator::Multiply), 
+            Some(Operator::Multiply),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 3)),             
+                    0, 0, 0),
+                1, 3)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                1, 2)), 
+                    0, 0, 0),
+                1, 2)),
             Some(Operand::Integer(2))),
-        Statement::Jump(5),        
+        Statement::Jump(5),
         // block 4
         Statement::Label(2),
         Statement::Assignment(
-            Some(Operator::Greater), 
+            Some(Operator::Greater),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "tmp".to_string(),
+                    Rc::new("tmp".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                5, 0)),             
+                    0, 0, 0),
+                5, 0)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 2)), 
+                    0, 0, 0),
+                0, 2)),
             Some(Operand::Integer(10))),
         Statement::JumpIfTrue(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "tmp".to_string(),
+                    Rc::new("tmp".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                5, 0), 
+                    0, 0, 0),
+                5, 0),
             3),
         // block 5
         Statement::Label(5),
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "j".to_string(),
+                Rc::new("j".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 4),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 3),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 2)
             ]),
         // block 6
         Statement::Label(0),
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "j".to_string(),
+                Rc::new("j".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 1),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 4),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 0)
             ]),
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "i".to_string(),
+                Rc::new("i".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             0, 1),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 0, 2),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 0, 0)
             ]),
         Statement::Assignment(
-            Some(Operator::Less), 
+            Some(Operator::Less),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "tmp".to_string(),
+                    Rc::new("tmp".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                6, 0)),             
+                    0, 0, 0),
+                6, 0)),
             Some(Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                0, 1)), 
+                    0, 0, 0),
+                0, 1)),
             Some(Operand::Integer(20))),
         Statement::JumpIfTrue(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "tmp".to_string(),
+                    Rc::new("tmp".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
-                6, 0), 
+                    0, 0, 0),
+                6, 0),
             1),
         // block 7
         Statement::Return(Some(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
             1, 1))),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -683,7 +685,7 @@ fn phi_functions_are_not_modified_if_no_edges_are_removed() {
             vec![Adj::Block(6), Adj::Block(1)],
             vec![Adj::End],
         ],
-        dominance_frontier: vec![], 
+        dominance_frontier: vec![],
         immediate_dominators: vec![],
     };
 
@@ -705,20 +707,20 @@ fn phi_functions_are_not_modified_if_no_edges_are_removed() {
     assert_eq!(
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "j".to_string(),
+                Rc::new("j".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 4),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 3),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 2)
             ]),
         f.statements[14]);
@@ -726,42 +728,42 @@ fn phi_functions_are_not_modified_if_no_edges_are_removed() {
     assert_eq!(
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "j".to_string(),
+                Rc::new("j".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             1, 1),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 4),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "j".to_string(),
+                    Rc::new("j".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 1, 0)
             ]),
         f.statements[16]);
 
-    
+
     assert_eq!(
         Statement::PhiFunction(
             Operand::SSAVariable(DeclarationInfo::new_alt(
-                "i".to_string(),
+                Rc::new("i".to_string()),
                 Type::Integer,
-                0, 0, 0), 
+                0, 0, 0),
             0, 1),
             vec![
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 0, 2),
                 Operand::SSAVariable(DeclarationInfo::new_alt(
-                    "i".to_string(),
+                    Rc::new("i".to_string()),
                     Type::Integer,
-                    0, 0, 0), 
+                    0, 0, 0),
                 0, 0)
             ]),
         f.statements[17]);

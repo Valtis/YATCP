@@ -13,32 +13,34 @@ use compiler::tac_generator::Statement;
 use compiler::tac_generator::Operand;
 use compiler::tac_generator::Operator;
 
+use std::rc::Rc;
+
 #[test]
 fn program_with_variable_declarations_produces_correct_tac() {
 
-    /*    
+    /*
     fn a() : int  {
         let a : int = 4;
         let b : int = 9 * 4;
         let c : int = 6;
     }*/
-    let func_info = FunctionInfo::new_alt("a".to_string(), Type::Integer, 0, 0, 0);
+    let func_info = FunctionInfo::new_alt(Rc::new("a".to_string()), Type::Integer, 0, 0, 0);
     let mut block_symtab_entry = TableEntry::new();
 
     block_symtab_entry.add_symbol(Symbol::Function(func_info.clone()));
 
     let decl_info_a = DeclarationInfo::new_alt(
-                                        "a".to_string(),
+                                        Rc::new("a".to_string()),
                                         Type::Integer,
                                         0, 0, 0);
 
     let decl_info_b = DeclarationInfo::new_alt(
-                                            "b".to_string(),
+                                            Rc::new("b".to_string()),
                                             Type::Integer,
                                             0, 0, 0);
 
     let decl_info_c =  DeclarationInfo::new_alt(
-                                        "c".to_string(),
+                                        Rc::new("c".to_string()),
                                         Type::Integer,
                                         0, 0, 0);
 
@@ -75,7 +77,7 @@ fn program_with_variable_declarations_produces_correct_tac() {
                                                 NodeInfo::new(0, 0, 0)
                                             )
                                         ),
-                                        ArithmeticInfo::new_alt(0, 0, 0),                                        
+                                        ArithmeticInfo::new_alt(0, 0, 0),
                                     )),
                                     decl_info_b.clone(),
                                 ),
@@ -87,12 +89,12 @@ fn program_with_variable_declarations_produces_correct_tac() {
                                         )
                                     ),
                                     decl_info_c.clone(),
-                                ),                                
-                            ], 
+                                ),
+                            ],
                             Some(func_symtab_entry),
                             NodeInfo::new(0, 0, 0)
                         )),
-                    func_info,  
+                    func_info,
                 )
             ],
             Some(block_symtab_entry),
@@ -107,7 +109,7 @@ fn program_with_variable_declarations_produces_correct_tac() {
 
     assert_eq!(
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::Variable(decl_info_a.clone(), 0)),
             None,
             Some(Operand::Integer(4))),
@@ -115,7 +117,7 @@ fn program_with_variable_declarations_produces_correct_tac() {
 
     assert_eq!(
         Statement::Assignment(
-            Some(Operator::Multiply), 
+            Some(Operator::Multiply),
             Some(Operand::Variable(decl_info_b.clone(), 1)),
             Some(Operand::Integer(9)),
             Some(Operand::Integer(4))),
@@ -124,7 +126,7 @@ fn program_with_variable_declarations_produces_correct_tac() {
 
     assert_eq!(
         Statement::Assignment(
-            None, 
+            None,
             Some(Operand::Variable(decl_info_c.clone(), 2)),
             None,
             Some(Operand::Integer(6))),

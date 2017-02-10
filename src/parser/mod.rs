@@ -18,12 +18,12 @@ use std::rc::Rc;
 
 pub struct Parser {
     lexer: Box<Lexer>,
-    error_reporter: Rc<RefCell<ErrorReporter>>
+    error_reporter: Rc<RefCell<ErrorReporter>>,
 }
 
 impl Parser {
     pub fn new(
-        lexer: Box<Lexer>, 
+        lexer: Box<Lexer>,
         error_reporter: Rc<RefCell<ErrorReporter>>) -> Parser {
         Parser {
             lexer: lexer,
@@ -32,7 +32,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> AstNode {
-        
+
         let mut functions = vec![];
         let mut debug_safeguard = 10000;
         loop {
@@ -48,13 +48,13 @@ impl Parser {
                         Err(_) => self.skip_to_first_of(vec![TokenType::Fn]),
                     }
                 },
-                TokenType::Eof => 
+                TokenType::Eof =>
                     return AstNode::Block(
-                            functions, 
+                            functions,
                             None,
                             NodeInfo::new(0, 0, 0),
                         ),
-                _ => { 
+                _ => {
                     self.report_unexpected_token(
                         TokenType::Fn, &token);
                     self.skip_to_first_of(vec![TokenType::Fn]);
@@ -64,7 +64,7 @@ impl Parser {
     }
 
     fn parse_function(&mut self) -> Result<AstNode, ()> {
-        
+
         self.expect(TokenType::Fn)?;
         let identifier = self.expect(TokenType::Identifier)?;
         self.expect(TokenType::LParen)?;
@@ -87,9 +87,9 @@ impl Parser {
         self.expect(TokenType::LBrace)?;
         let nodes = self.parse_statements()?;
         self.expect(TokenType::RBrace)?;
-        
+
         let block = AstNode::Block(
-            nodes, 
+            nodes,
             None,
             NodeInfo::new(0, 0, 0),
         );
@@ -106,18 +106,18 @@ impl Parser {
                     self.lexer.next_token();
                     continue;
                 },
-                TokenType::Let => 
+                TokenType::Let =>
                     self.parse_variable_declaration(),
                 TokenType::LBrace =>
                     self.parse_block(),
-                TokenType::Identifier => 
+                TokenType::Identifier =>
                     self.parse_function_call_or_assignment(),
-                TokenType::Return => 
+                TokenType::Return =>
                     self.parse_return_statement(),
-                TokenType::While => 
+                TokenType::While =>
                     self.parse_while_statement(),
-                TokenType::If => 
-                    self.parse_if_statement(), 
+                TokenType::If =>
+                    self.parse_if_statement(),
                 _ => return Ok(nodes)
             };
 
@@ -148,7 +148,7 @@ impl Parser {
                     identifier.column,
                     identifier.length as usize,
                     format!("Variable declaration must be followed by initialization"));
-                return Err(());  
+                return Err(());
             },
             _ => {
                 self.report_unexpected_token(
@@ -157,14 +157,14 @@ impl Parser {
                 return Err(());
             },
         }
-        
-        let node = self.parse_expression()?;   
-        self.expect(TokenType::SemiColon)?;    
+
+        let node = self.parse_expression()?;
+        self.expect(TokenType::SemiColon)?;
         let declaration = AstNode::VariableDeclaration(
                 Box::new(node),
-                DeclarationInfo::new(&identifier, &var_type));  
+                DeclarationInfo::new(&identifier, &var_type));
 
-        Ok(declaration)      
+        Ok(declaration)
     }
 
 
@@ -173,8 +173,8 @@ impl Parser {
         let token  = self.lexer.peek_token();
         match token.token_type {
             TokenType::Assign => self.parse_assignment(identifier),
-            TokenType::LParen => unimplemented!(), 
-            _ => /*Err(format!("{}:{}: Unexpected token '{}'. Expected '{}' for assignment or '{}' for function call", 
+            TokenType::LParen => unimplemented!(),
+            _ => /*Err(format!("{}:{}: Unexpected token '{}'. Expected '{}' for assignment or '{}' for function call",
                 token.line, token.column, token, TokenType::Assign, TokenType::LParen)),*/ unimplemented!(),
         }
     }
@@ -184,8 +184,8 @@ impl Parser {
         let expression_node = self.parse_expression()?;
         self.expect(TokenType::SemiColon)?;
 
-        let name = if let TokenSubType::Identifier(ref val) = identifier.token_subtype {            
-            val.clone()
+        let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
+            ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_assignment", identifier);
         };
@@ -198,19 +198,19 @@ impl Parser {
 
     fn parse_return_statement(&mut self) -> Result<AstNode, ()> {
         let return_node = self.expect(TokenType::Return)?;
-        
+
         let token = self.lexer.peek_token();
         let node = if token.token_type != TokenType::SemiColon {
             Some(Box::new(self.parse_expression()?))
         } else {
             None
         };
-        
+
         self.expect(TokenType::SemiColon)?;
 
 
         Ok(AstNode::Return(
-            node, 
+            node,
             ArithmeticInfo::new(&return_node)))
     }
 
@@ -218,7 +218,7 @@ impl Parser {
         let while_node = self.expect(TokenType::While)?;
         let expr = self.parse_expression()?;
         let block = self.parse_block()?;
-        
+
         Ok(AstNode::While(
             Box::new(expr),
             Box::new(block),
@@ -232,7 +232,7 @@ impl Parser {
         let if_node = self.expect(TokenType::If)?;
         let expr = self.parse_expression()?;
         let block = self.parse_block()?;
-        
+
         let token = self.lexer.peek_token();
 
         let opt_else_blk = if token.token_type == TokenType::Else {
@@ -264,7 +264,7 @@ impl Parser {
 
     fn parse_expression(&mut self) -> Result<AstNode, ()> {
         let mut node = self.parse_arithmetic_expression()?;
-        
+
         loop {
             let next_token = self.lexer.peek_token();
             if next_token.token_type == TokenType::Comparison {
@@ -274,7 +274,7 @@ impl Parser {
             }
         }
         Ok(node)
-    } 
+    }
 
     fn parse_arithmetic_expression(&mut self) -> Result<AstNode, ()> {
         let mut node = self.parse_term()?;
@@ -293,10 +293,10 @@ impl Parser {
                         next_token));
 
                 return Err(());
-            } 
+            }
 
             match next_token.token_type {
-                TokenType::Plus | TokenType::Minus => 
+                TokenType::Plus | TokenType::Minus =>
                     node = self.parse_plus_minus_expression(node)?,
                 _ => break,
             }
@@ -306,12 +306,12 @@ impl Parser {
 
     fn parse_term(&mut self) -> Result<AstNode, ()> {
         let mut node = self.parse_factor()?;
-       
+
         // while mul or div tokens are next, keep parsing
         loop {
             let next_token = self.lexer.peek_token();
             match next_token.token_type {
-                TokenType::Multiply | TokenType::Divide => 
+                TokenType::Multiply | TokenType::Divide =>
                     node = try!(self.parse_mult_divide_expression(node)),
                 _ => break,
             }
@@ -332,10 +332,10 @@ impl Parser {
             },
             TokenType::Identifier => {
                 match token.token_subtype {
-                    TokenSubType::Identifier(ident) => 
+                    TokenSubType::Identifier(ref identifier) =>
                     Ok(
                         AstNode::Identifier(
-                            ident,
+                            identifier.clone(),
                             NodeInfo::new(
                                 token.line, token.column, token.length))),
                     TokenSubType::ErrorToken =>
@@ -382,16 +382,16 @@ impl Parser {
                 match token.token_subtype {
                     TokenSubType::Text(ref text) =>
                         Ok(AstNode::Text(
-                            text.clone(), 
+                            text.clone(),
                             NodeInfo::new(
                                 token.line, token.column, token.length))),
-                    TokenSubType::ErrorToken => 
+                    TokenSubType::ErrorToken =>
                         Ok(AstNode::ErrorNode),
                     _ => ice!("Invalid token '{}' passed when text expected", token),
                 }
             }
             _ => ice!(
-                    "Invalid token '{}' passed to match statement in parse_factor", 
+                    "Invalid token '{}' passed to match statement in parse_factor",
                     token),
         }
     }
@@ -463,23 +463,23 @@ impl Parser {
                     Ok(greater_node)
                 },
                 _ => ice!("Invalid token subtype '{}' for comparison", next_token),
-            }           
+            }
         } else {
             Ok(node)
         }
 
     }
-    
+
     fn parse_plus_minus_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let next_token = self.lexer.peek_token();
 
         match next_token.token_type {
-            TokenType::Plus => { 
+            TokenType::Plus => {
                 self.lexer.next_token();
                 let n_node = self.parse_term()?;
                 let plus_node = AstNode::Plus(
-                    Box::new(node), 
-                    Box::new(n_node), 
+                    Box::new(node),
+                    Box::new(n_node),
                     ArithmeticInfo::new(&next_token));
 
                 Ok(plus_node)
@@ -488,8 +488,8 @@ impl Parser {
                 self.lexer.next_token();
                 let n_node = self.parse_term()?;
                 let minus_node = AstNode::Minus(
-                    Box::new(node), 
-                    Box::new(n_node), 
+                    Box::new(node),
+                    Box::new(n_node),
                     ArithmeticInfo::new(&next_token));
 
                 Ok(minus_node)
@@ -506,8 +506,8 @@ impl Parser {
                 self.lexer.next_token();
                 let n_node = self.parse_factor()?;
                 let mult_node = AstNode::Multiply(
-                    Box::new(node), 
-                    Box::new(n_node), 
+                    Box::new(node),
+                    Box::new(n_node),
                     ArithmeticInfo::new(&next_token));
 
                 Ok(mult_node)
@@ -516,8 +516,8 @@ impl Parser {
                 self.lexer.next_token();
                 let n_node = self.parse_factor()?;
                 let div_node = AstNode::Divide(
-                    Box::new(node), 
-                    Box::new(n_node), 
+                    Box::new(node),
+                    Box::new(n_node),
                     ArithmeticInfo::new(&next_token));
                 Ok(div_node)
             },
@@ -525,7 +525,7 @@ impl Parser {
         }
     }
 
-    
+
 
     fn expect(&mut self, token_type: TokenType) -> Result<Token, ()> {
         let next_token = self.lexer.next_token();
@@ -545,7 +545,7 @@ impl Parser {
             Ok(next_token)
         } else {
             let mut type_string: String = "".to_string();
-            
+
             for ref token_type in types.iter() {
                 type_string = format!("{} {}", type_string, *token_type);
             }
@@ -628,11 +628,11 @@ impl Parser {
 
 
     fn report_error(
-        &mut self, 
-        error_type: Error, 
-        line: i32, 
-        column: i32, 
-        length: usize, 
+        &mut self,
+        error_type: Error,
+        line: i32,
+        column: i32,
+        length: usize,
         reason: String) {
         self.error_reporter.borrow_mut().report_error(
             error_type,

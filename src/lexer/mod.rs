@@ -5,6 +5,8 @@ use token::TokenSubType;
 use error_reporter::ErrorReporter;
 use error_reporter::Error;
 
+use string_table::StringTable;
+
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Bytes;
@@ -15,48 +17,52 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 pub trait Lexer {
-  fn next_token(&mut self) -> Token;
-  fn peek_token(&mut self) -> Token;
-  fn current_token(&self) -> Option<Token>;
+    fn next_token(&mut self) -> Token;
+    fn peek_token(&mut self) -> Token;
+    fn current_token(&self) -> Option<Token>;
 }
 
 pub struct ReadLexer {
-  line: i32,
-  column: i32,
-  token_start_line: i32,
-  token_start_column: i32,
-  iter: Peekable<Bytes<BufReader<Box<Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
-  next_token: Option<Token>, // used for storing token after peeking
-  current_token: Option<Token>, // token that was returned by next_token.
-  error_reporter: Rc<RefCell<ErrorReporter>>,
+    line: i32,
+    column: i32,
+    token_start_line: i32,
+    token_start_column: i32,
+    iter: Peekable<Bytes<BufReader<Box<Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
+    next_token: Option<Token>, // used for storing token after peeking
+    current_token: Option<Token>, // token that was returned by next_token.
+    error_reporter: Rc<RefCell<ErrorReporter>>,
+    string_table: StringTable,
 }
 
 impl ReadLexer {
-  pub fn new(input: Box<Read>, error_reporter: Rc<RefCell<ErrorReporter>>) -> ReadLexer { 
+    pub fn new(
+        input: Box<Read>,
+        error_reporter: Rc<RefCell<ErrorReporter>>) -> ReadLexer {
 
-    ReadLexer {
-      line: 1,
-      column: 1,
-      token_start_line: 1,
-      token_start_column: 1,
-      iter: BufReader::new(input).bytes().peekable(),
-      next_token: None,
-      current_token: None,
-      error_reporter: error_reporter,
-    }
-  }
-
-
-  fn starts_comment(&mut self, ch: char) -> bool {
-    if ch == '/' {
-      return match self.peek_char() {
-        Some(ch) => ch == '/',
-        None => false,
-      }
+        ReadLexer {
+          line: 1,
+          column: 1,
+          token_start_line: 1,
+          token_start_column: 1,
+          iter: BufReader::new(input).bytes().peekable(),
+          next_token: None,
+          current_token: None,
+          error_reporter: error_reporter,
+          string_table: StringTable::new(),
+        }
     }
 
-    false
-  }
+
+    fn starts_comment(&mut self, ch: char) -> bool {
+        if ch == '/' {
+          return match self.peek_char() {
+            Some(ch) => ch == '/',
+            None => false,
+          }
+        }
+
+        false
+    }
 
   fn skip_comment(&mut self) {
     loop {
@@ -92,20 +98,20 @@ impl ReadLexer {
       '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
       ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
       '=' => self.multi_char_operator_helper(
-        '=', 
-        (TokenType::Comparison, TokenSubType::Equals), 
+        '=',
+        (TokenType::Comparison, TokenSubType::Equals),
         (TokenType::Assign, TokenSubType::NoSubType)),
       '>' => self.multi_char_operator_helper(
-        '=', 
-        (TokenType::Comparison, TokenSubType::GreaterOrEq), 
+        '=',
+        (TokenType::Comparison, TokenSubType::GreaterOrEq),
         (TokenType::Comparison, TokenSubType::Greater)),
       '<' => self.multi_char_operator_helper(
-        '=', 
-        (TokenType::Comparison, TokenSubType::LessOrEq), 
+        '=',
+        (TokenType::Comparison, TokenSubType::LessOrEq),
         (TokenType::Comparison, TokenSubType::Less)),
       '!' => self.multi_char_operator_helper(
-        '=', 
-        (TokenType::Comparison, TokenSubType::NotEq), 
+        '=',
+        (TokenType::Comparison, TokenSubType::NotEq),
         (TokenType::Not, TokenSubType::NoSubType)),
       _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
     }
@@ -124,7 +130,7 @@ impl ReadLexer {
         let mut next_char = ' ';
 
         if let Some(ch) = self.peek_char() {
-            next_char = ch; 
+            next_char = ch;
         }
 
         let (t, st) = if next_char == optional_second_char {
@@ -170,10 +176,17 @@ impl ReadLexer {
 
 
     match self.handle_keywords(&identifier) {
-      Some(token) => token,
-      None => self.create_token(TokenType::Identifier, TokenSubType::Identifier(identifier)),      
+        Some(token) => token,
+        None => {
+            let index = self.string_table.insert(identifier);
+
+            self.create_token(
+                TokenType::Identifier,
+                TokenSubType::Identifier(index))
+        },
     }
-  }
+}
+
   /*if, else, while, for, let, fn, return, new, class,
   public, protected, private, true, false, int, float, double, bool, void*/
   fn handle_keywords(&self, identifier: &str) -> Option<Token> {
@@ -244,7 +257,7 @@ impl ReadLexer {
             number_str.push(ch);
             self.next_char();
             return self.handle_decimal_number(number_str);
-          } else if ch.is_alphabetic() {    
+          } else if ch.is_alphabetic() {
             return self.handle_number_type_str(number_str);
           } else {
             break;
@@ -261,7 +274,7 @@ impl ReadLexer {
     }
   }
 
-  fn handle_decimal_number(&mut self, mut number_str: String) -> Token {  
+  fn handle_decimal_number(&mut self, mut number_str: String) -> Token {
     let mut separator_error = false;
     loop {
 
@@ -272,7 +285,7 @@ impl ReadLexer {
                 if ch.is_digit(10) {
                     number_str.push(ch);
                     self.next_char();
-                } else if ch.is_alphabetic() {       
+                } else if ch.is_alphabetic() {
                     return self.handle_number_type_str(number_str);
                 } else if ch == '.' {
                     if separator_error == false {
@@ -281,8 +294,8 @@ impl ReadLexer {
                     Error::TokenError,
                     line, column, 1,
                     "Multiple decimal separators in number".to_string());
-                    separator_error = true;      
-                  }      
+                    separator_error = true;
+                  }
                   self.next_char();
                 } else {
                     break;
@@ -319,37 +332,37 @@ impl ReadLexer {
         break;
       }
     }
-   
+
     if type_str == "d" || type_str == "f" {
       self.create_number_token(type_str, number_str)
     } else {
-        let (line, column) = (self.line, self.column - type_str.len() as i32); 
+        let (line, column) = (self.line, self.column - type_str.len() as i32);
         self.report_error(
-          Error::TokenError, 
-          line, 
-          column, 
+          Error::TokenError,
+          line,
+          column,
           type_str.len(), // length of a single character
           format!("Invalid type string '{}'", type_str));
 
           self.create_token(
-            TokenType::Number, 
+            TokenType::Number,
             TokenSubType::ErrorToken)
     }
   }
 
   fn create_number_token(&mut self, type_str: String, number_str: String) -> Token {
-    
+
     if type_str == "d" {
       match number_str.parse() {
         Ok(number) => self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number)),
-        Err(e) => 
+        Err(e) =>
             ice!("Non-numeric characters in number token at {}:{} ({})",
               self.line, self.column, e),
       }
     } else if type_str == "f" {
       match number_str.parse() {
         Ok(number) => self.create_token(TokenType::Number, TokenSubType::FloatNumber(number)),
-        Err(e) => 
+        Err(e) =>
             ice!("Non-numeric characters in number token at {}:{} ({})",
                 self.line, self.column, e),
       }
@@ -376,11 +389,11 @@ impl ReadLexer {
           }
           else if ch == '\n' {
               let (line, column) = (
-                self.token_start_line, 
-                self.token_start_column); 
-              
+                self.token_start_line,
+                self.token_start_column);
+
               self.report_error(
-                Error::TokenError, 
+                Error::TokenError,
                 line,
                 column,
                 value.len(),
@@ -393,9 +406,9 @@ impl ReadLexer {
           }
         }
         None => {
-          let (line, column) = (self.token_start_line, self.token_start_column); 
+          let (line, column) = (self.token_start_line, self.token_start_column);
           self.report_error(
-            Error::TokenError, 
+            Error::TokenError,
             line,
             column,
             value.len() + 1,
@@ -408,7 +421,8 @@ impl ReadLexer {
       }
     }
 
-    self.create_token(TokenType::Text, TokenSubType::Text(value))
+    let index = self.string_table.insert(value);
+    self.create_token(TokenType::Text, TokenSubType::Text(index))
   }
 
   fn handle_escape_sequence(&mut self) -> char {
@@ -499,11 +513,11 @@ impl ReadLexer {
 
 
   fn report_error(
-    &mut self, 
-    error_type: Error, 
-    line: i32, 
-    column: i32, 
-    length: usize, 
+    &mut self,
+    error_type: Error,
+    line: i32,
+    column: i32,
+    length: usize,
     reason: String) {
       self.error_reporter.borrow_mut().report_error(
         error_type,
@@ -555,7 +569,7 @@ impl Lexer for ReadLexer {
       None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
     };
     self.current_token = Some(token.clone());
-    token    
+    token
   }
 
   fn peek_token(&mut self) -> Token {

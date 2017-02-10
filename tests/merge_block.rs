@@ -11,8 +11,7 @@ use compiler::tac_generator::Operator;
 
 use compiler::optimizer::merge_block::merge_linear_blocks;
 
-
-
+use std::rc::Rc;
 
 #[test]
 fn when_merging_two_blocks_where_child_has_fall_through_to_next_block_jump_is_inserted_and_adjacency_updated_after_merge() {
@@ -35,7 +34,7 @@ fn when_merging_two_blocks_where_child_has_fall_through_to_next_block_jump_is_in
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
@@ -46,7 +45,7 @@ fn when_merging_two_blocks_where_child_has_fall_through_to_next_block_jump_is_in
         Statement::Jump(1),
         // block 3
         Statement::Label(0),
-        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),      
+        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(7)), None, None),
         // block 4,
         Statement::Label(1),
@@ -54,7 +53,7 @@ fn when_merging_two_blocks_where_child_has_fall_through_to_next_block_jump_is_in
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -93,7 +92,7 @@ fn when_merging_two_blocks_where_child_has_fall_through_to_next_block_jump_is_in
     // 0: 2
     // 1: 2
     // 2: End
-   
+
     assert_eq!(3, cfg.basic_blocks.len());
 
     assert_eq!(0, cfg.basic_blocks[0].start);
@@ -172,7 +171,7 @@ fn merge_handles_case_where_successor_block_has_no_label_when_inserting_jumps() 
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
@@ -183,18 +182,18 @@ fn merge_handles_case_where_successor_block_has_no_label_when_inserting_jumps() 
         Statement::Jump(1),
         // block 3
         Statement::Label(0),
-        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),      
+        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(7)), None, None),
-        // block 4,        
+        // block 4,
         Statement::Assignment(None, Some(Operand::Integer(8)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(9)), None, None),
-        // block 5       
+        // block 5
         Statement::Label(1),
         Statement::Assignment(None, Some(Operand::Integer(10)), None, None),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -238,7 +237,7 @@ fn merge_handles_case_where_successor_block_has_no_label_when_inserting_jumps() 
     // 0: 2
     // 1: 2
     // 2: End
-   
+
     assert_eq!(3, cfg.basic_blocks.len());
 
     assert_eq!(0, cfg.basic_blocks[0].start);
@@ -322,7 +321,7 @@ fn when_merging_two_blocks_where_child_has_only_a_label_and_has_fall_through_to_
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
         Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
@@ -339,7 +338,7 @@ fn when_merging_two_blocks_where_child_has_only_a_label_and_has_fall_through_to_
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -378,7 +377,7 @@ fn when_merging_two_blocks_where_child_has_only_a_label_and_has_fall_through_to_
     // 0: 2
     // 1: 2
     // 2: End
-   
+
     assert_eq!(3, cfg.basic_blocks.len());
 
     assert_eq!(0, cfg.basic_blocks[0].start);
@@ -435,21 +434,21 @@ fn merging_two_successive_blocks_where_child_is_connected_to_end_works() {
         block 1 -->|
         block 2 <--|
 
-   
+
         block 1+2
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Jump(0),
         // block 2
         Statement::Label(0),
-        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),      
+        Statement::Assignment(None, Some(Operand::Integer(6)), None, None),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -502,20 +501,20 @@ fn merging_two_successive_blocks_where_child_is_connected_to_end_and_has_only_la
         block 1 -->|
         block 2 <--|
 
-   
+
         block 1+2
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Jump(0),
         // block 2
-        Statement::Label(0),   
+        Statement::Label(0),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -561,11 +560,11 @@ fn merging_two_successive_blocks_where_child_is_connected_to_end_and_has_only_la
 #[test]
 fn merge_of_two_successive_blocks_where_child_has_conditional_jump_and_false_branch_will_follow_the_merged_block_is_correct() {
     /*
-        Block 1 
-        Block 2--| 
+        Block 1
+        Block 2--|
      |->Block 3  |
      |--Block 4<-|
-     
+
 
     Block 1: Fallthrough to 2
     Block 2: Conditional jump to 4, fallthrough to 3,
@@ -574,32 +573,32 @@ fn merge_of_two_successive_blocks_where_child_has_conditional_jump_and_false_bra
 
     After merge, should be
 
-    Block 1 + 2 --| 
- |->Block 3       | 
+    Block 1 + 2 --|
+ |->Block 3       |
  |--Block 4<------|
-    
+
     Block 1 + 2: Fallthrough to 3, conditional jump to 4
     Block 3: Fallthrough to 4,
     Block 4: Unconditional jump to 3
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         // block 2
-        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
-        Statement::JumpIfTrue(Operand::Boolean(true), 1),    
-        // block 3        
-        Statement::Label(0), 
-        Statement::Assignment(None, Some(Operand::Integer(3)), None, None), 
-        // block 4:        
-        Statement::Label(1), 
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        // block 3
+        Statement::Label(0),
+        Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+        // block 4:
+        Statement::Label(1),
         Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
         Statement::Jump(0),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -685,7 +684,7 @@ fn merge_of_two_successive_blocks_where_child_has_conditional_jump_and_false_bra
 
 
     assert_eq!(3, cfg.adjacency_list.len());
-    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);
     assert_eq!(vec![Adj::Block(2)], cfg.adjacency_list[1]);
     assert_eq!(vec![Adj::Block(1)], cfg.adjacency_list[2]);
 }
@@ -699,7 +698,7 @@ fn merge_of_block_with_conditional_jump_to_block_that_follows_the_original_child
         Block 4 <----|
 
     Block 1: Unconditional jump to 3
-    Block 2: Unconditional jump to to 4 
+    Block 2: Unconditional jump to to 4
     Block 3: Conditional jump to 2
     Block 4: Connects to end
 
@@ -718,24 +717,24 @@ fn merge_of_block_with_conditional_jump_to_block_that_follows_the_original_child
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Jump(0),
         // block 2
         Statement::Label(1),
-        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
-        Statement::Jump(2),    
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        Statement::Jump(2),
         // block 3
-        Statement::Label(0),  
+        Statement::Label(0),
         Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-        Statement::JumpIfTrue(Operand::Boolean(true), 1), 
-        // block 4:        
-        Statement::Label(2), 
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        // block 4:
+        Statement::Label(2),
         Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -829,8 +828,8 @@ fn merge_of_block_with_conditional_jump_to_block_that_follows_the_original_child
 
     assert_eq!(4, cfg.adjacency_list.len());
     // blocks are likely no longer in order. Sorting makes the testing easier
-    cfg.adjacency_list[0].sort(); 
-    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    cfg.adjacency_list[0].sort();
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);
     assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[1]);
     assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[2]);
     assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
@@ -844,9 +843,9 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
      |--Block 3<-|   |
         Block 4      |
         Block 5<-----|
-    
+
     Block 1: Unconditional jump to 3
-    Block 2: Unconditional jump to to 5 
+    Block 2: Unconditional jump to to 5
     Block 3: Conditional jump to 2, fallthrough to 4
     Block 4: Fallthrough to 5
     Block 5: Connects to end
@@ -858,7 +857,7 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
  ---Block 1.5 + 4  |
  |  Block 2<-------|
  |->Block 4
-    Block 5 
+    Block 5
 
     Block 1 + 3: Fallthrough to 1.5+4, conditional jump to 2
     Block 1.5 + 4: Unconditional jump to 5
@@ -871,18 +870,18 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         Statement::Jump(0),
         // block 2
         Statement::Label(1),
-        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),    
-        Statement::Jump(2),    
+        Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+        Statement::Jump(2),
         // block 3
-        Statement::Label(0),  
+        Statement::Label(0),
         Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-        Statement::JumpIfTrue(Operand::Boolean(true), 1), 
-        // block 4:         
+        Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        // block 4:
         Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
         // block 5
         Statement::Label(2),
@@ -890,7 +889,7 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -964,7 +963,7 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
     assert_eq!(
         Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
         f.statements[3]);
-    
+
     assert_eq!(
         Statement::Jump(2),
         f.statements[4]);
@@ -992,9 +991,9 @@ fn merge_of_block_with_conditional_jump_where_false_branch_requires_jump_but_tar
 
     assert_eq!(4, cfg.adjacency_list.len());
     // blocks are likely no longer in order. Sorting makes the testing easier
-    cfg.adjacency_list[0].sort(); 
-    cfg.adjacency_list[0].sort(); 
-    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);    
+    cfg.adjacency_list[0].sort();
+    cfg.adjacency_list[0].sort();
+    assert_eq!(vec![Adj::Block(1), Adj::Block(2)], cfg.adjacency_list[0]);
     assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[1]);
     assert_eq!(vec![Adj::Block(3)], cfg.adjacency_list[2]);
     assert_eq!(vec![Adj::End], cfg.adjacency_list[3]);
@@ -1009,18 +1008,18 @@ fn merge_where_parent_block_is_empty_works() {
 
         after merge, should be:
 
-        block 1 + 2           
+        block 1 + 2
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         // empty intentionally
         // block 2
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -1056,7 +1055,7 @@ fn merge_where_parent_block_is_empty_works() {
     assert_eq!(
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         f.statements[0]);
-    
+
 
     assert_eq!(1, cfg.adjacency_list.len());
     assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
@@ -1071,18 +1070,18 @@ fn merge_where_child_block_is_empty_works() {
 
         after merge, should be:
 
-        block 1 + 2           
+        block 1 + 2
     */
 
     let statements = vec![
-        // block 1 
+        // block 1
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         // block 2
         // empty intentionally
     ];
 
     let mut f = Function {
-        name: "foo".to_string(),
+        name: Rc::new("foo".to_string()),
         statements: statements,
     };
 
@@ -1118,13 +1117,11 @@ fn merge_where_child_block_is_empty_works() {
     assert_eq!(
         Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
         f.statements[0]);
-    
+
 
     assert_eq!(1, cfg.adjacency_list.len());
     assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
 }
-
-
 
 // TODO: child block is connected to end block -> jump generated correctly
 
