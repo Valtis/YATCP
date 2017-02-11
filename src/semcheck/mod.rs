@@ -83,6 +83,8 @@ impl SemanticsCheck {
                 self.handle_block(children, tab_ent, ni),
             AstNode::Function(ref mut child, ref fi) =>
                 self.handle_function(child, fi),
+            AstNode::ExternFunction(ref fi) => unimplemented!(),
+            AstNode::FunctionCall(_, _, _) => unimplemented!(),
             AstNode::VariableDeclaration(ref mut child, ref vi) =>
                 self.handle_variable_declaration(child, vi),
             AstNode::VariableAssignment(ref mut child, ref name, ref ni) =>

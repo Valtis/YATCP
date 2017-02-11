@@ -203,6 +203,7 @@ impl ReadLexer {
       "public" => Some(self.create_token(TokenType::Public, TokenSubType::NoSubType)),
       "protected" => Some(self.create_token(TokenType::Protected, TokenSubType::NoSubType)),
       "private" => Some(self.create_token(TokenType::Private, TokenSubType::NoSubType)),
+      "extern" => Some(self.create_token(TokenType::Extern, TokenSubType::NoSubType)),
       "true" => Some(self.create_token(TokenType::Boolean, TokenSubType::BooleanValue(true))),
       "false" => Some(self.create_token(TokenType::Boolean, TokenSubType::BooleanValue(false))),
       "int" => Some(self.create_token(TokenType::VarType, TokenSubType::IntegerType)),

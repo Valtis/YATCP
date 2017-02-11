@@ -176,7 +176,7 @@ fn valid_doubles_are_accepted() {
 #[test]
 fn keywords_are_accepted() {
     let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class
-        public protected private int float double bool void string");
+        public protected private extern int float double bool void string");
 
     assert_eq_token!(
       lexer.next_token(),
@@ -236,6 +236,11 @@ fn keywords_are_accepted() {
     assert_eq_token!(
       lexer.next_token(),
       TokenType::Private,
+      TokenSubType::NoSubType);
+
+    assert_eq_token!(
+      lexer.next_token(),
+      TokenType::Extern,
       TokenSubType::NoSubType);
 
     assert_eq_token!(

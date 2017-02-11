@@ -33,7 +33,8 @@ impl Parser {
 
     pub fn parse(&mut self) -> AstNode {
 
-        let mut functions = vec![];
+        let top_level_tokens = vec![TokenType::Fn, TokenType::Extern];
+        let mut nodes = vec![];
         let mut debug_safeguard = 10000;
         loop {
             debug_safeguard -= 1;
@@ -42,45 +43,97 @@ impl Parser {
             }
             let token = self.lexer.peek_token();
             match token.token_type {
+                TokenType::Extern => {
+                    match self.parse_external_function_declaration() {
+                        Ok(declaration) => nodes.push(declaration),
+                        Err(_) =>
+                            self.skip_to_first_of(top_level_tokens.clone()),
+                    }
+                },
                 TokenType::Fn => {
                     match self.parse_function() {
-                        Ok(function_node) => functions.push(function_node),
-                        Err(_) => self.skip_to_first_of(vec![TokenType::Fn]),
+                        Ok(function_node) => nodes.push(function_node),
+                        Err(_) =>
+                            self.skip_to_first_of(top_level_tokens.clone()),
                     }
                 },
                 TokenType::Eof =>
                     return AstNode::Block(
-                            functions,
+                            nodes,
                             None,
                             NodeInfo::new(0, 0, 0),
                         ),
                 _ => {
                     self.report_unexpected_token(
                         TokenType::Fn, &token);
-                    self.skip_to_first_of(vec![TokenType::Fn]);
+                    self.skip_to_first_of(top_level_tokens.clone());
                 },
             }
         }
     }
 
     fn parse_function(&mut self) -> Result<AstNode, ()> {
-
         self.expect(TokenType::Fn)?;
         let identifier = self.expect(TokenType::Identifier)?;
         self.expect(TokenType::LParen)?;
+        let params = self.parse_parameter_list()?;
         self.expect(TokenType::RParen)?;
         self.expect(TokenType::Colon)?;
         let type_token = self.expect(TokenType::VarType)?;
 
         let node = self.parse_block()?;
+        let mut func_info = FunctionInfo::new(
+                &identifier,
+                &type_token);
+
+        func_info.parameters = params;
 
         let func_node = AstNode::Function(
             Box::new(node),
-            FunctionInfo::new(
-                &identifier,
-                &type_token));
+            func_info);
 
         Ok(func_node)
+    }
+
+    fn parse_external_function_declaration(&mut self) -> Result<AstNode, ()> {
+        self.expect(TokenType::Extern)?;
+        self.expect(TokenType::Fn)?;
+        let identifier = self.expect(TokenType::Identifier)?;
+        self.expect(TokenType::LParen)?;
+        let params = self.parse_parameter_list()?;
+        self.expect(TokenType::RParen)?;
+        self.expect(TokenType::Colon)?;
+        let type_token = self.expect(TokenType::VarType)?;
+        self.expect(TokenType::SemiColon)?;
+
+
+        let mut func_info = FunctionInfo::new(
+                &identifier,
+                &type_token);
+
+        func_info.parameters = params;
+
+        Ok(AstNode::ExternFunction(func_info))
+    }
+
+    fn parse_parameter_list(&mut self) -> Result<Vec<DeclarationInfo>, ()> {
+        let mut params = vec![];
+        if self.lexer.peek_token().token_type == TokenType::Identifier {
+            loop {
+                let identifier = self.expect(TokenType::Identifier)?;
+                self.expect(TokenType::Colon)?;
+                let var_type = self.expect(TokenType::VarType)?;
+                params.push(DeclarationInfo::new(&identifier, &var_type));
+
+                if let TokenType::Comma = self.lexer.peek_token().token_type {
+                    self.expect(TokenType::Comma)?;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        Ok(params)
     }
 
     fn parse_block(&mut self) -> Result<AstNode, ()> {
@@ -167,15 +220,18 @@ impl Parser {
         Ok(declaration)
     }
 
-
     fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, ()> {
         let identifier = self.expect(TokenType::Identifier)?;
         let token  = self.lexer.peek_token();
         match token.token_type {
             TokenType::Assign => self.parse_assignment(identifier),
-            TokenType::LParen => unimplemented!(),
-            _ => /*Err(format!("{}:{}: Unexpected token '{}'. Expected '{}' for assignment or '{}' for function call",
-                token.line, token.column, token, TokenType::Assign, TokenType::LParen)),*/ unimplemented!(),
+            TokenType::LParen => self.parse_function_call(identifier),
+            _ => {
+                self.report_unexpected_token_mul(
+                    &vec![TokenType::Assign, TokenType::LParen],
+                    &token);
+                Err(())
+            },
         }
     }
 
@@ -187,13 +243,49 @@ impl Parser {
         let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
             ident.clone()
         } else {
-            ice!("Non-identifier token '{}' passed to parse_assignment", identifier);
+            ice!("Non-identifier token '{}' passed to parse_assignment",
+                identifier);
         };
 
         Ok(AstNode::VariableAssignment(
             Box::new(expression_node),
             name,
-            NodeInfo::new(identifier.line, identifier.column, identifier.length)))
+            NodeInfo::new(
+                identifier.line,
+                identifier.column,
+                identifier.length)))
+    }
+
+    fn parse_function_call(
+        &mut self,
+        identifier: Token) -> Result<AstNode, ()>  {
+
+        let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
+            ident.clone()
+        } else {
+            ice!("Non-identifier token '{}' passed to parse_function_call",
+                identifier);
+        };
+
+        let mut args = vec![];
+        self.expect(TokenType::LParen)?;
+        if self.lexer.peek_token().token_type != TokenType::RParen {
+            loop {
+                args.push(self.parse_expression()?);
+                if self.lexer.peek_token().token_type == TokenType::Comma {
+                    self.expect(TokenType::Comma)?;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.expect(TokenType::RParen)?;
+        Ok(AstNode::FunctionCall(
+            args,
+            name,
+            NodeInfo::new(identifier.line, identifier.column, identifier.length)
+            ))
     }
 
     fn parse_return_statement(&mut self) -> Result<AstNode, ()> {
@@ -331,17 +423,20 @@ impl Parser {
                     ArithmeticInfo::new(&token)))
             },
             TokenType::Identifier => {
-                match token.token_subtype {
-                    TokenSubType::Identifier(ref identifier) =>
-                    Ok(
-                        AstNode::Identifier(
-                            identifier.clone(),
-                            NodeInfo::new(
-                                token.line, token.column, token.length))),
-                    TokenSubType::ErrorToken =>
-                        Ok(AstNode::ErrorNode),
-                    _ => ice!(
-                        "invalid token '{}' passed when identifier expected", token),
+                if self.lexer.peek_token().token_type == TokenType::LParen {
+                    self.parse_function_call(token)
+                } else {
+                    match token.token_subtype {
+                        TokenSubType::Identifier(ref identifier) =>
+                            Ok(AstNode::Identifier(
+                                identifier.clone(),
+                                NodeInfo::new(
+                                    token.line, token.column, token.length))),
+                        TokenSubType::ErrorToken =>
+                                Ok(AstNode::ErrorNode),
+                        _ => ice!(
+                            "invalid token '{}' passed when identifier expected", token),
+                    }
                 }
             },
             TokenType::Number => {

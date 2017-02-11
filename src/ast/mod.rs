@@ -34,6 +34,8 @@ fn get_type_from_type_token(variable_type: &Token) -> Type {
 pub enum AstNode {
     Block(Vec<AstNode>, Option<symbol_table::TableEntry>, NodeInfo),
     Function(Box<AstNode>, FunctionInfo),
+    ExternFunction(FunctionInfo),
+    FunctionCall(Vec<AstNode>, Rc<String>, NodeInfo),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
     VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
 
@@ -67,33 +69,58 @@ pub enum AstNode {
 impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match *self {
-          AstNode::Block(_, _, _) => "Block".to_string(),
-          AstNode::Function(_, ref i) =>
-                format!("Function '{}' -> {}", i.name, i.return_type),
-          AstNode::VariableDeclaration(_, ref i) =>
+            AstNode::Block(_, _, _) => "Block".to_string(),
+            AstNode::Function(_, ref i) => {
+
+                let mut param_str = i.parameters.iter().fold(
+                    String::new(),
+                    |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
+                .chars()
+                .skip(2).collect::<String>();
+
+                format!("Function {}({}) -> {}",
+                    i.name,
+                    param_str,
+                    i.return_type)
+            },
+            AstNode::ExternFunction(ref i) => {
+                let mut param_str = i.parameters.iter().fold(
+                    String::new(),
+                    |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
+                .chars()
+                .skip(2).collect::<String>();
+
+                format!("Extern Function {}({}) -> {}",
+                    i.name,
+                    param_str,
+                    i.return_type)
+            },
+            AstNode::FunctionCall(_, ref name, _) =>
+                format!("Call function {}", name),
+            AstNode::VariableDeclaration(_, ref i) =>
                 format!("Variable declaration '{}' : {}", i.name, i.variable_type),
-          AstNode::VariableAssignment(_, ref name, _ ) =>
+            AstNode::VariableAssignment(_, ref name, _ ) =>
                 format!("Variable assignment '{}'", name),
-          AstNode::Integer(val, _) => format!("Integer: {}", val),
-          AstNode::Float(val, _) => format!("Float: {}", val),
-          AstNode::Double(val, _) => format!("Double: {}", val),
-          AstNode::Text(ref text, _) => format!("Text: {}", text),
-          AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
-          AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
-          AstNode::Plus(_, _, _) => "Plus".to_string(),
-          AstNode::Minus(_, _, _) => "Minus".to_string(),
-          AstNode::Multiply(_, _, _) => "Multiply".to_string(),
-          AstNode::Divide(_, _, _) => "Divide".to_string(),
-          AstNode::Negate(_, _) => "Negate".to_string(),
-          AstNode::Return(_, _) => "Return".to_string(),
-          AstNode::While(_, _, _) => "While".to_string(),
-          AstNode::If(_, _, _, _) => "If".to_string(),
-          AstNode::Less(_, _, _) => "Less".to_string(),
-          AstNode::LessOrEq(_, _, _) => "LessOrEq".to_string(),
-          AstNode::Equals(_, _, _) => "Equals".to_string(),
-          AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
-          AstNode::Greater(_, _, _) => "Greater".to_string(),
-          AstNode::ErrorNode => "<syntax error>".to_string(),
+            AstNode::Integer(val, _) => format!("Integer: {}", val),
+            AstNode::Float(val, _) => format!("Float: {}", val),
+            AstNode::Double(val, _) => format!("Double: {}", val),
+            AstNode::Text(ref text, _) => format!("Text: {}", text),
+            AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
+            AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
+            AstNode::Plus(_, _, _) => "Plus".to_string(),
+            AstNode::Minus(_, _, _) => "Minus".to_string(),
+            AstNode::Multiply(_, _, _) => "Multiply".to_string(),
+            AstNode::Divide(_, _, _) => "Divide".to_string(),
+            AstNode::Negate(_, _) => "Negate".to_string(),
+            AstNode::Return(_, _) => "Return".to_string(),
+            AstNode::While(_, _, _) => "While".to_string(),
+            AstNode::If(_, _, _, _) => "If".to_string(),
+            AstNode::Less(_, _, _) => "Less".to_string(),
+            AstNode::LessOrEq(_, _, _) => "LessOrEq".to_string(),
+            AstNode::Equals(_, _, _) => "Equals".to_string(),
+            AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
+            AstNode::Greater(_, _, _) => "Greater".to_string(),
+            AstNode::ErrorNode => "<syntax error>".to_string(),
       })
   }
 }
@@ -123,6 +150,12 @@ impl AstNode {
                 }
             },
             AstNode::Function(ref child, _) => string = format!("{}{}", string, child.print_impl(next_int)),
+            AstNode::ExternFunction(_) => { /* do nothing, no children */},
+            AstNode::FunctionCall(ref args, _, _) => {
+                for arg in args {
+                    string = format!("{}{}", string, arg.print_impl(next_int));
+                }
+            },
             AstNode::VariableDeclaration(ref child, _) =>
                 string = format!("{}{}", string, child.print_impl(next_int)),
             AstNode::VariableAssignment(ref child, _, _) =>
@@ -177,6 +210,8 @@ impl AstNode {
         match *self {
             AstNode::Block(_, _, ref info) => info.line,
             AstNode::Function(_, ref info) => info.node_info.line,
+            AstNode::ExternFunction(ref info) => info.node_info.line,
+            AstNode::FunctionCall(_, _, ref info) => info.line,
             AstNode::VariableDeclaration(_, ref info) => info.node_info.line,
             AstNode::VariableAssignment(_, _, ref info) => info.line,
             AstNode::Plus(_, _, ref info) |
@@ -206,6 +241,8 @@ impl AstNode {
         match *self {
             AstNode::Block(_, _, ref info) => info.column,
             AstNode::Function(_, ref info) => info.node_info.column,
+            AstNode::ExternFunction(ref info) => info.node_info.column,
+            AstNode::FunctionCall(_, _, ref info) => info.column,
             AstNode::VariableDeclaration(_, ref info) => info.node_info.column,
             AstNode::VariableAssignment(_, _, ref info) => info.column,
             AstNode::Plus(_, _, ref info) |
@@ -235,6 +272,8 @@ impl AstNode {
         match *self {
             AstNode::Block(_, _, ref info) => info.length,
             AstNode::Function(_, ref info) => info.node_info.length,
+            AstNode::ExternFunction(ref info) => info.node_info.length,
+            AstNode::FunctionCall(_, _, ref info) => info.length,
             AstNode::VariableDeclaration(_, ref info) => info.node_info.length,
             AstNode::VariableAssignment(_, _, ref info) => info.length,
             AstNode::Plus(_, _, ref info) |
@@ -265,13 +304,21 @@ impl PartialEq for AstNode {
     fn eq(&self, other: &AstNode) -> bool {
         match (self, other) {
             (&AstNode::Block(ref s_chld, ref _s_entry, ref s_info),
-                &AstNode::Block(ref o_chld, ref _o_entry, ref o_info)) => {
+             &AstNode::Block(ref o_chld, ref _o_entry, ref o_info)) => {
                 // disregard symbol table contents for now
                 *s_chld == *o_chld && *s_info == *o_info
             }
             (&AstNode::Function(ref s_blk, ref s_fi),
              &AstNode::Function(ref o_blk, ref o_fi)) => {
                 s_blk == o_blk && s_fi == o_fi
+            },
+            (&AstNode::ExternFunction(ref s_fi),
+             &AstNode::ExternFunction(ref o_fi)) => {
+                s_fi == o_fi
+            },
+            (&AstNode::FunctionCall(ref s_args, ref s_name, ref s_info),
+             &AstNode::FunctionCall(ref o_args, ref o_name, ref o_info)) => {
+                s_args == o_args && s_name == o_name && s_info == o_info
             }
             (&AstNode::VariableDeclaration(ref s_chld, ref s_vi),
              &AstNode::VariableDeclaration(ref o_chld, ref o_vi)) => {
@@ -373,6 +420,7 @@ impl NodeInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionInfo {
     pub name: Rc<String>,
+    pub parameters: Vec<DeclarationInfo>,
     pub return_type: Type,
     pub node_info: NodeInfo,
 }
@@ -399,6 +447,7 @@ impl FunctionInfo {
         ) -> FunctionInfo {
         FunctionInfo {
             name: name,
+            parameters: vec![],
             return_type: return_type,
             node_info: NodeInfo::new(
                 line, column, length),
