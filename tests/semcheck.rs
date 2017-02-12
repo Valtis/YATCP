@@ -681,6 +681,339 @@ fn if_statement_with_else_is_accepted() {
 }
 
 #[test]
+fn valid_function_call_with_arguments_is_accepted() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            foo(4, "hello");
+        }
+
+    }
+    */
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![
+                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                    AstNode::Text(
+                                        Rc::new("hello".to_string()),
+                                        NodeInfo::new(0,0,0)),
+                                ],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(0,0,0)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn using_function_parameters_in_function_is_accepted() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : int) : int {
+            return a + b;
+        }
+
+    }
+    */
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::Plus(
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_string()),
+                                    NodeInfo::new(9, 7, 4)
+                                )),
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("b".to_string()),
+                                    NodeInfo::new(9, 7, 4)
+                                )),
+                                ArithmeticInfo::new_alt(4, 5, 6)
+                            )
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn using_function_in_expression_is_accepted() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : int {
+
+        }
+
+        fn bar() : void {
+            let a : int = foo(4, "hello");
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::FunctionCall(
+                                    vec![
+                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Text(
+                                            Rc::new("hello".to_string()),
+                                            NodeInfo::new(0,0,0)),
+                                    ],
+                                    Rc::new("foo".to_string()),
+                                    NodeInfo::new(0,0,0))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn calling_extern_function_is_accepted() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        extern fn foo(a : int, b : string);
+        fn bar() : void {
+            foo(4, "hello");
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::ExternFunction(foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::FunctionCall(
+                                    vec![
+                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Text(
+                                            Rc::new("hello".to_string()),
+                                            NodeInfo::new(0,0,0)),
+                                    ],
+                                    Rc::new("foo".to_string()),
+                                    NodeInfo::new(0,0,0))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 0);
+}
+
+#[test]
+fn function_parameters_are_added_to_the_symbol_table_level_of_function_block() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : int {
+
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+    if let AstNode::Block(child_nodes, _, _) = node  {
+        if let AstNode::Function(boxed_val, _) = child_nodes[0].clone() {
+            if let AstNode::Block(_, Some(sym_tab), _) = *boxed_val {
+                if sym_tab.find_symbol(&"a".to_string()) == None {
+                    panic!("Failed to find symbol 'a' in symbol table");
+                }
+
+                if sym_tab.find_symbol(&"b".to_string()) == None {
+                    panic!("Failed to find symbol 'b' in symbol table");
+                }
+
+                return;
+            }
+        }
+    }
+    panic!("Invalid node present");
+
+}
+
+#[test]
 fn redeclaration_of_variable_is_reported() {
     let (reporter, mut checker) = create_sem_checker();
     /*
@@ -2237,4 +2570,1141 @@ fn error_in_else_block_is_reported() {
         41,
         51,
         61);
+}
+
+#[test]
+fn calling_nonexistent_function_is_reported() {
+   let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn bar() : void {
+            foo();
+        }
+
+    }
+    */
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(7,8,9)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        7,
+        8,
+        9);
+}
+
+#[test]
+fn using_variable_as_function_is_reported() {
+   let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn bar() : void {
+            let foo : int = 2;
+            foo();
+        }
+
+    }
+    */
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Integer(
+                                    4,
+                                    NodeInfo::new(0,0,0))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("foo".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3)),
+                            AstNode::FunctionCall(
+                                vec![],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(7,8,9)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        7,
+        8,
+        9);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn wrong_number_of_function_arguments_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            foo(4);
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        4, 7, 9);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![
+                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                ],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(23,24,25)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        23,
+        24,
+        25);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        4,
+        7,
+        9);
+}
+
+#[test]
+fn wrong_number_of_extern_function_arguments_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        extern fn foo(a : int, b : string) : void;
+
+        fn bar() : void {
+            foo(4);
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        4, 7, 9);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::ExternFunction(foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![
+                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                ],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(23,24,25)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        23,
+        24,
+        25);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        4,
+        7,
+        9);
+}
+
+#[test]
+fn wrong_type_in_function_argument_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            foo(4, 6);
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        4, 7, 9);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            4, 5, 6));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![
+                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                    AstNode::Integer(6, NodeInfo::new(9,8,7)),
+                                ],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(23,24,25)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        9,
+        8,
+        7);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        4,
+        5,
+        6);
+}
+
+#[test]
+fn redefinition_of_function_parameter_in_function_body_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+            let a : int = 0;
+        }
+
+        fn bar() : void {
+            foo(4, 6);
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        4, 7, 9);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            5, 4, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            4, 5, 6));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Integer(
+                                    0,
+                                    NodeInfo::new(0,0,0))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        1,
+        2,
+        3);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        5,
+        4,
+        3);
+}
+
+#[test]
+fn type_mismatch_with_function_parameter_usage_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+            let a : int = 0;
+        }
+
+        fn bar() : void {
+            foo(4, 6);
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        4, 7, 9);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            5, 4, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            4, 5, 6));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_string()),
+                                    NodeInfo::new(9,8,7))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("c".to_string()),
+                                    Type::Float,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        9,
+        8,
+        7);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn using_void_funtion_in_expression_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            let a : int = foo(4, "hello");
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::FunctionCall(
+                                    vec![
+                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Text(
+                                            Rc::new("hello".to_string()),
+                                            NodeInfo::new(0,0,0)),
+                                    ],
+                                    Rc::new("foo".to_string()),
+                                    NodeInfo::new(23,24,25))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        23,
+        24,
+        25);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn using_non_void_function_with_wrong_type_in_expression_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            let a : int = foo(4, "hello");
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::String,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::FunctionCall(
+                                    vec![
+                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Text(
+                                            Rc::new("hello".to_string()),
+                                            NodeInfo::new(0,0,0)),
+                                    ],
+                                    Rc::new("foo".to_string()),
+                                    NodeInfo::new(23,24,25))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    1, 2, 3),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        23,
+        24,
+        25);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn error_in_function_argument_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            foo(4-"abc", "hello");
+        }
+
+    }
+    */
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::FunctionCall(
+                                vec![
+                                    AstNode::Minus(
+                                        Box::new(
+                                            AstNode::Integer(
+                                                4,
+                                                NodeInfo::new(0,0,0))),
+                                        Box::new(AstNode::Text(
+                                            Rc::new("abc".to_string()),
+                                            NodeInfo::new(0,0,0))),
+                                        ArithmeticInfo::new_alt(8, 4, 2),
+                                    ),
+                                    AstNode::Text(
+                                        Rc::new("hello".to_string()),
+                                        NodeInfo::new(0,0,0)),
+                                ],
+                                Rc::new("foo".to_string()),
+                                NodeInfo::new(0,0,0)),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        8, 4, 2);
+}
+
+#[test]
+fn function_parameter_shadowing_function_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo() {
+
+        }
+
+        extern fn bar(foo : int) {
+
+        }
+    */
+    let mut func_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()),
+            Type::String,
+            7, 8 ,9);
+
+    func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        8,12,14));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![],
+                            None,
+                            NodeInfo::new(0, 0, 0))),
+                    FunctionInfo::new_alt(
+                        Rc::new("foo".to_string()),
+                        Type::Void,
+                        1, 2 ,3)),
+                AstNode::Function(
+                    Box::new(AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                    func_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        8,
+        12,
+        14);
+
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn function_parameter_name_collision_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+
+        fn bar(a : int, foo : int, a : int) {
+
+        }
+    */
+    let mut func_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()),
+            Type::String,
+            7, 8 ,9);
+
+     func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("a".to_string()),
+        Type::Integer,
+        1,2,3));
+
+    func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        8,12,14));
+
+     func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("a".to_string()),
+        Type::Integer,
+        9,99,34));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                    func_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        9,
+        99,
+        34);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn extern_function_parameter_shadowing_function_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo() {
+
+        }
+
+        extern fn bar(foo : int) {
+
+        }
+    */
+    let mut func_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()),
+            Type::String,
+            7, 8 ,9);
+
+    func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        8,12,14));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![],
+                            None,
+                            NodeInfo::new(0, 0, 0))),
+                    FunctionInfo::new_alt(
+                        Rc::new("foo".to_string()),
+                        Type::Void,
+                        1, 2 ,3)),
+                AstNode::ExternFunction(
+                    func_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        8,
+        12,
+        14);
+
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn extern_function_parameter_name_collision_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+
+        extern fn bar(a : int, foo : int, a : int) {
+
+        }
+    */
+    let mut func_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()),
+            Type::String,
+            7, 8 ,9);
+
+     func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("a".to_string()),
+        Type::Integer,
+        1,2,3));
+
+    func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        8,12,14));
+
+     func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("a".to_string()),
+        Type::Integer,
+        9,99,34));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    func_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        9,
+        99,
+        34);
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn extern_function_redefinition_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo() : void {
+
+        }
+
+        extern fn foo() : string;
+    */
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![],
+                            None,
+                            NodeInfo::new(0, 0, 0))),
+                    FunctionInfo::new_alt(
+                        Rc::new("foo".to_string()),
+                        Type::Void,
+                        1, 2 ,3)),
+                AstNode::ExternFunction(
+                    FunctionInfo::new_alt(
+                        Rc::new("foo".to_string()),
+                        Type::String,
+                        7, 8 ,9)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 2);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::NameError,
+        7,
+        8,
+        9);
+
+
+    assert_eq_error!(reporter.borrow().errors()[1],
+        Error::Note,
+        1,
+        2,
+        3);
+}
+
+#[test]
+fn declaring_void_variable_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+        fn foo(a : int, b : string) : void {
+
+        }
+
+        fn bar() : void {
+            let a : void = foo(4, "hello");
+        }
+    }
+    */
+
+    let mut foo_info = FunctionInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Integer,
+        0, 0 ,0);
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("a".to_string()),
+            Type::Integer,
+            1, 2, 3));
+
+    foo_info.parameters.push(
+        DeclarationInfo::new_alt(
+            Rc::new("b".to_string()),
+            Type::String,
+            1, 2, 3));
+
+    let mut node =
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                foo_info),
+                AstNode::Function(
+                Box::new(
+                    AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::FunctionCall(
+                                    vec![
+                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Text(
+                                            Rc::new("hello".to_string()),
+                                            NodeInfo::new(0,0,0)),
+                                    ],
+                                    Rc::new("foo".to_string()),
+                                    NodeInfo::new(0,0,0))),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Void,
+                                    99, 88, 77),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0))),
+                FunctionInfo::new_alt(
+                    Rc::new("bar".to_string()),
+                    Type::Void,
+                    0, 0 ,0)),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        99,
+        88,
+        77);
+}
+
+#[test]
+fn void_function_parameter_is_reported() {
+    let (reporter, mut checker) = create_sem_checker();
+    /*
+
+        extern fn bar(a : int, foo : void) {
+
+        }
+    */
+    let mut func_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()),
+            Type::String,
+            7, 8 ,9);
+
+     func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("a".to_string()),
+        Type::Integer,
+        1,2,3));
+
+    func_info.parameters.push(DeclarationInfo::new_alt(
+        Rc::new("foo".to_string()),
+        Type::Void,
+        8,12,14));
+
+    let mut node =
+        AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    func_info),
+            ],
+            None,
+            NodeInfo::new(0, 0,0)
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        Error::TypeError,
+        8,
+        12,
+        14);
 }

@@ -18,6 +18,8 @@ use std::fmt::Result;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use std::collections::HashMap;
+
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
     Integer,
@@ -83,8 +85,10 @@ impl SemanticsCheck {
                 self.handle_block(children, tab_ent, ni),
             AstNode::Function(ref mut child, ref fi) =>
                 self.handle_function(child, fi),
-            AstNode::ExternFunction(ref fi) => unimplemented!(),
-            AstNode::FunctionCall(_, _, _) => unimplemented!(),
+            AstNode::ExternFunction(ref fi) =>
+                self.check_function_declaration(fi),
+            AstNode::FunctionCall(ref mut args, ref name, ref ni) =>
+                self.handle_function_call(args, name, ni),
             AstNode::VariableDeclaration(ref mut child, ref vi) =>
                 self.handle_variable_declaration(child, vi),
             AstNode::VariableAssignment(ref mut child, ref name, ref ni) =>
@@ -124,8 +128,8 @@ impl SemanticsCheck {
     }
 
     fn handle_block(
-        &mut self, children:
-        &mut Vec<AstNode>,
+        &mut self,
+        children: &mut Vec<AstNode>,
         tab_ent: &mut Option<TableEntry>,
         _node_info: &NodeInfo) {
 
@@ -142,16 +146,56 @@ impl SemanticsCheck {
         child: &mut AstNode,
         function_info: &FunctionInfo) {
 
-        match self.symbol_table.find_symbol(&function_info.name) {
-            Some(symbol) => {
-                let (prev_line, prev_column, prev_length) = match symbol {
-                    Symbol::Function(fi) =>
-                        (fi.node_info.line,
-                         fi.node_info.column,
-                         fi.node_info.length),
-                    _ => unimplemented!(),
-                };
+        self.check_function_declaration(function_info);
 
+        /*
+         we need a new symbol table level, so that the parameters
+         don't get added to the previous (most likely global)
+         symbol table level
+
+         the child of this node however is very likely a AstNode::Block, which
+         pushes a new symbol table level for the function body. This is a
+         problem later on, as this latter level does not contain the parameter
+         symbols, which will cause ICEs later on.
+
+         what we need to do is pop the outer level and add the parameters
+         to the inner symbol table to fix this
+
+         this is arguable a hacky way to fix it, should probably refactor this
+         at some point (nothing is as permanent as temporary however...)
+
+         */
+        self.symbol_table.push_empty();
+        for param in function_info.parameters.iter() {
+            let next_id = self.get_next_id();
+            self.symbol_table.add_symbol(
+                Symbol::Variable(
+                    param.clone(),
+                    next_id));
+        }
+        self.do_check(child);
+        let outer_symtab_level = self.symbol_table.pop().unwrap();
+
+        if let AstNode::Block(_, Some(ref mut inner_symtab_level), _) = *child {
+            for param in function_info.parameters.iter() {
+                inner_symtab_level.add_symbol(
+                    outer_symtab_level.find_symbol(&param.name).unwrap());
+            }
+        } else {
+            // as of writing this, the function child should always be a block,
+            // so this should never trigger. If this is no longer true in the
+            // future, this obviously must be fixed.
+            unimplemented!();
+        }
+    }
+
+    fn check_function_declaration(
+        &mut self,
+        function_info: &FunctionInfo) {
+
+        // report redeclaration
+        if let Some(symbol) = self.symbol_table.find_symbol(&function_info.name) {
+            if let Symbol::Function(ref fi) = symbol {
                 self.report_error(
                     Error::NameError,
                     function_info.node_info.line,
@@ -162,17 +206,166 @@ impl SemanticsCheck {
 
                 self.report_error(
                     Error::Note,
-                    prev_line,
-                    prev_column,
-                    prev_length,
+                    fi.node_info.line,
+                    fi.node_info.column,
+                    fi.node_info.length,
                     "Previously declared here".to_string());
-            },
-            None => {
-                self.symbol_table.add_symbol(
-                    Symbol::Function(function_info.clone()));
-            },
+
+            } else {
+                unimplemented!();
+            }
+        } else {
+            self.symbol_table.add_symbol(
+                Symbol::Function(function_info.clone()));
         }
-        self.do_check(child);
+
+        let mut seen_param = HashMap::new();
+
+        for param in function_info.parameters.iter() {
+            // report function shadowing
+            if let Some(symbol) = self.symbol_table.find_symbol(&param.name) {
+                if let Symbol::Function(ref fi) = symbol {
+                    self.report_error(
+                        Error::NameError,
+                        param.node_info.line,
+                        param.node_info.column,
+                        param.node_info.length,
+                        format!("Function parameter '{}' shadows function",
+                            param.name));
+
+                    self.report_error(
+                        Error::Note,
+                        fi.node_info.line,
+                        fi.node_info.column,
+                        fi.node_info.length,
+                        "Function declared here".to_string());
+                } else {
+                    unimplemented!();
+                }
+            }
+
+            // report void parameter
+            if param.variable_type == Type::Void {
+                self.report_error(
+                    Error::TypeError,
+                    param.node_info.line,
+                    param.node_info.column,
+                    param.node_info.length,
+                    "Parameter may not have type 'Void'".to_string());
+            }
+            // report parameter name collisions
+            if !seen_param.contains_key(&param.name) {
+                seen_param.insert(
+                    param.name.clone(),
+                    param.node_info.clone());
+            } else {
+                self.report_error(
+                    Error::NameError,
+                    param.node_info.line,
+                    param.node_info.column,
+                    param.node_info.length,
+                    format!("Parameter '{}' shadows earlier parameter",
+                        param.name)
+                    );
+
+                let other_info = &seen_param[&param.name];
+                self.report_error(
+                    Error::Note,
+                    other_info.line,
+                    other_info.column,
+                    other_info.length,
+                    "Parameter with same name previously declared here".to_string());
+            }
+        }
+
+    }
+
+    fn handle_function_call(
+        &mut self,
+        args: &mut Vec<AstNode>,
+        function_name: &Rc<String>,
+        node_info: &NodeInfo) {
+
+        for arg in args.iter_mut() {
+            self.do_check(arg);
+        }
+
+        if let Some(symbol) = self.symbol_table.find_symbol(function_name) {
+            match symbol {
+                Symbol::Variable(ref declaration_info, _) => {
+                    self.report_error(
+                    Error::TypeError,
+                    node_info.line,
+                    node_info.column,
+                    node_info.length,
+                    format!("Usage of variable '{}' as function",
+                        function_name));
+
+                self.report_error(
+                    Error::Note,
+                    declaration_info.node_info.line,
+                    declaration_info.node_info.column,
+                    declaration_info.node_info.length,
+                    "Variable declared here".to_string());
+                }
+                Symbol::Function(ref function_info) => {
+                    if args.len() != function_info.parameters.len() {
+                        self.report_error(
+                            Error::TypeError,
+                            node_info.line,
+                            node_info.column,
+                            node_info.length,
+                            format!("{} arguments expected but {} provided",
+                                function_info.parameters.len(),
+                                args.len()));
+
+                        self.report_error(
+                            Error::Note,
+                            function_info.node_info.line,
+                            function_info.node_info.column,
+                            function_info.node_info.length,
+                            "Function declared here".to_string());
+                    } else {
+                        for (param, arg) in function_info.parameters
+                        .iter()
+                        .zip(args.iter()) {
+                            let arg_type = self.get_type(arg);
+                            if arg_type != param.variable_type &&
+                                arg_type != Type::Invalid &&
+                                param.variable_type != Type::Void {
+                                self.report_error(
+                                    Error::TypeError,
+                                    arg.line(),
+                                    arg.column(),
+                                    arg.length(),
+                                    format!("Got argument of type '{}' when '{}' was expected",
+                                        arg_type,
+                                        param.variable_type,
+                                        ));
+
+                                self.report_error(
+                                    Error::Note,
+                                    param.node_info.line,
+                                    param.node_info.column,
+                                    param.node_info.length,
+                                    "Corresponding parameter declared here"
+                                        .to_string());
+                            }
+                        }
+
+                    }
+                },
+            }
+        } else {
+            self.report_error(
+                Error::NameError,
+                node_info.line,
+                node_info.column,
+                node_info.length,
+                format!("Function '{}' has not been declared",
+                    function_name));
+            return;
+        }
     }
 
     fn handle_variable_declaration(
@@ -225,9 +418,17 @@ impl SemanticsCheck {
         self.do_check(child);
         let child_type = self.get_type(child);
 
-        // if type is invalid, errors has already been reported
-        if variable_info.variable_type != child_type &&
+        if variable_info.variable_type == Type::Void {
+            self.report_error(
+                Error::TypeError,
+                variable_info.node_info.line,
+                variable_info.node_info.column,
+                variable_info.node_info.length,
+                "Variable may not have type 'Void'".to_string());
+        } else if variable_info.variable_type != child_type &&
             child_type != Type::Invalid {
+            // if type is invalid, errors has already been reported
+
             self.report_type_error(variable_info, child, child_type);
         }
 
@@ -604,14 +805,17 @@ impl SemanticsCheck {
             AstNode::Divide(_, _, ref info) => info.node_type,
             AstNode::Negate(_, ref info) => info.node_type,
             AstNode::Identifier(ref name, _) => {
-                match self.symbol_table.find_symbol(name) {
-                    Some(symbol) => {
-                        match symbol {
-                            Symbol::Variable(info, _) => info.variable_type,
-                            _ => Type::Invalid,
-                        }
-                    },
-                    None => Type::Invalid,
+                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                    info.variable_type
+                } else {
+                    Type::Invalid
+                }
+            },
+            AstNode::FunctionCall(_, ref name, _) => {
+                if let Some(Symbol::Function(ref info)) = self.symbol_table.find_symbol(name) {
+                    info.return_type
+                } else {
+                    Type::Invalid
                 }
             },
             AstNode::Text(_, _) => Type::String,
