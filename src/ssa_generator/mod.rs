@@ -128,6 +128,7 @@ fn get_variable_definitions(
     for (bb_id, bb) in basic_blocks.iter().enumerate() {
         for statement in bb.start..bb.end {
             match function.statements[statement] {
+                Statement::Call(_, _, Some(Operand::Variable(ref info, id))) |
                 Statement::Assignment(_, Some(Operand::Variable(ref info, id)), _, _) => {
                     if !decl_info.contains_key(&id) {
                         decl_info.insert(id, info.clone());
@@ -186,12 +187,18 @@ fn search(
 
                 update_rhs_operand(src1, variable_definition_stack);
                 update_rhs_operand(src2, variable_definition_stack);
-
+                update_lhs_operand(dest, variable_definition_stack, ssa_ids);
+            },
+            Statement::Call(_, ref mut args, ref mut dest) => {
+                for arg in args.iter_mut() {
+                    let mut op = Some(arg.clone());
+                    update_rhs_operand(&mut op, variable_definition_stack);
+                    *arg = op.unwrap();
+                }
                 update_lhs_operand(dest, variable_definition_stack, ssa_ids);
             },
             Statement::JumpIfTrue(ref mut src, _) => {
                 let mut op = Some(src.clone());
-
                 update_rhs_operand(&mut op, variable_definition_stack);
                 *src = op.unwrap();
             },
@@ -349,6 +356,12 @@ pub fn destroy_ssa(
                 },
                 Statement::PhiFunction(_, _) => {
                     remove_list.push(i);
+                }
+                Statement::Call(_, ref mut args, ref mut dest) => {
+                    change_to_regular_variable_opt(dest);
+                    for arg in args.iter_mut() {
+                        change_to_regular_variable(arg);
+                    }
                 }
                 _ => {},
             }

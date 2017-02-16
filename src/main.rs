@@ -80,7 +80,6 @@ fn run_frontend(
     let tac_gen = TACGenerator::new(checker.get_current_id());
     let tac_functions = tac_gen.generate_tac_functions(&mut node);
     print_tac(&tac_functions);
-
     Some(tac_functions)
 }
 

@@ -57,6 +57,9 @@ pub enum Operand {
     Float(f32),
     Double(f64),
     Boolean(bool),
+    // special operand to represent initialized, but unknown, value
+    // used for things like function parameters
+    Initialized(Type),
 }
 
 impl Display for Operand {
@@ -69,6 +72,8 @@ impl Display for Operand {
             Operand::Float(v) => format!("{}f", v),
             Operand::Double(v) => format!("{}d", v),
             Operand::Boolean(v) => v.to_string(),
+            Operand::Initialized(ref t) => format!(
+                "<initialized {} value>", t),
         })
     }
 }
@@ -77,6 +82,7 @@ impl Display for Operand {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Assignment(Option<Operator>, Option<Operand>, Option<Operand>, Option<Operand>),
+    Call(Rc<String>, Vec<Operand>, Option<Operand>),
     Label(u32),
     Jump(u32),
     JumpIfTrue(Operand, u32),
@@ -95,13 +101,33 @@ impl Display for Statement {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
             Statement::Assignment(ref op, ref v1, ref v2, ref v3) =>
-                format!("({}, {}, {}, {})",
-                    opt_to_str(op),
+                format!("{} = {} {} {}",
                     opt_to_str(v1),
                     opt_to_str(v2),
+                    opt_to_str(op),
                     opt_to_str(v3)),
+            Statement::Call(ref name, ref operands, ref dest) => {
+                let op_str = operands.iter()
+                .fold(
+                    String::new(),
+                    |acc, v| format!("{}, {}", acc, v))
+                .chars()
+                .skip(2)
+                .collect::<String>();
+
+                let dest_str = if let Some(ref op) = *dest {
+                    format!("{} =", op)
+                } else {
+                    String::new()
+                };
+
+                format!("{} {}({})",
+                    dest_str,
+                    name,
+                    op_str)
+            },
             Statement::Return(ref v1) =>
-                format!("(return {})", opt_to_str(v1)),
+                format!("return {}", opt_to_str(v1)),
             Statement::Label(id) => format!("Label {}", id),
             Statement::Jump(id) => format!("Jump {}", id),
             Statement::JumpIfTrue(ref op, id) =>
@@ -172,6 +198,8 @@ impl TACGenerator {
                 self.handle_block(children, sym_tab, node_info),
             AstNode::Function(ref child, ref info) =>
                 self.handle_function(child, info),
+            AstNode::FunctionCall(ref args, ref name, ref node_info) =>
+                self.handle_function_call(name, args, node_info),
             AstNode::VariableDeclaration(ref child, ref info) =>
                 self.handle_variable_declaration(child, info),
             AstNode::VariableAssignment(ref child, ref name, _) =>
@@ -226,11 +254,73 @@ impl TACGenerator {
         let function = Function::new(info.name.clone());
         self.function_stack.push(function);
 
+        // add mock initializations for function parameters, as later stages
+        // always assume that variables are first assigned into before usage
+
+        let level = if let AstNode::Block(_, Some(ref entry), _) = *child {
+            entry
+        } else {
+            ice!("Failed to find symbol table entry for function {}",
+                info.name);
+        };
+
+        for param in info.parameters.iter() {
+            let id = if let Some(Symbol::Variable(_, var_id)) =
+                level.find_symbol(&param.name) {
+                var_id
+            } else {
+                ice!(
+                 "Failed to find symbol '{}' when handling function parameters",
+                 param.name);
+            };
+
+            self.current_function().statements.push(
+                Statement::Assignment(
+                    None,
+                    Some(Operand::Variable(
+                        param.clone(),
+                        id)),
+                    None,
+                    Some(Operand::Initialized(param.variable_type))));
+        }
+
+
         self.generate_tac(child);
 
         self.functions.push(
             self.function_stack.pop().unwrap_or_else(
                 || ice!("Function stack empty when generating function 3AC")));
+    }
+
+    fn handle_function_call(
+        &mut self,
+        name: &Rc<String>,
+        args: &Vec<AstNode>,
+        _info: &NodeInfo) {
+
+        let mut function_operands = vec![];
+        for arg in args.iter() {
+            function_operands.push(self.get_operand(arg));
+        }
+
+        let dest = if let Some(sym) = self.symbol_table.find_symbol(name) {
+            if let Symbol::Function(ref fi) = sym {
+                let tmp = self.get_temporary(fi.return_type);
+                self.operands.push(tmp.clone());
+                Some(tmp)
+            } else {
+                ice!(
+                    "Invalid symbol {:?} in symbol table when function expected", sym)
+            }
+        } else {
+            None
+        };
+
+        self.current_function().statements.push(
+            Statement::Call(
+                name.clone(),
+                function_operands,
+                dest));
     }
 
     fn handle_variable_declaration(
@@ -303,14 +393,8 @@ impl TACGenerator {
                 self.get_type(&right_op));
         }
 
-        let id = self.get_next_id();
-
-        let temp = Operand::Variable(
-            DeclarationInfo::new_alt(
-                self.tmp_name.clone(),
-                self.get_type(&left_op),
-                0, 0, 0),
-            id);
+        let tmp_type = self.get_type(&left_op);
+        let temp = self.get_temporary(tmp_type);
 
         self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
@@ -425,17 +509,11 @@ impl TACGenerator {
             _ => ice!("Invalid AstNode '{}' passed for comparison handling", node)
         };
 
-        let id = self.get_next_id();
-
         let left_op = self.get_operand(left);
         let right_op = self.get_operand(right);
 
-        let temp = Operand::Variable(
-            DeclarationInfo::new_alt(
-                self.tmp_name.clone(),
-                self.get_type(&left_op),
-                0, 0, 0),
-            id);
+        let tmp_type = self.get_type(&left_op);
+        let temp = self.get_temporary(tmp_type);
 
         self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
@@ -451,6 +529,7 @@ impl TACGenerator {
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,
             Operand::Boolean(_) => Type::Boolean,
+            Operand::Initialized(ref t) => t.clone(),
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }
@@ -459,6 +538,17 @@ impl TACGenerator {
     fn get_operand(&mut self, node: &AstNode) -> Operand {
         self.generate_tac(node);
         self.operands.pop().unwrap_or_else(|| ice!("Operand stack empty"))
+    }
+
+    fn get_temporary(&mut self, var_type: Type) -> Operand {
+        let id = self.get_next_id();
+
+        Operand::Variable(
+            DeclarationInfo::new_alt(
+                self.tmp_name.clone(),
+                var_type,
+                0, 0, 0),
+            id)
     }
 
     fn get_next_id(&mut self) -> u32 {

@@ -1,5 +1,6 @@
 pub mod const_prop;
 pub mod dead_code;
+pub mod dead_store;
 pub mod merge_block;
 pub mod conditional_jump_conversion;
 

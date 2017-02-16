@@ -3,6 +3,7 @@ use cfg::Adj;
 
 use super::merge_block::merge_linear_blocks;
 use super::conditional_jump_conversion::convert_jumps;
+use super::dead_store::remove_dead_stores;
 use tac_generator::Function;
 use tac_generator::Operand;
 use tac_generator::Statement;
@@ -244,98 +245,6 @@ fn remove_trivial_phi_functions(
             },
             _ => {},
 
-        }
-    }
-}
-
-
-fn remove_dead_stores(
-    function: &mut Function,
-    cfg: &mut CFG) {
-    let mut changes = true;
-    while changes {
-        changes = false;
-        let mut reads = HashSet::new();
-        let mut writes = HashMap::new();
-
-        for (i, s) in function.statements.iter().enumerate() {
-
-            // writes
-            match *s {
-                Statement::Assignment(
-                    _,
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),
-                    _,
-                    _) => { writes.insert((*var_id, *ssa_id), i); },
-                Statement::PhiFunction(
-                     Operand::SSAVariable(_, ref var_id, ref ssa_id),
-                    _) => { writes.insert((*var_id, *ssa_id), i); },
-                _ => {},
-            }
-
-            match *s {
-                 Statement::Assignment(
-                    _,
-                    _,
-                    Some(ref val),
-                    Some(ref val2)) => {
-
-                    match *val {
-                        Operand::SSAVariable(_, ref var_id, ref ssa_id) => {
-                            reads.insert((*var_id, *ssa_id));
-                        },
-                        _ => {},
-                    }
-
-                    match *val2 {
-                        Operand::SSAVariable(_, ref var_id, ref ssa_id) => {
-                            reads.insert((*var_id, *ssa_id));
-                        },
-                        _ => {},
-                    }
-                },
-                Statement::JumpIfTrue(
-                    Operand::SSAVariable(_, ref var_id, ref ssa_id),
-                    _) => {
-
-                    reads.insert((*var_id, *ssa_id));
-                },
-                Statement::Return(
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id))) => {
-
-                    reads.insert((*var_id, *ssa_id));
-                },
-                Statement::PhiFunction(
-                    _,
-                    ref operands) => {
-
-                    for o in operands.iter() {
-                        match *o {
-                            Operand::SSAVariable(_, ref var_id, ref ssa_id) => {
-                                reads.insert((*var_id, *ssa_id));
-                            },
-                            _ => ice!("Invalid operand present in phi-function: {}", o),
-                        }
-                    }
-                },
-                _ => {},
-            }
-        }
-
-        for v in reads.iter() {
-            writes.remove(v);
-        }
-
-
-        for (i, s) in function.statements.iter().enumerate() {
-            println!("{}:  {}", i, s);
-        }
-
-        let mut remove_list : Vec<usize> = writes.values().cloned().collect();
-        remove_list.sort();
-        if remove_list.len() != 0 {
-            changes = true;
-            cfg.remove_statements(function, remove_list);
         }
     }
 }

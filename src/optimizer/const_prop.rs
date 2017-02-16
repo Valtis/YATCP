@@ -152,5 +152,6 @@ fn is_constant(var: &Operand) -> bool {
         Operand::Float(_) => true,
         Operand::Double(_) => true,
         Operand::Boolean(_) => true,
+        Operand::Initialized(_) => false,
     }
 }

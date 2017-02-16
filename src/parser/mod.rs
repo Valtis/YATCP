@@ -37,6 +37,7 @@ impl Parser {
         let mut nodes = vec![];
         let mut debug_safeguard = 10000;
         loop {
+            // some minor protection against infinite loops
             debug_safeguard -= 1;
             if debug_safeguard == 0 {
                 panic!("Debug safeguard triggered");
