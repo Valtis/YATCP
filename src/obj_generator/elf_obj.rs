@@ -365,7 +365,6 @@ impl SymbolEntry {
 
 pub struct ElfGenerator {
     architecture: Architecture,
-    input_file: String,
     output_file: String,
     elf_header: ElfHeader,
     section_headers: Vec<SectionHeader>,
@@ -377,12 +376,10 @@ pub struct ElfGenerator {
 impl ElfGenerator {
     pub fn new(
         architecture: Architecture,
-        input_file: String,
         output_file: String,
         code: Code) -> ElfGenerator {
         ElfGenerator {
             architecture: architecture,
-            input_file: input_file,
             output_file: output_file,
             elf_header: ElfHeader::new(architecture),
             section_headers: vec![],
@@ -456,7 +453,7 @@ impl ElfGenerator {
         // hard coding for now for testing
         let mut strings = vec![
             Rc::new("".to_string()),
-            Rc::new(self.input_file.clone()),
+            Rc::new(self.output_file.clone()),
             ];
 
         // string.len() -> null terminator count

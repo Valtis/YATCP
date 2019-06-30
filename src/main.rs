@@ -1,4 +1,5 @@
 extern crate compiler;
+extern crate argparse;
 
 use compiler::lexer::ReadLexer;
 use compiler::parser::Parser;
@@ -29,38 +30,54 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 
+use argparse::{ArgumentParser, StoreTrue, Store };
+
 #[cfg(not(test))]
 fn main() {
 
-    let file_name = "file.txt";
-    let opt_functions = run_frontend(file_name);
+    let mut optimize = false;
+    let mut output = "a.out".to_string();
+    let mut input : String = "".to_string(); // one file for now
 
-    // hardcoded for now. Should be read from command line args
-    let optimize = true;
+    { // lifetimes
+        let mut argparse = ArgumentParser::new();
+        argparse.set_description("Yet another toy compiler project");
+        argparse.refer(&mut optimize)
+            .add_option(&["-O", "--optimize"], StoreTrue, "Optimize the code");
+        argparse.refer(&mut output)
+            .add_option(&["-o", "--output"], Store, "Output file name");
 
+        argparse.refer(&mut input)
+            .add_argument("Input file", Store, "Input file name")
+            .required();
+
+        argparse.parse_args_or_exit();
+    }
+
+    let opt_functions = run_frontend(input);
 
     if let Some(mut functions) = opt_functions {
         if optimize {
            functions = run_middleend(functions);
         }
-        run_backend(file_name, functions);
+        run_backend(output, functions);
     }
 }
 
 
 fn run_frontend(
-    file_name: &'static str) -> Option<Vec<Function>> {
+    file_name: String) -> Option<Vec<Function>> {
 
     let error_reporter = Rc::new(
-        RefCell::new(FileErrorReporter::new(file_name)));
+        RefCell::new(FileErrorReporter::new(&file_name)));
 
 
     let mut node = parse_code(
-        file_name,
+        &file_name,
         error_reporter.clone());
 
     node.print();
-    println!("");
+    println!();
 
     let mut checker = SemanticsCheck::new(error_reporter.clone());
     checker.check_semantics(&mut node);
@@ -84,7 +101,7 @@ fn run_frontend(
 }
 
 fn parse_code(
-    file_name: &'static str,
+    file_name: &String,
     error_reporter: Rc<RefCell<FileErrorReporter>>) -> AstNode {
 
     let file = File::open(file_name).unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
@@ -177,7 +194,7 @@ fn run_middleend(mut functions: Vec<Function>) -> Vec<Function> {
     functions
 }
 
-fn run_backend(file_name: &'static str, functions: Vec<Function> ) {
+fn run_backend(output: String, functions: Vec<Function> ) {
     let mut byte_gen = ByteGenerator::new(functions.clone());
     byte_gen.generate_bytecode();
     print_bytecode(&byte_gen);
@@ -187,5 +204,5 @@ fn run_backend(file_name: &'static str, functions: Vec<Function> ) {
     let code_gen = CodeGenerator::new(bytecode);
     let asm_code = code_gen.generate_code();
 
-    obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), file_name.to_string(), "test.o".to_owned(), asm_code);
+    obj_generator::generate_object_file(ObjectType::Elf(Architecture::X64), output, asm_code);
 }
