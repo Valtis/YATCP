@@ -20,6 +20,13 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 
+
+struct Width {
+    start: i32,
+    end: i32
+}
+
+
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
     Integer,
@@ -669,6 +676,22 @@ impl SemanticsCheck {
         let left_type = self.get_type(left_child);
         let right_type = self.get_type(right_child);
 
+        let left_tree = self.get_subtree_width(left_child);
+        let right_tree = self.get_subtree_width(right_child);
+
+        let mut start = arith_info.node_info.column;
+        let mut end = arith_info.node_info.column + arith_info.node_info.length;
+
+        if let Some(x) = left_tree {
+            start = std::cmp::min(start, x.start);
+            end = std::cmp::max(end, x.end);
+        }
+
+        if let Some(x) = right_tree {
+            start = std::cmp::min(start, x.start);
+            end = std::cmp::max(end, x.end);
+        }
+
         // if left or right type is Type::Invalid, error has been reported
         // already. Just mark this node as invalid as well to propagate the
         // error upwards in the tree
@@ -676,9 +699,11 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
         } else if left_type != right_type {
             arith_info.node_type = Type::Invalid;
-            self.report_error(
+            self.report_error_with_expression(
                 Error::TypeError,
                 arith_info.node_info.line,
+                start,
+                end,
                 arith_info.node_info.column,
                 arith_info.node_info.length,
                 format!(
@@ -824,9 +849,69 @@ impl SemanticsCheck {
         }
     }
 
+    fn get_subtree_width(&self, node: &AstNode) -> Option<Width> {
+        return match *node {
+            AstNode::Integer(_, ref ni) |
+            AstNode::Text(_, ref ni) |
+            AstNode::Float(_, ref ni) |
+            AstNode::Double(_, ref ni) |
+            AstNode::Boolean(_, ref ni) |
+            AstNode::Identifier(_, ref ni) => Some(Width { start: ni.column, end: ni.column + ni.length }),
+
+            AstNode::Plus(ref left, ref right, ref ai) |
+            AstNode::Minus(ref left, ref right, ref ai) |
+            AstNode::Multiply(ref left, ref right, ref ai) |
+            AstNode::Divide(ref left, ref right, ref ai) => {
+                let left_tree = self.get_subtree_width(left);
+                let right_tree = self.get_subtree_width(right);
+
+                let mut start = ai.node_info.column;
+                let mut end = ai.node_info.column + ai.node_info.length;
+
+                if let Some(x) = left_tree {
+                    start = std::cmp::min(start, x.start);
+                    end = std::cmp::max(end, x.end);
+                }
+
+                if let Some(x) = right_tree {
+                    start = std::cmp::min(start, x.start);
+                    end = std::cmp::max(end, x.end);
+                }
+
+                Some(Width {
+                    start: start,
+                    end: end,
+                })
+            },
+
+            _ => None
+        };
+
+    }
+
     fn report_error(&mut self, error_type: Error, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
         self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);
+    }
+
+    fn report_error_with_expression(
+        &mut self,
+        error_type: Error,
+        line: i32,
+        expression_start: i32,
+        expression_end:i32,
+        operator_start: i32,
+        operator_length : i32,
+        error: String) {
+        self.errors += 1;
+        self.error_reporter.borrow_mut().report_error_with_expression(
+            error_type,
+            line,
+            expression_start,
+            expression_end,
+            operator_start,
+            operator_length,
+            error);
     }
 
     fn report_type_error(
