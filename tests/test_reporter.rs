@@ -43,6 +43,7 @@ impl TestReporter {
 }
 
 impl ErrorReporter for TestReporter {
+
     fn report_error(
         &mut self,
         error_type: Error,
@@ -57,6 +58,27 @@ impl ErrorReporter for TestReporter {
             column: column,
             token_length: token_length,
             error_string: error_string,
+        });
+    }
+
+
+    // ignoring operator for now
+    fn report_error_with_expression(
+        &mut self,
+        error_type: Error,
+        line: i32,
+        expression_start: i32,
+        expression_end: i32,
+        operator_start:i32,
+        operator_length: i32,
+        message: String) {
+
+        self.errors.push(ReportedError {
+            error_type: error_type,
+            line: line,
+            column: expression_start,
+            token_length: expression_end - expression_start,
+            error_string: message,
         });
     }
 }
