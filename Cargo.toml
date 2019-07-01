@@ -1,5 +1,6 @@
 [package]
 
+edition = "2018"
 name = "compiler"
 version = "0.0.1"
 
