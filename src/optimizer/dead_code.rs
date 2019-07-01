@@ -1,12 +1,11 @@
-use cfg::CFG;
-use cfg::Adj;
+use crate::cfg::{CFG, Adj};
 
 use super::merge_block::merge_linear_blocks;
 use super::conditional_jump_conversion::convert_jumps;
 use super::dead_store::remove_dead_stores;
-use tac_generator::Function;
-use tac_generator::Operand;
-use tac_generator::Statement;
+use crate::tac_generator::{Function};
+use crate::tac_generator::{Operand};
+use crate::tac_generator::{Statement};
 
 use std::collections::HashMap;
 use std::collections::HashSet;

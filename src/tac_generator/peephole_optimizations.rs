@@ -1,7 +1,4 @@
-use tac_generator::Function;
-use tac_generator::Statement;
-use tac_generator::Operand;
-use tac_generator::TMP_NAME;
+use crate::tac_generator::{Function, Statement, Operand, TMP_NAME};
 
 use std::collections::HashMap;
 // removes some inefficiencies in the generated three-address code

@@ -1,6 +1,3 @@
-extern crate ansi_term;
-extern crate byteorder;
-
 #[macro_use]
 mod ice;
 

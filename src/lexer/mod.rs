@@ -1,11 +1,8 @@
-use token::Token;
-use token::TokenType;
-use token::TokenSubType;
+use crate::token::{Token, TokenType, TokenSubType};
 
-use error_reporter::ErrorReporter;
-use error_reporter::Error;
+use crate::error_reporter::{ErrorReporter, Error};
 
-use string_table::StringTable;
+use crate::string_table::StringTable;
 
 use std::io::BufReader;
 use std::io::Read;

@@ -117,11 +117,11 @@ pub enum TokenSubType {
 
 impl Display for TokenSubType {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
-     try!(write!(formatter, "{}", match *self {
+     write!(formatter, "{}", match *self {
           TokenSubType::NoSubType => "".to_string(),
           _ => "(".to_string(),
-     }));
-    try!(write!(formatter, "{}", match *self {
+     })?;
+    write!(formatter, "{}", match *self {
         TokenSubType::Text(ref text) => format!("{}{}{}", "\"", text, "\""),
         TokenSubType::FloatNumber(value) => format!("{}f", value.to_string()),
         TokenSubType::DoubleNumber(value) => format!("{}d", value.to_string()),
@@ -142,7 +142,7 @@ impl Display for TokenSubType {
         TokenSubType::LessOrEq => "<=".to_string(),
         TokenSubType::NotEq => "!=".to_string(),
         TokenSubType::ErrorToken => "<Invalid token>".to_string(),
-    }));
+    })?;
 
     write!(formatter, "{}", match *self {
          TokenSubType::NoSubType => "".to_string(),

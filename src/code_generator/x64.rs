@@ -1,14 +1,8 @@
 
-use byte_generator::ByteCode;
-use byte_generator::UnaryOperation;
-use byte_generator::BinaryOperation;
-use byte_generator::ComparisonOperation;
-use byte_generator::Source;
-use byte_generator::ComparisonType;
+use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Source, ComparisonType};
+use crate::byte_generator;
 
-use byte_generator;
-
-use code_generator;
+use crate::code_generator;
 
 use byteorder::{ByteOrder, LittleEndian };
 

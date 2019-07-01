@@ -1,10 +1,6 @@
-use tac_generator::Function;
-use tac_generator::Operand;
-use tac_generator::Statement;
+use crate::tac_generator::{Function, Operand, Statement};
 
-use cfg::Adj;
-use cfg::CFG;
-use cfg::dom_front::calculate_immediate_dominator_opt;
+use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
 use std::collections::HashMap;
 

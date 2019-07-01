@@ -1,7 +1,6 @@
-use token::Token;
-use token::TokenSubType;
-use semcheck::Type;
-use symbol_table;
+use crate::token::{Token, TokenSubType};
+use crate::semcheck::Type;
+use crate::symbol_table;
 
 use std::fmt::Display;
 use std::fmt::Formatter;

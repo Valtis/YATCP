@@ -1,17 +1,10 @@
-use token::Token;
-use token::TokenType;
-use token::TokenSubType;
+use crate::token::{Token, TokenType, TokenSubType};
 
-use lexer::Lexer;
+use crate::lexer::Lexer;
 
-use error_reporter::ErrorReporter;
-use error_reporter::Error;
+use crate::error_reporter::{ErrorReporter, Error};
 
-use ast::AstNode;
-use ast::ArithmeticInfo;
-use ast::FunctionInfo;
-use ast::NodeInfo;
-use ast::DeclarationInfo;
+use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -32,8 +25,6 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> AstNode {
-
-        ice!("Should not have happened");
 
         let top_level_tokens = vec![TokenType::Fn, TokenType::Extern];
         let mut nodes = vec![];
@@ -407,7 +398,7 @@ impl Parser {
             let next_token = self.lexer.peek_token();
             match next_token.token_type {
                 TokenType::Multiply | TokenType::Divide =>
-                    node = try!(self.parse_mult_divide_expression(node)),
+                    node = self.parse_mult_divide_expression(node)?,
                 _ => break,
             }
         }

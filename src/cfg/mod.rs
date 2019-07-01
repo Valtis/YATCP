@@ -1,5 +1,4 @@
-use tac_generator::Function;
-use tac_generator::Statement;
+use crate::tac_generator::{Function, Statement};
 
 pub mod basic_block;
 pub mod dom_front;

@@ -1,6 +1,6 @@
 mod elf_obj;
 
-use code_generator::Code;
+use crate::code_generator::Code;
 
 use self::elf_obj::ElfGenerator;
 

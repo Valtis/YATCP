@@ -1,7 +1,5 @@
-use cfg::Adj;
-use cfg::CFG;
-use tac_generator::Function;
-use tac_generator::Statement;
+use crate::cfg::{Adj, CFG};
+use crate::tac_generator::{Function, Statement};
 
 pub fn merge_linear_blocks(
     function: &mut Function,

@@ -1,5 +1,4 @@
-use ast::FunctionInfo;
-use ast::DeclarationInfo;
+use crate::ast::{FunctionInfo, DeclarationInfo};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Symbol {

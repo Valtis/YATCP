@@ -1,16 +1,11 @@
 mod peephole_optimizations;
-use self::peephole_optimizations::optimize;
+use peephole_optimizations::optimize;
 
-use ast::AstNode;
-use ast::FunctionInfo;
-use ast::DeclarationInfo;
-use ast::NodeInfo;
+use crate::ast::{AstNode, FunctionInfo, DeclarationInfo, NodeInfo};
 
-use semcheck::Type;
+use crate::semcheck::Type;
 
-use symbol_table::TableEntry;
-use symbol_table::SymbolTable;
-use symbol_table::Symbol;
+use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
 use std::fmt::Display;
 use std::fmt::Formatter;

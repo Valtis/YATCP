@@ -1,15 +1,8 @@
-use ast::AstNode;
-use ast::ArithmeticInfo;
-use ast::FunctionInfo;
-use ast::NodeInfo;
-use ast::DeclarationInfo;
+use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
 
-use symbol_table::SymbolTable;
-use symbol_table::Symbol;
-use symbol_table::TableEntry;
+use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
-use error_reporter::Error;
-use error_reporter::ErrorReporter;
+use crate::error_reporter::{Error, ErrorReporter};
 
 use std::fmt::Display;
 use std::fmt::Formatter;

@@ -1,7 +1,5 @@
-use tac_generator::Statement;
-use tac_generator::Operator;
-use tac_generator::Operand;
-use tac_generator;
+use crate::tac_generator::{Statement, Operator, Operand};
+use crate::tac_generator;
 
 use std::collections::HashMap;
 use std::rc::Rc;

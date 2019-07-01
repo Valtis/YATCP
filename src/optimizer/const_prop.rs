@@ -1,7 +1,4 @@
-use tac_generator::Function;
-use tac_generator::Operand;
-use tac_generator::Operator;
-use tac_generator::Statement;
+use crate::tac_generator::{Function, Operand, Operator, Statement};
 
 use std::collections::HashMap;
 

@@ -1,5 +1,4 @@
-use tac_generator::Function;
-use tac_generator::Statement;
+use crate::tac_generator::{Function, Statement};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BasicBlock {

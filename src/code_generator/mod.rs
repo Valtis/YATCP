@@ -1,5 +1,5 @@
 mod x64;
-use byte_generator;
+use crate::byte_generator;
 
 use self::x64::X64CodeGen;
 

@@ -1,10 +1,7 @@
-use ast::DeclarationInfo;
-use cfg::CFG;
-use cfg::Adj;
-use cfg::basic_block::BasicBlock;
-use tac_generator::Function;
-use tac_generator::Statement;
-use tac_generator::Operand;
+use crate::ast::DeclarationInfo;
+use crate::cfg::{CFG, Adj};
+use crate::cfg::basic_block::BasicBlock;
+use crate::tac_generator::{Function, Statement, Operand};
 
 use std::collections::HashMap;
 use std::rc::Rc;
