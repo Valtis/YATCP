@@ -33,6 +33,8 @@ impl Parser {
 
     pub fn parse(&mut self) -> AstNode {
 
+        ice!("Should not have happened");
+
         let top_level_tokens = vec![TokenType::Fn, TokenType::Extern];
         let mut nodes = vec![];
         let mut debug_safeguard = 10000;
