@@ -30,7 +30,7 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 
-use argparse::{ArgumentParser, StoreTrue, Store };
+use argparse::{ArgumentParser, StoreTrue, Store, StoreFalse};
 
 #[cfg(not(test))]
 fn main() {
@@ -38,8 +38,10 @@ fn main() {
     let mut optimize = false;
     let mut output = "a.out".to_string();
     let mut input : String = "".to_string(); // one file for now
+    let mut print_ast= false;
+    let mut generate_code = true;
 
-    { // lifetimes
+    {
         let mut argparse = ArgumentParser::new();
         argparse.set_description("Yet another toy compiler project");
         argparse.refer(&mut optimize)
@@ -48,26 +50,32 @@ fn main() {
             .add_option(&["-o", "--output"], Store, "Output file name");
 
         argparse.refer(&mut input)
-            .add_argument("Input file", Store, "Input file name")
+            .add_argument("file", Store, "Input file name")
             .required();
 
+        argparse.refer(&mut print_ast)
+            .add_option(&["--print-ast"], StoreTrue, "Print out the syntax tree");
+
+        argparse.refer(&mut generate_code)
+            .add_option(&["--no-code-generation"], StoreFalse, "Skip code generation phase");
         argparse.parse_args_or_exit();
     }
 
-    let opt_functions = run_frontend(input);
-
+    let opt_functions = run_frontend(input, print_ast);
     if let Some(mut functions) = opt_functions {
         if optimize {
            functions = run_middleend(functions);
         }
-        run_backend(output, functions);
+        if generate_code {
+            run_backend(output, functions);
+        }
     }
 }
 
 
 fn run_frontend(
-    file_name: String) -> Option<Vec<Function>> {
-
+    file_name: String,
+    print_ast: bool) -> Option<Vec<Function>> {
     let error_reporter = Rc::new(
         RefCell::new(FileErrorReporter::new(&file_name)));
 
@@ -76,9 +84,10 @@ fn run_frontend(
         &file_name,
         error_reporter.clone());
 
-    node.print();
-    println!();
-
+    if print_ast {
+        node.print();
+        println!();
+    }
     let mut checker = SemanticsCheck::new(error_reporter.clone());
     checker.check_semantics(&mut node);
 
