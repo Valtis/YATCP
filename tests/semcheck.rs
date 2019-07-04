@@ -1403,7 +1403,7 @@ fn type_error_in_plus_expression_is_reported() {
         Error::TypeError,
         3,
         4,
-        1);
+        5);
 }
 
 #[test]
@@ -1454,7 +1454,7 @@ fn type_error_in_minus_expression_is_reported() {
         Error::TypeError,
         3,
         4,
-        1);
+        5);
 }
 
 #[test]
@@ -1505,7 +1505,7 @@ fn type_error_in_multiplication_expression_is_reported() {
         Error::TypeError,
         3,
         4,
-        1);
+        5);
 }
 
 #[test]
@@ -1556,7 +1556,7 @@ fn type_error_in_division_expression_is_reported() {
         Error::TypeError,
         3,
         4,
-        1);
+        5);
 }
 
 #[test]
@@ -1918,8 +1918,8 @@ fn type_error_involving_variables_in_expression_is_reported() {
     assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         14,
-        41,
-        342);
+        34,
+        1190);
 }
 
 #[test]
@@ -2246,8 +2246,8 @@ fn error_in_while_loop_body_is_handled() {
     assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
         9,
-        7,
-        6);
+        2,
+        11);
 }
 
 
@@ -3299,7 +3299,7 @@ fn error_in_function_argument_is_reported() {
 
     assert_eq_error!(reporter.borrow().errors()[0],
         Error::TypeError,
-        8, 4, 2);
+        8, 0, 6);
 }
 
 #[test]
