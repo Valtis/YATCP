@@ -18,3 +18,6 @@ pub mod obj_generator;
 pub mod error_reporter;
 
 
+pub mod frontend;
+pub mod middleend;
+pub mod backend;

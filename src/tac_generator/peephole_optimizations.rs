@@ -5,21 +5,9 @@ use std::collections::HashMap;
 pub fn optimize(functions: &mut Vec<Function>) {
 
     for function in functions.iter_mut() {
-
-        println!("Before peephole optimizations for {}\n", function.name);
-        for statement in function.statements.iter() {
-            println!("{}", statement);
-        }
-        println!("\n");
-
         remove_unconditional_jumps_into_unconditional_jumps(function);
         remove_unnecessary_temporaries(function);
         merge_successive_labels(function);
-
-        println!("\nAfter peephole opt:\n");
-        for s in function.statements.iter() {
-            println!("{}", s);
-        }
     }
 }
 

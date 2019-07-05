@@ -155,7 +155,20 @@ impl Function {
             statements: vec![],
         }
     }
+
+    pub fn print(&self) {
+        let mut counter = 0;
+        println!("Function '{}'\n", self.name);
+        for s in &self.statements {
+            println!("    {}: {}", counter, s);
+            counter += 1;
+        }
+        println!();
+    }
+
 }
+
+
 
 
 pub struct TACGenerator {
