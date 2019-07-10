@@ -32,6 +32,22 @@ pub enum Type {
     Invalid, // type error occured
 }
 
+impl Type {
+
+    pub fn size_in_bytes(&self) -> u32 {
+        match *self {
+            Type::Integer => 4,
+            Type::Double => 8,
+            Type::Float => 4,
+            Type::String => 8, // ptr
+            Type::Boolean => 1,
+            Type::Void => ice!("Reguesting size of a void type"),
+            Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
+            Type::Invalid => ice!("Requesting size of an invalid type"),
+        }
+    }
+}
+
 impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
         Display::fmt( match *self {
@@ -560,7 +576,7 @@ impl SemanticsCheck {
                 function_info.node_info.length,
                 note_str);
 
-            arith_info.node_type == Type::Invalid;
+            arith_info.node_type = Type::Invalid;
         }
     }
 

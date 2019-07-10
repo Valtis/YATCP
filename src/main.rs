@@ -5,6 +5,7 @@ use compiler::frontend::run_frontend;
 use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
 
+use ansi_term::Colour::Yellow;
 use argparse::{ArgumentParser, StoreTrue, Store, StoreFalse};
 
 #[cfg(not(test))]
@@ -49,7 +50,7 @@ fn main() {
     }
 
     if print_cfg && !optimize {
-        eprintln!("Note: --print-cfg requires -O");
+        eprintln!("{} {}", Yellow.paint("Warning:"), "--print-cfg requires -O. Ignoring switch.");
     }
 
     let opt_functions = run_frontend(input, print_ast, print_tac);

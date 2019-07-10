@@ -1,8 +1,9 @@
-mod x64;
+pub mod x64;
+mod stack_allocator;
+
 use crate::byte_generator;
 
 use self::x64::X64CodeGen;
-
 use std::rc::Rc;
 
 pub struct CodeGenerator {
@@ -30,7 +31,14 @@ impl CodeGenerator {
 
     pub fn generate_code(self) -> Code {
         // TODO - remove hard coded architecture
-        let mut generator = X64CodeGen::new(self.bytecode_functions);
+        let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions);
+
+        println!("After allocs: ");
+        for c in bytecode_with_allocations.iter() {
+            println!("    {:?}", c);
+        }
+
+        let mut generator = X64CodeGen::new(bytecode_with_allocations);
 
         generator.generate_code();
         Code {

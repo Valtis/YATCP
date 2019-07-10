@@ -1,26 +1,29 @@
 use crate::tac_generator::{Statement, Operator, Operand};
 use crate::tac_generator;
+use crate::ast::DeclarationInfo;
+use crate::code_generator::x64::X64Register;
 
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq)]
+
+#[derive(Debug, Clone)]
 pub struct UnaryOperation {
-    pub src: Source,
-    pub dest: Source,
+    pub src: Value,
+    pub dest: Value,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct BinaryOperation {
-    pub src1: Source,
-    pub src2: Source,
-    pub dest: Source,
+    pub src1: Value,
+    pub src2: Value,
+    pub dest: Value,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ComparisonOperation {
-    pub src1: Source,
-    pub src2: Source,
+    pub src1: Value,
+    pub src2: Value,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,11 +36,18 @@ pub enum ComparisonType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Source {
-    Register(u32),
+pub struct VirtualRegisterData {
+    pub id: u32,
+    pub size: u32
+}
+
+#[derive(Debug, Clone)]
+pub enum Value {
+    VirtualRegister(VirtualRegisterData),
+    PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
     IntegerConstant(i32),
     ComparisonResult(ComparisonType),
-    ReturnRegister, // special register, signifies the register that the calling convention uses to return values
+    StackOffset{offset: u32, size: u32},
 }
 
 #[derive(Debug, Clone)]
@@ -53,20 +63,22 @@ pub enum ByteCode {
     Label(u32),
     Jump(u32),
     JumpConditional(u32, ComparisonType),
-    Ret,
+    Ret(Value),
 }
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: Rc<String>,
+    pub name: String,
     pub code: Vec<ByteCode>
 }
+
+
 
 pub struct ByteGenerator {
     pub bytecode_functions: Vec<Function>,
     tac_functions: Vec<tac_generator::Function>,
     next_register: u32,
-    variable_id_to_register: HashMap<u32, u32>,
+    variable_id_to_register: HashMap<u32, VirtualRegisterData>,
     variable_to_comparison_result: HashMap<u32, ComparisonType>
 }
 
@@ -84,9 +96,10 @@ impl ByteGenerator {
     pub fn generate_bytecode(&mut self) {
         // clone to fix borrow issue. TODO: Figure out how to avoid an unnecessary copy.
         let functions = self.tac_functions.clone();
+
         for f in functions {
             self.bytecode_functions.push(Function {
-                name: f.name,
+                name: (*f.name).clone(),
                 code: vec![],
             });
             self.next_register = 0;
@@ -119,11 +132,10 @@ impl ByteGenerator {
 
     fn emit_return(&mut self, retval: Option<Operand>) {
         if let Some(op) = retval {
-            let data = UnaryOperation { src: self.get_source(&op), dest: Source::ReturnRegister };
-            self.current_function().code.push(ByteCode::Mov(data));
+            let ret = ByteCode::Ret(self.get_source(&op));
+            self.current_function().code.push(ret);
         }
 
-        self.current_function().code.push(ByteCode::Ret);
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {
@@ -177,7 +189,7 @@ impl ByteGenerator {
 
     fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
         let src =  self.get_source(op);
-        if let Source::ComparisonResult(cmp_type) = src {
+        if let Value::ComparisonResult(cmp_type) = src {
             self.current_function().
             code.
             push(
@@ -207,31 +219,36 @@ impl ByteGenerator {
         BinaryOperation { src1: src1, src2: src2, dest: op_dest }
     }
 
-    fn get_source(&mut self, op: &Operand) -> Source {
+    fn get_source(&mut self, op: &Operand) -> Value {
         match op {
-            &Operand::Variable(_, id) => {
+            &Operand::Variable(ref declaration_info, id) => {
                 if self.variable_to_comparison_result.contains_key(&id) {
-                    Source::ComparisonResult(
+                    Value::ComparisonResult(
                         self.variable_to_comparison_result[&id].clone())
                 }
                 else {
-                    self.get_register_for(id)
+                    self.get_register_for(declaration_info, id)
                 }
             },
-            &Operand::Integer(i32) => Source::IntegerConstant(i32),
+            &Operand::Integer(i32) => Value::IntegerConstant(i32),
             x => panic!("Not implemented yet for {}", x),
         }
     }
 
-    fn get_register_for(&mut self, variable: u32) -> Source {
+    fn get_register_for(&mut self, declaration_info: &DeclarationInfo, variable: u32) -> Value {
         if self.variable_id_to_register.contains_key(&variable) {
-            let reg  = self.variable_id_to_register[&variable];
-            Source::Register(reg)
+            let reg  = self.variable_id_to_register[&variable].clone();
+            Value::VirtualRegister(reg)
         } else {
             let reg = self.next_register;
             self.next_register += 1;
-            self.variable_id_to_register.insert(variable, reg);
-            Source::Register(reg)
+
+            let vregdata = VirtualRegisterData {
+                id: reg,
+                size: declaration_info.variable_type.size_in_bytes(),
+            };
+            self.variable_id_to_register.insert(variable, vregdata.clone());
+            Value::VirtualRegister(vregdata)
         }
     }
 
