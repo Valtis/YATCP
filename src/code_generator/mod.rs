@@ -2,8 +2,6 @@ pub mod x64;
 mod stack_allocator;
 
 use crate::byte_generator;
-
-use self::x64::X64CodeGen;
 use std::rc::Rc;
 
 pub struct CodeGenerator {
@@ -12,7 +10,7 @@ pub struct CodeGenerator {
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: Rc<String>,
+    pub name: String, // FIXME Make string table thread safe so that string ref can be shared
     pub start: usize,
     pub length: usize,
 }
@@ -25,7 +23,7 @@ pub struct Code {
 impl CodeGenerator {
     pub fn new(bytecode_functions: Vec<byte_generator::Function>) -> CodeGenerator {
         CodeGenerator {
-            bytecode_functions: bytecode_functions,
+            bytecode_functions
         }
     }
 
@@ -33,17 +31,11 @@ impl CodeGenerator {
         // TODO - remove hard coded architecture
         let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions);
 
-        println!("After allocs: ");
-        for c in bytecode_with_allocations.iter() {
-            println!("    {:?}", c);
-        }
+        let (functions, code) = x64::generate_code(bytecode_with_allocations);
 
-        let mut generator = X64CodeGen::new(bytecode_with_allocations);
-
-        generator.generate_code();
         Code {
-            code: generator.get_code(),
-            functions: generator.get_functions(),
+            code,
+            functions
         }
     }
 }

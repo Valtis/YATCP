@@ -33,17 +33,16 @@ impl StackMap {
 }
 
 
-pub fn allocate( bytecode_functions: Vec<Function>)  -> Vec<Function> {
+pub fn allocate( bytecode_functions: Vec<Function>)  -> Vec<(Function, u32)> {
    bytecode_functions.par_iter()
        .map(|function| allocate_function(function))
        .collect()
 }
 
-fn allocate_function(function: &Function) -> Function {
+fn allocate_function(function: &Function) -> (Function, u32) {
 
     let stack_map = allocate_variables_to_stack(function);
-    update_instructions(function, &stack_map)
-
+    (update_instructions(function, &stack_map), stack_map.stack_size)
 }
 
 // create stack slots for each variable
@@ -55,7 +54,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
         match instr {
             ByteCode::Nop |
             ByteCode::Label(_) |
-            ByteCode::Jump(_) => (), // do nothing
+            ByteCode::Jump(_) |
+            ByteCode::Ret(IntegerConstant(_)) => (), // do nothing
 
             ByteCode::Mov(ref unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(ref binary_op) |

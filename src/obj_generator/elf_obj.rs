@@ -460,8 +460,8 @@ impl ElfGenerator {
         let mut string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
 
         for f in self.code.functions.iter() {
-            strings.push(f.name.clone());
-            self.string_pos.insert(f.name.clone(), string_size as u32);
+            strings.push(Rc::new(f.name.clone()));
+            self.string_pos.insert(Rc::new(f.name.clone()), string_size as u32);
             string_size += f.name.len() + 1; // +1 for null terminatoe
         }
 

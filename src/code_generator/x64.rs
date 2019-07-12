@@ -1,6 +1,7 @@
 
-use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
 use crate::byte_generator;
+use crate::byte_generator::Value::{StackOffset, IntegerConstant};
+use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
 
 use crate::code_generator;
 
@@ -10,17 +11,26 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+use rayon::prelude::*;
+use std::hash::Hash;
+use crate::obj_generator::Architecture::X64;
 
-const MOV_IMMEDIATE_32_BIT_TO_REG_MEM: u8 = 0xC7;
-const MOV_REG_REG_32_BIT : u8 = 0x89;
+const INTEGER_SIZE: usize = 4;
+
+
+
+const MOV_IMMEDIATE_32_BIT_TO_REG_BASE: u8 = 0xB8; // register encoding will be binary OR'ed into opcode
+const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
+const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
+const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 
 const ADD_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const ADD_WITH_32_BIT_CONSTANT : u8 = 0x81;
-const ADD_REG_FROM_REG_MEM : u8 = 0x01;
+const ADD_REG_FROM_RM: u8 = 0x01;
 
 const SUB_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const SUB_WITH_32_BIT_CONSTANT : u8 = 0x81;
-const SUB_REG_FROM_REG_MEM : u8 = 0x29;
+const SUB_REG_FROM_RM: u8 = 0x29;
 
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
@@ -28,7 +38,7 @@ const SIGNED_MUL_WITH_64_BIT_REGISTERS : u16 = 0x0FAF;
 
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
-const CMP_REG_WITH_REGMEM : u8 = 0x3B;
+const CMP_REG_WITH_RM: u8 = 0x3B;
 
 const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 
@@ -75,6 +85,61 @@ const MOD_REGISTER_DIRECT_ADDRESSING : u8 = 0xC0;
 // flags for instruction emit
 const FLAG_64_BIT_OPERANDS : u32 = 0x01;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum AddressingMode {
+    IndirectAddressingNoDisplacement,
+    IndirectAddressingOnlyDisplacement,
+    IndirectAddressingOneByteDisplacement,
+    IndirectAddressingFourByteDisplacement,
+    DirectRegisterAddressing,
+}
+
+impl AddressingMode {
+    fn get_addressing_encoding(&self) -> u8 {
+        match self {
+            AddressingMode::IndirectAddressingNoDisplacement => 0b0000_0100,
+            AddressingMode::IndirectAddressingOnlyDisplacement => 0b0000_0101,
+            AddressingMode::IndirectAddressingOneByteDisplacement => 0b0100_0000,
+            AddressingMode::IndirectAddressingFourByteDisplacement => 0b1000_0000,
+            AddressingMode::DirectRegisterAddressing => 0b1100_0000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum RegField {
+    OpcodeExtension(u8),
+    Register(X64Register),
+    Unused,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum RmField {
+    Register(X64Register),
+    Unused,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ModRM {
+    addressing_mode: AddressingMode,
+    reg_field: RegField,
+    rm_field: RmField,
+}
+
+// scale, index, base, displacement
+#[derive(Debug, Clone, Copy)]
+struct Sib {
+    scale: Option<u8>,
+    index: Option<X64Register>, // RSP-reg encoding used to denote this field is unused. RSP cannot be used as index reg as a result
+    base: Option<X64Register>,
+    displacement: Option<Displacement>
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Displacement {
+    FourByte(u32),
+    OneByte(u8)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum X64Register {
@@ -97,19 +162,6 @@ pub enum X64Register {
     R15,
     // 32 bit regs
     EAX,
-
-}
-
-enum Mode {
-    Register, // treat r/m field as a second register
-}
-
-// the reg bits in MODR/M section may either contain opcode extension
-// or a operand register. Encode this in enum so these two different
-// values won't be confused
-enum ModReg {
-    Register(u32),
-    OpCode(u8),
 }
 
 enum SizedOpCode {
@@ -135,11 +187,9 @@ impl From<u16> for SizedOpCode {
     }
 }
 
-
-
 impl X64Register {
     fn encoding(&self) -> u8 {
-        match *self {
+        match self {
             X64Register::RAX | X64Register::R8 | X64Register::EAX => 0x00,
             X64Register::RCX | X64Register::R9 => 0x01,
             X64Register::RDX | X64Register::R10 => 0x02,
@@ -152,7 +202,7 @@ impl X64Register {
     }
 
     fn is_extended_reg(&self) -> bool {
-       match *self {
+       match self {
             X64Register::R8 |
             X64Register::R9 |
             X64Register::R10 |
@@ -164,546 +214,744 @@ impl X64Register {
             _ => false
         }
     }
+
+    fn is_64_bit_register(&self) -> bool {
+       self.get_register_size() == 8
+    }
+
+    fn get_register_size(&self) -> u8 {
+        match self {
+            X64Register::RAX |
+            X64Register::RCX |
+            X64Register::RDX |
+            X64Register::RBX |
+            X64Register::RSP |
+            X64Register::RBP |
+            X64Register::RSI |
+            X64Register::RDI |
+            X64Register::R8 |
+            X64Register::R9 |
+            X64Register::R10 |
+            X64Register::R11 |
+            X64Register::R12 |
+            X64Register::R13 |
+            X64Register::R14 |
+            X64Register::R15 => 8,
+
+            X64Register::EAX => 4,
+        }
+    }
 }
 
-pub struct X64CodeGen {
-    bytecode_functions: Vec<byte_generator::Function>,
-    asm_code: Vec<u8>,
-    label_pos: HashMap<u32, usize>,
-    jumps_requiring_updates: Vec<JumpPatch>,
-    functions: Vec<code_generator::Function>,
-    reg_map: HashMap<u32, X64Register>,
-    used_registers: HashSet<X64Register>,
+
+
+pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<code_generator::Function>, Vec<u8>) {
+    let function_asm: Vec<(String, Vec<u8>)> = functions.par_iter()
+        .map(|(function, stack_size)| generate_code_for_function(function, *stack_size))
+        .collect();
+
+    let mut codegen_functions = vec![];
+    let mut combined_asm = vec![];
+
+    for (name, mut asm) in function_asm {
+        codegen_functions.push(code_generator::Function{
+           name: name,
+           start: combined_asm.len(),
+           length: asm.len(),
+        });
+
+        combined_asm.append(&mut asm);
+    }
+
+
+    (codegen_functions, combined_asm)
 }
 
-impl X64CodeGen {
+fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (String, Vec<u8>) {
 
-    pub fn new(bytecode_functions: Vec<byte_generator::Function>) -> X64CodeGen {
-        let mut map = HashMap::new();
-        // RSP, RBP not used for general register allocations
-        map.insert(0, X64Register::RCX);
-        map.insert(1, X64Register::RDX);
-        map.insert(2, X64Register::RBX);
-        map.insert(3, X64Register::RSI);
-        map.insert(4, X64Register::RDI);
-        map.insert(5, X64Register::R8);
-        map.insert(6, X64Register::R9);
-        map.insert(7, X64Register::R10);
-        map.insert(8, X64Register::R11);
-        map.insert(9, X64Register::R12);
-        map.insert(10, X64Register::R13);
-        map.insert(11, X64Register::R14);
-        map.insert(12, X64Register::R15);
-        map.insert(ACCUMULATOR, X64Register::RAX);
 
-        X64CodeGen {
-            bytecode_functions: bytecode_functions,
-            asm_code: vec![],
-            label_pos: HashMap::new(),
-            jumps_requiring_updates: vec![],
-            functions: vec![],
-            reg_map: map,
-            used_registers: HashSet::new(),
+    let mut asm = vec![];
+    emit_function_prologue(&mut asm, stack_size);
+
+    for b in function.code.iter() {
+        match b {
+            //ByteCode::Nop => self.emit_nop(),
+            ByteCode::Mov(ref operands) => emit_mov(operands, &mut asm),
+            //    ByteCode::Add(ref operands) => self.emit_add(operands),
+            /*   ByteCode::Sub(ref operands) => self.emit_sub(operands),
+            ByteCode::Mul(ref operands) => self.emit_mul(operands),
+            ByteCode::Div(ref operands) => self.emit_div(operands),*/
+            ByteCode::Ret(ref value) => emit_ret(value, stack_size, &mut asm),
+            /*ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
+            ByteCode::Compare(ref operands) => self.emit_comparison(operands),
+            ByteCode::Label(id) => self.handle_label(id),
+            ByteCode::Jump(id) => self.emit_unconditional_jump(id),
+            ByteCode::JumpConditional(id, ref jmp_type) =>
+                self.emit_conditional_jump(id, jmp_type),*/
+
+            _ => unimplemented!("{:#?}", b),
         }
     }
 
-    pub fn generate_code(&mut self) {
-        unimplemented!();
-      /*  // TODO: Handle borrow checker errors more elegantly
-        let functions = self.bytecode_functions.clone();
-        for f in functions.iter() {
 
-            let mut func = code_generator::Function {
-                name: Rc::new(f.name.clone()), // FIXME make string table thread safe
-                start: self.asm_code.len(),
-                length: 0,
-            };
+    (function.name.clone(), asm)
+}
 
-            self.emit_function_prologue();
-            println!("{}\n", f.name);
-
-            for b in f.code.iter() {
-                println!(    "{:?}", b);
-                match *b {
-                    ByteCode::Nop => self.emit_nop(),
-                    ByteCode::Mov(ref operands) => self.emit_mov(operands),
-                    ByteCode::Add(ref operands) => self.emit_add(operands),
-                    ByteCode::Sub(ref operands) => self.emit_sub(operands),
-                    ByteCode::Mul(ref operands) => self.emit_mul(operands),
-                    ByteCode::Div(ref operands) => self.emit_div(operands),
-                    ByteCode::Ret(_) => unimplemented!(),//self.emit_ret(),
-                    ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
-                    ByteCode::Compare(ref operands) => self.emit_comparison(operands),
-                    ByteCode::Label(id) => self.handle_label(id),
-                    ByteCode::Jump(id) => self.emit_unconditional_jump(id),
-                    ByteCode::JumpConditional(id, ref jmp_type) =>
-                        self.emit_conditional_jump(id, jmp_type),
-                 }
-            }
-            self.update_jumps();
-            func.length = self.asm_code.len() - func.start;
-            self.functions.push(func);
-        }*/
-    }
-
-    // Comment out pending rewrite/fixes, as ByteCode representation is undergoing large changes
+// Comment out pending rewrite/fixes, as ByteCode representation is undergoing large changes
 /*
-    fn emit_nop(&mut self) {
-        self.asm_code.push(NOP);
-    }
+fn emit_nop(&mut self) {
+    self.asm_code.push(NOP);
+}
 
-    fn emit_sign_extension(&mut self, operands: &UnaryOperation) {
-        if let Value::VirtualRegister(src_reg) = operands.src {
-            if let Value::VirtualRegister(dest_reg) = operands.dest {
-                if src_reg == ACCUMULATOR || dest_reg == 1 /* evil hardcoded number... */ {
-                    self.asm_code.push(0x48);
-                    self.asm_code.push(SIGN_EXTENSION);
-                    return;
-                }
+fn emit_sign_extension(&mut self, operands: &UnaryOperation) {
+    if let Value::VirtualRegister(src_reg) = operands.src {
+        if let Value::VirtualRegister(dest_reg) = operands.dest {
+            if src_reg == ACCUMULATOR || dest_reg == 1 /* evil hardcoded number... */ {
+                self.asm_code.push(0x48);
+                self.asm_code.push(SIGN_EXTENSION);
+                return;
             }
         }
+    }
 
+    unimplemented!();
+}
+*/
+fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+        UnaryOperation{
+            dest: StackOffset {offset, size} ,
+            src: IntegerConstant(value)} => {
+            emit_mov_integer_to_stack_slot(*offset, *value, asm);
+        },
+        _ => ice!("Invalid MOV operation:\n{:#?}", operand),
+    }
+}
+/*
+    MOV DWORD PTR [RBP - offset], imm32
+
+    Rex prefix: If 64 bit regs used
+    opcode: 1 byte,
+    modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
+    sib: sib byte not used, sib structure used to encode displacement
+    immediate: the 32 bit immediate
+*/
+
+fn emit_mov_integer_to_stack_slot(offset: u32, value: i32, asm: &mut Vec<u8>) {
+
+    if value > 255 { // needs 4byte encoding in this case. TODO implement
         unimplemented!();
     }
 
-    fn emit_mov(&mut self, operand: &UnaryOperation) {
-        match operand.src {
-            Value::IntegerConstant(val) => {
-                let bytes_in_u32 = 4;
-                self.emit_instruction(
-                    SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_REG_MEM),
-                    Some((
-                        Mode::Register,
-                        ModReg::OpCode(0),
-                        &operand.dest)),
-                    Some((val, bytes_in_u32)),
-                    FLAG_64_BIT_OPERANDS);
-            },
-            Value::VirtualRegister(reg) => {
+    // FIXME: If offset == 0, can drop displacement
 
-                self.emit_instruction(
-                    SizedOpCode::from(MOV_REG_REG_32_BIT),
-                    Some((
-                        Mode::Register,
-                        ModReg::Register(reg),
-                        &operand.dest)),
-                    None,
-            FLAG_64_BIT_OPERANDS);
-            },
-            Value::ComparisonResult(ref cmp_type) => {
-                self.emit_set_byte(cmp_type, operand);
-            },
-            _ => unimplemented!(),
-        }
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::IndirectAddressingOneByteDisplacement,
+        reg_field: RegField::OpcodeExtension(0),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let sib = Sib {
+        base: None,
+        index: None,
+        scale: None,
+        // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
+        displacement: Some(Displacement::OneByte(255u8.wrapping_sub(offset as u8).wrapping_add(1))),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), Some(sib));
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_RM),
+        Some(modrm),
+        Some(sib),
+        Some((value, INTEGER_SIZE)),
+    );
+}
+
+/* MOV r32, imm32
+    Rex prefix: No
+    opcode: 1 byte, dst reg encoded in low bits
+    modrm: no
+    sib: no
+    immediate: the 32 bit immediate
+*/
+fn emit_mov_integer_to_register(value: i32, register: X64Register, asm: &mut Vec<u8>)  {
+    // register encoded in the opcode itself
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_REG_BASE | register.encoding()),
+        None,
+        None,
+        Some((value, INTEGER_SIZE)),
+    )
+
+}
+/*
+    MOV r32, r32
+    Rex prefix: If regs R8-R15 are used
+    opcode: 1 byte
+    modrm: direct register addressing, src in reg field, dest in rm fielddddddd
+    sib: no
+    immediate: no
+
+*/
+fn emit_mov_reg_to_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::Register(src),
+        rm_field: RmField::Register(dest),
+    };
+
+    let rex = create_rex_prefix(src.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_REG_TO_RM_32_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
+/*
+    MOV reg, <ptr_size> [RBP - offset]
+
+    Rex prefix: If 64 bit regs used
+    opcode: 1 byte,
+    modrm: indirect addressing with one byte displacement, rbp in rm field, dest reg in reg field
+    sib: unused, sib struct used to pass displacement
+    immediate: none
+*/
+fn emit_mov_from_stack_to_reg(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+
+    if size != 4 {
+        unimplemented!();
     }
 
-    fn emit_set_byte(
-        &mut self,
-        cmp_type: &ComparisonType,
-        operand: &UnaryOperation) {
-
-        let opcode = match *cmp_type {
-            ComparisonType::Less => SET_BYTE_IF_LESS,
-            ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
-            ComparisonType::Equals => SET_BYTE_IF_EQ,
-            ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
-            ComparisonType::Greater => SET_BYTE_IF_GREATER,
-        };
-
-        self.emit_instruction(
-            SizedOpCode::from(opcode),
-            Some((
-                Mode::Register,
-                ModReg::OpCode(0),
-                &operand.dest)),
-            None,
-            0);
-
+    if offset > 255 {
+        unimplemented!();
     }
 
-    fn emit_add(&mut self, operand: &BinaryOperation) {
-        let dest = if let Value::VirtualRegister(reg) = operand.dest {
-            reg
-        } else {
-            ice!("Non-register destination for addition: {:?}", operand);
-        };
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::IndirectAddressingOneByteDisplacement,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
 
-        match operand.src1 {
-            Value::IntegerConstant(_) => {
-                ice!("Immediate operand as first argument to add: {:?}", operand);
-            },
-            _ => {},
-        }
+    let sib = Sib {
+        base: None,
+        index: None,
+        scale: None,
+        // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
+        displacement: Some(Displacement::OneByte(255u8.wrapping_sub(offset as u8).wrapping_add(1))),
+    };
 
-        match operand.src2 {
-            Value::IntegerConstant(val) => {
-                self.emit_const_integer_add(dest, val);
-                return;
-            },
-            _ => {},
-        }
+    let rex = create_rex_prefix(false, Some(modrm), Some(sib));
 
-        // reg - reg sub or memory addresses
-        let mut wrxb_bits = 0u8;
-        let mut src_reg_bits = 0u8;
-        let mut dest_reg_bits = 0u8;
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_RM_TO_REG_32_BIT),
+        Some(modrm),
+        Some(sib),
+        None,
+    );
+}
 
-        if operand.dest != operand.src1 {
-            ice!("src1 and dest arguments must be identical for sub instruction, was: {:?}",
-                operand);
-        }
+/*
+fn emit_set_byte(
+    &mut self,
+    cmp_type: &ComparisonType,
+    operand: &UnaryOperation) {
 
-        match operand.dest {
-            Value::VirtualRegister(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
-                    wrxb_bits |= REX_EXT_RM_BIT;
-                }
-                dest_reg_bits |= self.reg_map[&reg].encoding();
-            },
-            _ => unimplemented!(),
-        }
+    let opcode = match *cmp_type {
+        ComparisonType::Less => SET_BYTE_IF_LESS,
+        ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
+        ComparisonType::Equals => SET_BYTE_IF_EQ,
+        ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
+        ComparisonType::Greater => SET_BYTE_IF_GREATER,
+    };
 
-        match operand.src2 {
-            Value::VirtualRegister(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
-                    wrxb_bits |= REX_EXT_REG_BIT;
-                }
-                src_reg_bits |= self.reg_map[&reg].encoding() << 3;
-            },
-            _ => unimplemented!(), // operand from memory address needs to be handled
-        }
-
-        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
-        println!("WRXB byte: 0{:b}", prefix);
-        self.asm_code.push(prefix);
-        self.asm_code.push(ADD_REG_FROM_REG_MEM);
-        self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
-        println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
-    }
-
-    // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_add(&mut self, destination_reg: u32, constant: i32) {
-        let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
-            (1, ADD_WITH_8_BIT_CONSTANT)
-        } else {
-            (4, ADD_WITH_32_BIT_CONSTANT)
-        };
-
-        self.emit_instruction(
-            SizedOpCode::from(opcode),
-            Some((Mode::Register,
+    self.emit_instruction(
+        SizedOpCode::from(opcode),
+        Some((
+            Mode::Register,
             ModReg::OpCode(0),
-            &Value::VirtualRegister(destination_reg))),
-            Some((constant, const_bytes)),
-            FLAG_64_BIT_OPERANDS);
+            &operand.dest)),
+        None,
+        0);
+
+}
+
+fn emit_add(&mut self, operand: &BinaryOperation) {
+    let dest = if let Value::VirtualRegister(reg) = operand.dest {
+        reg
+    } else {
+        ice!("Non-register destination for addition: {:?}", operand);
+    };
+
+    match operand.src1 {
+        Value::IntegerConstant(_) => {
+            ice!("Immediate operand as first argument to add: {:?}", operand);
+        },
+        _ => {},
     }
 
-    fn emit_sub(&mut self, operand: &BinaryOperation) {
-        let dest = if let Value::VirtualRegister(reg) = operand.dest {
-            reg
-        } else {
-            panic!("Internal compiler error: Non-register destination for subtraction: {:?}", operand);
-        };
-
-        match operand.src1 {
-            Value::IntegerConstant(_) => {
-                panic!("Internal compiler error: Immediate operand as first argument to sub: {:?}", operand);
-            },
-            _ => {},
-        }
-
-        match operand.src2 {
-            Value::IntegerConstant(val) => {
-            // not tested so let's not invoke it yet
-            self.emit_const_integer_sub(dest, val); return; },
-            _ => {},
-        }
-
-        // reg - reg sub or memory addresses
-        let mut wrxb_bits = 0u8;
-        let mut src_reg_bits = 0u8;
-        let mut dest_reg_bits = 0u8;
-
-        if operand.dest != operand.src1 {
-            panic!("Internal compiler error: src1 and dest arguments must be identical for sub instruction, was: {:?}",
-                operand);
-        }
-
-        match operand.dest {
-            Value::VirtualRegister(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
-                    wrxb_bits |= REX_EXT_RM_BIT;
-                }
-                dest_reg_bits |= self.reg_map[&reg].encoding();
-            },
-            _ => unimplemented!(),
-        }
-
-        match operand.src2 {
-            Value::VirtualRegister(reg) => {
-                if self.reg_map[&reg].is_extended_reg() {
-                    wrxb_bits |= REX_EXT_REG_BIT;
-                }
-                src_reg_bits |= self.reg_map[&reg].encoding() << 3;
-            },
-            _ => unimplemented!(), // operand from memory address needs to be handled
-        }
-
-        let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
-        println!("WRXB byte: 0{:b}", prefix);
-        self.asm_code.push(prefix);
-        self.asm_code.push(SUB_REG_FROM_REG_MEM);
-        self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
-        println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
+    match operand.src2 {
+        Value::IntegerConstant(val) => {
+            self.emit_const_integer_add(dest, val);
+            return;
+        },
+        _ => {},
     }
 
-    // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_sub(&mut self, destination_reg: u32, constant: i32) {
-        let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
-            (1, SUB_WITH_8_BIT_CONSTANT)
-        } else {
-            (4, SUB_WITH_32_BIT_CONSTANT)
-        };
-        self.emit_instruction(
-            SizedOpCode::from(opcode),
-            Some((Mode::Register,
-            ModReg::OpCode(5),
-            &Value::VirtualRegister(destination_reg))),
-            Some((constant, const_bytes)),
-            FLAG_64_BIT_OPERANDS);
+    // reg - reg sub or memory addresses
+    let mut wrxb_bits = 0u8;
+    let mut src_reg_bits = 0u8;
+    let mut dest_reg_bits = 0u8;
+
+    if operand.dest != operand.src1 {
+        ice!("src1 and dest arguments must be identical for sub instruction, was: {:?}",
+            operand);
     }
 
-    fn emit_mul(&mut self, operand: &BinaryOperation) {
-
-        // sanity check - should always have register destination
-        let dest_reg_id = match operand.dest {
-            Value::VirtualRegister(dest) => dest,
-            _ => ice!("Non-register destination for multiplication: {:?}", operand),
-        };
-
-        match operand.src1 {
-            Value::IntegerConstant(val) => {
-                self.emit_const_integer_mult(
-                    dest_reg_id,
-                    &operand.src2,
-                    val);
-                return;
-             },
-            _ => {},
-        }
-
-        match operand.src2 {
-            Value::IntegerConstant(val) => {
-                self.emit_const_integer_mult(
-                    dest_reg_id,
-                    &operand.src1,
-                    val);
-                return; },
-            _ => {},
-        }
-
-
-        match (&operand.dest, &operand.src1, &operand.src2) {
-            (
-                &Value::VirtualRegister(dest),
-                &Value::VirtualRegister(src1),
-                &Value::VirtualRegister(src2)
-            ) => {
-                if src1 != dest {
-                    ice!(
-                        "Invalid mul opcode - src1 and dest do not match: {:?}",
-                        operand);
-                }
-                self.emit_instruction(
-                    SizedOpCode::from(SIGNED_MUL_WITH_64_BIT_REGISTERS),
-                    Some(
-                        (Mode::Register,
-                        ModReg::Register(dest),
-                        &Value::VirtualRegister(src2))),
-                    None,
-                    FLAG_64_BIT_OPERANDS);
-                return;
-            } ,
-            _ => {},
-        }
-
-        unimplemented!();
-
-    }
-
-    // emits code for reg <- reg/mem address * 32 bit integer constant
-    fn emit_const_integer_mult(&mut self, destination_reg: u32, src_val: &Value, constant: i32) {
-        let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
-            (1, SIGNED_MUL_WITH_8_BIT_CONSTANT)
-        } else {
-            (4, SIGNED_MUL_WITH_32_BIT_CONSTANT)
-        };
-
-        self.emit_instruction(
-            SizedOpCode::from(opcode),
-            Some((Mode::Register,
-            ModReg::Register(destination_reg),
-            src_val)),
-            Some((constant, const_bytes)),
-            FLAG_64_BIT_OPERANDS);
-    }
-
-    fn emit_comparison(&mut self, operands: &ComparisonOperation)  {
-        match (&operands.src1, &operands.src2) {
-            (&Value::VirtualRegister(ACCUMULATOR), &Value::IntegerConstant(i)) => {
-                self.emit_instruction(
-                    SizedOpCode::from(CMP_RAX_WITH_CONSTANT),
-                    None,
-                    Some((i, 4)),
-                    FLAG_64_BIT_OPERANDS);
-            },
-            (&Value::VirtualRegister(reg), &Value::IntegerConstant(i)) => {
-                self.emit_instruction(
-                    SizedOpCode::from(CMP_REG_WITH_CONSTANT),
-                    Some((
-                        Mode::Register,
-                        ModReg::OpCode(7),
-                        &Value::VirtualRegister(reg),
-                    )),
-                    Some((i, 4)),
-                    FLAG_64_BIT_OPERANDS);
-            },
-            (&Value::VirtualRegister(reg1), &Value::VirtualRegister(reg2)) => {
-                self.emit_instruction(
-                    SizedOpCode::from(CMP_REG_WITH_REGMEM),
-                    Some((
-                        Mode::Register,
-                        ModReg::Register(reg1),
-                        &Value::VirtualRegister(reg2),
-                    )),
-                    None,
-                    FLAG_64_BIT_OPERANDS);
-            }
-            _ => unimplemented!(),
-        }
-    }
-
-    fn emit_unconditional_jump(&mut self, id: u32) {
-
-        self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
-        self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
-        // place for the
-        for _ in 0..4 {
-            self.asm_code.push(0x00);
-        }
-
-    }
-
-    fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
-        let jmp_code = match *jmp_type {
-            ComparisonType::Less => JUMP_IF_LESS,
-            ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
-            ComparisonType::Equals => JUMP_IF_EQ,
-            ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
-            ComparisonType::Greater => JUMP_IF_GREATER,
-        };
-
-        self.jumps_requiring_updates.push(JumpPatch::ConditionalShortJump(id, self.asm_code.len()));
-        self.asm_code.push(jmp_code);
-        self.asm_code.push(0x00); // target placeholder
-
-/*        if self.label_pos.contains_key(&id) {
-            let target = self.label_pos[&id];
-            let op_size = 2i32;
-            let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
-            if offset < -128 || offset > 127 {
-                panic!("Not implemented for jumps larger than a byte");
-            }
-
-            self.asm_code.push(jmp_code);
-            self.asm_code.push((offset as i8) as u8)
-        } else {
-            unimplemented!();
-        }*/
-    }
-
-    fn emit_instruction(
-        &mut self,
-        opcode: SizedOpCode,
-        modrm: Option<(Mode, ModReg, &Value)>,
-        constant: Option<(i32, usize)>,
-        flags: u32) {
-
-        let mut wrxb_bits = 0u8;
-        let regrm_field : Option<u8> = if let Some((mode, mod_reg, mod_rm)) = modrm {
-            let mut field = 0u8;
-            field |= match mode {
-                Mode::Register => MOD_REGISTER_DIRECT_ADDRESSING,
-            };
-
-            match mod_reg {
-                ModReg::Register(reg_id) => {
-                    if self.reg_map[&reg_id].is_extended_reg() {
-                        wrxb_bits |= REX_EXT_REG_BIT;
-                    }
-                    field |= self.reg_map[&reg_id].encoding() << 3;
-                }
-                ModReg::OpCode(opcode) => {
-                    field |= opcode << 3;
-                }
-
-            }
-            match *mod_rm {
-                Value::VirtualRegister(reg_id) => {
-                    if self.reg_map[&reg_id].is_extended_reg() {
-                        wrxb_bits |= REX_EXT_RM_BIT;
-                    }
-                    field |= self.reg_map[&reg_id].encoding();
-                },
-                _ => unimplemented!()
-            }
-            Some(field)
-        } else {
-            None
-        };
-
-        if flags & FLAG_64_BIT_OPERANDS != 0 {
-            wrxb_bits |= REX_64_BIT_OPERAND;
-        }
-            let prefix = self.create_rex_prefix(wrxb_bits);
-            self.asm_code.push(prefix);
-
-        match opcode {
-            SizedOpCode::OpCode8(val) => self.asm_code.push(val),
-            SizedOpCode::OpCode16(val) => {
-                let mut buffer = [0; 2];
-                LittleEndian::write_u16(&mut buffer, val);
-                self.asm_code.push(buffer[1]);
-                self.asm_code.push(buffer[0]);
-
-            }
-        }
-
-
-        if let Some(field) = regrm_field {
-            self.asm_code.push(field);
-        }
-
-        if let Some((constant_val, constant_size)) = constant {
-            let mut buffer = [0; 4];
-            LittleEndian::write_i32(&mut buffer, constant_val);
-
-            for i in 0..constant_size {
-                self.asm_code.push(buffer[i]);
-            }
-        }
-    }
-
-    fn emit_div(&mut self, operand: &BinaryOperation) {
-
-        let mut wrxb_bits = REX_64_BIT_OPERAND;
-        let mut src_reg_bits = 0;
-
-        if let Value::VirtualRegister(reg) = operand.src2 {
-            src_reg_bits |= self.reg_map[&reg].encoding();
+    match operand.dest {
+        Value::VirtualRegister(reg) => {
             if self.reg_map[&reg].is_extended_reg() {
                 wrxb_bits |= REX_EXT_RM_BIT;
             }
+            dest_reg_bits |= self.reg_map[&reg].encoding();
+        },
+        _ => unimplemented!(),
+    }
+
+    match operand.src2 {
+        Value::VirtualRegister(reg) => {
+            if self.reg_map[&reg].is_extended_reg() {
+                wrxb_bits |= REX_EXT_REG_BIT;
+            }
+            src_reg_bits |= self.reg_map[&reg].encoding() << 3;
+        },
+        _ => unimplemented!(), // operand from memory address needs to be handled
+    }
+
+    let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
+    println!("WRXB byte: 0{:b}", prefix);
+    self.asm_code.push(prefix);
+    self.asm_code.push(ADD_REG_FROM_REG_MEM);
+    self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
+    println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
+}
+*/
+
+
+/*
+    ADD reg32, imm
+
+    REX: used if reg is r8-r15, otherwise not used
+    opcode: 8 bit opcode
+    modrm: direct addressing, reg field for opcode extension, reg in rm field
+    sib: not used
+    immediate: 32 bit immediate
+*/
+fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+
+    let (operand_size, opcode) = if immediate <= 127 && immediate >= -128 {
+        (1, ADD_WITH_8_BIT_CONSTANT)
+    } else {
+        (4, ADD_WITH_32_BIT_CONSTANT)
+    };
+
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(0),
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(modrm.clone()), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        Some((immediate, operand_size))
+    );
+}
+/*
+fn emit_sub(&mut self, operand: &BinaryOperation) {
+    let dest = if let Value::VirtualRegister(reg) = operand.dest {
+        reg
+    } else {
+        panic!("Internal compiler error: Non-register destination for subtraction: {:?}", operand);
+    };
+
+    match operand.src1 {
+        Value::IntegerConstant(_) => {
+            panic!("Internal compiler error: Immediate operand as first argument to sub: {:?}", operand);
+        },
+        _ => {},
+    }
+
+    match operand.src2 {
+        Value::IntegerConstant(val) => {
+        // not tested so let's not invoke it yet
+        self.emit_const_integer_sub(dest, val); return; },
+        _ => {},
+    }
+
+    // reg - reg sub or memory addresses
+    let mut wrxb_bits = 0u8;
+    let mut src_reg_bits = 0u8;
+    let mut dest_reg_bits = 0u8;
+
+    if operand.dest != operand.src1 {
+        panic!("Internal compiler error: src1 and dest arguments must be identical for sub instruction, was: {:?}",
+            operand);
+    }
+
+    match operand.dest {
+        Value::VirtualRegister(reg) => {
+            if self.reg_map[&reg].is_extended_reg() {
+                wrxb_bits |= REX_EXT_RM_BIT;
+            }
+            dest_reg_bits |= self.reg_map[&reg].encoding();
+        },
+        _ => unimplemented!(),
+    }
+
+    match operand.src2 {
+        Value::VirtualRegister(reg) => {
+            if self.reg_map[&reg].is_extended_reg() {
+                wrxb_bits |= REX_EXT_REG_BIT;
+            }
+            src_reg_bits |= self.reg_map[&reg].encoding() << 3;
+        },
+        _ => unimplemented!(), // operand from memory address needs to be handled
+    }
+
+    let prefix = self.create_rex_prefix(REX_64_BIT_OPERAND | wrxb_bits);
+    println!("WRXB byte: 0{:b}", prefix);
+    self.asm_code.push(prefix);
+    self.asm_code.push(SUB_REG_FROM_REG_MEM);
+    self.asm_code.push(MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
+    println!("ModRM byte: {:b}", MOD_REGISTER_DIRECT_ADDRESSING | src_reg_bits | dest_reg_bits);
+}
+
+*/
+
+/*
+
+
+*/
+
+/*
+    SUB reg32, imm
+
+    REX: used if reg is r8-r15, otherwise not used
+    opcode: 8 bit opcode
+    modrm: direct addressing, reg field for opcode extension, reg in rm field
+    sib: not used
+    immediate: 32 bit immediate
+*/
+fn emit_sub_immediate_from_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+
+    let (operand_size, opcode) = if immediate <= 127 && immediate >= -128 {
+        (1, SUB_WITH_8_BIT_CONSTANT)
+    } else {
+        (4, SUB_WITH_32_BIT_CONSTANT)
+    };
+
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(5),
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(modrm.clone()), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        Some((immediate, operand_size))
+    );
+}
+
+/*
+fn emit_mul(&mut self, operand: &BinaryOperation) {
+
+    // sanity check - should always have register destination
+    let dest_reg_id = match operand.dest {
+        Value::VirtualRegister(dest) => dest,
+        _ => ice!("Non-register destination for multiplication: {:?}", operand),
+    };
+
+    match operand.src1 {
+        Value::IntegerConstant(val) => {
+            self.emit_const_integer_mult(
+                dest_reg_id,
+                &operand.src2,
+                val);
+            return;
+         },
+        _ => {},
+    }
+
+    match operand.src2 {
+        Value::IntegerConstant(val) => {
+            self.emit_const_integer_mult(
+                dest_reg_id,
+                &operand.src1,
+                val);
+            return; },
+        _ => {},
+    }
+
+
+    match (&operand.dest, &operand.src1, &operand.src2) {
+        (
+            &Value::VirtualRegister(dest),
+            &Value::VirtualRegister(src1),
+            &Value::VirtualRegister(src2)
+        ) => {
+            if src1 != dest {
+                ice!(
+                    "Invalid mul opcode - src1 and dest do not match: {:?}",
+                    operand);
+            }
+            self.emit_instruction(
+                SizedOpCode::from(SIGNED_MUL_WITH_64_BIT_REGISTERS),
+                Some(
+                    (Mode::Register,
+                    ModReg::Register(dest),
+                    &Value::VirtualRegister(src2))),
+                None,
+                FLAG_64_BIT_OPERANDS);
+            return;
+        } ,
+        _ => {},
+    }
+
+    unimplemented!();
+
+}
+
+// emits code for reg <- reg/mem address * 32 bit integer constant
+fn emit_const_integer_mult(&mut self, destination_reg: u32, src_val: &Value, constant: i32) {
+    let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
+        (1, SIGNED_MUL_WITH_8_BIT_CONSTANT)
+    } else {
+        (4, SIGNED_MUL_WITH_32_BIT_CONSTANT)
+    };
+
+    self.emit_instruction(
+        SizedOpCode::from(opcode),
+        Some((Mode::Register,
+        ModReg::Register(destination_reg),
+        src_val)),
+        Some((constant, const_bytes)),
+        FLAG_64_BIT_OPERANDS);
+}
+
+fn emit_comparison(&mut self, operands: &ComparisonOperation)  {
+    match (&operands.src1, &operands.src2) {
+        (&Value::VirtualRegister(ACCUMULATOR), &Value::IntegerConstant(i)) => {
+            self.emit_instruction(
+                SizedOpCode::from(CMP_RAX_WITH_CONSTANT),
+                None,
+                Some((i, 4)),
+                FLAG_64_BIT_OPERANDS);
+        },
+        (&Value::VirtualRegister(reg), &Value::IntegerConstant(i)) => {
+            self.emit_instruction(
+                SizedOpCode::from(CMP_REG_WITH_CONSTANT),
+                Some((
+                    Mode::Register,
+                    ModReg::OpCode(7),
+                    &Value::VirtualRegister(reg),
+                )),
+                Some((i, 4)),
+                FLAG_64_BIT_OPERANDS);
+        },
+        (&Value::VirtualRegister(reg1), &Value::VirtualRegister(reg2)) => {
+            self.emit_instruction(
+                SizedOpCode::from(CMP_REG_WITH_REGMEM),
+                Some((
+                    Mode::Register,
+                    ModReg::Register(reg1),
+                    &Value::VirtualRegister(reg2),
+                )),
+                None,
+                FLAG_64_BIT_OPERANDS);
+        }
+        _ => unimplemented!(),
+    }
+}
+
+fn emit_unconditional_jump(&mut self, id: u32) {
+
+    self.jumps_requiring_updates.push(JumpPatch::Jump(id, self.asm_code.len()));
+    self.asm_code.push(JUMP_32BIT_NEAR_RELATIVE);
+    // place for the
+    for _ in 0..4 {
+        self.asm_code.push(0x00);
+    }
+
+}
+
+fn emit_conditional_jump(&mut self, id: u32, jmp_type: &ComparisonType) {
+    let jmp_code = match *jmp_type {
+        ComparisonType::Less => JUMP_IF_LESS,
+        ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
+        ComparisonType::Equals => JUMP_IF_EQ,
+        ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
+        ComparisonType::Greater => JUMP_IF_GREATER,
+    };
+
+    self.jumps_requiring_updates.push(JumpPatch::ConditionalShortJump(id, self.asm_code.len()));
+    self.asm_code.push(jmp_code);
+    self.asm_code.push(0x00); // target placeholder
+
+/*        if self.label_pos.contains_key(&id) {
+        let target = self.label_pos[&id];
+        let op_size = 2i32;
+        let offset : i32 = target as i32 - self.asm_code.len() as i32 - op_size;
+        if offset < -128 || offset > 127 {
+            panic!("Not implemented for jumps larger than a byte");
+        }
+
+        self.asm_code.push(jmp_code);
+        self.asm_code.push((offset as i8) as u8)
+    } else {
+        unimplemented!();
+    }*/
+}
+*/
+fn emit_instruction(
+    asm: &mut Vec<u8>,
+    rex: Option<u8>,
+    opcode: SizedOpCode,
+    modrm: Option<ModRM>,
+    sib: Option<Sib>,
+    immediate: Option<(i32, usize)>) {
+
+    if let Some(rex_val) = rex {
+        asm.push(rex_val);
+    }
+
+    match opcode {
+        SizedOpCode::OpCode8(opcode) => {
+            asm.push(opcode)
+        },
+        SizedOpCode::OpCode16(opcode) => {
+            let mut buffer= [0; 2];
+            LittleEndian::write_u16(&mut buffer, opcode);
+            asm.push(buffer[1]);
+            asm.push(buffer[0]);
+        },
+    }
+
+    if let Some(modrm_values) = modrm {
+        let mut modrm_byte =
+            modrm_values
+                .addressing_mode.get_addressing_encoding();
+
+        match modrm_values.reg_field {
+            RegField::Register(ref reg) => {
+                modrm_byte |= reg.encoding() << 3;
+            },
+            RegField::OpcodeExtension(ext) => {
+                modrm_byte |= ext << 3;
+            },
+            RegField::Unused => (),
+        }
+
+        match modrm_values.rm_field {
+            RmField::Register(ref reg ) => {
+                modrm_byte |= reg.encoding();
+            },
+            RmField::Unused => (),
+        }
+
+        asm.push(modrm_byte);
+    }
+
+    if let Some(sib_values) = sib {
+        let mut sib_byte = 0u8;
+
+        let mut missing_fields = 0;
+
+        if let Some(scale) = sib_values.scale {
+            sib_byte |= scale << 6;
+        } else {
+            missing_fields += 1;
+        }
+
+        if let Some(index) = sib_values.index {
+            sib_byte |= index.encoding();
+        } else {
+            missing_fields +=1;
+            sib_byte |= 0b100 << 3; // RSP-encoding used to indicate field is unused
+        }
+
+        if let Some(base) = sib_values.base {
+            sib_byte |= base.encoding();
+        } else {
+            missing_fields +=1;
+        }
+        // if all of scale, index, base were not set, don't emit sib byte
+        if missing_fields < 3 {
+            asm.push(sib_byte);
+        }
+
+        if let Some(disp) = sib_values.displacement {
+            match disp {
+                Displacement::OneByte(val) => {
+                    asm.push(val);
+                },
+                Displacement::FourByte(val) => {
+                    let mut buffer = [0; 4];
+                    LittleEndian::write_u32(&mut buffer, val);
+                    for i in 0..4 {
+                        asm.push(buffer[i]);
+                    }
+                },
+
+            };
+        }
+    }
+
+    if let Some((constant_value, size)) = immediate {
+        let mut buffer = [0; 4];
+        LittleEndian::write_i32(&mut buffer, constant_value);
+        for i in 0..size {
+            asm.push(buffer[i]);
+        }
+    }
+}
+/*
+fn emit_div(&mut self, operand: &BinaryOperation) {
+
+    let mut wrxb_bits = REX_64_BIT_OPERAND;
+    let mut src_reg_bits = 0;
+
+    if let Value::VirtualRegister(reg) = operand.src2 {
+        src_reg_bits |= self.reg_map[&reg].encoding();
+        if self.reg_map[&reg].is_extended_reg() {
+            wrxb_bits |= REX_EXT_RM_BIT;
+        }
         } else {
             unimplemented!();
         }
@@ -715,90 +963,92 @@ impl X64CodeGen {
 
     }
 
-    fn emit_ret(&mut self) {
-        self.emit_function_epilogue();
-        self.asm_code.push(NEAR_RETURN);
+    */
+    fn emit_ret(value: &Value, stack_size: u32, asm: &mut Vec<u8>) {
+
+        match value {
+            IntegerConstant(value) => {
+                emit_mov_integer_to_register(*value, X64Register::EAX, asm)
+            }
+            StackOffset {offset, size} => emit_mov_from_stack_to_reg(X64Register::RAX, *offset, *size, asm),
+            _ =>  ice!("Invalid return value: {:#?}", value),
+        }
+
+        emit_function_epilogue(asm, stack_size);
+        asm.push(NEAR_RETURN);
     }
 
-    fn emit_function_prologue(&mut self) {
-        if self.used_registers.contains(&Register::RBP) {
-            self.push(Register::RBP);
-        }
-
-        if self.used_registers.contains(&Register::RBX) {
-            self.push(Register::RBX);
-        }
-
-        if self.used_registers.contains(&Register::R12) {
-            self.push(Register::R12);
-        }
-
-        if self.used_registers.contains(&Register::R13) {
-            self.push(Register::R13);
-        }
-
-        if self.used_registers.contains(&Register::R14) {
-            self.push(Register::R14);
-        }
-
-        if self.used_registers.contains(&Register::R15) {
-            self.push(Register::R15);
+    fn emit_function_prologue(asm: &mut Vec<u8>, stack_size: u32) {
+        push(X64Register::RBP, asm);
+        emit_mov_reg_to_reg(X64Register::RBP, X64Register::RSP, asm);
+        if stack_size != 0 {
+            emit_sub_immediate_from_register(X64Register::RSP, stack_size as i32, asm);
         }
     }
 
-    fn emit_function_epilogue(&mut self) {
-        if self.used_registers.contains(&Register::R15) {
-            self.pop(Register::R15);
+    fn emit_function_epilogue(asm: &mut Vec<u8>, stack_size: u32) {
+        if stack_size != 0 {
+            emit_add_immediate_to_register(X64Register::RSP, stack_size as i32, asm);
         }
-
-        if self.used_registers.contains(&Register::R14) {
-            self.pop(Register::R14);
-        }
-
-        if self.used_registers.contains(&Register::R13) {
-            self.pop(Register::R13);
-        }
-
-        if self.used_registers.contains(&Register::R12) {
-            self.pop(Register::R12);
-        }
-
-        if self.used_registers.contains(&Register::RBX) {
-            self.pop(Register::RBX);
-        }
-
-        if self.used_registers.contains(&Register::RBP) {
-            self.pop(Register::RBP);
-        }
+        pop(X64Register::RBP, asm);
     }
 
-    fn push(&mut self, register: Register) {
+    fn push(register: X64Register, asm: &mut Vec<u8>) {
         if register.is_extended_reg() {
-            self.asm_code.push(0x41);
+            asm.push(0x41);
         }
-        self.asm_code.push(PUSH + register.encoding());
+        asm.push(PUSH + register.encoding());
     }
 
-    fn pop(&mut self, register: Register) {
+    fn pop(register: X64Register, asm: &mut Vec<u8>) {
         if register.is_extended_reg() {
-            self.asm_code.push(0x41);
+            asm.push(0x41);
         }
-        self.asm_code.push(POP + register.encoding());
+        asm.push(POP + register.encoding());
     }
+
+
 
     // REX prefix is used to encode things related to 64 bit instruction set
     // REX prefix always starts with bit pattern 0100 (0x4)
-    // remaining bits are called WRXB, so the whole pattern is 0100WRXB
+    // remaining bits are called WRXB, so the whole pattern is 0b0100_WRXB (or 0x4z in hexadecimal)
     // the meaning of these bits is the following (from http://wiki.osdev.org/X86-64_Instruction_Encoding):
-    // W   1 bit   When 1, a 64-bit operand size is used. Otherwise, when 0, the default operand size is used (which is 32-bit for most but not all instructions, see this table).
+    // W   1 bit   When 1, a 64-bit operand size is used. Otherwise, when 0, the default operand size is used (which is 32-bit for most but not all instructions).
     //
     // R   1 bit   This 1-bit value is an extension to the MODRM.reg field. See Registers.
     // X   1 bit   This 1-bit value is an extension to the SIB.index field. See 64-bit addressing.
     // B   1 bit   This 1-bit value is an extension to the MODRM.rm field or the SIB.base field. See 64-bit addressing.
-    fn create_rex_prefix(&self, wrxb: u8) -> u8 {
-        0x40 | wrxb
-    }
+    fn create_rex_prefix(operand_64bit: bool, modrm: Option<ModRM>, sib: Option<Sib>) -> Option<u8> {
+        let mut prefix = 0x40;
+        if operand_64bit {
+            prefix |= 0b000_1000;
+        }
 
+        if let Some(ModRM{ addressing_mode: _, reg_field: RegField::Register(ref reg), rm_field: _}) = modrm {
+            if reg.is_extended_reg() {
+                prefix |= 0b0000_0100;
+            }
+        }
+
+        if let Some(Sib{scale: _, index: Some(ref reg),  base: _, displacement: _}) = sib {
+            if reg.is_extended_reg() {
+                prefix |= 0b0000_0010;
+            }
+        }
+
+        if let Some(ModRM{ addressing_mode: _, reg_field: _, rm_field: RmField::Register(ref reg)}) = modrm {
+            if reg.is_extended_reg() {
+                prefix |= 0b0000_0001;
+            }
+        }
+
+        if prefix == 0x40 {
+            None
+        } else {
+            Some(prefix)
+        }
+    }
+/*
     fn handle_label(&mut self, id: u32) {
         self.label_pos.insert(id, self.asm_code.len());
     }
@@ -846,13 +1096,3 @@ impl X64CodeGen {
     }
 */
 
-    pub fn get_code(&self) -> Vec<u8> {
-        unimplemented!();
-        self.asm_code.clone()
-    }
-
-    pub fn get_functions(&self) -> Vec<code_generator::Function> {
-        unimplemented!();
-        self.functions.clone()
-    }
-}
