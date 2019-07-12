@@ -330,43 +330,60 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
 /*
     MOV DWORD PTR [RBP - offset], imm32
 
+    Note: depending on offset, may use one byte displacement or four byte displacement
+
     Rex prefix: If 64 bit regs used
     opcode: 1 byte,
     modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
-    sib: sib byte not used, sib structure used to encode displacement
+    sib: not used. sib struct is used to store one or four byte displacement, depending if offset is less than 128 or not
     immediate: the 32 bit immediate
 */
 
 fn emit_mov_integer_to_stack_slot(offset: u32, value: i32, asm: &mut Vec<u8>) {
 
-    if value > 255 { // needs 4byte encoding in this case. TODO implement
-        unimplemented!();
-    }
+    /*
+        Optimizing the offset = 0 case does not really do anything, as we are using SBP, and
+        the no displacement encoding requires SIB byte in this case - nothing is saved
+    */
+    let addressing_mode = if offset <= 128 {
+        AddressingMode::IndirectAddressingOneByteDisplacement
+    } else {
+        AddressingMode::IndirectAddressingFourByteDisplacement
+    };
 
-    // FIXME: If offset == 0, can drop displacement
+    let sib= if addressing_mode == AddressingMode::IndirectAddressingOneByteDisplacement {
+        Some(Sib {
+            base: None,
+            index: None,
+            scale: None,
+            // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
+            displacement: Some(Displacement::OneByte(u8::max_value().wrapping_sub(offset as u8).wrapping_add(1))),
+        })
+    } else {
+        Some(Sib {
+            base: None,
+            index: None,
+            scale: None,
+            // in this case the number is signed integer, but we use u32. Convert the u32 offset to twos complement form, so that it is negative
+            displacement: Some(Displacement::FourByte(u32::max_value().wrapping_sub(offset).wrapping_add(1))),
+        })
+    };
 
     let modrm = ModRM {
-        addressing_mode: AddressingMode::IndirectAddressingOneByteDisplacement,
+        addressing_mode,
         reg_field: RegField::OpcodeExtension(0),
         rm_field: RmField::Register(X64Register::RBP)
     };
 
-    let sib = Sib {
-        base: None,
-        index: None,
-        scale: None,
-        // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
-        displacement: Some(Displacement::OneByte(255u8.wrapping_sub(offset as u8).wrapping_add(1))),
-    };
 
-    let rex = create_rex_prefix(false, Some(modrm), Some(sib));
+    let rex = create_rex_prefix(false, Some(modrm), sib);
 
     emit_instruction(
         asm,
         rex,
         SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_RM),
         Some(modrm),
-        Some(sib),
+        sib,
         Some((value, INTEGER_SIZE)),
     );
 }
