@@ -566,6 +566,48 @@ mod tests {
     }
 
     #[test]
+    fn should_allocate_two_address_form_add_constant_to_reg_with_constant_as_first_argument() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src1: IntegerConstant(24),
+                    src2: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: IntegerConstant(24),
+                src1: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[0],
+        );
+    }
+
+    #[test]
     fn should_allocate_two_address_form_add_reg_to_reg() {
         let functions = get_functions(
             vec![
@@ -749,6 +791,54 @@ mod tests {
             }),
             allocated_code[2],
         );
+    }
 
+    #[test]
+    fn should_allocate_constant_integer_return() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Ret(IntegerConstant(20)),
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Ret(IntegerConstant(20)),
+            allocated_code[0],
+        );
+    }
+
+    #[test]
+    fn should_allocate_reg_return() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Ret(VirtualRegister(
+                    VirtualRegisterData {
+                        size: 4,
+                        id: 0,
+                    }
+                )),
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Ret(
+                StackOffset{
+                    offset:0,
+                    size: 4,
+                }),
+            allocated_code[0],
+        );
     }
 }
