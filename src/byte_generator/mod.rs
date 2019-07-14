@@ -7,20 +7,20 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOperation {
     pub src: Value,
     pub dest: Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryOperation {
     pub src1: Value,
     pub src2: Value,
     pub dest: Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ComparisonOperation {
     pub src1: Value,
     pub src2: Value,
@@ -41,7 +41,7 @@ pub struct VirtualRegisterData {
     pub size: u32
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     VirtualRegister(VirtualRegisterData),
     PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
@@ -50,7 +50,7 @@ pub enum Value {
     StackOffset{offset: u32, size: u32},
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ByteCode {
     Nop,
     Add(BinaryOperation),

@@ -28,6 +28,7 @@ const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 const ADD_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
 const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
+const ADD_RM_TO_REG_32_BIT: u8 = 0x03;
 
 const SUB_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const SUB_WITH_32_BIT_CONSTANT : u8 = 0x81;
@@ -561,6 +562,18 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 operands do not match for addition: {:#?}", operand);
             emit_add_reg_to_stack(*reg, *dest_offset, *dest_size, asm);
         },
+        BinaryOperation{
+            dest: PhysicalRegister(ref dest_register),
+            src1: PhysicalRegister(ref src_register),
+            src2: StackOffset {offset, size}
+        } => {
+            ice_if!(
+                dest_register != src_register,
+                "Destination and src1 registers do not match for addition: {:#?}", operand);
+
+            emit_add_stack_to_reg(*dest_register, *offset, *size, asm);
+
+        },
         _ => ice!("Invalid add operation encoding: {:#?}", operand)
     }
 
@@ -646,6 +659,39 @@ fn emit_add_immediate_to_stack(offset: u32, size: u32, immediate: i32, asm: &mut
 
 
 */
+fn emit_add_stack_to_reg(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(0),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(ADD_RM_TO_REG_32_BIT),
+        Some(modrm),
+        sib,
+        None
+    );
+}
+
+/*
+    ADD reg, <ptr_size> PTR [RBP-offset]
+
+    REX: yes, rbp used.
+    opcode: 8 bits
+    modrm: indirect register addressing with one or four byte displacement, depending if offset <= 128
+    sib: byte not used, struct used to pass displacement
+    immediate: no
+
+
+*/
 fn emit_add_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -667,7 +713,6 @@ fn emit_add_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec
         None
     );
 }
-
 /*
 fn emit_sub(&mut self, operand: &BinaryOperation) {
     let dest = if let Value::VirtualRegister(reg) = operand.dest {

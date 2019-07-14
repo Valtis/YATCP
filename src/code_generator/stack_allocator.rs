@@ -1,6 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation};
 use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister};
-use crate::code_generator::stack_allocator::UpdateKind::{SwitchOperands, ConvertForm, NoUpdate};
 use crate::semcheck::Type::Integer;
 
 use super::x64::X64Register;
@@ -153,7 +152,6 @@ fn convert_to_two_address_code(code: &Vec<ByteCode>) -> Vec<ByteCode> {
 enum UpdateKind {
     NoUpdate, // no update needed
     SwitchOperands, // switch from A = B op A to A = A op B; makes code gen phase simpler. May require other updates in case operand is not commutative
-    ConvertForm // requires conversion from 3 address form to 2 address form; 3 unique operands
 }
 
 fn update_add(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>) {
@@ -165,22 +163,6 @@ fn update_add(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCo
             src2: binary_op.src1.clone(),
             dest: binary_op.dest.clone(),
         })),
-        UpdateKind::ConvertForm => {
-            // break form A = B + C into:
-            // A = B
-            // A = A + C
-
-            updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                dest: binary_op.dest.clone(),
-                src: binary_op.src1.clone(),
-            }));
-
-            updated_instructions.push(ByteCode::Add(BinaryOperation {
-                dest: binary_op.dest.clone(),
-                src1: binary_op.dest.clone(),
-                src2: binary_op.src2.clone()
-            }));
-        },
     }
 }
 // requires update dest reg is not also one of the source operands. Assumes commutativity
@@ -193,17 +175,17 @@ fn requires_update(binary_op: &BinaryOperation) -> UpdateKind {
 
     if let VirtualRegister(ref vregdata) = binary_op.src1 {
         if vregdata.id == dest_reg_id {
-            return NoUpdate;
+            return UpdateKind::NoUpdate;
         }
     }
 
     if let VirtualRegister(ref vregdata) = binary_op.src2 {
         if vregdata.id == dest_reg_id {
-            return SwitchOperands;
+            return UpdateKind::SwitchOperands;
         }
     }
 
-    return ConvertForm;
+    return UpdateKind::NoUpdate;
 }
 
 fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap) -> Vec<ByteCode> {
@@ -284,10 +266,16 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
 fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match binary_op {
-        BinaryOperation{dest: VirtualRegister(ref dest_vregdata), src1: VirtualRegister(ref src_vregdata), src2: IntegerConstant(value)} => {
-            if dest_vregdata.id != src_vregdata.id {
-                ice!("Addition not in two address form: {:#?}", binary_op);
-            }
+        /*
+            A = A + constant
+
+            encodable as is, just emit the instruction
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: IntegerConstant(value)} if dest_vregdata.id == src_vregdata.id => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             updated_instructions.push(ByteCode::Add(BinaryOperation{
@@ -297,10 +285,57 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             }));
         },
 
-        BinaryOperation{dest: VirtualRegister(ref dest_vregdata), src1: VirtualRegister(ref src1_vregdata), src2: VirtualRegister(ref src2_vregdata)} => {
-            if dest_vregdata.id != src1_vregdata.id {
-                ice!("Addition not in two address form: {:#?}", binary_op);
-            }
+        /*
+            A = B + constant
+            cannot encode directly, so emit:
+
+            mov tmp_reg, stack_slot_b
+            mov stack_slot_a, tmp_reg
+            add stack_slot, constant
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: IntegerConstant(value)} if dest_vregdata.id != src_vregdata.id => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg= get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src2: IntegerConstant(*value),
+            }));
+        },
+
+        /*
+            A = A + B
+            not directly encodable, as A and B are both memory operands, need to use tmp reg
+
+            emit:
+
+            MOV tmp_reg, b
+            add A, tmp_reg
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src1_vregdata),
+            src2: VirtualRegister(ref src2_vregdata)} if dest_vregdata.id == src1_vregdata.id => {
 
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
@@ -315,6 +350,45 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
                 src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
                 src2: PhysicalRegister(reg),
+            }));
+        }
+
+        /*
+            A = B + C
+            not diretly encodable, three address form + max one memory operand per instruction
+
+            mit:
+
+            MOV tmp_reg, B
+            ADD tmp_reg, C
+            MOV A, tmp_reg
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src1_vregdata),
+            src2: VirtualRegister(ref src2_vregdata)} if dest_vregdata.id != src1_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+
+            let reg = get_register_for_size(src2_stack_slot.size);
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset {offset: src1_stack_slot.offset, size: src1_stack_slot.size}
+            }));
+
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: PhysicalRegister(reg),
+                src1: PhysicalRegister(reg),
+                src2: StackOffset{offset: src2_stack_slot.offset, size: src2_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset {offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
             }));
         }
         _ => unimplemented!("Not implemented for {:#?}", binary_op),
@@ -355,9 +429,326 @@ fn get_register_for_size(size: u32) -> X64Register {
 #[cfg(test)]
 mod tests {
 
-    #[test]
-    fn foo() {
-        assert_eq!(4, 4);
+    use super::*;
+
+    const TMP_REGISTER: X64Register = X64Register::EAX;
+
+    fn get_functions(bytecode: Vec<ByteCode>) -> Vec<Function> {
+        vec![
+            Function {
+                name: "foo".to_owned(),
+                code:  bytecode,
+            }
+        ]
     }
 
+    #[test]
+    fn should_allocate_constant_to_reg_move() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mov(UnaryOperation{
+                    src: IntegerConstant(4),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                    }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(4),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+           allocated_code[0],
+        );
+    }
+
+    #[test]
+    fn should_allocate_reg_to_reg_move() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mov(UnaryOperation{
+                    src: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 1,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+            }),
+            allocated_code[1],
+        );
+    }
+
+    #[test]
+    fn should_allocate_two_address_form_add_constant_to_reg() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src2: IntegerConstant(24),
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: IntegerConstant(24),
+                src1: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[0],
+        );
+    }
+
+    #[test]
+    fn should_allocate_two_address_form_add_reg_to_reg() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src2: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 1,
+                        }),
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: PhysicalRegister(TMP_REGISTER),
+                src1: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[1],
+        );
+    }
+
+    #[test]
+    fn should_break_three_address_constant_addition_to_two_address_form() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src2: IntegerConstant(7),
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 1,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+            }),
+            allocated_code[1],
+        );
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: IntegerConstant(7),
+                src1: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                }
+            }),
+            allocated_code[2],
+        );
+    }
+
+    #[test]
+    fn should_break_three_address_reg_addition_to_two_address_form() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src2: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 2,
+                        }),
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 1,
+                        }),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+                src1: PhysicalRegister(TMP_REGISTER),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[1],
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 8,
+                    size: 4,
+                }
+            }),
+            allocated_code[2],
+        );
+
+    }
 }
