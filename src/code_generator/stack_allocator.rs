@@ -266,22 +266,54 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
 fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match binary_op {
+
+        /*
+            A = constant + constant2
+            not directly encodable
+
+            emit:
+
+            MOV A, constant
+            ADD A, constant2
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(src1_val),
+            src2: IntegerConstant(src2_val),
+        } => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: IntegerConstant(*src1_val),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Add(
+                    BinaryOperation{
+                        dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src1: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src2: IntegerConstant(*src2_val),
+                }));
+        },
         /*
             A = A + constant
-
             encodable as is, just emit the instruction
 
         */
         BinaryOperation{
             dest: VirtualRegister(ref dest_vregdata),
             src1: VirtualRegister(ref src_vregdata),
-            src2: IntegerConstant(value)} if dest_vregdata.id == src_vregdata.id => {
+            src2: IntegerConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             updated_instructions.push(ByteCode::Add(BinaryOperation{
                 dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
                 src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
-                src2: IntegerConstant(*value),
+                src2: IntegerConstant(*src2_val),
             }));
         },
 
@@ -297,7 +329,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation{
             dest: VirtualRegister(ref dest_vregdata),
             src1: VirtualRegister(ref src_vregdata),
-            src2: IntegerConstant(value)} if dest_vregdata.id != src_vregdata.id => {
+            src2: IntegerConstant(src2_val)} if dest_vregdata.id != src_vregdata.id => {
 
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
@@ -317,7 +349,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(ByteCode::Add(BinaryOperation{
                 dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
                 src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
-                src2: IntegerConstant(*value),
+                src2: IntegerConstant(*src2_val),
             }));
         },
 
@@ -522,6 +554,55 @@ mod tests {
             allocated_code[1],
         );
     }
+
+    #[test]
+    fn should_allocate_regs_for_two_constant_addition() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Add(BinaryOperation{
+                    src2: IntegerConstant(8),
+                    src1: IntegerConstant(9),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(9),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Add(BinaryOperation{
+                src2: IntegerConstant(8),
+                src1: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[1],
+        );
+    }
+
 
     #[test]
     fn should_allocate_two_address_form_add_constant_to_reg() {
