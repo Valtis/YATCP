@@ -29,10 +29,14 @@ const ADD_WITH_8_BIT_CONSTANT : u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
 const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
 const ADD_RM_TO_REG_32_BIT: u8 = 0x03;
+const ADD_OPCODE_EXT: u8 = 0;
 
 const SUB_WITH_8_BIT_CONSTANT : u8 = 0x83;
-const SUB_WITH_32_BIT_CONSTANT : u8 = 0x81;
+const SUB_IMMEDIATE_32_BIT_FROM_RM: u8 = 0x81;
 const SUB_REG_FROM_RM: u8 = 0x29;
+const SUB_OPCODE_EXT: u8 = 0x05;
+
+
 
 const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
 const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
@@ -599,7 +603,7 @@ fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &m
 
     let modrm = ModRM {
         addressing_mode: AddressingMode::DirectRegisterAddressing,
-        reg_field: RegField::OpcodeExtension(0),
+        reg_field: RegField::OpcodeExtension(ADD_OPCODE_EXT),
         rm_field: RmField::Register(register),
     };
 
@@ -626,13 +630,11 @@ fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &m
 
 */
 fn emit_add_immediate_to_stack(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
-
-
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
         addressing_mode,
-        reg_field: RegField::OpcodeExtension(0),
+        reg_field: RegField::OpcodeExtension(ADD_OPCODE_EXT),
         rm_field: RmField::Register(X64Register::RBP)
     };
 
@@ -659,12 +661,14 @@ fn emit_add_immediate_to_stack(offset: u32, size: u32, immediate: i32, asm: &mut
 
 
 */
-fn emit_add_stack_to_reg(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_add_stack_to_reg(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
+
+    println!("Add stack to reg");
     let modrm = ModRM {
         addressing_mode,
-        reg_field: RegField::OpcodeExtension(0),
+        reg_field: RegField::Register(dest),
         rm_field: RmField::Register(X64Register::RBP)
     };
 
@@ -693,11 +697,13 @@ fn emit_add_stack_to_reg(src: X64Register, offset: u32, size: u32, asm: &mut Vec
 
 */
 fn emit_add_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+
+    println!("Add reg to stack");
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
         addressing_mode,
-        reg_field: RegField::OpcodeExtension(0),
+        reg_field: RegField::Register(src),
         rm_field: RmField::Register(X64Register::RBP)
     };
 
