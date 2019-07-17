@@ -25,23 +25,21 @@ const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
 const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
 const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 
-const ADD_WITH_8_BIT_CONSTANT : u8 = 0x83;
+const ADD_IMMEDIATE_8_BIT_TO_RM: u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
 const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
 const ADD_RM_TO_REG_32_BIT: u8 = 0x03;
 const ADD_OPCODE_EXT: u8 = 0;
 
-const SUB_WITH_8_BIT_CONSTANT : u8 = 0x83;
+const SUB_IMMEDIATE_8_BIT_FROM_RM: u8 = 0x83;
 const SUB_IMMEDIATE_32_BIT_FROM_RM: u8 = 0x81;
 const SUB_RM_32_FROM_REG: u8 = 0x2B;
 const SUB_REG_FROM_RM_32_BIT: u8 = 0x29;
 const SUB_OPCODE_EXT: u8 = 0x05;
 
-
-
-const SIGNED_MUL_WITH_8_BIT_CONSTANT : u8 = 0x6B;
-const SIGNED_MUL_WITH_32_BIT_CONSTANT : u8 = 0x69;
-const SIGNED_MUL_WITH_64_BIT_REGISTERS : u16 = 0x0FAF;
+const SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_: u8 = 0x6B;
+const SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x69;
+const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
 
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
@@ -285,8 +283,8 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Mov(ref operands) => emit_mov(operands, &mut asm),
             ByteCode::Add(ref operands) => emit_add(operands, &mut asm),
             ByteCode::Sub(ref operands) => emit_sub(operands, &mut asm),
-            /*ByteCode::Mul(ref operands) => self.emit_mul(operands),
-            ByteCode::Div(ref operands) => self.emit_div(operands),*/
+            ByteCode::Mul(ref operands) => emit_mul(operands, &mut asm),
+            //ByteCode::Div(ref operands) => self.emit_div(operands),
             ByteCode::Ret(ref value) => emit_ret(value, stack_size, &mut asm),
             /*ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
             ByteCode::Compare(ref operands) => self.emit_comparison(operands),
@@ -603,7 +601,7 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
     let (operand_size, opcode) = if immediate <= 127 && immediate >= -128 {
-        (1, ADD_WITH_8_BIT_CONSTANT)
+        (1, ADD_IMMEDIATE_8_BIT_TO_RM)
     } else {
         (4, ADD_IMMEDIATE_32_BIT_TO_RM)
     };
@@ -806,7 +804,7 @@ fn emit_sub_immediate_from_stack(offset: u32, size: u32, immediate: i32, asm: &m
 fn emit_sub_immediate_from_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
     let (operand_size, opcode) = if immediate <= 127 && immediate >= -128 {
-        (1, SUB_WITH_8_BIT_CONSTANT)
+        (1, SUB_IMMEDIATE_8_BIT_FROM_RM)
     } else {
         (4, SUB_IMMEDIATE_32_BIT_FROM_RM)
     };
@@ -891,83 +889,92 @@ fn emit_sub_reg_from_stack(src: X64Register, offset: u32, size: u32, asm: &mut V
     );
 }
 
+fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+
+        BinaryOperation {
+            dest: PhysicalRegister(ref dest_reg),
+            src1: PhysicalRegister(ref src_reg),
+            src2: IntegerConstant(immediate),
+        } => {
+            emit_mul_reg_with_immediate(*dest_reg, *src_reg, *immediate, asm);
+        },
+        BinaryOperation {
+            dest: PhysicalRegister(ref dest_reg),
+            src1: PhysicalRegister(ref src_reg),
+            src2: StackOffset {offset, size},
+        } => {
+            ice_if!(
+                dest_reg != src_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+            emit_mul_reg_with_stack(*dest_reg, *offset, *size, asm);
+        },
+        _ => ice!("Invalid mul operation encoding: {:#?}", operand),
+    }
+}
+
 
 /*
-fn emit_mul(&mut self, operand: &BinaryOperation) {
+    IMUL dst_reg, src_reg, immediate32/immediate8
 
-    // sanity check - should always have register destination
-    let dest_reg_id = match operand.dest {
-        Value::VirtualRegister(dest) => dest,
-        _ => ice!("Non-register destination for multiplication: {:?}", operand),
-    };
+    REX: if 64 bit registers are used
+    opcode: 8 bit opcode, either for signed multiplying with 8 bit or 32 bit immediate, depending on immediate value
+    modrm: direct addressing, destination in reg, src in R/M
+    SIB: Not used
+    Immediate: 8/32 bit immediate, depending on if the value fits in 8 bits
+*/
 
-    match operand.src1 {
-        Value::IntegerConstant(val) => {
-            self.emit_const_integer_mult(
-                dest_reg_id,
-                &operand.src2,
-                val);
-            return;
-         },
-        _ => {},
-    }
+fn emit_mul_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
-    match operand.src2 {
-        Value::IntegerConstant(val) => {
-            self.emit_const_integer_mult(
-                dest_reg_id,
-                &operand.src1,
-                val);
-            return; },
-        _ => {},
-    }
-
-
-    match (&operand.dest, &operand.src1, &operand.src2) {
-        (
-            &Value::VirtualRegister(dest),
-            &Value::VirtualRegister(src1),
-            &Value::VirtualRegister(src2)
-        ) => {
-            if src1 != dest {
-                ice!(
-                    "Invalid mul opcode - src1 and dest do not match: {:?}",
-                    operand);
-            }
-            self.emit_instruction(
-                SizedOpCode::from(SIGNED_MUL_WITH_64_BIT_REGISTERS),
-                Some(
-                    (Mode::Register,
-                    ModReg::Register(dest),
-                    &Value::VirtualRegister(src2))),
-                None,
-                FLAG_64_BIT_OPERANDS);
-            return;
-        } ,
-        _ => {},
-    }
-
-    unimplemented!();
-
-}
-
-// emits code for reg <- reg/mem address * 32 bit integer constant
-fn emit_const_integer_mult(&mut self, destination_reg: u32, src_val: &Value, constant: i32) {
-    let (const_bytes, opcode) = if constant <= 127 && constant >= -128 {
-        (1, SIGNED_MUL_WITH_8_BIT_CONSTANT)
+    let (immediate_size, opcode) = if immediate <= 127 && immediate >= -128 {
+        (1, SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_)
     } else {
-        (4, SIGNED_MUL_WITH_32_BIT_CONSTANT)
+        (4, SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE)
     };
 
-    self.emit_instruction(
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::Register(dest_reg),
+        rm_field: RmField::Register(src_reg)
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
         SizedOpCode::from(opcode),
-        Some((Mode::Register,
-        ModReg::Register(destination_reg),
-        src_val)),
-        Some((constant, const_bytes)),
-        FLAG_64_BIT_OPERANDS);
+        Some(modrm),
+        None,
+        Some((immediate, immediate_size))
+    );
 }
 
+
+fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, size: u32, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest_reg),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGNED_MUL_REG_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+
+
+}
+/*
 fn emit_comparison(&mut self, operands: &ComparisonOperation)  {
     match (&operands.src1, &operands.src2) {
         (&Value::VirtualRegister(ACCUMULATOR), &Value::IntegerConstant(i)) => {

@@ -139,6 +139,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
             ByteCode::Mov(ref unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Add(ref binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Sub(ref binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Mul(ref binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Ret(ref value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
@@ -591,6 +592,157 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             }));
         }
         _ => unimplemented!("Not implemented for {:#?}", binary_op),
+    }
+}
+
+fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match binary_op {
+        /*
+            A = constant * constant
+            not directly encodable
+
+            emit:
+
+            MOV tmp_reg, constant
+            IMUL tmp_reg, tmp_reg, constant
+            MOV A, tmp_reg
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(src1_val),
+            src2: IntegerConstant(src2_val),
+        } => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg = get_register_for_size(stack_slot.size);
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: IntegerConstant(*src1_val),
+                    dest: PhysicalRegister(reg),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation{
+                        dest: PhysicalRegister(reg),
+                        src1: PhysicalRegister(reg),
+                        src2: IntegerConstant(*src2_val),
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+        },
+        /*
+            A = B * constant OR A = constant*B
+            in case the latter, switch around to former
+
+            directly encodable, as long as destination is a register. Need to add few moves from/to/stack
+
+            emit:
+
+            MOV tmp_register, B
+            IMUL tmp_register, tmp_register, constant
+            MOV A, tmp_register
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: IntegerConstant(constant),
+        } |
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(constant),
+            src2: VirtualRegister(ref src_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+
+            let reg = get_register_for_size(dest_stack_slot.size);
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset {
+                        offset: src_stack_slot.offset,
+                        size: src_stack_slot.size
+                    },
+                    dest: PhysicalRegister(reg),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation{
+                        dest: PhysicalRegister(reg),
+                        src1: PhysicalRegister(reg),
+                        src2: IntegerConstant(*constant),
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        /*
+            A = A*B
+            not directly encodable in this case, as A is stack slot
+
+            emit:
+
+            MOV tmp_reg, A
+            MUL tmp_reg, tmp_reg, B
+            MOV A, tmp_reg
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src1_vregdata),
+            src2: VirtualRegister(ref src2_vregdata),
+        } => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+            let reg = get_register_for_size(dest_stack_slot.size);
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset {
+                        offset: src1_stack_slot.offset,
+                        size: src1_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(reg),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation{
+                        dest: PhysicalRegister(reg),
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: src2_stack_slot.offset,
+                            size: src2_stack_slot.size
+                        },
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+
+        _ => unimplemented!("Not implemented for {:#?}", binary_op),
+
     }
 }
 
@@ -1419,4 +1571,244 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn should_allocate_constant_constant_multiplication() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mul(BinaryOperation {
+                    src2: IntegerConstant(2),
+                    src1: IntegerConstant(30),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: IntegerConstant(30),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mul(BinaryOperation{
+                src2: IntegerConstant(2),
+                src1: PhysicalRegister(TMP_REGISTER),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[2]
+        );
+    }
+
+    #[test]
+    fn should_allocate_reg_constant_multiplication() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mul(BinaryOperation {
+                    src2: IntegerConstant(2),
+                    src1: VirtualRegister (
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 0
+                       }
+                    ),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: StackOffset{
+                    offset: 0,
+                    size: 4
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mul(BinaryOperation{
+                src2: IntegerConstant(2),
+                src1: PhysicalRegister(TMP_REGISTER),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                }
+            }),
+            allocated_code[2]
+        );
+    }
+
+    #[test]
+    fn should_allocate_constant_reg_multiplication() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mul(BinaryOperation {
+                    src2: VirtualRegister (
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 0
+                        }
+                    ),
+                    src1: IntegerConstant(2),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            size: 4,
+                            id: 0,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: StackOffset{
+                    offset: 0,
+                    size: 4
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mul(BinaryOperation{
+                src2: IntegerConstant(2),
+                src1: PhysicalRegister(TMP_REGISTER),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                }
+            }),
+            allocated_code[2]
+        );
+    }
+
+    #[test]
+    fn should_allocate_two_address_form_register_register_multiplication() {
+
+        let functions = get_functions(
+            vec![
+                ByteCode::Mul(BinaryOperation {
+                    src2: VirtualRegister (
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 4
+                        }
+                    ),
+                    src1: VirtualRegister (
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }
+                    ),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(3, allocated_code.len());
+
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: StackOffset{
+                    offset: 0,
+                    size: 4
+                },
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mul(BinaryOperation{
+                src2: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+                src1: PhysicalRegister(TMP_REGISTER),
+                dest: PhysicalRegister(TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: PhysicalRegister(TMP_REGISTER),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }
+            }),
+            allocated_code[2]
+        );
+
+
+    }
 }
