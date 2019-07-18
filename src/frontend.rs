@@ -26,16 +26,21 @@ pub fn run_frontend(
     let mut checker = SemanticsCheck::new(error_reporter.clone());
     checker.check_semantics(&mut node);
 
-    if error_reporter.borrow().has_errors() {
-        error_reporter.borrow().print_errors();
-        let err = if error_reporter.borrow().errors() == 1 {
-            "error"
-        } else {
-            "errors"
-        };
+    let reporter = error_reporter.borrow();
+    if reporter.has_reports() {
+        reporter.print_errors();
 
-        println!("Terminating compilation due to {} {}", error_reporter.borrow().errors(), err);
-            return None;
+
+        if reporter.has_errors() {
+            let err = if reporter.errors() == 1 {
+                "error"
+            } else {
+                "errors"
+            };
+
+            println!("Terminating compilation due to {} {}", error_reporter.borrow().errors(), err);
+                return None;
+        }
     }
 
     generate_three_address_code(&mut node, checker, print_tac)

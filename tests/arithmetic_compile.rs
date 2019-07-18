@@ -579,6 +579,49 @@ fn should_truncate_division_result() {
 }
 
 #[test]
+fn should_divide_when_using_variable_and_constant() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 30;
+                return a/10;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("3\n", output);
+}
+
+#[test]
+fn should_divide_when_using_constant_and_variable() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 3;
+                return 10/a;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("3\n", output);
+}
+
+#[test]
+fn should_divide_when_using_two_variables() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 3;
+                let b: int = 18;
+                return b/a;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("6\n", output);
+}
+
+#[test]
 fn should_work_with_complex_arithmetics_when_variables_used() {
     let output = compile_and_run_no_opt(
         r"
@@ -608,5 +651,5 @@ fn should_respect_order_of_operation() {
         ",
         FunctionKind::INT("foo".to_owned()));
 
-    assert_eq!("27\n", output);
+    assert_eq!("29\n", output);
 }

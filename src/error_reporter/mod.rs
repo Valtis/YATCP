@@ -9,13 +9,13 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::iter;
 
-use ansi_term::Colour::Red;
-use ansi_term::Colour::Cyan;
+use ansi_term::Colour::{Red, Cyan, Yellow};
 use ansi_term;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Note,
+    Warning,
     TokenError,
     SyntaxError,
     TypeError,
@@ -26,6 +26,7 @@ impl Error {
     fn get_color(&self) -> ansi_term::Colour {
         match *self {
             Error::Note => Cyan,
+            Error::Warning => Yellow,
             Error::TokenError
                 | Error::SyntaxError
                 | Error::TypeError
@@ -39,6 +40,7 @@ impl Display for Error {
         let color = self.get_color();
         let str = match *self {
             Error::Note => color.bold().paint("Note").to_string(),
+            Error::Warning => color.paint("Warning").to_string(),
             Error::TokenError => color.bold().paint("Token error").to_string(),
             Error::SyntaxError => color.bold().paint("Syntax error").to_string(),
             Error::TypeError => color.bold().paint("Type error").to_string(),
@@ -149,13 +151,13 @@ impl ExpressionMessage {
         message: String,
         ) -> ExpressionMessage {
         ExpressionMessage {
-            line: line,
-            expression_start: expression_start,
-            expression_end: expression_end,
-            operator_start: operator_start,
-            operator_length: operator_length,
-            error: error,
-            message: message,
+            line,
+            expression_start,
+            expression_end,
+            operator_start,
+            operator_length,
+            error,
+            message,
         }
     }
 }
@@ -224,6 +226,10 @@ impl FileErrorReporter {
         self.errors != 0
     }
 
+    pub fn has_reports(&self) -> bool {
+        self.messages.len() > 0
+    }
+
     pub fn errors(&self) -> i32 {
         self.errors
     }
@@ -261,7 +267,7 @@ impl FileErrorReporter {
             | Error::TypeError
             | Error::NameError
             | Error::SyntaxError => self.errors += 1,
-            Error::Note => {},
+            Error::Note | Error::Warning => (),
         }
     }
 }

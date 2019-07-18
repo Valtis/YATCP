@@ -15,6 +15,7 @@ use rayon::prelude::*;
 use std::hash::Hash;
 use crate::obj_generator::Architecture::X64;
 use crate::code_generator::x64::X64Register::RBP;
+use crate::code_generator::x64::RegField::OpcodeExtension;
 
 const INTEGER_SIZE: usize = 4;
 
@@ -41,6 +42,11 @@ const SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_: u8 = 0x6B;
 const SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x69;
 const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
 
+const SIGNED_DIV_RM_32_BIT: u8 = 0xF7;
+const DIV_OPCODE_EXT: u8 = 0x07;
+
+const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
+
 const CMP_RAX_WITH_CONSTANT : u8 = 0x3D;
 const CMP_REG_WITH_CONSTANT : u8 = 0x81;
 const CMP_REG_WITH_RM: u8 = 0x3B;
@@ -62,9 +68,7 @@ const SET_BYTE_IF_GREATER : u16 = 0x0F9F;
 
 
 
-const SIGNED_DIV_64_BIT : u8 = 0xF7;
 
-const SIGN_EXTENSION : u8 = 0x99;
 
 const NOP : u8 = 0x90;
 
@@ -167,6 +171,8 @@ pub enum X64Register {
     R15,
     // 32 bit regs
     EAX,
+    EDX,
+    EBX,
 }
 
 enum SizedOpCode {
@@ -197,8 +203,8 @@ impl X64Register {
         match self {
             X64Register::RAX | X64Register::R8 | X64Register::EAX => 0x00,
             X64Register::RCX | X64Register::R9 => 0x01,
-            X64Register::RDX | X64Register::R10 => 0x02,
-            X64Register::RBX | X64Register::R11 => 0x03,
+            X64Register::RDX | X64Register::R10 | X64Register::EDX=> 0x02,
+            X64Register::RBX | X64Register::R11 | X64Register::EBX => 0x03,
             X64Register::RSP | X64Register::R12 => 0x04,
             X64Register::RBP | X64Register::R13 => 0x05,
             X64Register::RSI | X64Register::R14 => 0x06,
@@ -243,7 +249,9 @@ impl X64Register {
             X64Register::R14 |
             X64Register::R15 => 8,
 
-            X64Register::EAX => 4,
+            X64Register::EAX |
+            X64Register::EDX |
+            X64Register::EBX => 4,
         }
     }
 }
@@ -284,10 +292,10 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Add(ref operands) => emit_add(operands, &mut asm),
             ByteCode::Sub(ref operands) => emit_sub(operands, &mut asm),
             ByteCode::Mul(ref operands) => emit_mul(operands, &mut asm),
-            //ByteCode::Div(ref operands) => self.emit_div(operands),
+            ByteCode::Div(ref operands) => emit_div(operands, &mut asm),
             ByteCode::Ret(ref value) => emit_ret(value, stack_size, &mut asm),
-            /*ByteCode::SignExtend(ref operands) => self.emit_sign_extension(operands),
-            ByteCode::Compare(ref operands) => self.emit_comparison(operands),
+            ByteCode::SignExtend(ref operands) => emit_sign_extension(operands, &mut asm),
+            /*ByteCode::Compare(ref operands) => self.emit_comparison(operands),
             ByteCode::Label(id) => self.handle_label(id),
             ByteCode::Jump(id) => self.emit_unconditional_jump(id),
             ByteCode::JumpConditional(id, ref jmp_type) =>
@@ -306,21 +314,46 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
 fn emit_nop(asm: &mut Vec<u8>) {
     asm.push(NOP);
 }
-/*
-fn emit_sign_extension(&mut self, operands: &UnaryOperation) {
-    if let Value::VirtualRegister(src_reg) = operands.src {
-        if let Value::VirtualRegister(dest_reg) = operands.dest {
-            if src_reg == ACCUMULATOR || dest_reg == 1 /* evil hardcoded number... */ {
+
+fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
+
+    let (src, dest) = match operands {
+        UnaryOperation{
+            src: PhysicalRegister(ref src_reg),
+            dest: PhysicalRegister(ref dest_reg)
+        } => {
+            // sign extension extend ax/eax/rax into dx/edx/rdx, we have no say over this.
+            ice_if!(!(*src_reg == X64Register::EAX || *src_reg == X64Register::RAX) ||
+                !(*dest_reg == X64Register::EDX || *dest_reg == X64Register::RDX),
+                "Invalid operand encoding for sign extension: {:#?}", operands);
+
+            (src_reg, dest_reg)
+        },
+        _ => ice!("Invalid operand encoding for sign extension: {:#?}", operands)
+    };
+
+
+    let rex = create_rex_prefix(src.is_64_bit_register() || dest.is_64_bit_register(), None, None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGN_EXTEND_ACCUMULATOR),
+        None,
+        None,
+        None,
+    );
+
+
+
+    /*
                 self.asm_code.push(0x48);
                 self.asm_code.push(SIGN_EXTENSION);
-                return;
-            }
-        }
-    }
 
-    unimplemented!();
+    unimplemented!();*/
 }
-*/
+
+
 fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     match operand {
         UnaryOperation{
@@ -971,8 +1004,72 @@ fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, size: u32, asm: 
         sib,
         None,
     );
+}
+
+fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+        BinaryOperation{
+            dest: _, // don't care, will be stored in eax,
+            src1: _, // don't care, uses edx:eax
+            src2: PhysicalRegister(ref reg), // don't care
+        } => {
+            emit_div_with_reg(*reg, asm);
+        },
+        BinaryOperation{
+            dest: _,
+            src1: _,
+            src2: StackOffset {
+                offset,
+                size,
+            }
+        } => {
+            emit_div_with_stack(*offset, *size, asm);
+        },
+        _ => ice!("Invalid div operation encoding: {:#?}", operand),
+    }
+}
+
+fn emit_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
 
 
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(DIV_OPCODE_EXT),
+        rm_field: RmField::Register(divisor),
+    };
+
+    let rex = create_rex_prefix(divisor.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGNED_DIV_RM_32_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
+fn emit_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(DIV_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGNED_DIV_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
 }
 /*
 fn emit_comparison(&mut self, operands: &ComparisonOperation)  {

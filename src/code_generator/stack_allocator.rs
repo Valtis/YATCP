@@ -140,6 +140,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
             ByteCode::Add(ref binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Sub(ref binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Mul(ref binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Div(ref binary_op) => handle_div_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Ret(ref value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
@@ -746,6 +747,244 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
     }
 }
 
+fn handle_div_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match binary_op {
+
+        /*
+            A = constant / constant
+
+            emit:
+
+            MOV EAX, dividend
+            MOV TMP_REGISTER, divisor
+            SIGN_EXTEND EAX
+            IDIV TMP_REGISTER
+            MOV A, EAX
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(dividend),
+            src2: IntegerConstant(divisor),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size_for_division(stack_slot.size);
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*dividend),
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*divisor),
+                    dest: PhysicalRegister(reg)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation{
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation{
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: PhysicalRegister(reg),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+
+        },
+        /*
+            A = B / constant
+
+            emit:
+            MOV EAX, B
+            MOV TMP_REGISTER, divisor
+            SIGN_EXTEND EAX
+            IDIV TMP_REGISTER
+            MOV A, EAX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: IntegerConstant(divisor),
+        } => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let reg = get_register_for_size_for_division(dest_stack_slot.size);
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: StackOffset{
+                        offset: dividend_stack_slot.offset,
+                        size: dividend_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*divisor),
+                    dest: PhysicalRegister(reg)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation{
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation{
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: PhysicalRegister(reg),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+
+        },
+
+        /*
+            A = constant / B
+
+            emit:
+
+            MOV EAX, constant
+            SIGN_EXTEND EAX
+            IDIV B
+            MOV A, EAX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(dividend),
+            src2: VirtualRegister(ref divisor_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&divisor_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*dividend),
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: StackOffset {
+                        offset: divisor_stack_slot.offset,
+                        size: divisor_stack_slot.size,
+                    },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        /*
+            A = B / C (or A = A / B)
+
+            emit:
+
+            MOV EAX, B
+            SIGN_EXTEND EAX
+            IDIV C
+            MOV A, EAX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: VirtualRegister(ref divisor_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&divisor_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: StackOffset {
+                        offset: dividend_stack_slot.offset,
+                        size: dividend_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: StackOffset {
+                        offset: divisor_stack_slot.offset,
+                        size: divisor_stack_slot.size,
+                    },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        _ => unimplemented!("Not implemented for {:#?}", binary_op),
+    }
+}
+
 /*
     if the instruction is
         RET virt_reg
@@ -776,6 +1015,12 @@ fn get_register_for_size(size: u32) -> X64Register {
     }
 }
 
+fn get_register_for_size_for_division(size: u32) -> X64Register {
+    match size {
+        4 => X64Register::EBX,
+        _ => ice!("Invalid register size {}", size),
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -783,6 +1028,7 @@ mod tests {
     use super::*;
 
     const TMP_REGISTER: X64Register = X64Register::EAX;
+    const DIV_TMP_REGISTER: X64Register = X64Register::EBX;
 
     fn get_functions(bytecode: Vec<ByteCode>) -> Vec<Function> {
         vec![
@@ -1808,7 +2054,292 @@ mod tests {
             }),
             allocated_code[2]
         );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_constant_constant_division() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Div(BinaryOperation {
+                    src2: IntegerConstant(30),
+                    src1: IntegerConstant(2),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(5, allocated_code.len());
 
 
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: IntegerConstant(2),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(30),
+                dest: PhysicalRegister(DIV_TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::SignExtend(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EDX),
+            }),
+            allocated_code[2]
+        );
+
+        assert_eq!(
+            ByteCode::Div(BinaryOperation{
+                src2: PhysicalRegister(DIV_TMP_REGISTER),
+                src1: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[3]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+            }),
+            allocated_code[4]
+        );
+
+    }
+
+    #[test]
+    fn should_allocate_regs_for_reg_constant_division() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Div(BinaryOperation {
+                    src2: IntegerConstant(30),
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 4
+                        }
+                    ) ,
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(5, allocated_code.len());
+
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation {
+                src: StackOffset {
+                    offset: 0,
+                    size: 4,
+                },
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(30),
+                dest: PhysicalRegister(DIV_TMP_REGISTER),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::SignExtend(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EDX),
+            }),
+            allocated_code[2]
+        );
+
+        assert_eq!(
+            ByteCode::Div(BinaryOperation{
+                src2: PhysicalRegister(DIV_TMP_REGISTER),
+                src1: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[3]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+            }),
+            allocated_code[4]
+        );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_constant_reg_division() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Div(BinaryOperation {
+                    src2: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 4
+                        }
+                    ) ,
+                    src1: IntegerConstant(30),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(4, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(30),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::SignExtend(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EDX),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Div(BinaryOperation{
+                src2: StackOffset {
+                    offset: 0,
+                size: 4,
+                },
+                src1: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[2]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+            }),
+            allocated_code[3]
+        );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_reg_reg_division() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Div(BinaryOperation {
+                    src2: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 4
+                        }
+                    ) ,
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 2,
+                            size: 4,
+                        },
+                    ),
+                    dest: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(4, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset{
+                    offset: 0,
+                    size: 4,
+                } ,
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::SignExtend(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EDX),
+            }),
+            allocated_code[1]
+        );
+
+        assert_eq!(
+            ByteCode::Div(BinaryOperation{
+                src2: StackOffset {
+                    offset: 4,
+                    size: 4,
+                },
+                src1: PhysicalRegister(X64Register::EAX),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[2]
+        );
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(X64Register::EAX),
+                dest: StackOffset {
+                    offset: 8,
+                    size: 4,
+                },
+            }),
+            allocated_code[3]
+        );
     }
 }

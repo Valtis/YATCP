@@ -649,12 +649,25 @@ impl SemanticsCheck {
             AstNode::Multiply(ref mut left, ref mut right, ref mut ai) |
             AstNode::Divide(ref mut left, ref mut right, ref mut ai) => {
                 self.handle_arithmetic_node(left, right, ai);
+
+                if let AstNode::Integer(value, _) = **right {
+                   if value == 0 {
+                       self.report_error(
+                           Error::Warning,
+                           ai.node_info.line,
+                           ai.node_info.column,
+                           ai.node_info.length,
+                           "Division by zero".to_owned(),
+                       )
+                   }
+                };
+
                 (vec![
                     Type::Integer,
                     Type::Float,
                     Type::Double,
                     Type::Invalid],
-                 ai)
+                    ai)
             },
             _ => ice!(
                 "Incorrect node passed to arithmetic node type checking: {}",
