@@ -1445,7 +1445,7 @@ mod tests {
     fn should_allocate_constant_integer_return() {
         let functions = get_functions(
             vec![
-                ByteCode::Ret(IntegerConstant(20)),
+                ByteCode::Ret(Some(IntegerConstant(20))),
             ]
         );
 
@@ -1456,7 +1456,27 @@ mod tests {
         assert_eq!(1, allocated_code.len());
 
         assert_eq!(
-            ByteCode::Ret(IntegerConstant(20)),
+            ByteCode::Ret(Some(IntegerConstant(20))),
+            allocated_code[0],
+        );
+    }
+
+    #[test]
+    fn should_work_with_void_return() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Ret(None),
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Ret(None),
             allocated_code[0],
         );
     }
@@ -1465,12 +1485,13 @@ mod tests {
     fn should_allocate_reg_return() {
         let functions = get_functions(
             vec![
-                ByteCode::Ret(VirtualRegister(
+                ByteCode::Ret(
+                    Some(VirtualRegister(
                     VirtualRegisterData {
                         size: 4,
                         id: 0,
                     }
-                )),
+                ))),
             ]
         );
 
@@ -1482,10 +1503,10 @@ mod tests {
 
         assert_eq!(
             ByteCode::Ret(
-                StackOffset{
+                Some(StackOffset{
                     offset:0,
                     size: 4,
-                }),
+                })),
             allocated_code[0],
         );
     }

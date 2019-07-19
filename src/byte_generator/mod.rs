@@ -98,9 +98,6 @@ impl ByteGenerator {
         let functions = self.tac_functions.clone();
 
         for f in functions {
-
-            f.print();
-
             self.bytecode_functions.push(Function {
                 name: (*f.function_info.name).clone(),
                 code: vec![],
@@ -275,4 +272,67 @@ impl ByteGenerator {
 #[cfg(test)]
 mod test {
 
+    use super::*;
+
+    use crate::tac_generator::{Operand, Operator, Function};
+    use crate::cfg::basic_block::BasicBlock;
+    use crate::ast::{FunctionInfo, NodeInfo};
+    use crate::semcheck::Type;
+
+    use std::rc::Rc;
+
+    fn create_function(statements: Vec<Statement>) -> Function {
+        Function {
+            function_info: FunctionInfo {
+                name: Rc::new("foo".to_string()),
+                parameters: vec![],
+                return_type: Type::Void,
+                node_info: NodeInfo {
+                    line: 1,
+                    column: 1,
+                    length: 3
+                },
+            },
+            statements,
+        }
+    }
+
+    fn create_byte_generator(statements: Vec<Statement>) -> ByteGenerator {
+        ByteGenerator::new(
+            vec![create_function(statements)]
+        )
+
+    }
+
+    #[test]
+    fn should_generate_byte_code_for_return_without_value() {
+        let statements = vec![
+            Statement::Return(None)
+        ];
+
+        let mut generator = create_byte_generator(statements);
+        generator.generate_bytecode();
+        let functions = generator.bytecode_functions;
+
+        assert_eq!(1, functions.len());
+        assert_eq!(1, functions[0].code.len());
+
+        assert_eq!(ByteCode::Ret(None), functions[0].code[0]);
+    }
+
+    #[test]
+    fn should_generate_byte_code_for_return_with_integer_value() {
+        let statements = vec![
+            Statement::Return(Some(Operand::Integer(32)))
+        ];
+
+        let mut generator = create_byte_generator(statements);
+        generator.generate_bytecode();
+        let functions = generator.bytecode_functions;
+
+        assert_eq!(1, functions.len());
+        assert_eq!(1, functions[0].code.len());
+
+        assert_eq!(ByteCode::Ret(Some(Value::IntegerConstant(32))), functions[0].code[0]);
+    }
 }

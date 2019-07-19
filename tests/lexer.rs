@@ -6,7 +6,7 @@ mod test_reporter;
 use compiler::lexer::ReadLexer;
 use compiler::lexer::Lexer;
 use compiler::token::*;
-use compiler::error_reporter::Error;
+use compiler::error_reporter::ReportKind;
 use compiler::string_table::StringTable;
 
 use self::test_reporter::TestReporter;
@@ -568,19 +568,19 @@ fn invalid_number_type_letter_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 3);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TokenError,
+        ReportKind::TokenError,
         1,
         3,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::TokenError,
+        ReportKind::TokenError,
         1,
         12,
         4);
 
     assert_eq_error!(reporter.borrow().errors()[2],
-        Error::TokenError,
+        ReportKind::TokenError,
         1,
         21,
         1);
@@ -633,19 +633,19 @@ fn unterminated_string_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 3);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TokenError,
+        ReportKind::TokenError,
         2,
         9,
         19);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::TokenError,
+        ReportKind::TokenError,
         4,
         9,
         27);
 
     assert_eq_error!(reporter.borrow().errors()[2],
-        Error::TokenError,
+        ReportKind::TokenError,
         6,
         13,
         31);
@@ -718,31 +718,31 @@ fn unexpected_escape_characters_are_reported() {
 
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TokenError,
+        ReportKind::TokenError,
         2,
         13,
         2);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::TokenError,
+        ReportKind::TokenError,
         3,
         10,
         2);
 
     assert_eq_error!(reporter.borrow().errors()[2],
-        Error::TokenError,
+        ReportKind::TokenError,
         3,
         12,
         2);
 
     assert_eq_error!(reporter.borrow().errors()[3],
-        Error::TokenError,
+        ReportKind::TokenError,
         4,
         22,
         1);
 
     assert_eq_error!(reporter.borrow().errors()[4],
-        Error::TokenError,
+        ReportKind::TokenError,
         4,
         9,
         14);
@@ -795,19 +795,19 @@ fn multiple_decimal_separators_are_reported() {
 
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TokenError,
+        ReportKind::TokenError,
         2,
         13,
         1);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::TokenError,
+        ReportKind::TokenError,
         3,
         13,
         1);
 
     assert_eq_error!(reporter.borrow().errors()[2],
-        Error::TokenError,
+        ReportKind::TokenError,
         4,
         12,
         1);
@@ -857,13 +857,13 @@ fn unexpected_starting_symbol_are_reported() {
 
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TokenError,
+        ReportKind::TokenError,
         2,
         9,
         1);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::TokenError,
+        ReportKind::TokenError,
         3,
         9,
         1);

@@ -95,11 +95,11 @@ impl UnderScoreMessage {
         message: String) -> UnderScoreMessage {
 
         UnderScoreMessage {
-            line: line,
-            column: column,
-            length: length,
-            error: error,
-            message: message
+            line,
+            column,
+            length,
+            error,
+            message
         }
     }
 }

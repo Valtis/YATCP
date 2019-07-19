@@ -1,4 +1,5 @@
 use compiler::frontend::run_frontend;
+use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
 
 use std::env;
@@ -7,6 +8,10 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
+use compiler::error_reporter::FileErrorReporter;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 static FILE_COUNTER: AtomicI32 = AtomicI32::new(0);
 
@@ -59,13 +64,24 @@ fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
 
 fn create_obj_file(ctr: i32, input_file_str: &String) -> String {
 
+    let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(input_file_str)));
+
     let functions = run_frontend(
         input_file_str.to_string(),
         false,
-        false).unwrap();
+        false,
+    error_reporter.clone()).unwrap();
     let mut output_file = env::temp_dir();
     output_file.push(format!("yatcp_test_output_{}.o", ctr));
     let output_file_str = output_file.to_str().unwrap().to_string();
+
+    let functions = run_middleend(
+        functions,
+        false,
+        false,
+        false,
+    error_reporter.clone()).unwrap();
+
     run_backend(output_file_str.clone(), functions, false);
     output_file_str
 }

@@ -8,7 +8,7 @@ use compiler::ast::FunctionInfo;
 use compiler::ast::DeclarationInfo;
 use compiler::ast::NodeInfo;
 
-use compiler::error_reporter::Error;
+use compiler::error_reporter::ReportKind;
 use compiler::lexer::Lexer;
 use compiler::parser::Parser;
 use compiler::semcheck::Type;
@@ -1902,7 +1902,7 @@ fn missing_name_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         2,
         3,
         1);
@@ -1936,7 +1936,7 @@ fn missing_lparen_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         5,
         6,
         1);
@@ -1969,7 +1969,7 @@ fn missing_rparen_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         8,
         9,
         1);
@@ -2003,7 +2003,7 @@ fn missing_colon_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         8,
         1,
         1);
@@ -2036,7 +2036,7 @@ fn missing_variable_type_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         1,
         1,
         23);
@@ -2069,7 +2069,7 @@ fn missing_lbrace_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         4,
         4,
         2);
@@ -2102,7 +2102,7 @@ fn missing_rbrace_is_reported_in_function_definition() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         0,
         0,
         0);
@@ -2146,7 +2146,7 @@ fn variable_declaration_without_initialization_is_error() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         5,
         6,
         6);
@@ -2209,7 +2209,7 @@ fn variable_declaration_after_variable_with_missing_declaration_is_handled_corre
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         5,
         6,
         6);
@@ -2286,7 +2286,7 @@ fn variable_declaration_after_bad_declaration_is_handled_correctly() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         6,
         7,
         8);
@@ -2356,7 +2356,7 @@ fn missing_operand_in_arithmetic_operation_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         9,
         8,
         7);
@@ -2410,7 +2410,7 @@ fn missing_operator_in_arithmetic_operation_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::SyntaxError,
+        ReportKind::SyntaxError,
         8,
         7,
         6);

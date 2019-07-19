@@ -33,6 +33,8 @@ fn check_function(
     cfg: &mut CFG,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>)  {
 
+    let mut insert_positions = vec![];
+
     for (pos, adjacencies) in cfg.adjacency_list.iter().enumerate() {
         if adjacencies.contains(&Adj::End) {
 
@@ -49,31 +51,16 @@ fn check_function(
                            format!("Function '{}': Not all control flow paths return a value", function.function_info.name)
                        )
                    } else {
-                       insert_return(function, &mut cfg.basic_blocks, pos);
+
+                       let end = cfg.basic_blocks[pos].end;
+                       insert_positions.push(end);
                    }
                }
             }
         }
     }
 
-}
-
-fn insert_return(function: &mut Function, basic_blocks: &mut Vec<BasicBlock>, bb_pos: usize) {
-
-    let bb = basic_blocks.get_mut(bb_pos).unwrap();
-    function.statements.insert(bb.end, Statement::Return(None));
-
-    bb.end += 1;
-
-    let end = bb.end;
-    shift_blocks(basic_blocks, end);
-}
-
-fn shift_blocks(basic_blocks: &mut Vec<BasicBlock>, after_line: usize) {
-    for bb in basic_blocks.iter_mut() {
-        if bb.end > after_line {
-            bb.start += 1;
-            bb.end += 1;
-        }
+    for pos in insert_positions.iter() {
+        cfg.insert_statement(function, *pos, Statement::Return(None));
     }
 }

@@ -9,7 +9,7 @@ use compiler::ast::NodeInfo;
 use compiler::ast::FunctionInfo;
 use compiler::ast::DeclarationInfo;
 
-use compiler::error_reporter::Error;
+use compiler::error_reporter::ReportKind;
 
 use compiler::semcheck::SemanticsCheck;
 use compiler::semcheck::Type;
@@ -377,7 +377,7 @@ fn undeclared_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         9,
         7,
         4);
@@ -1062,13 +1062,13 @@ fn redeclaration_of_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         2,
         3,
         4);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -1126,13 +1126,13 @@ fn declaration_of_variable_which_shares_name_with_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         1,
         2,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         4,
         5,
         6);
@@ -1175,13 +1175,13 @@ fn redefinition_of_a_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         2,
         3,
         4);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -1235,13 +1235,13 @@ fn using_function_as_variable_in_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         8,
         6,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -1293,13 +1293,13 @@ fn assigning_into_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         9,
         10,
         11);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -1343,13 +1343,13 @@ fn type_error_when_variable_is_declared_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         8,
         6,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         1,
         1);
@@ -1400,7 +1400,7 @@ fn type_error_in_plus_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         5);
@@ -1451,7 +1451,7 @@ fn type_error_in_minus_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         5);
@@ -1502,7 +1502,7 @@ fn type_error_in_multiplication_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         5);
@@ -1553,7 +1553,7 @@ fn type_error_in_division_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         5);
@@ -1601,7 +1601,7 @@ fn arithmetic_operation_on_booleans_is_reported() {
 
     assert_eq!(reporter.borrow().error_count(), 1);
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         1);
@@ -1649,7 +1649,7 @@ fn non_concatenation_arithmetic_operation_on_text_is_reported() {
 
     assert_eq!(reporter.borrow().error_count(), 1);
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         1);
@@ -1697,7 +1697,7 @@ fn negation_of_string_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         1);
@@ -1753,7 +1753,7 @@ fn negation_of_string_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         21,
         22,
         23);
@@ -1800,7 +1800,7 @@ fn negation_of_boolean_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         3,
         4,
         1);
@@ -1856,7 +1856,7 @@ fn negation_of_boolean_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         21,
         22,
         23);
@@ -1916,7 +1916,7 @@ fn type_error_involving_variables_in_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         14,
         34,
         1190);
@@ -1969,13 +1969,13 @@ fn type_error_when_assigning_into_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         11,
         112,
         1112);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         4,
         8);
@@ -2046,13 +2046,13 @@ fn missing_expression_in_return_is_reported_if_function_has_non_void_return_type
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         5,
         6,
         7);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         6,
         5,
         4);
@@ -2087,13 +2087,13 @@ fn incorrect_type_of_return_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         5,
         6,
         7);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         6,
         5,
         4);
@@ -2133,13 +2133,13 @@ fn returning_value_from_void_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         5,
         6,
         7);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         6,
         5,
         4);
@@ -2187,7 +2187,7 @@ fn while_loop_with_non_boolean_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         7,
         23,
         212);
@@ -2244,7 +2244,7 @@ fn error_in_while_loop_body_is_handled() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         9,
         2,
         11);
@@ -2315,7 +2315,7 @@ fn if_statement_with_non_boolean_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         11,
         22,
         33);
@@ -2400,7 +2400,7 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         99,
         88,
         77);
@@ -2477,13 +2477,13 @@ fn error_in_if_statement_true_block_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         1,
         2,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         4,
         5,
         6);
@@ -2560,13 +2560,13 @@ fn error_in_else_block_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         7,
         6,
         5);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         41,
         51,
         61);
@@ -2609,7 +2609,7 @@ fn calling_nonexistent_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         7,
         8,
         9);
@@ -2662,13 +2662,13 @@ fn using_variable_as_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         7,
         8,
         9);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -2740,13 +2740,13 @@ fn wrong_number_of_function_arguments_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         23,
         24,
         25);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         4,
         7,
         9);
@@ -2810,13 +2810,13 @@ fn wrong_number_of_extern_function_arguments_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         23,
         24,
         25);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         4,
         7,
         9);
@@ -2889,13 +2889,13 @@ fn wrong_type_in_function_argument_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         9,
         8,
         7);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         4,
         5,
         6);
@@ -2960,13 +2960,13 @@ fn redefinition_of_function_parameter_in_function_body_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         1,
         2,
         3);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         5,
         4,
         3);
@@ -3031,13 +3031,13 @@ fn type_mismatch_with_function_parameter_usage_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         9,
         8,
         7);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3119,13 +3119,13 @@ fn using_void_funtion_in_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         23,
         24,
         25);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3207,13 +3207,13 @@ fn using_non_void_function_with_wrong_type_in_expression_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         23,
         24,
         25);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3298,7 +3298,7 @@ fn error_in_function_argument_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         8, 0, 6);
 }
 
@@ -3351,14 +3351,14 @@ fn function_parameter_shadowing_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         8,
         12,
         14);
 
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3410,13 +3410,13 @@ fn function_parameter_name_collision_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         9,
         99,
         34);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3467,14 +3467,14 @@ fn extern_function_parameter_shadowing_function_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         8,
         12,
         14);
 
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3522,13 +3522,13 @@ fn extern_function_parameter_name_collision_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         9,
         99,
         34);
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3571,14 +3571,14 @@ fn extern_function_redefinition_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 2);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::NameError,
+        ReportKind::NameError,
         7,
         8,
         9);
 
 
     assert_eq_error!(reporter.borrow().errors()[1],
-        Error::Note,
+        ReportKind::Note,
         1,
         2,
         3);
@@ -3660,7 +3660,7 @@ fn declaring_void_variable_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         99,
         88,
         77);
@@ -3703,7 +3703,7 @@ fn void_function_parameter_is_reported() {
     assert_eq!(reporter.borrow().error_count(), 1);
 
     assert_eq_error!(reporter.borrow().errors()[0],
-        Error::TypeError,
+        ReportKind::TypeError,
         8,
         12,
         14);

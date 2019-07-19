@@ -1,9 +1,9 @@
 extern crate compiler;
 use compiler::error_reporter::ErrorReporter;
-use compiler::error_reporter::Error;
+use compiler::error_reporter::ReportKind;
 
 pub struct ReportedError {
-    pub error_type: Error,
+    pub error_type: ReportKind,
     pub line: i32,
     pub column: i32,
     pub token_length: i32,
@@ -46,7 +46,7 @@ impl ErrorReporter for TestReporter {
 
     fn report_error(
         &mut self,
-        error_type: Error,
+        error_type: ReportKind,
         line: i32,
         column: i32,
         token_length : i32,
@@ -65,7 +65,7 @@ impl ErrorReporter for TestReporter {
     // ignoring operator for now
     fn report_error_with_expression(
         &mut self,
-        error_type: Error,
+        error_type: ReportKind,
         line: i32,
         expression_start: i32,
         expression_end: i32,
@@ -80,5 +80,21 @@ impl ErrorReporter for TestReporter {
             token_length: expression_end - expression_start,
             error_string: message,
         });
+    }
+
+    fn print_errors(&self) {
+        unimplemented!()
+    }
+
+    fn has_errors(&self) -> bool {
+        unimplemented!();
+    }
+
+    fn has_reports(&self) -> bool {
+        unimplemented!();
+    }
+
+    fn errors(&self) -> i32 {
+        unimplemented!();
     }
 }
