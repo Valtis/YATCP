@@ -82,6 +82,7 @@ pub enum Statement {
     Jump(u32),
     JumpIfTrue(Operand, u32),
     Return(Option<Operand>),
+    Empty,
     PhiFunction(Operand, Vec<Operand>)
 }
 
@@ -137,6 +138,7 @@ impl Display for Statement {
                 op_str.pop(); op_str.pop();
                 format!("{} = phi<{}>", dest, op_str)
             },
+            Statement::Empty => "<Empty statement>".to_owned()
         })
     }
 }
@@ -196,6 +198,13 @@ impl TACGenerator {
 
     pub fn generate_tac_functions(mut self, node: &AstNode) -> Vec<Function> {
         self.generate_tac(node);
+
+        for function in self.functions.iter_mut() {
+            if function.statements.is_empty() {
+               function.statements.push(Statement::Empty); // Makes CFG generation easier, if we don't have completely empty function bodies
+            }
+        }
+
         optimize(&mut self.functions);
         self.functions
     }
@@ -582,7 +591,7 @@ impl TACGenerator {
     }
 
     fn current_function(&mut self) -> &mut Function {
-        self.function_stack.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Function stack empty"))
+        self.function_stack.last_mut().unwrap_or_else(|| ice!("Internal compiler error: Function stack empty"))
     }
 }
 

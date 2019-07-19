@@ -120,10 +120,11 @@ impl ByteGenerator {
                         Some(ref op2)) if cmp.contains(x) =>
                         self.emit_comparison(x, op1, op2, dest),
 
-                   Statement::Return(val) => self.emit_return(val),
-                   Statement::Label(id) => self.emit_label(id),
-                   Statement::Jump(id) => self.emit_jump(id),
-                   Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_jump(operand, id),
+                    Statement::Return(val) => self.emit_return(val),
+                    Statement::Label(id) => self.emit_label(id),
+                    Statement::Jump(id) => self.emit_jump(id),
+                    Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_jump(operand, id),
+                    Statement::Empty => (),
                    _ => panic!("Not implemented: {:?}", s),
                 }
             }
