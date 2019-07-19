@@ -63,7 +63,7 @@ pub enum ByteCode {
     Label(u32),
     Jump(u32),
     JumpConditional(u32, ComparisonType),
-    Ret(Value),
+    Ret(Option<Value>),
 }
 
 #[derive(Clone, Debug)]
@@ -134,11 +134,13 @@ impl ByteGenerator {
     }
 
     fn emit_return(&mut self, retval: Option<Operand>) {
-        if let Some(op) = retval {
-            let ret = ByteCode::Ret(self.get_source(&op));
-            self.current_function().code.push(ret);
-        }
+        let ret_val = if let Some(op) = retval {
+             Some(self.get_source(&op))
+        } else {
+            None
+        };
 
+        self.current_function().code.push(ByteCode::Ret(ret_val));
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {
@@ -268,4 +270,9 @@ impl ByteGenerator {
     fn current_function(&mut self) -> &mut Function {
         self.bytecode_functions.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Empty function array"))
     }
+}
+
+#[cfg(test)]
+mod test {
+
 }

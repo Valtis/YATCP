@@ -19,8 +19,6 @@ use crate::code_generator::x64::RegField::OpcodeExtension;
 
 const INTEGER_SIZE: usize = 4;
 
-
-
 const MOV_IMMEDIATE_32_BIT_TO_REG_BASE: u8 = 0xB8; // register encoding will be binary OR'ed into opcode
 const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
 const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
@@ -76,23 +74,6 @@ const NEAR_RETURN : u8 = 0xC3;
 
 const PUSH : u8 = 0x50;
 const POP : u8 = 0x58;
-
-
-const ACCUMULATOR : u32 = 99999;
-
-
-// wrxb bits for rex prefix
-const REX_64_BIT_OPERAND: u8 = 0x08;
-const REX_EXT_RM_BIT: u8 = 0x01;
-const REX_EXT_REG_BIT: u8 = 0x04;
-
-// MOD bits for addressing
-const MOD_REGISTER_DIRECT_ADDRESSING : u8 = 0xC0;
-
-
-
-// flags for instruction emit
-const FLAG_64_BIT_OPERANDS : u32 = 0x01;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AddressingMode {
@@ -1271,13 +1252,14 @@ fn emit_div(&mut self, operand: &BinaryOperation) {
     }
 
     */
-    fn emit_ret(value: &Value, stack_size: u32, asm: &mut Vec<u8>) {
+    fn emit_ret(value: &Option<Value>, stack_size: u32, asm: &mut Vec<u8>) {
 
         match value {
-            IntegerConstant(value) => {
+            Some(IntegerConstant(value)) => {
                 emit_mov_integer_to_register(*value, X64Register::EAX, asm)
             }
-            StackOffset {offset, size} => emit_mov_from_stack_to_reg(X64Register::RAX, *offset, *size, asm),
+            Some(StackOffset {offset, size}) => emit_mov_from_stack_to_reg(X64Register::RAX, *offset, *size, asm),
+            None => (),
             _ =>  ice!("Invalid return value: {:#?}", value),
         }
 

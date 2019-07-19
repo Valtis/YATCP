@@ -6,9 +6,6 @@ use crate::tac_generator::{Function, Statement};
 use crate::error_reporter::{ErrorReporter, ReportKind};
 use crate::semcheck::{Type};
 
-use rayon::prelude::*;
-
-
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;

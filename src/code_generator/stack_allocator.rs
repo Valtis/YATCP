@@ -54,7 +54,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Nop |
             ByteCode::Label(_) |
             ByteCode::Jump(_) |
-            ByteCode::Ret(IntegerConstant(_)) => (), // do nothing
+            ByteCode::Ret(Some(IntegerConstant(_))) | // do nothing
+            ByteCode::Ret(None) => (),
 
             ByteCode::Mov(ref unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(ref binary_op) |
@@ -62,7 +63,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Mul(ref binary_op) |
             ByteCode::Div(ref binary_op) => handle_binary_op(binary_op, &mut stack_map),
 
-            ByteCode::Ret(Value::VirtualRegister(ref vrefdata)) => add_location(&mut stack_map, vrefdata),
+            ByteCode::Ret(Some(Value::VirtualRegister(ref vrefdata))) => add_location(&mut stack_map, vrefdata),
             _ => unimplemented!("{:?}", *instr)
         }
     }
@@ -993,17 +994,18 @@ fn handle_div_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
 
 */
-fn handle_return_value_allocation(value: &Value, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+fn handle_return_value_allocation(value: &Option<Value>, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match value {
-        Value::VirtualRegister(ref vregdata) => {
+        Some(VirtualRegister(ref vregdata)) => {
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
             updated_instructions.push(ByteCode::Ret(
-                Value::StackOffset{ offset: stack_slot.offset, size: stack_slot.size},
+                Some(Value::StackOffset{ offset: stack_slot.offset, size: stack_slot.size}),
             ));
         },
-        Value::IntegerConstant(value) => {
-            updated_instructions.push(ByteCode::Ret(Value::IntegerConstant(*value)));
+        Some(IntegerConstant(value)) => {
+            updated_instructions.push(ByteCode::Ret(Some(Value::IntegerConstant(*value))));
         },
+        None => updated_instructions.push(ByteCode::Ret(None)),
         _ => unimplemented!("Not implemnented for {:#?}:", value),
     }
 }
