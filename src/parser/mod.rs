@@ -2,7 +2,7 @@ use crate::token::{Token, TokenType, TokenSubType};
 
 use crate::lexer::Lexer;
 
-use crate::error_reporter::{ErrorReporter, Error};
+use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
 
@@ -190,7 +190,7 @@ impl Parser {
             TokenType::Assign => {}, // ok
             TokenType::SemiColon => {
                 self.report_error(
-                    Error::SyntaxError,
+                    ReportKind::SyntaxError,
                     identifier.line,
                     identifier.column,
                     identifier.length as usize,
@@ -370,7 +370,7 @@ impl Parser {
             // custom error handling for missing operator
             if self.starts_operand(&next_token) {
                 self.report_error(
-                    Error::SyntaxError,
+                    ReportKind::SyntaxError,
                     next_token.line,
                     next_token.column,
                     next_token.length as usize,
@@ -667,21 +667,21 @@ impl Parser {
     fn report_unexpected_token(&mut self, expected: TokenType, actual: &Token) {
 
         if actual.token_type == TokenType::Eof {
-            self.report_error(Error::SyntaxError,
-                actual.line,
-                actual.column,
-                actual.length as usize,
-                format!("Unexpected end of file when '{}' was expected",
+            self.report_error(ReportKind::SyntaxError,
+                              actual.line,
+                              actual.column,
+                              actual.length as usize,
+                              format!("Unexpected end of file when '{}' was expected",
                     expected));
 
             return;
         }
 
-        self.report_error(Error::SyntaxError,
-            actual.line,
-            actual.column,
-            actual.length as usize,
-            format!("Unexpected token '{}' when '{}' was expected",
+        self.report_error(ReportKind::SyntaxError,
+                          actual.line,
+                          actual.column,
+                          actual.length as usize,
+                          format!("Unexpected token '{}' when '{}' was expected",
                 actual.token_type,
                 expected));
     }
@@ -696,21 +696,21 @@ impl Parser {
         expected_str.pop(); // get rid off the last comma
 
         if actual.token_type == TokenType::Eof {
-            self.report_error(Error::SyntaxError,
-                actual.line,
-                actual.column,
-                actual.length as usize,
-                format!("Unexpected end of file when one of {} were expected",
+            self.report_error(ReportKind::SyntaxError,
+                              actual.line,
+                              actual.column,
+                              actual.length as usize,
+                              format!("Unexpected end of file when one of {} were expected",
                     expected_str));
 
             return;
         }
 
-        self.report_error(Error::SyntaxError,
-            actual.line,
-            actual.column,
-            actual.length as usize,
-            format!("Unexpected token '{}' when one of {} were expected",
+        self.report_error(ReportKind::SyntaxError,
+                          actual.line,
+                          actual.column,
+                          actual.length as usize,
+                          format!("Unexpected token '{}' when one of {} were expected",
                 actual.token_type,
                 expected_str));
     }
@@ -718,7 +718,7 @@ impl Parser {
 
     fn report_error(
         &mut self,
-        error_type: Error,
+        error_type: ReportKind,
         line: i32,
         column: i32,
         length: usize,

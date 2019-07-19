@@ -11,7 +11,7 @@ pub fn convert_to_ssa(
     function_cfgs: &mut HashMap<Rc<String>, CFG>) {
     for f in functions.iter_mut() {
 
-        let cfg = &mut function_cfgs.get_mut(&f.name).unwrap();
+        let cfg = &mut function_cfgs.get_mut(&f.function_info.name).unwrap();
         let (definitions, decl_info) = get_variable_definitions(f, &cfg.basic_blocks);
         place_phi_functions(f, cfg, &definitions, &decl_info);
 
@@ -369,7 +369,7 @@ pub fn destroy_ssa(
             }
         }
 
-        function_cfgs.get_mut(&f.name).unwrap().remove_statements(f, remove_list);
+        function_cfgs.get_mut(&f.function_info.name).unwrap().remove_statements(f, remove_list);
     }
 }
 

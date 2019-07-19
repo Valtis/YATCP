@@ -3,7 +3,7 @@ use crate::parser::Parser;
 use crate::ast::AstNode;
 use crate::semcheck::SemanticsCheck;
 use crate::tac_generator::{Function, TACGenerator};
-use crate::error_reporter::FileErrorReporter;
+use crate::error_reporter::ErrorReporter;
 
 use std::fs::File;
 use std::rc::Rc;
@@ -13,8 +13,9 @@ use std::cell::RefCell;
 pub fn run_frontend(
     file_name: String,
     print_ast: bool,
-    print_tac: bool) -> Option<Vec<Function>> {
-    let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&file_name)));
+    print_tac: bool,
+    error_reporter: Rc<RefCell<dyn ErrorReporter>>,
+    ) -> Option<Vec<Function>> {
 
     let mut node = parse_code(&file_name,error_reporter.clone());
 
@@ -47,7 +48,7 @@ pub fn run_frontend(
 }
 
 
-fn parse_code(file_name: &String, error_reporter: Rc<RefCell<FileErrorReporter>>) -> AstNode {
+fn parse_code(file_name: &String, error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> AstNode {
     let file = File::open(file_name)
         .unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
 

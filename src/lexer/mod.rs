@@ -1,6 +1,6 @@
 use crate::token::{Token, TokenType, TokenSubType};
 
-use crate::error_reporter::{ErrorReporter, Error};
+use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::string_table::StringTable;
 
@@ -289,9 +289,9 @@ impl ReadLexer {
                     if separator_error == false {
                     let (line, column) = (self.line, self.column);
                     self.report_error(
-                    Error::TokenError,
-                    line, column, 1,
-                    "Multiple decimal separators in number".to_string());
+                        ReportKind::TokenError,
+                        line, column, 1,
+                        "Multiple decimal separators in number".to_string());
                     separator_error = true;
                   }
                   self.next_char();
@@ -336,10 +336,10 @@ impl ReadLexer {
     } else {
         let (line, column) = (self.line, self.column - type_str.len() as i32);
         self.report_error(
-          Error::TokenError,
-          line,
-          column,
-          type_str.len(), // length of a single character
+            ReportKind::TokenError,
+            line,
+            column,
+            type_str.len(), // length of a single character
           format!("Invalid type string '{}'", type_str));
 
           self.create_token(
@@ -391,11 +391,11 @@ impl ReadLexer {
                 self.token_start_column);
 
               self.report_error(
-                Error::TokenError,
-                line,
-                column,
-                value.len(),
-                "Unterminated string".to_string());
+                  ReportKind::TokenError,
+                  line,
+                  column,
+                  value.len(),
+                  "Unterminated string".to_string());
               return self.create_token(
                 TokenType::Text,
                 TokenSubType::ErrorToken);
@@ -406,11 +406,11 @@ impl ReadLexer {
         None => {
           let (line, column) = (self.token_start_line, self.token_start_column);
           self.report_error(
-            Error::TokenError,
-            line,
-            column,
-            value.len() + 1,
-            "Unexpected end of file when processing string".to_string());
+              ReportKind::TokenError,
+              line,
+              column,
+              value.len() + 1,
+              "Unexpected end of file when processing string".to_string());
 
           return self.create_token(
                 TokenType::Text,
@@ -433,22 +433,22 @@ impl ReadLexer {
         _ => {
           let (line, column) = (self.line, self.column-2);
           self.report_error(
-            Error::TokenError,
-            line,
-            column,
-            2,
-            format!("Invalid escape sequence '\\{}'", ch));
+              ReportKind::TokenError,
+              line,
+              column,
+              2,
+              format!("Invalid escape sequence '\\{}'", ch));
           ' '
         },
       },
       None => {
         let (line, column) = (self.line, self.column-1);
           self.report_error(
-            Error::TokenError,
-            line,
-            column,
-            1,
-            "Unexpected end of file when processing escape sequence".to_string());
+              ReportKind::TokenError,
+              line,
+              column,
+              1,
+              "Unexpected end of file when processing escape sequence".to_string());
           ' '
       }
     }
@@ -511,12 +511,12 @@ impl ReadLexer {
 
 
   fn report_error(
-    &mut self,
-    error_type: Error,
-    line: i32,
-    column: i32,
-    length: usize,
-    reason: String) {
+      &mut self,
+      error_type: ReportKind,
+      line: i32,
+      column: i32,
+      length: usize,
+      reason: String) {
       self.error_reporter.borrow_mut().report_error(
         error_type,
         line,
@@ -555,7 +555,7 @@ impl Lexer for ReadLexer {
         } else {
             let (line, column) = (self.token_start_line, self.token_start_column);
             self.report_error(
-                Error::TokenError,
+                ReportKind::TokenError,
                 line,
                 column,
                 1,

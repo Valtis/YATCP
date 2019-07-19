@@ -9,15 +9,8 @@ pub fn calculate_dominance_frontier(
     func_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
     for (name, cfg) in func_cfgs.iter_mut() {
-        println!("Func {}", name);
 
         let dominators = calculate_dominators(cfg);
-        println!("Dominators for {}", name);
-        for i in 0..cfg.basic_blocks.len() {
-            println!("    Block {}: {:?}", i+1, dominators[&i].iter().map(|v| v + 1).collect::<Vec<usize>>());
-        }
-        println!("");
-
 
         cfg.immediate_dominators = calculate_immediate_dominator_opt(cfg).
             iter().
@@ -105,9 +98,6 @@ pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
         node_pos.insert(*val, (reverse_postorder.len() - 1) - i);
     }
 
-    println!("Rev postorder: {:?}", reverse_postorder);
-    println!("node_pos: {:?}", node_pos);
-
 
     opt_idom[0] = Some(0);
     let mut changes = true;
@@ -154,11 +144,6 @@ pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
 
             processed_nodes.insert(*bb);
         }
-    }
-
-
-    for i in 0..opt_idom.len() {
-        println!("IDOM({}): {:?}", i, opt_idom[i]);
     }
 
     opt_idom

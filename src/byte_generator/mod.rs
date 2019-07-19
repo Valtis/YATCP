@@ -98,8 +98,11 @@ impl ByteGenerator {
         let functions = self.tac_functions.clone();
 
         for f in functions {
+
+            f.print();
+
             self.bytecode_functions.push(Function {
-                name: (*f.name).clone(),
+                name: (*f.function_info.name).clone(),
                 code: vec![],
             });
             self.next_register = 0;

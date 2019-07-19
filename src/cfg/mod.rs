@@ -2,6 +2,7 @@ use crate::tac_generator::{Function, Statement};
 
 pub mod basic_block;
 pub mod dom_front;
+pub mod function_returns;
 
 use self::basic_block::BasicBlock;
 use self::dom_front::calculate_dominance_frontier;
@@ -46,7 +47,7 @@ impl PartialOrd for Adj {
         Some(self.cmp(other))
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CFG {
     pub basic_blocks: Vec<BasicBlock>,
     pub adjacency_list: Vec<Vec<Adj>>,
@@ -63,9 +64,9 @@ impl CFG {
         dominance_frontier.resize(basic_blocks.len(), vec![]);
 
         CFG {
-            basic_blocks: basic_blocks,
-            adjacency_list: adjacency_list,
-            dominance_frontier: dominance_frontier,
+            basic_blocks,
+            adjacency_list,
+            dominance_frontier,
             immediate_dominators: vec![],
         }
     }
@@ -229,7 +230,7 @@ pub fn generate_cfg(functions: &mut Vec<Function>) -> HashMap<Rc<String>, CFG> {
         let mut adjacency_list = create_adj_list(&basic_blocks, f);
 
         remove_dead_blocks(&mut basic_blocks, &mut adjacency_list, f);
-        cfgs.insert(f.name.clone(), CFG::new(basic_blocks, adjacency_list));
+        cfgs.insert(f.function_info.name.clone(), CFG::new(basic_blocks, adjacency_list));
     }
 
     calculate_dominance_frontier(&mut cfgs);
@@ -307,7 +308,6 @@ fn remove_dead_blocks(
     while changes {
         let mut block_to_kill = None;
         changes = false;
-        println!("BB len: {}", basic_blocks.len());
 
         for (bb_id, _) in basic_blocks.iter().enumerate() {
             if get_parents(adjacency_list, bb_id).is_empty() && bb_id != 0 {

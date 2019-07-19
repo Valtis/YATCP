@@ -13,38 +13,41 @@ use ansi_term::Colour::{Red, Cyan, Yellow};
 use ansi_term;
 
 #[derive(Debug, PartialEq)]
-pub enum Error {
+pub enum ReportKind {
     Note,
     Warning,
     TokenError,
     SyntaxError,
     TypeError,
     NameError,
+    DataFlowError,
 }
 
-impl Error {
+impl ReportKind {
     fn get_color(&self) -> ansi_term::Colour {
         match *self {
-            Error::Note => Cyan,
-            Error::Warning => Yellow,
-            Error::TokenError
-                | Error::SyntaxError
-                | Error::TypeError
-                | Error::NameError=> Red,
+            ReportKind::Note => Cyan,
+            ReportKind::Warning => Yellow,
+            ReportKind::TokenError |
+            ReportKind::SyntaxError |
+            ReportKind::TypeError |
+            ReportKind::NameError |
+            ReportKind::DataFlowError => Red,
         }
     }
 }
 
-impl Display for Error {
+impl Display for ReportKind {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         let color = self.get_color();
         let str = match *self {
-            Error::Note => color.bold().paint("Note").to_string(),
-            Error::Warning => color.paint("Warning").to_string(),
-            Error::TokenError => color.bold().paint("Token error").to_string(),
-            Error::SyntaxError => color.bold().paint("Syntax error").to_string(),
-            Error::TypeError => color.bold().paint("Type error").to_string(),
-            Error::NameError => color.bold().paint("Name error").to_string(),
+            ReportKind::Note => color.bold().paint("Note").to_string(),
+            ReportKind::Warning => color.paint("Warning").to_string(),
+            ReportKind::TokenError => color.bold().paint("Token error").to_string(),
+            ReportKind::SyntaxError => color.bold().paint("Syntax error").to_string(),
+            ReportKind::TypeError => color.bold().paint("Type error").to_string(),
+            ReportKind::NameError => color.bold().paint("Name error").to_string(),
+            ReportKind::DataFlowError => color.bold().paint("Data flow error").to_string(),
         };
 
         write!(formatter, "{}", str)
@@ -52,8 +55,14 @@ impl Display for Error {
 }
 
 pub trait ErrorReporter {
-    fn report_error(&mut self, error_type: Error, line: i32, column: i32, token_length : i32, error_string: String);
-    fn report_error_with_expression(&mut self, error_type: Error, line: i32, expression_start: i32, expression_end: i32, operator_start:i32, operator_length: i32, message: String);
+    fn report_error(&mut self, error_type: ReportKind, line: i32, column: i32, token_length : i32, error_string: String);
+    fn report_error_with_expression(&mut self, error_type: ReportKind, line: i32, expression_start: i32, expression_end: i32, operator_start:i32, operator_length: i32, message: String);
+
+    fn has_errors(&self) -> bool;
+    fn has_reports(&self) -> bool;
+    fn errors(&self) -> i32;
+    fn print_errors(&self);
+
 }
 
 fn write_stderr(txt: String) {
@@ -73,7 +82,7 @@ struct UnderScoreMessage  {
     line: i32,
     column: i32,
     length: i32,
-    error: Error,
+    error: ReportKind,
     message: String,
 }
 
@@ -82,7 +91,7 @@ impl UnderScoreMessage {
         line: i32,
         column: i32,
         length: i32,
-        error: Error,
+        error: ReportKind,
         message: String) -> UnderScoreMessage {
 
         UnderScoreMessage {
@@ -98,7 +107,7 @@ impl UnderScoreMessage {
 
 impl Message for UnderScoreMessage {
     fn write_message(&self, lines: &Vec<String>) {
-        if self.error != Error::Note {
+        if self.error != ReportKind::Note {
             write_stderr("\n".to_string());
         }
 
@@ -136,7 +145,7 @@ struct ExpressionMessage {
     expression_end: i32,
     operator_start: i32,
     operator_length: i32,
-    error: Error,
+    error: ReportKind,
     message: String,
 }
 
@@ -147,7 +156,7 @@ impl ExpressionMessage {
         expression_end: i32,
         operator_start: i32,
         operator_length: i32,
-        error: Error,
+        error: ReportKind,
         message: String,
         ) -> ExpressionMessage {
         ExpressionMessage {
@@ -165,7 +174,7 @@ impl ExpressionMessage {
 impl Message for ExpressionMessage {
     fn write_message(&self, lines: &Vec<String>) {
 
-        if self.error != Error::Note {
+        if self.error != ReportKind::Note {
             write_stderr("\n".to_string());
         }
 
@@ -222,26 +231,6 @@ impl FileErrorReporter {
         }
     }
 
-    pub fn has_errors(&self) -> bool {
-        self.errors != 0
-    }
-
-    pub fn has_reports(&self) -> bool {
-        self.messages.len() > 0
-    }
-
-    pub fn errors(&self) -> i32 {
-        self.errors
-    }
-
-    pub fn print_errors(&self) {
-        let lines = self.read_lines();
-
-        for msg in self.messages.iter() {
-            msg.write_message(&lines);
-        }
-
-    }
 
     fn read_lines(&self) -> Vec<String> {
         let mut lines = vec![];
@@ -261,19 +250,20 @@ impl FileErrorReporter {
         lines
     }
 
-    fn update_error_count(&mut self, error_type: &Error) {
+    fn update_error_count(&mut self, error_type: &ReportKind) {
         match error_type {
-            Error::TokenError
-            | Error::TypeError
-            | Error::NameError
-            | Error::SyntaxError => self.errors += 1,
-            Error::Note | Error::Warning => (),
+            ReportKind::TokenError |
+            ReportKind::TypeError |
+            ReportKind::NameError |
+            ReportKind::SyntaxError |
+            ReportKind::DataFlowError => self.errors += 1,
+            ReportKind::Note | ReportKind::Warning => (),
         }
     }
 }
 
 impl ErrorReporter for FileErrorReporter {
-    fn report_error(&mut self, error_type: Error, line: i32, column: i32, token_length : i32, message : String) {
+    fn report_error(&mut self, error_type: ReportKind, line: i32, column: i32, token_length : i32, message : String) {
 
         self.update_error_count(&error_type);
 
@@ -289,7 +279,7 @@ impl ErrorReporter for FileErrorReporter {
 
     fn report_error_with_expression(
         &mut self,
-        error_type: Error,
+        error_type: ReportKind,
         line: i32,
         expression_start: i32,
         expression_end: i32,
@@ -307,6 +297,27 @@ impl ErrorReporter for FileErrorReporter {
                 operator_length,
                 error_type,
                 message)));
+    }
+
+    fn has_errors(&self) -> bool {
+       self.errors != 0
+    }
+
+    fn has_reports(&self) -> bool {
+        self.messages.len() > 0
+    }
+
+    fn errors(&self) -> i32 {
+        self.errors
+    }
+
+    fn print_errors(&self) {
+        let lines = self.read_lines();
+
+        for msg in self.messages.iter() {
+            msg.write_message(&lines);
+        }
+
     }
 }
 

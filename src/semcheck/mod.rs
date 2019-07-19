@@ -2,7 +2,7 @@ use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInf
 
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
-use crate::error_reporter::{Error, ErrorReporter};
+use crate::error_reporter::{ReportKind, ErrorReporter};
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -213,7 +213,7 @@ impl SemanticsCheck {
         if let Some(symbol) = self.symbol_table.find_symbol(&function_info.name) {
             if let Symbol::Function(ref fi) = symbol {
                 self.report_error(
-                    Error::NameError,
+                    ReportKind::NameError,
                     function_info.node_info.line,
                     function_info.node_info.column,
                     function_info.node_info.length,
@@ -221,7 +221,7 @@ impl SemanticsCheck {
                         function_info.name));
 
                 self.report_error(
-                    Error::Note,
+                    ReportKind::Note,
                     fi.node_info.line,
                     fi.node_info.column,
                     fi.node_info.length,
@@ -242,7 +242,7 @@ impl SemanticsCheck {
             if let Some(symbol) = self.symbol_table.find_symbol(&param.name) {
                 if let Symbol::Function(ref fi) = symbol {
                     self.report_error(
-                        Error::NameError,
+                        ReportKind::NameError,
                         param.node_info.line,
                         param.node_info.column,
                         param.node_info.length,
@@ -250,7 +250,7 @@ impl SemanticsCheck {
                             param.name));
 
                     self.report_error(
-                        Error::Note,
+                        ReportKind::Note,
                         fi.node_info.line,
                         fi.node_info.column,
                         fi.node_info.length,
@@ -263,7 +263,7 @@ impl SemanticsCheck {
             // report void parameter
             if param.variable_type == Type::Void {
                 self.report_error(
-                    Error::TypeError,
+                    ReportKind::TypeError,
                     param.node_info.line,
                     param.node_info.column,
                     param.node_info.length,
@@ -276,7 +276,7 @@ impl SemanticsCheck {
                     param.node_info.clone());
             } else {
                 self.report_error(
-                    Error::NameError,
+                    ReportKind::NameError,
                     param.node_info.line,
                     param.node_info.column,
                     param.node_info.length,
@@ -286,7 +286,7 @@ impl SemanticsCheck {
 
                 let other_info = &seen_param[&param.name];
                 self.report_error(
-                    Error::Note,
+                    ReportKind::Note,
                     other_info.line,
                     other_info.column,
                     other_info.length,
@@ -310,15 +310,15 @@ impl SemanticsCheck {
             match symbol {
                 Symbol::Variable(ref declaration_info, _) => {
                     self.report_error(
-                    Error::TypeError,
-                    node_info.line,
-                    node_info.column,
-                    node_info.length,
-                    format!("Usage of variable '{}' as function",
+                        ReportKind::TypeError,
+                        node_info.line,
+                        node_info.column,
+                        node_info.length,
+                        format!("Usage of variable '{}' as function",
                         function_name));
 
                 self.report_error(
-                    Error::Note,
+                    ReportKind::Note,
                     declaration_info.node_info.line,
                     declaration_info.node_info.column,
                     declaration_info.node_info.length,
@@ -327,7 +327,7 @@ impl SemanticsCheck {
                 Symbol::Function(ref function_info) => {
                     if args.len() != function_info.parameters.len() {
                         self.report_error(
-                            Error::TypeError,
+                            ReportKind::TypeError,
                             node_info.line,
                             node_info.column,
                             node_info.length,
@@ -336,7 +336,7 @@ impl SemanticsCheck {
                                 args.len()));
 
                         self.report_error(
-                            Error::Note,
+                            ReportKind::Note,
                             function_info.node_info.line,
                             function_info.node_info.column,
                             function_info.node_info.length,
@@ -350,7 +350,7 @@ impl SemanticsCheck {
                                 arg_type != Type::Invalid &&
                                 param.variable_type != Type::Void {
                                 self.report_error(
-                                    Error::TypeError,
+                                    ReportKind::TypeError,
                                     arg.line(),
                                     arg.column(),
                                     arg.length(),
@@ -360,7 +360,7 @@ impl SemanticsCheck {
                                         ));
 
                                 self.report_error(
-                                    Error::Note,
+                                    ReportKind::Note,
                                     param.node_info.line,
                                     param.node_info.column,
                                     param.node_info.length,
@@ -374,7 +374,7 @@ impl SemanticsCheck {
             }
         } else {
             self.report_error(
-                Error::NameError,
+                ReportKind::NameError,
                 node_info.line,
                 node_info.column,
                 node_info.length,
@@ -411,14 +411,14 @@ impl SemanticsCheck {
                 };
 
                 self.report_error(
-                    Error::NameError,
+                    ReportKind::NameError,
                     variable_info.node_info.line,
                     variable_info.node_info.column,
                     variable_info.node_info.length,
                     err_text);
 
                 self.report_error(
-                    Error::Note,
+                    ReportKind::Note,
                     prev_line,
                     prev_column,
                     prev_length,
@@ -436,7 +436,7 @@ impl SemanticsCheck {
 
         if variable_info.variable_type == Type::Void {
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 variable_info.node_info.line,
                 variable_info.node_info.column,
                 variable_info.node_info.length,
@@ -476,7 +476,7 @@ impl SemanticsCheck {
                 child_type != Type::Invalid  {
 
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 child.line(),
                 child.column(),
                 child.length(),
@@ -485,7 +485,7 @@ impl SemanticsCheck {
                      sym_info.variable_type, child_type));
 
             self.report_error(
-                Error::Note,
+                ReportKind::Note,
                 sym_info.node_info.line,
                 sym_info.node_info.column,
                 sym_info.node_info.length,
@@ -520,7 +520,7 @@ impl SemanticsCheck {
             // no return expression -> void type
             if function_info.return_type != Type::Void {
                 self.report_error(
-                    Error::TypeError,
+                    ReportKind::TypeError,
                     arith_info.node_info.line,
                     arith_info.node_info.column,
                     arith_info.node_info.length,
@@ -528,7 +528,7 @@ impl SemanticsCheck {
                         to_string());
 
                 self.report_error(
-                    Error::Note,
+                    ReportKind::Note,
                     function_info.node_info.line,
                     function_info.node_info.column,
                     function_info.node_info.length,
@@ -563,14 +563,14 @@ impl SemanticsCheck {
                 )
             };
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 arith_info.node_info.line,
                 arith_info.node_info.column,
                 arith_info.node_info.length,
                 err_str);
 
             self.report_error(
-                Error::Note,
+                ReportKind::Note,
                 function_info.node_info.line,
                 function_info.node_info.column,
                 function_info.node_info.length,
@@ -591,7 +591,7 @@ impl SemanticsCheck {
 
        if expr_type != Type::Invalid && expr_type != Type::Boolean {
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 expr.line(),
                 expr.column(),
                 expr.length(),
@@ -614,7 +614,7 @@ impl SemanticsCheck {
 
         if expr_type != Type::Invalid && expr_type != Type::Boolean {
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 expr.line(),
                 expr.column(),
                 expr.length(),
@@ -653,7 +653,7 @@ impl SemanticsCheck {
                 if let AstNode::Integer(value, _) = **right {
                    if value == 0 {
                        self.report_error(
-                           Error::Warning,
+                           ReportKind::Warning,
                            ai.node_info.line,
                            ai.node_info.column,
                            ai.node_info.length,
@@ -676,7 +676,7 @@ impl SemanticsCheck {
 
         if !valid_types.iter().any(|t| *t == ai.node_type) {
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 ai.node_info.line,
                 ai.node_info.column,
                 ai.node_info.length,
@@ -722,7 +722,7 @@ impl SemanticsCheck {
         } else if left_type != right_type {
             arith_info.node_type = Type::Invalid;
             self.report_error_with_expression(
-                Error::TypeError,
+                ReportKind::TypeError,
                 arith_info.node_info.line,
                 start,
                 end,
@@ -755,7 +755,7 @@ impl SemanticsCheck {
         } else if !valid_types.iter().any(|t| *t == child_type) {
             arith_info.node_type = Type::Invalid;
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 arith_info.node_info.line,
                 arith_info.node_info.column,
                 arith_info.node_info.length,
@@ -787,7 +787,7 @@ impl SemanticsCheck {
             left_type != Type::Invalid && right_type != Type::Invalid
         {
             self.report_error(
-                Error::TypeError,
+                ReportKind::TypeError,
                 info.line,
                 info.column,
                 info.length,
@@ -803,7 +803,7 @@ impl SemanticsCheck {
                 match symbol {
                     Symbol::Function(function_info) => {
                         self.report_error(
-                            Error::TypeError,
+                            ReportKind::TypeError,
                             info.line,
                             info.column,
                             info.length,
@@ -812,7 +812,7 @@ impl SemanticsCheck {
                                 name));
 
                         self.report_error(
-                            Error::Note,
+                            ReportKind::Note,
                             function_info.node_info.line,
                             function_info.node_info.column,
                             function_info.node_info.length,
@@ -824,7 +824,7 @@ impl SemanticsCheck {
             },
             None => {
                 self.report_error(
-                    Error::NameError,
+                    ReportKind::NameError,
                     info.line,
                     info.column,
                     info.length,
@@ -911,14 +911,14 @@ impl SemanticsCheck {
 
     }
 
-    fn report_error(&mut self, error_type: Error, line:i32, column:i32, token_length : i32, error: String) {
+    fn report_error(&mut self, error_type: ReportKind, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
         self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);
     }
 
     fn report_error_with_expression(
         &mut self,
-        error_type: Error,
+        error_type: ReportKind,
         line: i32,
         expression_start: i32,
         expression_end:i32,
@@ -943,15 +943,15 @@ impl SemanticsCheck {
         actual_type: Type
         ) {
         self.report_error(
-                Error::TypeError,
-                actual_node.line(),
-                actual_node.column(),
-                actual_node.length(),
-                format!("Expected '{}' but got '{}'",
+            ReportKind::TypeError,
+            actual_node.line(),
+            actual_node.column(),
+            actual_node.length(),
+            format!("Expected '{}' but got '{}'",
                     variable_info.variable_type, actual_type));
 
             self.report_error(
-                Error::Note,
+                ReportKind::Note,
                 variable_info.node_info.line,
                 variable_info.node_info.column,
                 variable_info.node_info.length,

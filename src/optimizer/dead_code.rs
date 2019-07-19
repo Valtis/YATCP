@@ -18,7 +18,7 @@ pub fn remove_dead_code(
     function_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
     for f in functions.iter_mut() {
-        let cfg = &mut function_cfgs.get_mut(&f.name).unwrap();
+        let cfg = &mut function_cfgs.get_mut(&f.function_info.name).unwrap();
 
         println!("\n\nBefore dead code elimination pass trivial conditional jump removal\n\n");
         print_cfg(f, cfg);
@@ -308,7 +308,7 @@ fn remove_trivial_jumps(
 fn print_cfg(f: &Function, cfg: &CFG) {
 
         let mut counter = 1;
-        println!("Function {}", f.name);
+        println!("Function {}", f.function_info.name);
         for bb in cfg.basic_blocks.iter() {
             println!("<BB {}>", counter);
             for i in bb.start..bb.end {

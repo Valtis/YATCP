@@ -4,9 +4,13 @@ extern crate argparse;
 use compiler::frontend::run_frontend;
 use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
+use compiler::error_reporter::FileErrorReporter;
 
 use ansi_term::Colour::Yellow;
 use argparse::{ArgumentParser, StoreTrue, Store, StoreFalse};
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[cfg(not(test))]
 fn main() {
@@ -53,14 +57,14 @@ fn main() {
         eprintln!("{} {}", Yellow.paint("Warning:"), "--print-cfg requires -O. Ignoring switch.");
     }
 
-    let opt_functions = run_frontend(input, print_ast, print_tac);
+    let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));
+    let opt_functions = run_frontend(input, print_ast, print_tac, error_reporter.clone());
 
-    if let Some(mut functions) = opt_functions {
-        if optimize {
-           functions = run_middleend(functions, print_tac, print_cfg);
-        }
-        if generate_code {
-            run_backend(output, functions, print_bytecode);
+    if let Some(functions) = opt_functions {
+        if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, error_reporter.clone()) {
+            if generate_code {
+                run_backend(output, functions, print_bytecode);
+            }
         }
     }
 }

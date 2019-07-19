@@ -144,21 +144,21 @@ impl Display for Statement {
 
 #[derive(Clone, Debug)]
 pub struct Function {
-    pub name: Rc<String>,
-    pub statements: Vec<Statement>
+    pub statements: Vec<Statement>,
+    pub function_info: FunctionInfo,
 }
 
 impl Function {
-    fn new(name: Rc<String>) -> Function {
+    fn new(function_info: FunctionInfo) -> Function {
         Function {
-            name: name,
             statements: vec![],
+            function_info,
         }
     }
 
     pub fn print(&self) {
         let mut counter = 0;
-        println!("Function '{}'\n", self.name);
+        println!("Function '{}'\n", self.function_info.name);
         for s in &self.statements {
             println!("    {}: {}", counter, s);
             counter += 1;
@@ -259,7 +259,7 @@ impl TACGenerator {
 
     fn handle_function(&mut self, child: &AstNode, info: &FunctionInfo) {
 
-        let function = Function::new(info.name.clone());
+        let function = Function::new(info.clone());
         self.function_stack.push(function);
 
         // add mock initializations for function parameters, as later stages
