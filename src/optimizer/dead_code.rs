@@ -57,7 +57,7 @@ fn remove_dead_blocks(
     function: &mut Function,
     cfg: &mut CFG) {
 
-    let mut unconnected_blocks = blocks_not_connected_to_entry(cfg);
+    let mut unconnected_blocks = cfg.blocks_not_connected_to_entry();
 
     for i in 0..unconnected_blocks.len() {
         let id = unconnected_blocks[i];
@@ -109,35 +109,7 @@ fn remove_dead_blocks(
     }
 }
 
-fn blocks_not_connected_to_entry(
-    cfg: &CFG) -> Vec<usize> {
 
-    let mut all_blocks = HashSet::new();
-
-    for bb in 0..cfg.basic_blocks.len() {
-        all_blocks.insert(bb);
-    }
-
-    let mut visited = HashSet::new();
-    depth_first_search(0, &mut visited, cfg);
-
-
-    fn depth_first_search(node: usize,
-        visited: &mut HashSet<usize>,
-        cfg: &CFG) {
-
-        visited.insert(node);
-        for child in cfg.adjacency_list[node].iter() {
-            if let Adj::Block(id) = *child {
-                if !visited.contains(&id) {
-                    depth_first_search(id, visited, cfg);
-                }
-            }
-        }
-    }
-
-    all_blocks.difference(&visited).cloned().collect()
-}
 
 // remove phi-functions that only have one operand
 fn remove_trivial_phi_functions(

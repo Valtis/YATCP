@@ -1,4 +1,4 @@
-use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation};
+use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
 use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister};
 use crate::semcheck::Type::Integer;
 
@@ -54,14 +54,17 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Nop |
             ByteCode::Label(_) |
             ByteCode::Jump(_) |
-            ByteCode::Ret(Some(IntegerConstant(_))) | // do nothing
-            ByteCode::Ret(None) => (),
+            ByteCode::Ret(Some(IntegerConstant(_))) |
+            ByteCode::JumpConditional(_, _) |
+            ByteCode::Ret(None) => (), // do nothing
 
-            ByteCode::Mov(ref unary_op) => handle_unary_op(unary_op, &mut stack_map),
-            ByteCode::Add(ref binary_op) |
-            ByteCode::Sub(ref binary_op) |
-            ByteCode::Mul(ref binary_op) |
-            ByteCode::Div(ref binary_op) => handle_binary_op(binary_op, &mut stack_map),
+            ByteCode::Mov(unary_op) => handle_unary_op(unary_op, &mut stack_map),
+            ByteCode::Add(binary_op) |
+            ByteCode::Sub(binary_op) |
+            ByteCode::Mul(binary_op) |
+            ByteCode::Div(binary_op) => handle_binary_op(binary_op, &mut stack_map),
+
+            ByteCode::Compare(comparsion_op) => handle_comparison_op(comparsion_op, &mut stack_map),
 
             ByteCode::Ret(Some(Value::VirtualRegister(ref vrefdata))) => add_location(&mut stack_map, vrefdata),
             _ => unimplemented!("{:?}", *instr)
@@ -81,27 +84,24 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
 
 fn handle_unary_op(unary_op: &UnaryOperation, stack_map: &mut StackMap) {
 
-    if let Value::VirtualRegister(ref src) = unary_op.src {
-        add_location(stack_map, src);
-    }
-
-    if let Value::VirtualRegister(ref dest) = unary_op.dest {
-        add_location(stack_map, dest);
-    }
+    add_if_register(&unary_op.src, stack_map);
+    add_if_register(&unary_op.dest, stack_map);
 }
 
 fn handle_binary_op( binary_op: &BinaryOperation, stack_map: &mut StackMap) {
+    add_if_register(&binary_op.src1, stack_map);
+    add_if_register(&binary_op.src2, stack_map);
+    add_if_register(&binary_op.dest, stack_map);
+}
 
-    if let Value::VirtualRegister(ref src) = binary_op.src1 {
-       add_location(stack_map, src);
-    }
+fn handle_comparison_op(comparison_op: &ComparisonOperation, stack_map: &mut StackMap) {
+    add_if_register(&comparison_op.src1, stack_map);
+    add_if_register(&comparison_op.src2, stack_map);
+}
 
-    if let Value::VirtualRegister(ref src) = binary_op.src2 {
+fn add_if_register(value: &Value, stack_map: &mut StackMap) {
+    if let VirtualRegister(src) = value {
         add_location(stack_map, src);
-    }
-
-    if let Value::VirtualRegister(ref dest) = binary_op.dest {
-        add_location(stack_map, dest);
     }
 }
 
@@ -137,15 +137,21 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
     let mut updated_instructions = vec![];
     for instr in code.iter() {
         match instr {
-            ByteCode::Mov(ref unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
-            ByteCode::Add(ref binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
-            ByteCode::Sub(ref binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
-            ByteCode::Mul(ref binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
-            ByteCode::Div(ref binary_op) => handle_div_allocation(binary_op, &mut updated_instructions, stack_map),
-            ByteCode::Ret(ref value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
+            ByteCode::Mov(unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Add(binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Sub(binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Mul(binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Div(binary_op) => handle_div_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Ret(value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
+            ByteCode::Compare(comparison_op) => handle_comparison(comparison_op, &mut updated_instructions, stack_map),
+
+            ByteCode::Jump(_) |
+            ByteCode::JumpConditional(_, _) |
+            ByteCode::Label(_) => {
+              updated_instructions.push(instr.clone());
+            },
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
-
     }
 
     updated_instructions
@@ -1006,7 +1012,147 @@ fn handle_return_value_allocation(value: &Option<Value>, updated_instructions: &
             updated_instructions.push(ByteCode::Ret(Some(Value::IntegerConstant(*value))));
         },
         None => updated_instructions.push(ByteCode::Ret(None)),
-        _ => unimplemented!("Not implemnented for {:#?}:", value),
+        _ => unimplemented!("Not implemented for {:#?}:", value),
+    }
+}
+
+fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match comparison_op {
+
+        /*
+            a CMP b
+
+            emit:
+
+            MOV tmp_reg, a
+            CMP tmp_reg, b
+
+        */
+        ComparisonOperation{
+            src1: IntegerConstant(val1),
+            src2: IntegerConstant(val2)
+        } => {
+
+            let reg = get_register_for_size(4);
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: IntegerConstant(*val1),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: IntegerConstant(*val2),
+                    }
+                )
+            );
+
+        },
+        /*
+            A CMP constant
+
+            emit:
+            CMP a, constant
+
+        */
+        ComparisonOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: IntegerConstant(val),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        },
+                        src2: IntegerConstant(*val),
+                    }
+                )
+            )
+        },
+        /*
+            constant CMP A
+
+            emit:
+            MOV tmp_reg, constant
+            CMP tmp_reg, A
+        */
+        ComparisonOperation {
+            src1: IntegerConstant(val),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let reg = get_register_for_size(stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: IntegerConstant(*val),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        }
+                    }
+                )
+            );
+
+        },
+        /*
+            A CMP B
+
+            emit:
+            MOV tmp_reg, A
+            CMP tmp_reg, B
+
+
+
+        */
+        ComparisonOperation {
+            src1: VirtualRegister(src1_vregdata),
+            src2: VirtualRegister(src2_vregdata),
+        } => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+            let reg = get_register_for_size(src1_stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: StackOffset {
+                        offset: src1_stack_slot.offset,
+                        size: src1_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: src2_stack_slot.offset,
+                            size: src2_stack_slot.size,
+                        }
+                    }
+                )
+            );
+        },
+        _ => unimplemented!("{:#?}", comparison_op),
     }
 }
 
@@ -2363,6 +2509,167 @@ mod tests {
                 },
             }),
             allocated_code[3]
+        );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_constant_constant_comparison() {
+
+        let functions = get_functions(
+            vec![
+                ByteCode::Compare(ComparisonOperation {
+                    src1: IntegerConstant(4),
+                    src2: IntegerConstant(8),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(4),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0]
+        );
+
+        assert_eq!(
+            ByteCode::Compare(ComparisonOperation{
+                src1: PhysicalRegister(X64Register::EAX),
+                src2: IntegerConstant(8),
+            }),
+            allocated_code[1]
+        );
+
+    }
+
+    #[test]
+    fn should_allocate_regs_for_reg_constant_comparison() {
+
+        let functions = get_functions(
+            vec![
+                ByteCode::Compare(ComparisonOperation {
+                    src1: VirtualRegister(
+                        VirtualRegisterData{
+                            id: 0,
+                            size: 4,
+                        }),
+                    src2: IntegerConstant(8),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Compare(ComparisonOperation{
+                src1: StackOffset{
+                    offset: 0,
+                    size: 4,
+                },
+                src2: IntegerConstant(8),
+            }),
+            allocated_code[0]
+        );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_constant_reg_comparison() {
+
+        let functions = get_functions(
+            vec![
+                ByteCode::Compare(ComparisonOperation {
+                    src1: IntegerConstant(8),
+                    src2: VirtualRegister(
+                        VirtualRegisterData{
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: IntegerConstant(8),
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Compare(ComparisonOperation{
+                src1: PhysicalRegister(X64Register::EAX),
+                src2: StackOffset{
+                    offset: 0,
+                    size: 4,
+                },
+            }),
+            allocated_code[1],
+        );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_reg_reg_comparison() {
+
+        let functions = get_functions(
+            vec![
+                ByteCode::Compare(ComparisonOperation {
+                    src1: VirtualRegister(
+                        VirtualRegisterData {
+                            id: 1,
+                            size: 4,
+                        }),
+                    src2: VirtualRegister(
+                        VirtualRegisterData{
+                            id: 0,
+                            size: 4,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(2, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: StackOffset {
+                    offset: 0,
+                    size: 4
+                },
+                dest: PhysicalRegister(X64Register::EAX),
+            }),
+            allocated_code[0],
+        );
+
+        assert_eq!(
+            ByteCode::Compare(ComparisonOperation{
+                src1: PhysicalRegister(X64Register::EAX),
+                src2: StackOffset{
+                    offset: 4,
+                    size: 4,
+                },
+            }),
+            allocated_code[1],
         );
     }
 }

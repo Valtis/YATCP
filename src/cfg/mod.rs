@@ -2,7 +2,7 @@ use crate::tac_generator::{Function, Statement};
 
 pub mod basic_block;
 pub mod dom_front;
-pub mod function_returns;
+pub mod check_cfg;
 
 use self::basic_block::BasicBlock;
 use self::dom_front::calculate_dominance_frontier;
@@ -13,7 +13,7 @@ use std::fmt::Formatter;
 use std::fmt::Result;
 
 use std::cmp::Ordering;
-
+use std::collections::HashSet;
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -189,6 +189,35 @@ impl CFG {
                         Adj::End => Adj::End,
                     }).collect();
         }
+    }
+
+    pub fn blocks_not_connected_to_entry(&self) -> Vec<usize> {
+
+        let mut all_blocks = HashSet::new();
+
+        for bb in 0..self.basic_blocks.len() {
+            all_blocks.insert(bb);
+        }
+
+        let mut visited = HashSet::new();
+        depth_first_search(0, &mut visited, self);
+
+
+        fn depth_first_search(node: usize,
+            visited: &mut HashSet<usize>,
+            cfg: &CFG) {
+
+            visited.insert(node);
+            for child in cfg.adjacency_list[node].iter() {
+                if let Adj::Block(id) = *child {
+                    if !visited.contains(&id) {
+                        depth_first_search(id, visited, cfg);
+                    }
+                }
+            }
+        }
+
+        all_blocks.difference(&visited).cloned().collect()
     }
 }
 

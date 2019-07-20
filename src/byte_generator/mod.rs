@@ -128,6 +128,10 @@ impl ByteGenerator {
                    _ => panic!("Not implemented: {:?}", s),
                 }
             }
+
+            ice_if!(
+                self.current_function().code.is_empty(),
+                "No bytecode was generated for function {}", f.function_info.name);
         }
     }
 

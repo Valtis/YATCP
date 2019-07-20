@@ -1,4 +1,3 @@
-extern crate compiler;
 #[macro_use]
 mod test_reporter;
 

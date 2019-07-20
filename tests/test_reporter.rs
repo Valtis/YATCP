@@ -1,4 +1,3 @@
-extern crate compiler;
 use compiler::error_reporter::ErrorReporter;
 use compiler::error_reporter::ReportKind;
 

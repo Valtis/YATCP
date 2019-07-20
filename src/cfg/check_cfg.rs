@@ -11,12 +11,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 
-/*
-    For non-void functions, check that value is returned in all basic blocks that connect to end block,
-    For void functions, insert returns if end block does not contain return
-*/
 
-pub fn check_function_returns(
+pub fn check_cfg(
     mut functions: Vec<Function>,
     cfg: &mut HashMap<Rc<String>, CFG>,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> Vec<Function> {
@@ -27,6 +23,10 @@ pub fn check_function_returns(
 
     functions
 }
+/*
+    For non-void functions, check that value is returned in all basic blocks that connect to end block,
+    For void functions, insert returns if end block does not contain return
+*/
 
 fn check_function(
     function: &mut Function,
@@ -64,3 +64,4 @@ fn check_function(
         cfg.insert_statement(function, *pos, Statement::Return(None));
     }
 }
+

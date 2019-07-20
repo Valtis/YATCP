@@ -3,7 +3,7 @@ use crate::ssa_generator::convert_to_ssa;
 use crate::ssa_generator::destroy_ssa;
 
 use crate::cfg::generate_cfg;
-use crate::cfg::function_returns::check_function_returns;
+use crate::cfg::check_cfg::check_cfg;
 use crate::cfg::CFG;
 
 use crate::error_reporter::ErrorReporter;
@@ -23,11 +23,13 @@ pub fn run_middleend(
 
     let mut cfg = generate_cfg(&mut functions);
 
-    let mut functions = check_function_returns(functions, &mut cfg, error_reporter.clone());
+    let mut functions = check_cfg(functions, &mut cfg, error_reporter.clone());
 
-    if error_reporter.borrow().has_errors() {
+    if error_reporter.borrow().has_reports() {
         error_reporter.borrow().print_errors();
-        return None;
+        if error_reporter.borrow().has_errors() {
+            return None;
+        }
     }
 
 
