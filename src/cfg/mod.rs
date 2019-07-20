@@ -203,7 +203,8 @@ impl CFG {
         depth_first_search(0, &mut visited, self);
 
 
-        fn depth_first_search(node: usize,
+        fn depth_first_search(
+            node: usize,
             visited: &mut HashSet<usize>,
             cfg: &CFG) {
 
@@ -246,19 +247,21 @@ fn get_parents(adjacency_list: &Vec<Vec<Adj>>, block: usize) -> Vec<usize> {
     return parents;
 }
 
-fn insert_if_not_present(vec: &mut Vec<Adj>, val: Adj) {
-    if !vec.contains(&val) {
-        vec.push(val);
-    }
-}
-
 pub fn generate_cfg(functions: &mut Vec<Function>) -> HashMap<Rc<String>, CFG> {
     let mut cfgs = HashMap::new();
     for f in functions.iter_mut() {
         let mut basic_blocks = BasicBlock::construct_basic_blocks(&f);
         let mut adjacency_list = create_adj_list(&basic_blocks, f);
 
+
+
         remove_dead_blocks(&mut basic_blocks, &mut adjacency_list, f);
+        ice_if!(
+            basic_blocks.len() != adjacency_list.len(),
+            "Adjacency list length does not match with basic block count: {} vs {} ",
+            adjacency_list.len(),
+            basic_blocks.len());
+
         cfgs.insert(f.function_info.name.clone(), CFG::new(basic_blocks, adjacency_list));
     }
 
@@ -288,18 +291,47 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
         let vec = &mut adjacency_list[pos];
         match f.statements[bb.end-1] {
             Statement::Jump(id) => {
-                insert_if_not_present(
-                    vec,
-                    Adj::Block(label_id_to_bb[&id]));
-            },
-            Statement::JumpIfTrue(_, id) => {
-                insert_if_not_present(
-                    vec,
-                    Adj::Block(label_id_to_bb[&id]));
+                let id = label_id_to_bb[&id];
+                ice_if!(
+                    id >= basic_blocks.len(),
+                    "Unconditional jump: Attempting to set adjacency to basic block {}, when only {} block(s) exist",
+                    id,
+                    basic_blocks.len()-1
+                );
 
                 insert_if_not_present(
                     vec,
-                    Adj::Block(pos + 1));
+                    Adj::Block(id));
+            },
+            Statement::JumpIfTrue(_, id) => {
+
+                let id = label_id_to_bb[&id];
+
+                ice_if!(
+                    id >= basic_blocks.len(),
+                    "Conditional jump, branch taken: Attempting to set adjacency to basic block {}, when only {} block(s) exist",
+                    id,
+                    basic_blocks.len()-1);
+
+                insert_if_not_present(
+                    vec,
+                    Adj::Block(id));
+
+
+
+                if pos == basic_blocks.len() - 1 {
+                    insert_if_not_present(vec, Adj::End);
+                } else {
+                    ice_if!(
+                        pos + 1 >= basic_blocks.len(),
+                        "Conditional jump, branch not taken: Attempting to set adjacency to basic block {}, when only {} block(s) exist",
+                        pos+1,
+                        basic_blocks.len()-1);
+
+                    insert_if_not_present(
+                        vec,
+                        Adj::Block(pos + 1));
+                }
             },
             Statement::Return(_) => {
                 insert_if_not_present(
@@ -312,6 +344,13 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
                         vec,
                         Adj::End);
                 } else {
+                    ice_if!(
+                      pos + 1 >= basic_blocks.len(),
+                        "Unconditional jump: Attempting to set adjacency to basic block {}, when only {} block(s) exist",
+                        pos+1,
+                        basic_blocks.len()-1
+                     );
+
                     insert_if_not_present(
                         vec,
                         Adj::Block(pos + 1));
@@ -319,16 +358,25 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
             },
         }
 
+
         vec.sort();
         pos += 1;
     }
     adjacency_list
 }
 
+fn insert_if_not_present(vec: &mut Vec<Adj>, val: Adj) {
+
+    if !vec.contains(&val) {
+        vec.push(val);
+    }
+}
+
+
 
 // ensure that the graph does not have parentless blocks.
 // Parentless blocks may have been created during tac generation
-// after peephole optimizations.
+// after peephole optimizations. Also might exist naturally, if there is code after return statement
 fn remove_dead_blocks(
     basic_blocks: &mut Vec<BasicBlock>,
     adjacency_list: &mut Vec<Vec<Adj>>,
@@ -1351,5 +1399,45 @@ mod tests {
         assert_eq!(vec![] as Vec<Adj>, cfg.adjacency_list[2]);
         assert_eq!(vec![Adj::Block(1), Adj::Block(4)], cfg.adjacency_list[3]);
         assert_eq!(vec![Adj::End], cfg.adjacency_list[4]);
+    }
+
+
+    #[test]
+    fn conditional_jump_sets_branch_not_taken_block_if_jump_is_in_last_block() {
+        let statements = vec![
+            // block 1
+            Statement::Jump(0),
+            // block 2
+            Statement::Label(1),
+            Statement::Return(None),
+            // block 3
+            Statement::Label(0),
+            Statement::JumpIfTrue(Operand::Boolean(true), 1),
+        ];
+
+        let mut f = create_function(statements);
+
+        let basic_blocks = vec![
+            BasicBlock{
+                start: 0,
+                end: 1,
+            },
+            BasicBlock{
+                start: 1,
+                end: 3,
+            },
+            BasicBlock{
+                start: 3,
+                end: 5,
+            },
+        ];
+
+        let adjacency_list = create_adj_list(&basic_blocks, &f);
+
+        assert_eq!(3, adjacency_list.len());
+
+        assert_eq!(vec![Adj::Block(2)], adjacency_list[0]);
+        assert_eq!(vec![Adj::End], adjacency_list[1]);
+        assert_eq!(vec![Adj::Block(1), Adj::End], adjacency_list[2]);
     }
 }

@@ -1,6 +1,10 @@
 use crate::tac_generator::{Function, Statement};
 
 #[derive(Debug, PartialEq, Clone)]
+
+/*
+    interval: [start, end[
+*/
 pub struct BasicBlock {
     pub start: usize,
     pub end: usize,

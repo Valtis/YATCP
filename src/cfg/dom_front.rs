@@ -38,6 +38,9 @@ pub fn calculate_dominance_frontier(
 // find the list of nodes that dominate the given node
 fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
     let mut dominators = HashMap::new();
+
+    ice_if!(cfg.basic_blocks.is_empty(), "Basic block list is empty when calculating dominators - at least on block should exist");
+
     for i in 0..cfg.basic_blocks.len() {
         dominators.insert(i, HashSet::new());
     }
@@ -179,11 +182,13 @@ fn calculate_reverse_post_order(cfg: &CFG) -> Vec<usize> {
     post_order
 }
 
-fn depth_first_search(node: usize,
+fn depth_first_search(
+    node: usize,
     visited: &mut HashSet<usize>,
     post_order: &mut Vec<usize>,
     cfg: &CFG) {
         visited.insert(node);
+
         for child in cfg.adjacency_list[node].iter() {
             if let Adj::Block(id) = *child {
                 if !visited.contains(&id) {
