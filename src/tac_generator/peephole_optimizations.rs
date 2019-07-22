@@ -5,9 +5,25 @@ use std::collections::HashMap;
 pub fn optimize(functions: &mut Vec<Function>) {
 
     for function in functions.iter_mut() {
+        replace_conditional_jumps_with_literal_condition_with_unconditional_ones(function);
         remove_unconditional_jumps_into_unconditional_jumps(function);
         remove_unnecessary_temporaries(function);
         merge_successive_labels(function);
+    }
+}
+
+fn replace_conditional_jumps_with_literal_condition_with_unconditional_ones(function: &mut Function) {
+    for statement in function.statements.iter_mut() {
+        match statement {
+            Statement::JumpIfTrue(Operand::Boolean(true), label) => {
+                *statement = Statement::Jump(*label);
+            },
+            Statement::JumpIfTrue(Operand::Boolean(false), label) => {
+                *statement = Statement::Empty;
+            }
+
+            _ => (),
+        }
     }
 }
 
