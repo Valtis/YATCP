@@ -2,13 +2,16 @@ use compiler::frontend::run_frontend;
 use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
 
-use std::env;
-use std::sync::atomic::{AtomicI32, Ordering};
+use compiler::error_reporter::FileErrorReporter;
 
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
-use compiler::error_reporter::FileErrorReporter;
+use std::os::unix::prelude::ExitStatusExt;
+
+
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -111,7 +114,9 @@ fn compile_test_binary(kind: FunctionKind, output_file_str: String, binary_out_s
     }
 }
 
-fn run_test_binary(object: &String, binary_out_str: &String) -> String {
+fn run_test_binary(object: &str, binary_out_str: &str) -> String {
+
+    // Need to wrap the execution with { } in order to grab SIGSEVS & friends
     let output = Command::new(binary_out_str)
         .output()
         .unwrap_or_else(|err| {
@@ -131,10 +136,36 @@ fn run_test_binary(object: &String, binary_out_str: &String) -> String {
         stderr = stderr.replace("\n", &format!("\n{}", indent));
         stderr.insert_str(0, indent);
 
-        eprintln!("Failed to run the test binary {}:\n\nStdout:{}\n\nStderr:\n{}",
+        eprintln!("Failed to run the test binary {}:\n\nExit code: {}\nStdout:{}\n\nStderr:\n{}",
                   binary_out_str,
+                  match output.status.code() {
+                     Some(code) => {
+                         format!("{}", code)
+                     },
+                     None => {
+                         let signal = match output.status.signal() {
+                             Some(1) => "SIGHUP - Hanged up".to_owned(),
+                             Some(2) => "SIGINT - Interrupted".to_owned(),
+                             Some(3) => "SIGQUIT - Quit".to_owned(),
+                             Some(4) => "SIGILL - Illegal instruction".to_owned(),
+                             Some(5) => "SIGTRAP - Trapped".to_owned(),
+                             Some(6) => "SIGABRT - Abort".to_owned(),
+                             Some(7) => "SIGBUS - Bus error".to_owned(),
+                             Some(8) => "SIGFPE - Floating point/arithmetic error".to_owned(),
+                             Some(9) => "SIGKILL - Killed".to_owned(),
+                             Some(11) => "SIGSEGV - Segmentation fault".to_owned(),
+                             Some(15) => "SIGTERM - Terminated".to_owned(),
+                             Some(16) => "SIGSTKFLT - Stack fault".to_owned(),
+                             None => "Unknown signal".to_owned(),
+                             Some(x) => format!("Unknown signal: {}", x),
+                         };
+                         let signal = ansi_term::Colour::Red.bold().paint(signal);
+                         format!("No exit code - terminated by signal: {}", signal)
+                     },
+                  },
                   stdout,
-                  stderr);
+                  stderr,
+        );
 
         objdump_binary(object);
 
@@ -145,7 +176,7 @@ fn run_test_binary(object: &String, binary_out_str: &String) -> String {
     cow.into_owned()
 }
 
-fn objdump_binary(binary: &String) {
+fn objdump_binary(binary: &str) {
     let output = Command::new("objdump")
         .arg("-d")
         .arg("-Mintel")

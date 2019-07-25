@@ -534,3 +534,45 @@ fn integer_addition_overflows() {
 
     assert_eq!("-2147483648\n", output);
 }
+
+#[test]
+fn integer_subtraction_overflows() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = -2147483648; // INTMIN
+                return a - 1;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("2147483647\n", output);
+}
+
+#[test]
+fn positive_integer_multiplication_overflows() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 2147483647; // INTMAX
+                return a * 2;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("-2\n", output);
+}
+
+#[test]
+fn negative_integer_multiplication_overflows() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = -2147483648; // INTMAX
+                return a * (-1);
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("-2147483648\n", output);
+}
