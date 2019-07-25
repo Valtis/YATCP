@@ -5,6 +5,7 @@ use crate::code_generator::x64::X64Register;
 
 use std::collections::HashMap;
 use std::rc::Rc;
+use crate::byte_generator::Value::VirtualRegister;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +47,7 @@ pub enum Value {
     VirtualRegister(VirtualRegisterData),
     PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
     IntegerConstant(i32),
+    BooleanConstant(bool),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
 }
@@ -196,13 +198,33 @@ impl ByteGenerator {
 
     fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
         let src =  self.get_source(op);
-        if let Value::ComparisonResult(cmp_type) = src {
-            self.current_function().
-            code.
-            push(
-                ByteCode::JumpConditional(id, cmp_type));
-        } else {
-            ice!("Invalid operand type in conditional jump");
+
+        match src {
+            Value::ComparisonResult(cmp_type)  => {
+                self.current_function().
+                    code.
+                    push(
+                        ByteCode::JumpConditional(id, cmp_type));
+            },
+            Value::VirtualRegister(vregdata) => {
+                ice_if!(
+                    vregdata.size != 1,
+                    "Non-boolean register value used for conditional jump:\n{:#?}",
+                    vregdata);
+
+
+                self.current_function().code.push(
+                    ByteCode::Compare(ComparisonOperation {
+                        src1: VirtualRegister(vregdata.clone()),
+                        src2: Value::BooleanConstant(true),
+                    })
+                );
+
+                self.current_function().code.push(
+                    ByteCode::JumpConditional(id, ComparisonType::Equals)
+                )
+            },
+            _ => ice!("Invalid operand type in conditional jump: {:#?}", src),
         }
     }
 
@@ -228,16 +250,17 @@ impl ByteGenerator {
 
     fn get_source(&mut self, op: &Operand) -> Value {
         match op {
-            &Operand::Variable(ref declaration_info, id) => {
+            Operand::Variable(declaration_info, id) => {
                 if self.variable_to_comparison_result.contains_key(&id) {
                     Value::ComparisonResult(
                         self.variable_to_comparison_result[&id].clone())
                 }
                 else {
-                    self.get_register_for(declaration_info, id)
+                    self.get_register_for(declaration_info, *id)
                 }
             },
-            &Operand::Integer(i32) => Value::IntegerConstant(i32),
+            Operand::Integer(val) => Value::IntegerConstant(*val),
+            Operand::Boolean(val) => Value::BooleanConstant(*val),
             x => panic!("Not implemented yet for {}", x),
         }
     }
@@ -278,6 +301,7 @@ impl ByteGenerator {
 mod test {
 
     use super::*;
+    use super::Value::*;
 
     use crate::tac_generator::{Operand, Operator, Function};
     use crate::cfg::basic_block::BasicBlock;
@@ -339,5 +363,126 @@ mod test {
         assert_eq!(1, functions[0].code.len());
 
         assert_eq!(ByteCode::Ret(Some(Value::IntegerConstant(32))), functions[0].code[0]);
+    }
+
+    #[test]
+    fn should_generate_byte_code_for_boolean_true_constant() {
+        let statements = vec![
+            Statement::Assignment(
+                None,
+                Some(Operand::Variable(
+                    DeclarationInfo {
+                        name: Rc::new("Foo".to_owned()),
+                        variable_type: Type::Boolean,
+                        node_info: NodeInfo {
+                            line: 1,
+                            column: 1,
+                            length: 1,
+                        }
+                    },
+                    3)
+                ),
+                None,
+                Some(Operand::Boolean(true)),
+            )
+        ];
+
+        let mut generator = create_byte_generator(statements);
+        generator.generate_bytecode();
+        let functions = generator.bytecode_functions;
+
+        assert_eq!(1, functions.len());
+        assert_eq!(1, functions[0].code.len());
+
+        assert_eq!(ByteCode::Mov(
+            UnaryOperation {
+                src: BooleanConstant(true),
+                dest: VirtualRegister (
+                    VirtualRegisterData {
+                        id: 0,
+                        size: 1,
+                    }),
+            }),
+            functions[0].code[0]);
+
+    }
+
+    #[test]
+    fn should_generate_byte_code_for_boolean_false_constant() {
+        let statements = vec![
+            Statement::Assignment(
+                None,
+                Some(Operand::Variable(
+                    DeclarationInfo {
+                        name: Rc::new("Foo".to_owned()),
+                        variable_type: Type::Boolean,
+                        node_info: NodeInfo {
+                            line: 1,
+                            column: 1,
+                            length: 1,
+                        }
+                    },
+                    3)
+                ),
+                None,
+                Some(Operand::Boolean(false)),
+            )
+        ];
+
+        let mut generator = create_byte_generator(statements);
+        generator.generate_bytecode();
+        let functions = generator.bytecode_functions;
+
+        assert_eq!(1, functions.len());
+        assert_eq!(1, functions[0].code.len());
+
+        assert_eq!(ByteCode::Mov(
+            UnaryOperation {
+                src: BooleanConstant(false),
+                dest: VirtualRegister (
+                    VirtualRegisterData {
+                        id: 0,
+                        size: 1,
+                    }),
+            }),
+                   functions[0].code[0]);
+    }
+
+    #[test]
+    fn should_generate_byte_code_for_conditional_jump_using_boolean_variable() {
+        let statements = vec![
+            Statement::JumpIfTrue(
+                Operand::Variable(DeclarationInfo {
+                        name: Rc::new("foo".to_owned()),
+                        variable_type: Type::Boolean,
+                        node_info: NodeInfo {
+                            line: 1,
+                            column: 1,
+                            length: 1,
+                        }},
+                        1),
+                    3),
+        ];
+
+        let mut generator = create_byte_generator(statements);
+        generator.generate_bytecode();
+        let functions = generator.bytecode_functions;
+
+        assert_eq!(1, functions.len());
+        assert_eq!(2, functions[0].code.len());
+
+        assert_eq!(
+            ByteCode::Compare(
+                ComparisonOperation{
+                    src1: VirtualRegister(VirtualRegisterData {
+                       size: 1,
+                       id: 0,
+                    }),
+                    src2: BooleanConstant(true),
+                }
+            ),
+            functions[0].code[0]
+        );
+
     }
 }

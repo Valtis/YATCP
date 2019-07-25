@@ -1092,3 +1092,67 @@ fn constant_constant_order_of_operation_is_respected() {
     );
     assert_eq!("52\n", output);
 }
+
+#[test]
+fn if_statement_is_taken_with_literal_true() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            if true {
+                return 23;
+            }
+            return 52;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("23\n", output);
+}
+
+#[test]
+fn if_statement_is_not_taken_with_literal_false() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            if false {
+                return 23;
+            }
+            return 52;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("52\n", output);
+}
+
+#[test]
+fn if_statement_taken_if_boolean_variable_is_true() {
+
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let my_var: bool = true;
+            if my_var {
+                return 23;
+            }
+            return 52;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("23\n", output);
+}
+
+#[test]
+fn if_statement_taken_if_boolean_variable_is_false() {
+
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let my_var: bool = false;
+            if my_var {
+                return 23;
+            }
+            return 52;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("52\n", output);
+}

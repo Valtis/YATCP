@@ -1,6 +1,6 @@
 
 use crate::byte_generator;
-use crate::byte_generator::Value::{StackOffset, IntegerConstant, PhysicalRegister};
+use crate::byte_generator::Value::*;
 use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
 
 use crate::code_generator;
@@ -383,6 +383,16 @@ fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
 
 fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     match operand {
+        UnaryOperation{
+            dest: StackOffset { offset, size},
+            src: BooleanConstant(value),
+        } => {
+
+            emit_mov_integer_to_stack(
+                *offset,
+                 if *value { 1 } else { 0 },
+                asm);
+        },
         UnaryOperation{
             dest: StackOffset {offset, size} ,
             src: IntegerConstant(value)} => {
@@ -1103,20 +1113,30 @@ fn emit_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
 fn emit_comparison(operands: &ComparisonOperation, asm: &mut Vec<u8>)  {
     match operands {
         ComparisonOperation {
+            src1: PhysicalRegister(reg),
             src2: IntegerConstant(immediate),
-            src1: PhysicalRegister(reg)
         } => {
             emit_compare_immediate_with_register(*reg, *immediate, asm)
         },
         ComparisonOperation {
-            src2: IntegerConstant(immediate),
             src1: StackOffset { offset, size},
+            src2: IntegerConstant(immediate),
         } => {
             emit_compare_immediate_with_stack(*offset, *size, *immediate, asm);
         },
         ComparisonOperation {
-            src2: StackOffset {offset, size },
+            src1: StackOffset { offset, size},
+            src2: BooleanConstant(val),
+        } => {
+            emit_compare_immediate_with_stack(
+                *offset,
+                *size,
+               if *val { 1 } else { 0 },
+                asm );
+        },
+        ComparisonOperation {
             src1: PhysicalRegister(reg),
+            src2: StackOffset {offset, size },
         } => {
             emit_compare_stack_with_register(*offset, *size, *reg, asm);
         },

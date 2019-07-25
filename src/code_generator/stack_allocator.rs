@@ -1,5 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister};
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant};
 use crate::semcheck::Type::Integer;
 
 use super::x64::X64Register;
@@ -157,23 +157,16 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
     updated_instructions
 }
 
-/*
-    if the instruction is
-        MOV virt_reg, imm
-    replace with:
-        MOV stack_address, imm:
-
-    if the instruction is
-        MOV virt_reg1_, virt_reg_2
-    replace with:
-        MOV real_tmp_reg, stack_address_2
-        MOV stack_address_1, real_tmp_reg
-
-
-
-*/
 fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match unary_op {
+        /*
+           A = constant
+
+           emit:
+
+           MOV A, constant
+
+        */
         UnaryOperation{dest: VirtualRegister(ref vregdata), src: IntegerConstant(value)} => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
@@ -182,6 +175,24 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                src: IntegerConstant(*value),
             }));
         },
+        UnaryOperation{dest: VirtualRegister(ref vregdata), src: BooleanConstant(value)} => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src: BooleanConstant(*value),
+            }));
+        },
+        /*
+            A = B
+
+            since A and B are both stack slots, we need to use tmp reg
+
+            emit:
+
+            MOV tmp_reg, B
+            MOV A, tmp_reg
+        */
         UnaryOperation{dest: VirtualRegister(ref dest_vregdata), src: VirtualRegister(ref src_vregdata)} => {
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
@@ -201,22 +212,6 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
 }
-
-/*
-    if the instruction is
-        ADD virt_reg, virt_reg, immm
-    replace with:
-        ADD stack_address, stack_address, imm
-
-   if the instruction is
-        ADD virt_reg1, virt_reg1, virt_reg2
-   replace with:
-        MOV real_tmp_reg, stack_address2,
-        ADD stack_address1, stack_address1, real_tmp_reg2
-
-
-
-*/
 
 fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match binary_op {
@@ -1075,6 +1070,24 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                     }
                 )
             )
+        },
+        ComparisonOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: BooleanConstant(val),
+        } => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        },
+                        src2: BooleanConstant(*val),
+                    }
+                )
+            )
+
         },
         /*
             constant CMP A
@@ -2671,5 +2684,38 @@ mod tests {
             }),
             allocated_code[1],
         );
+    }
+
+    #[test]
+    fn should_allocate_regs_for_reg_boolean_constant_move() {
+        let functions = get_functions(
+            vec![
+                ByteCode::Mov(UnaryOperation {
+                    src: BooleanConstant(true),
+                    dest: VirtualRegister(
+                        VirtualRegisterData{
+                            id: 0,
+                            size: 1,
+                        }),
+                })
+            ]
+        );
+
+        let allocations = allocate(functions);
+
+        assert_eq!(1, allocations.len());
+        let allocated_code = &allocations[0].0.code;
+        assert_eq!(1, allocated_code.len());
+
+        assert_eq!(
+            ByteCode::Mov(UnaryOperation{
+                src: BooleanConstant(true),
+                dest: StackOffset {
+                    offset: 0,
+                    size: 4,
+                }}),
+            allocated_code[0],
+        );
+
     }
 }
