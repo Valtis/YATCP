@@ -4,7 +4,7 @@ use crate::lexer::Lexer;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -412,9 +412,22 @@ impl Parser {
         match token.token_type {
             TokenType::Minus => {
                 let node = self.parse_factor()?;
-                Ok(AstNode::Negate(
-                    Box::new(node),
-                    ArithmeticInfo::new(&token)))
+                match node {
+                    AstNode::Integer(AstInteger::Int(val), info) => {
+                        Ok(AstNode::Integer(AstInteger::Int(-val), info.clone()))
+                    },
+                    AstNode::Integer(AstInteger::IntMaxPlusOne, info) => {
+                        Ok(AstNode::Integer(
+                            AstInteger::Int(i32::min_value()),
+                            info.clone()))
+                    },
+                    _ => {
+                        Ok(AstNode::Negate(
+                            Box::new(node),
+                            ArithmeticInfo::new(&token)))
+                    }
+                }
+
             },
             TokenType::Identifier => {
                 if self.lexer.peek_token().token_type == TokenType::LParen {
@@ -436,7 +449,7 @@ impl Parser {
             TokenType::Number => {
                 match token.token_subtype {
                     TokenSubType::IntegerNumber(i) => {
-                        Ok(AstNode::Integer(i, NodeInfo::new(
+                        Ok(AstNode::Integer(AstInteger::from(i), NodeInfo::new(
                             token.line, token.column, token.length)))
                     },
                     TokenSubType::DoubleNumber(i) => {

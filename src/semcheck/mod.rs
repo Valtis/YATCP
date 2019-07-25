@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
 
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
@@ -96,7 +96,7 @@ impl SemanticsCheck {
     }
 
     fn do_check(&mut self, node: &mut AstNode) {
-        match *node {
+        match node {
             AstNode::Block(ref mut children, ref mut tab_ent, ref ni) =>
                 self.handle_block(children, tab_ent, ni),
             AstNode::Function(ref mut child, ref fi) =>
@@ -132,7 +132,7 @@ impl SemanticsCheck {
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison_operation(node),
-            AstNode::Integer(_, _) => {},
+            AstNode::Integer(value, info) => self.check_for_overflow(value, info),
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
             AstNode::Text(_, _) => {},
@@ -650,8 +650,8 @@ impl SemanticsCheck {
             AstNode::Divide(ref mut left, ref mut right, ref mut ai) => {
                 self.handle_arithmetic_node(left, right, ai);
 
-                if let AstNode::Integer(value, _) = **right {
-                   if value == 0 {
+                if let AstNode::Integer(ref value, _) = **right {
+                   if let AstInteger::Int(0) = value  {
                        self.report_error(
                            ReportKind::Warning,
                            ai.node_info.line,
@@ -793,6 +793,22 @@ impl SemanticsCheck {
                 info.length,
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+        }
+    }
+
+    fn check_for_overflow(&mut self, integer: &AstInteger, info: &NodeInfo) {
+        match integer {
+            AstInteger::Int(_) => (), // OK
+            AstInteger::IntMaxPlusOne | AstInteger::Invalid(_) => {
+                self.report_error(
+                  ReportKind::TokenError,
+                    info.line,
+                    info.column,
+                    info.length,
+                    "Integer overflow".to_owned(),
+                );
+            },
+
         }
     }
 

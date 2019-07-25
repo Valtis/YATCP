@@ -479,8 +479,6 @@ fn should_work_with_complex_arithmetics_when_variables_used() {
     assert_eq!("14\n", output);
 }
 
-
-
 #[test]
 fn should_respect_order_of_operation() {
 
@@ -493,4 +491,46 @@ fn should_respect_order_of_operation() {
         FunctionKind::INT("foo".to_owned()));
 
     assert_eq!("29\n", output);
+}
+
+#[test]
+fn can_represent_int_max() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 2147483647; // INTMAX
+                return a;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("2147483647\n", output);
+}
+
+#[test]
+fn can_represent_int_min() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = -2147483648; // INTMIN
+                return a;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("-2147483648\n", output);
+}
+
+#[test]
+fn integer_addition_overflows() {
+    let output = compile_and_run_no_opt(
+        r"
+            fn foo() : int {
+                let a: int = 2147483647; // INTMAX
+                return a + 1;
+            }
+        ",
+        FunctionKind::INT("foo".to_owned()));
+
+    assert_eq!("-2147483648\n", output);
 }

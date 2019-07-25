@@ -96,7 +96,16 @@ pub enum TokenSubType {
   Text(Rc<String>),
   FloatNumber(f32),
   DoubleNumber(f64),
-  IntegerNumber(i32),
+  /*
+   *  At token stage, we only deal with positive values; later stages will negate numbers, as they
+   *  have more context on if minus means negate or is part of arithmetic expression
+   *  (for example, a = -45 vs a= 2-45).
+   *
+   *  This means that we must be able to store INT_MAX + 1, when token is actually INT_MIN.
+   *  To do this, use u32 at this stage, and convert to i32 later on when number is known
+   *
+   */
+  IntegerNumber(u64),
   Identifier(Rc<String>),
   BooleanValue(bool),
   FloatType,

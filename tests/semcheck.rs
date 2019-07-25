@@ -1,12 +1,7 @@
 #[macro_use]
 mod test_reporter;
 
-use compiler::ast::AstNode;
-use compiler::ast::ArithmeticInfo;
-use compiler::ast::NodeInfo;
-use compiler::ast::FunctionInfo;
-use compiler::ast::DeclarationInfo;
-
+use compiler::ast::{AstNode, AstInteger, ArithmeticInfo, NodeInfo, FunctionInfo, DeclarationInfo };
 use compiler::error_reporter::ReportKind;
 
 use compiler::semcheck::SemanticsCheck;
@@ -121,11 +116,11 @@ fn artihmetic_operation_with_integers_is_allowed() {
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Multiply(
                             Box::new(AstNode::Integer(
-                                3,
+                                AstInteger::from(3),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Box::new(AstNode::Integer(
-                                14,
+                                AstInteger::from(14),
                                 NodeInfo::new(9, 7, 2)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
@@ -401,7 +396,7 @@ fn redeclaration_of_variable_is_allowed_if_scopes_do_not_overlap() {
                         AstNode::Block(vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Integer(
-                                    4,
+                                    AstInteger::from(4),
                                     NodeInfo::new(8, 6, 3)
                                 )),
                                 DeclarationInfo::new_alt(
@@ -482,7 +477,7 @@ fn return_with_correct_expression_type_is_allowed_in_function() {
                     AstNode::Block(vec![
                         AstNode::Return(
                             Some(Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(7, 23, 212)
                                 ))),
                             ArithmeticInfo::new_alt(5, 6, 7)),
@@ -518,18 +513,18 @@ fn correct_while_loop_is_accepted() {
                 AstNode::While(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -571,18 +566,18 @@ fn if_statement_without_else_is_accepted() {
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -627,18 +622,18 @@ fn if_statement_with_else_is_accepted() {
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -724,7 +719,7 @@ fn valid_function_call_with_arguments_is_accepted() {
                         vec![
                             AstNode::FunctionCall(
                                 vec![
-                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                    AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                     AstNode::Text(
                                         Rc::new("hello".to_string()),
                                         NodeInfo::new(0,0,0)),
@@ -852,7 +847,7 @@ fn using_function_in_expression_is_accepted() {
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::FunctionCall(
                                     vec![
-                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                         AstNode::Text(
                                             Rc::new("hello".to_string()),
                                             NodeInfo::new(0,0,0)),
@@ -919,7 +914,7 @@ fn calling_extern_function_is_accepted() {
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::FunctionCall(
                                     vec![
-                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                         AstNode::Text(
                                             Rc::new("hello".to_string()),
                                             NodeInfo::new(0,0,0)),
@@ -1028,7 +1023,7 @@ fn redeclaration_of_variable_is_reported() {
                     AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             DeclarationInfo::new_alt(
@@ -1102,7 +1097,7 @@ fn declaration_of_variable_which_shares_name_with_function_is_reported() {
                     AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             DeclarationInfo::new_alt(
@@ -1270,7 +1265,7 @@ fn assigning_into_function_is_reported() {
                 Box::new(AstNode::Block(vec![
                         AstNode::VariableAssignment(
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Rc::new("foo".to_string()),
@@ -1374,7 +1369,7 @@ fn type_error_in_plus_expression_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Box::new(AstNode::Integer(
-                                14,
+                                AstInteger::from(14),
                                 NodeInfo::new(9, 7, 2)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
@@ -1425,7 +1420,7 @@ fn type_error_in_minus_expression_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Box::new(AstNode::Integer(
-                                14,
+                                AstInteger::from(14),
                                 NodeInfo::new(9, 7, 2)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
@@ -1476,7 +1471,7 @@ fn type_error_in_multiplication_expression_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Box::new(AstNode::Integer(
-                                14,
+                                AstInteger::from(14),
                                 NodeInfo::new(9, 7, 2)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
@@ -1527,7 +1522,7 @@ fn type_error_in_division_expression_is_reported() {
                                 NodeInfo::new(8, 6, 3)
                             )),
                             Box::new(AstNode::Integer(
-                                14,
+                                AstInteger::from(14),
                                 NodeInfo::new(9, 7, 2)
                             )),
                             ArithmeticInfo::new_alt(3, 4, 1)
@@ -1892,7 +1887,7 @@ fn type_error_involving_variables_in_expression_is_reported() {
                                 NodeInfo::new(33, 34, 35),
                             )),
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(11, 112, 1112),
                             )),
                             ArithmeticInfo::new_alt(14, 41, 342)
@@ -1947,7 +1942,7 @@ fn type_error_when_assigning_into_variable_is_reported() {
                         ),
                     AstNode::VariableAssignment(
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(11, 112, 1112),
                         )),
                         Rc::new("a".to_string()),
@@ -2113,7 +2108,7 @@ fn returning_value_from_void_function_is_reported() {
                     AstNode::Block(vec![
                         AstNode::Return(
                             Some(Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(7, 23, 212)
                                 ))),
                             ArithmeticInfo::new_alt(5, 6, 7)),
@@ -2162,7 +2157,7 @@ fn while_loop_with_non_boolean_expression_is_reported() {
                     AstNode::Block(vec![
                         AstNode::While(
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(7, 23, 212)
                                 )),
                             Box::new(AstNode::Block(vec![
@@ -2215,7 +2210,7 @@ fn error_in_while_loop_body_is_handled() {
                             Box::new(AstNode::Block(vec![
                                 AstNode::Plus(
                                     Box::new(AstNode::Integer(
-                                        4,
+                                        AstInteger::from(4),
                                         NodeInfo::new(1, 2, 3))
                                     ),
                                     Box::new(AstNode::Text(
@@ -2266,7 +2261,7 @@ fn if_statement_with_non_boolean_expression_is_reported() {
             Box::new(AstNode::Block(vec![
                 AstNode::If(
                     Box::new(AstNode::Integer(
-                        1,
+                        AstInteger::from(1),
                         NodeInfo::new(11, 22, 33),
                     )),
                     Box::new(AstNode::Block(vec![
@@ -2338,11 +2333,11 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
@@ -2362,7 +2357,7 @@ fn if_statement_with_non_boolean_expression_in_else_if_is_reported() {
                     )),
                     Some(Box::new(AstNode::If(
                         Box::new(AstNode::Integer(
-                            4,
+                            AstInteger::from(4),
                             NodeInfo::new(99, 88, 77),
                         )),
                         Box::new(AstNode::Block(vec![
@@ -2423,11 +2418,11 @@ fn error_in_if_statement_true_block_is_reported() {
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
@@ -2506,18 +2501,18 @@ fn error_in_else_block_is_reported() {
                 AstNode::If(
                     Box::new(AstNode::GreaterOrEq(
                         Box::new(AstNode::Integer(
-                            1,
+                            AstInteger::from(1),
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -2531,7 +2526,7 @@ fn error_in_else_block_is_reported() {
                     Some(Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                3,
+                                AstInteger::from(3),
                                 NodeInfo::new(7, 6, 5),
                             )),
                             DeclarationInfo::new_alt(
@@ -2633,7 +2628,7 @@ fn using_variable_as_function_is_reported() {
                         vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Integer(
-                                    4,
+                                    AstInteger::from(4),
                                     NodeInfo::new(0,0,0))),
                                 DeclarationInfo::new_alt(
                                     Rc::new("foo".to_string()),
@@ -2718,7 +2713,7 @@ fn wrong_number_of_function_arguments_is_reported() {
                         vec![
                             AstNode::FunctionCall(
                                 vec![
-                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                    AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                 ],
                                 Rc::new("foo".to_string()),
                                 NodeInfo::new(23,24,25)),
@@ -2788,7 +2783,7 @@ fn wrong_number_of_extern_function_arguments_is_reported() {
                         vec![
                             AstNode::FunctionCall(
                                 vec![
-                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                    AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                 ],
                                 Rc::new("foo".to_string()),
                                 NodeInfo::new(23,24,25)),
@@ -2866,8 +2861,8 @@ fn wrong_type_in_function_argument_is_reported() {
                         vec![
                             AstNode::FunctionCall(
                                 vec![
-                                    AstNode::Integer(4, NodeInfo::new(0,0,0)),
-                                    AstNode::Integer(6, NodeInfo::new(9,8,7)),
+                                    AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
+                                    AstNode::Integer(AstInteger::from(6), NodeInfo::new(9,8,7)),
                                 ],
                                 Rc::new("foo".to_string()),
                                 NodeInfo::new(23,24,25)),
@@ -2938,7 +2933,7 @@ fn redefinition_of_function_parameter_in_function_body_is_reported() {
                         vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Integer(
-                                    0,
+                                    AstInteger::from(0),
                                     NodeInfo::new(0,0,0))),
                                 DeclarationInfo::new_alt(
                                     Rc::new("a".to_string()),
@@ -3089,7 +3084,7 @@ fn using_void_funtion_in_expression_is_reported() {
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::FunctionCall(
                                     vec![
-                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                         AstNode::Text(
                                             Rc::new("hello".to_string()),
                                             NodeInfo::new(0,0,0)),
@@ -3177,7 +3172,7 @@ fn using_non_void_function_with_wrong_type_in_expression_is_reported() {
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::FunctionCall(
                                     vec![
-                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                         AstNode::Text(
                                             Rc::new("hello".to_string()),
                                             NodeInfo::new(0,0,0)),
@@ -3266,7 +3261,7 @@ fn error_in_function_argument_is_reported() {
                                     AstNode::Minus(
                                         Box::new(
                                             AstNode::Integer(
-                                                4,
+                                                AstInteger::from(4),
                                                 NodeInfo::new(0,0,0))),
                                         Box::new(AstNode::Text(
                                             Rc::new("abc".to_string()),
@@ -3630,7 +3625,7 @@ fn declaring_void_variable_is_reported() {
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::FunctionCall(
                                     vec![
-                                        AstNode::Integer(4, NodeInfo::new(0,0,0)),
+                                        AstNode::Integer(AstInteger::from(4), NodeInfo::new(0,0,0)),
                                         AstNode::Text(
                                             Rc::new("hello".to_string()),
                                             NodeInfo::new(0,0,0)),
@@ -3705,4 +3700,91 @@ fn void_function_parameter_is_reported() {
         8,
         12,
         14);
+}
+
+#[test]
+fn int_max_plus_one_is_reported() {
+
+    let (reporter, mut checker) = create_sem_checker();
+
+     let mut node = AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::IntMaxPlusOne,
+                                            NodeInfo::new(9, 10, 11)
+                                        )
+                                    ),
+                                    DeclarationInfo::new_alt(
+                                        Rc::new("a".to_string()),
+                                        Type::Integer,
+                                        0, 0, 0),
+                                ),
+                            ],
+                            None,
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+        );
+
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        ReportKind::TokenError,
+        9,
+        10,
+        11);
+}
+
+#[test]
+fn integer_larger_than_i32_max_plus_one_generates_correct_ast() {
+
+    let (reporter, mut checker) = create_sem_checker();
+
+    let mut node = AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::Invalid(2147483649),
+                                            NodeInfo::new(2, 3, 4)
+                                        )
+                                    ),
+                                    DeclarationInfo::new_alt(
+                                        Rc::new("a".to_string()),
+                                        Type::Integer,
+                                        0, 0, 0),
+                                ),
+                            ],
+                            None,
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+        );
+    checker.check_semantics(&mut node);
+    assert_eq!(reporter.borrow().error_count(), 1);
+
+    assert_eq_error!(reporter.borrow().errors()[0],
+        ReportKind::TokenError,
+        2,
+        3,
+        4);
 }

@@ -29,6 +29,44 @@ fn get_type_from_type_token(variable_type: &Token) -> Type {
   }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum AstInteger {
+    Int(i32),
+    IntMaxPlusOne,
+    Invalid(u64),
+}
+
+impl From<u64> for AstInteger {
+    fn from(val: u64) -> AstInteger {
+        if val <= i32::max_value() as u64 {
+            AstInteger::Int(val as i32)
+        } else if val == i32::max_value() as u64 + 1 {
+            AstInteger::IntMaxPlusOne
+        } else {
+            AstInteger::Invalid(val)
+        }
+    }
+}
+
+impl From<i32> for AstInteger {
+    fn from(val: i32) -> AstInteger {
+        AstInteger::Int(val)
+    }
+}
+
+
+
+impl Display for AstInteger {
+     fn fmt(&self, formatter: &mut Formatter) -> Result {
+         write!(formatter, "{}",
+                match self {
+                    AstInteger::Invalid(val) => format!("(Integer overflow {}", val),
+                    AstInteger::Int(val) => format!("{}", val),
+                    AstInteger::IntMaxPlusOne => "Int max plus one (2147483648".to_owned(),
+            })
+    }
+}
+
 #[derive(Clone)]
 pub enum AstNode {
     Block(Vec<AstNode>, Option<symbol_table::TableEntry>, NodeInfo),
@@ -55,7 +93,9 @@ pub enum AstNode {
     GreaterOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
     Greater(Box<AstNode>, Box<AstNode>, NodeInfo),
 
-    Integer(i32, NodeInfo),
+    // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
+
+    Integer(AstInteger, NodeInfo),
     Float(f32, NodeInfo),
     Double(f64, NodeInfo),
     Text(Rc<String>, NodeInfo),
@@ -67,7 +107,7 @@ pub enum AstNode {
 
 impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
-      write!(formatter, "{}", match *self {
+      write!(formatter, "{}", match self {
             AstNode::Block(_, _, _) => "Block".to_string(),
             AstNode::Function(_, ref i) => {
 
@@ -327,9 +367,9 @@ impl PartialEq for AstNode {
              &AstNode::VariableAssignment(ref o_chld, ref o_name, ref o_ni)) => {
                 s_chld == o_chld && s_name == o_name && s_ni == o_ni
             },
-            (&AstNode::Integer(s_num, ref s_ni),
-             &AstNode::Integer(o_num, ref o_ni)) => {
-                s_num == o_num && s_ni == o_ni
+            (&AstNode::Integer(ref s_num, ref s_ni),
+             &AstNode::Integer(ref o_num, ref o_ni)) => {
+                *s_num == *o_num && s_ni == o_ni
             },
             (&AstNode::Float(s_num, ref s_ni),
              &AstNode::Float(o_num, ref o_ni)) => {

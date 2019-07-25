@@ -1,11 +1,7 @@
 #[macro_use]
 mod test_reporter;
 
-use compiler::ast::AstNode;
-use compiler::ast::ArithmeticInfo;
-use compiler::ast::FunctionInfo;
-use compiler::ast::DeclarationInfo;
-use compiler::ast::NodeInfo;
+use compiler::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, DeclarationInfo, NodeInfo };
 
 use compiler::error_reporter::ReportKind;
 use compiler::lexer::Lexer;
@@ -152,7 +148,7 @@ fn single_variable_declaration_with_integer_produces_correct_ast() {
                                 AstNode::VariableDeclaration(
                                     Box::new(
                                         AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                     ),
@@ -470,19 +466,16 @@ fn assignment_with_negative_number_produces_correct_ast() {
                         vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Minus(
-                                    Box::new(AstNode::Negate(
-                                        Box::new(AstNode::Integer(
-                                            85,
-                                            NodeInfo::new(0, 0, 0))),
-                                        ArithmeticInfo::new_alt(0, 0, 0)
-                                    )),
+                                    Box::new(AstNode::Integer(
+                                        AstInteger::from(-85),
+                                        NodeInfo::new(0, 0, 0))),
                                     Box::new(AstNode::Multiply(
                                         Box::new(AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         Box::new(AstNode::Integer(
-                                            8,
+                                            AstInteger::from(8),
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
@@ -499,6 +492,211 @@ fn assignment_with_negative_number_produces_correct_ast() {
                         None,
                         NodeInfo::new(0, 0, 0)
                     )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+        ),
+        node)
+}
+
+#[test]
+fn assignment_with_INT_MIN_produces_correct_ast() {
+    let (mut parser, reporter) = create_parser(vec![
+        Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+        Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+        Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483648), 0, 0, 0),
+        Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+        Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+        Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+
+        Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+    ]);
+
+    let node = parser.parse();
+
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+    assert_eq!(
+        AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(
+                        vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Minus(
+                                    Box::new(AstNode::Integer(
+                                        AstInteger::from(-2147483648),
+                                        NodeInfo::new(0, 0, 0))),
+                                    Box::new(AstNode::Multiply(
+                                        Box::new(AstNode::Integer(
+                                            AstInteger::from(4),
+                                            NodeInfo::new(0, 0, 0)
+                                        )),
+                                        Box::new(AstNode::Integer(
+                                            AstInteger::from(8),
+                                            NodeInfo::new(0, 0, 0)
+                                        )),
+                                        ArithmeticInfo::new_alt(0, 0, 0)
+                                    )),
+
+                                    ArithmeticInfo::new_alt(0, 0, 0)
+                                )),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_string()),
+                                    Type::Integer,
+                                    0, 0, 0),
+                            ),
+                        ],
+                        None,
+                        NodeInfo::new(0, 0, 0)
+                    )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+        ),
+        node)
+}
+
+#[test]
+fn int_max_plus_one_generates_correct_ast() {
+    let (mut parser, reporter) = create_parser(vec![
+        Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+        Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+        Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483648), 0, 0, 0),
+        Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+
+        Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+    ]);
+
+    let node = parser.parse();
+
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+    assert_eq!(
+        AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::IntMaxPlusOne,
+                                            NodeInfo::new(0, 0, 0)
+                                        )
+                                    ),
+                                    DeclarationInfo::new_alt(
+                                        Rc::new("a".to_string()),
+                                        Type::Integer,
+                                        0, 0, 0),
+                                ),
+                            ],
+                            None,
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )
+            ],
+            None,
+            NodeInfo::new(0, 0, 0),
+        ),
+        node)
+}
+
+#[test]
+fn integer_larger_than_i32_max_plus_one_generates_correct_ast() {
+    let (mut parser, reporter) = create_parser(vec![
+        Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+        Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+        Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483649), 0, 0, 0),
+        Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+
+        Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+    ]);
+
+    let node = parser.parse();
+
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+    assert_eq!(
+        AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::Invalid(2147483649),
+                                            NodeInfo::new(0, 0, 0)
+                                        )
+                                    ),
+                                    DeclarationInfo::new_alt(
+                                        Rc::new("a".to_string()),
+                                        Type::Integer,
+                                        0, 0, 0),
+                                ),
+                            ],
+                            None,
+                            NodeInfo::new(0, 0, 0)
+                        )),
                     FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )
             ],
@@ -614,13 +812,13 @@ fn function_with_single_variable_declaration_with_addition_produces_correct_ast(
                                         AstNode::Plus(
                                             Box::new(
                                                 AstNode::Integer(
-                                                    4,
+                                                    AstInteger::from(4),
                                                     NodeInfo::new(0, 0, 0)
                                                 )
                                             ),
                                             Box::new(
                                                 AstNode::Integer(
-                                                    8,
+                                                    AstInteger::from(8),
                                                     NodeInfo::new(0, 0, 0)
                                                 ),
                                             ),
@@ -690,17 +888,17 @@ fn function_with_single_variable_declaration_with_subtraction_and_addition_produ
                                 Box::new(AstNode::Plus(
                                     Box::new(AstNode::Minus(
                                         Box::new(AstNode::Integer(
-                                            85,
+                                            AstInteger::from(85),
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         Box::new(AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
                                     )),
                                     Box::new(AstNode::Integer(
-                                        8,
+                                        AstInteger::from(8),
                                         NodeInfo::new(0, 0, 0),
                                     )),
                                     ArithmeticInfo::new_alt(0, 0, 0)
@@ -781,16 +979,16 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                             Box::new(AstNode::Plus(
                                 Box::new(AstNode::Plus(
                                     Box::new(AstNode::Integer(
-                                        1,
+                                        AstInteger::from(1),
                                         NodeInfo::new(0, 0, 0),
                                     )),
                                     Box::new(AstNode::Multiply(
                                         Box::new(AstNode::Integer(
-                                            2,
+                                            AstInteger::from(2),
                                             NodeInfo::new(0, 0, 0),
                                         )),
                                         Box::new(AstNode::Integer(
-                                            3,
+                                            AstInteger::from(3),
                                             NodeInfo::new(0, 0, 0),
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0)
@@ -800,17 +998,17 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                                 Box::new(AstNode::Multiply(
                                     Box::new(AstNode::Divide(
                                         Box::new(AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0),
                                         )),
                                         Box::new(AstNode::Integer(
-                                            5,
+                                            AstInteger::from(5),
                                             NodeInfo::new(0, 0, 0),
                                         )),
                                         ArithmeticInfo::new_alt(0, 0, 0),
                                     )),
                                     Box::new(AstNode::Integer(
-                                        6,
+                                        AstInteger::from(6),
                                         NodeInfo::new(0, 0, 0),
                                     )),
                                     ArithmeticInfo::new_alt(0, 0, 0),
@@ -819,16 +1017,16 @@ fn function_with_single_variable_declaration_with_complex_initialization_produce
                             )),
                             Box::new(AstNode::Multiply(
                                 Box::new(AstNode::Integer(
-                                    7,
+                                    AstInteger::from(7),
                                     NodeInfo::new(0, 0, 0),
                                 )),
                                 Box::new(AstNode::Plus(
                                     Box::new(AstNode::Integer(
-                                        8,
+                                        AstInteger::from(8),
                                         NodeInfo::new(0, 0, 0),
                                     )),
                                     Box::new(AstNode::Integer(
-                                        9,
+                                        AstInteger::from(9),
                                         NodeInfo::new(0, 0, 0),
                                     )),
                                     ArithmeticInfo::new_alt(0, 0, 0),
@@ -895,6 +1093,52 @@ fn function_with_return_without_expression_produces_correct_ast() {
 }
 
 #[test]
+fn returning_negative_number_produces_correct_ast() {
+    let (mut parser, reporter) = create_parser(vec![
+        Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(
+            TokenType::Identifier,
+            TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+        Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+        Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+        Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 4, 1),
+        Token::new(TokenType::Minus, TokenSubType::NoSubType, 8, 7, 6),
+        Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 55, 44, 33),
+        Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+        Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+    ]);
+
+    let node = parser.parse();
+
+    assert_eq!(reporter.borrow().error_count(), 0);
+
+    assert_eq!(
+        AstNode::Block(vec![
+            AstNode::Function(
+                Box::new(AstNode::Block(vec![
+                    AstNode::Return(
+                        Some(Box::new(AstNode::Integer(
+                            AstInteger::from(-2),
+                            NodeInfo::new(55, 44, 33))
+                        )),
+                        ArithmeticInfo::new_alt(5, 4, 1),
+                    )
+                ],
+                None,
+                NodeInfo::new(0, 0, 0),
+                )),
+                FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0))
+        ],
+        None,
+        NodeInfo::new(0, 0, 0)),
+        node);
+}
+
+#[test]
 fn function_with_return_with_expression_produces_correct_ast() {
     let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
@@ -935,11 +1179,11 @@ fn function_with_return_with_expression_produces_correct_ast() {
                                 )),
                             Box::new(AstNode::Multiply(
                                     Box::new(AstNode::Integer(
-                                        2,
+                                        AstInteger::from(2),
                                         NodeInfo::new(55, 44, 33),
                                     )),
                                    Box::new(AstNode::Integer(
-                                        3,
+                                        AstInteger::from(3),
                                         NodeInfo::new(88, 77, 66),
                                     )),
                                     ArithmeticInfo::new_alt(1, 15, 53),
@@ -998,11 +1242,11 @@ fn simple_less_expression_produces_correct_ast() {
                     AstNode::VariableDeclaration(
                         Box::new(AstNode::Less(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             Box::new(AstNode::Integer(
-                                2,
+                                AstInteger::from(2),
                                 NodeInfo::new(8, 9, 2),
                             )),
                             NodeInfo::new(5, 6, 7)
@@ -1071,7 +1315,7 @@ fn while_loop_produces_correct_ast() {
                         Box::new(AstNode::Block(vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Integer(
-                                    1,
+                                    AstInteger::from(1),
                                     NodeInfo::new(1, 2, 3),
                                 )),
                                 DeclarationInfo::new_alt(
@@ -1148,14 +1392,14 @@ fn while_loop_with_complex_expression_produces_correct_ast() {
                                 NodeInfo::new(11, 22, 33),
                             )),
                             Box::new(AstNode::Integer(
-                                23,
+                                AstInteger::from(23),
                                 NodeInfo::new(13, 14, 15))),
                             NodeInfo::new(12, 23, 34)
                         )),
                         Box::new(AstNode::Block(vec![
                             AstNode::VariableDeclaration(
                                 Box::new(AstNode::Integer(
-                                    1,
+                                    AstInteger::from(1),
                                     NodeInfo::new(1, 2, 3),
                                 )),
                                 DeclarationInfo::new_alt(
@@ -1232,14 +1476,14 @@ fn if_statement_produces_correct_ast() {
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -1332,14 +1576,14 @@ fn if_statement_with_else_produces_correct_ast() {
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -1480,14 +1724,14 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                             NodeInfo::new(11, 22, 33),
                         )),
                         Box::new(AstNode::Integer(
-                            23,
+                            AstInteger::from(23),
                             NodeInfo::new(13, 14, 15))),
                         NodeInfo::new(12, 23, 34),
                     )),
                     Box::new(AstNode::Block(vec![
                         AstNode::VariableDeclaration(
                             Box::new(AstNode::Integer(
-                                1,
+                                AstInteger::from(1),
                                 NodeInfo::new(1, 2, 3),
                             )),
                             DeclarationInfo::new_alt(
@@ -1505,7 +1749,7 @@ fn if_statement_with_else_if_and_else_produces_correct_ast() {
                                 NodeInfo::new(11, 22, 33),
                             )),
                             Box::new(AstNode::Integer(
-                                53,
+                                AstInteger::from(53),
                                 NodeInfo::new(13, 14, 15))),
                             NodeInfo::new(12, 23, 34),
                         )),
@@ -1648,14 +1892,14 @@ fn function_call_with_arguments_produces_correct_ast() {
                 AstNode::FunctionCall(
                     vec![
                         AstNode::Integer(
-                            2,
+                            AstInteger::from(2),
                             NodeInfo::new(0, 0, 0)),
                         AstNode::Plus(
                             Box::new(AstNode::Identifier(
                                 Rc::new("a".to_string()),
                                 NodeInfo::new(0, 0, 0))),
                             Box::new(AstNode::Integer(
-                                4,
+                                AstInteger::from(4),
                                 NodeInfo::new(0, 0, 0))),
                             ArithmeticInfo::new_alt(0, 0, 0)),
                     ],
@@ -1721,12 +1965,12 @@ fn function_call_in_expression_produces_correct_ast() {
                 AstNode::VariableDeclaration(
                     Box::new(AstNode::Plus(
                         Box::new(AstNode::Integer(
-                            4,
+                            AstInteger::from(4),
                             NodeInfo::new(0, 0, 0))),
                         Box::new(AstNode::FunctionCall(
                             vec![
                                 AstNode::Integer(
-                                2,
+                                AstInteger::from(2),
                                 NodeInfo::new(0, 0, 0))
                             ],
                             Rc::new("bar".to_string()),
@@ -2223,7 +2467,7 @@ fn variable_declaration_after_variable_with_missing_declaration_is_handled_corre
                                 AstNode::VariableDeclaration(
                                         Box::new(
                                             AstNode::Integer(
-                                                14,
+                                                AstInteger::from(14),
                                                 NodeInfo::new(0, 0, 0)
                                             )
                                         ),
@@ -2300,7 +2544,7 @@ fn variable_declaration_after_bad_declaration_is_handled_correctly() {
                                 AstNode::VariableDeclaration(
                                         Box::new(
                                             AstNode::Integer(
-                                                14,
+                                                AstInteger::from(14),
                                                 NodeInfo::new(0, 0, 0)
                                             )
                                         ),

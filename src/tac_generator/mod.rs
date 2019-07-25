@@ -1,7 +1,7 @@
 mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, FunctionInfo, DeclarationInfo, NodeInfo};
+use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo};
 
 use crate::semcheck::Type;
 
@@ -427,9 +427,14 @@ impl TACGenerator {
     }
 
     fn handle_constant(&mut self, node : &AstNode) {
-        let operand = match *node {
-            AstNode::Integer(val, _) => Operand::Integer(val),
-            AstNode::Boolean(val, _) => Operand::Boolean(val),
+        let operand = match node {
+            AstNode::Integer(ast_integer, _) => {
+                match ast_integer {
+                    AstInteger::Int(val) => Operand::Integer(*val),
+                    _ => ice!("Invalid integer type in three-address code generation: {}", ast_integer),
+                }
+            }
+            AstNode::Boolean(val, _) => Operand::Boolean(*val),
             _ => ice!("Unexpected node '{:?}' encountered when constant was expected during TAC generation", node),
         };
 
@@ -601,7 +606,7 @@ mod tests {
 
     use super::*;
 
-    use crate::ast::ArithmeticInfo;
+    use crate::ast::{AstInteger, ArithmeticInfo};
 
     #[test]
     fn program_with_variable_declarations_produces_correct_tac() {
@@ -647,7 +652,7 @@ mod tests {
                                 AstNode::VariableDeclaration(
                                     Box::new(
                                         AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                     ),
@@ -656,12 +661,12 @@ mod tests {
                                 AstNode::VariableDeclaration(
                                     Box::new(AstNode::Multiply(
                                         Box::new(AstNode::Integer(
-                                            9,
+                                            AstInteger::from(9),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                         ),
                                         Box::new(AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                         ),
@@ -672,7 +677,7 @@ mod tests {
                                 AstNode::VariableDeclaration(
                                     Box::new(
                                         AstNode::Integer(
-                                            6,
+                                            AstInteger::from(6),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                     ),
@@ -765,7 +770,7 @@ mod tests {
                                 AstNode::VariableDeclaration(
                                     Box::new(
                                         AstNode::Integer(
-                                            4,
+                                            AstInteger::from(4),
                                             NodeInfo::new(0, 0, 0)
                                         )
                                     ),
@@ -778,7 +783,7 @@ mod tests {
                                                 Rc::new("a".to_string()),
                                                 NodeInfo::new(0, 0, 0)),
                                             AstNode::Integer(
-                                                9,
+                                                AstInteger::from(9),
                                                 NodeInfo::new(0, 0, 0))
                                         ],
                                         Rc::new("foo".to_string()),

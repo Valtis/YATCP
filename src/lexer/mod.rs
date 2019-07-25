@@ -9,9 +9,13 @@ use std::io::Read;
 use std::io::Bytes;
 
 use std::iter::Peekable;
-
 use std::rc::Rc;
 use std::cell::RefCell;
+/* Unstable API - use this once stabilized */
+//use std::num::IntErrorKind::*;
+use crate::token::TokenSubType::ErrorToken;
+use std::error::Error;
+
 
 pub trait Lexer {
     fn next_token(&mut self) -> Token;
@@ -267,8 +271,42 @@ impl ReadLexer {
 
     match number_str.parse() {
       Ok(number) => self.create_token(TokenType::Number, TokenSubType::IntegerNumber(number)),
-      Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
+
+
+      Err(e) => {
+          // UNSTABLE RIGHT NOW - use once stabilized
+          /*match e.kind() {
+            Overflow => {
+                self.report_error(
+                    ReportKind::TokenError,
+                    self.line,
+                    self.column,
+                    (self.column - self.token_start_column) as usize,
+                    format!("Error message here"),
+                );
+
+                ErrorToken
+            },
+            _ =>  ice!("Non-numeric characters in number token at {}:{} ({})",
             self.line, self.column, e),
+          }*/
+
+          // workaround, as the kind() is not stable.
+          if e.description().contains("too large to fit") {
+              self.report_error(
+                  ReportKind::TokenError,
+                  self.line,
+                  self.token_start_column,
+                  (self.column - self.token_start_column) as usize,
+                  format!("Integer overflow"),
+              );
+
+              return self.create_token(TokenType::Number, TokenSubType::ErrorToken);
+          }
+
+          ice!("Non-numeric characters in number token at {}:{} ({})",
+                self.line, self.column, e)
+      },
     }
   }
 
