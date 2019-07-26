@@ -56,6 +56,7 @@ const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 const JUMP_IF_LESS : u8 = 0x7C;
 const JUMP_IF_LESS_OR_EQ : u8 = 0x7E;
 const JUMP_IF_EQ : u8 = 0x74;
+const JUMP_IF_NOT_EQ : u8 = 0x75;
 const JUMP_IF_GREATER_OR_EQ : u8= 0x7D;
 const JUMP_IF_GREATER : u8 = 0x7F;
 
@@ -1232,6 +1233,7 @@ fn emit_conditional_jump(
         ComparisonType::Less => JUMP_IF_LESS,
         ComparisonType::LessOrEq => JUMP_IF_LESS_OR_EQ,
         ComparisonType::Equals => JUMP_IF_EQ,
+        ComparisonType::NotEquals => JUMP_IF_NOT_EQ,
         ComparisonType::GreaterOrEq => JUMP_IF_GREATER_OR_EQ,
         ComparisonType::Greater => JUMP_IF_GREATER,
     };

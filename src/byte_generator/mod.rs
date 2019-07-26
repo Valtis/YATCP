@@ -32,6 +32,7 @@ pub enum ComparisonType {
     Less,
     LessOrEq,
     Equals,
+    NotEquals,
     GreaterOrEq,
     Greater,
 }
@@ -106,7 +107,7 @@ impl ByteGenerator {
             });
             self.next_register = 0;
 
-            let cmp = vec![Operator::Less, Operator::LessOrEq, Operator::Equals, Operator::GreaterOrEq, Operator::Greater];
+            let cmp = vec![Operator::Less, Operator::LessOrEq, Operator::Equals, Operator::NotEquals, Operator::GreaterOrEq, Operator::Greater];
 
             for s in f.statements {
                 match s {
@@ -162,6 +163,7 @@ impl ByteGenerator {
             Operator::Less => ComparisonType::Less,
             Operator::LessOrEq => ComparisonType::LessOrEq,
             Operator::Equals => ComparisonType::Equals,
+            Operator::NotEquals => ComparisonType::NotEquals,
             Operator::GreaterOrEq => ComparisonType::GreaterOrEq,
             Operator::Greater => ComparisonType::Greater,
             _ => ice!("Invalid operator '{}' for comparison", operator),
@@ -197,7 +199,10 @@ impl ByteGenerator {
     }
 
     fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
+
+        println!("JumpIfTrue: {:#?}", op);
         let src =  self.get_source(op);
+        println!("JumpIfTrue src: {:#?}", src);
 
         match src {
             Value::ComparisonResult(cmp_type)  => {

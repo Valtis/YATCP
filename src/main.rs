@@ -53,10 +53,6 @@ fn main() {
         argparse.parse_args_or_exit();
     }
 
-    if print_cfg && !optimize {
-        eprintln!("{} {}", Yellow.paint("Warning:"), "--print-cfg requires -O. Ignoring switch.");
-    }
-
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));
     let opt_functions = run_frontend(input, print_ast, print_tac, error_reporter.clone());
 

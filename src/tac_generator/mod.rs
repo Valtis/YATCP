@@ -22,6 +22,7 @@ pub enum Operator {
     Less,
     LessOrEq,
     Equals,
+    NotEquals,
     GreaterOrEq,
     Greater
 }
@@ -38,6 +39,7 @@ impl Display for Operator {
             Operator::Less => "<".to_string(),
             Operator::LessOrEq => "<=".to_string(),
             Operator::Equals => "==".to_string(),
+            Operator::NotEquals => "!=".to_string(),
             Operator::GreaterOrEq => ">=".to_string(),
             Operator::Greater => ">".to_string(),
         })
@@ -88,8 +90,8 @@ pub enum Statement {
 
 fn opt_to_str<T: Display>(op: &Option<T>) -> String {
     match *op {
-        Some(ref val) => format!("{}", val),
-        None => "None".to_string(),
+        Some(ref val) => format!("{} ", val),
+        None => "".to_owned(),
     }
 }
 
@@ -97,7 +99,7 @@ impl Display for Statement {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
             Statement::Assignment(ref op, ref v1, ref v2, ref v3) =>
-                format!("{} = {} {} {}",
+                format!("{}= {}{}{}",
                     opt_to_str(v1),
                     opt_to_str(v2),
                     opt_to_str(op),
@@ -238,6 +240,7 @@ impl TACGenerator {
             AstNode::Less(_, _, _) |
             AstNode::LessOrEq(_, _, _) |
             AstNode::Equals(_, _, _) |
+            AstNode::NotEquals(_, _, _) |
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison(node),
@@ -470,50 +473,69 @@ impl TACGenerator {
 
     fn handle_if(
         &mut self,
-        expr: &AstNode,
+        condition: &AstNode,
         if_blk: &AstNode,
         opt_else_blk: &Option<Box<AstNode>>) {
 
-        let comparison_label_id = self.get_label_id();
-        let if_blk_label = self.get_label_id();
-        let else_blk_label = self.get_label_id();
+
+        let reversed_condition = self.reverse_condition(condition);
+
+
+        /*
+            * REVERSED COMPARISON
+            JUMP TO ELSE_LABEL IF COMPARISON TRUE
+                TRUE BLOCK
+                OPTIONAL JUMP TO OUT_LABEL IF ELSE BLOCK PRESENT
+            ELSE_LABEL
+                OPTIONAL ELSE BLOCK
+            OPTIONAL OUT_LABEL
+        */
+        let skip_true_block = self.get_label_id();
         let out_label = self.get_label_id();
 
-
-        // jump to condition evaluation
+        let operand = self.get_operand(&reversed_condition);
         self.current_function().statements.push(
-            Statement::Jump(comparison_label_id));
-        // true branch
-        self.current_function().statements.push(
-            Statement::Label(if_blk_label));
+            Statement::JumpIfTrue(operand, skip_true_block));
         self.generate_tac(if_blk);
-        self.current_function().statements.push(
-            Statement::Jump(out_label));
 
-        // false branch, if present
-        if let Some(ref else_blk) = *opt_else_blk {
-            self.current_function().statements.push(
-            Statement::Label(else_blk_label));
-            self.generate_tac(else_blk);
+        if let Some(_) = opt_else_blk {
             self.current_function().statements.push(
                 Statement::Jump(out_label));
         }
 
-        // perform comparison
         self.current_function().statements.push(
-            Statement::Label(comparison_label_id));
-        let operand = self.get_operand(expr);
+            Statement::Label(skip_true_block));
 
-        // jump to true branch, if comparison is true
-        self.current_function().statements.push(
-            Statement::JumpIfTrue(operand, if_blk_label));
-        // either fall through, or jump to else branch
-        if let Some(_) = *opt_else_blk {
-             self.current_function().statements.push(
-                Statement::Jump(else_blk_label));
+        if let Some(else_block) = opt_else_blk {
+            self.generate_tac(else_block);
+            self.current_function().statements.push(
+                Statement::Label(out_label));
         }
-        self.current_function().statements.push(
-            Statement::Label(out_label));
+    }
+
+    fn reverse_condition(&mut self, node: &AstNode) -> AstNode {
+        match node {
+
+            AstNode::Less(left, right, span) => {
+                AstNode::GreaterOrEq(left.clone(), right.clone(), span.clone())
+            },
+            AstNode::LessOrEq(left, right, span) => {
+                AstNode::Greater(left.clone(), right.clone(), span.clone())
+            },
+            AstNode::Equals(left, right, span) => {
+                AstNode::NotEquals(left.clone(), right.clone(), span.clone())
+            },
+            AstNode::NotEquals(left, right, span) => {
+                AstNode::Equals(left.clone(), right.clone(), span.clone())
+            },
+            AstNode::Greater(left, right, span) => {
+                AstNode::LessOrEq(left.clone(), right.clone(), span.clone())
+            }
+            AstNode::GreaterOrEq(left, right, span) => {
+                AstNode::Less(left.clone(), right.clone(), span.clone())
+            }
+            _ => ice!("Unexpected node when comparison node expected: {:#?}", node),
+        }
     }
 
     fn handle_comparison(&mut self, node: &AstNode) {
@@ -524,6 +546,8 @@ impl TACGenerator {
                 (Operator::LessOrEq, left, right),
             AstNode::Equals(ref left, ref right, _) =>
                 (Operator::Equals, left, right),
+            AstNode::NotEquals(ref left, ref right, _) =>
+                (Operator::NotEquals, left, right),
             AstNode::GreaterOrEq(ref left, ref right, _) =>
                 (Operator::GreaterOrEq, left, right),
             AstNode::Greater(ref left, ref right, _) =>

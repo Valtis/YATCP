@@ -90,6 +90,7 @@ pub enum AstNode {
     Less(Box<AstNode>, Box<AstNode>, NodeInfo),
     LessOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
     Equals(Box<AstNode>, Box<AstNode>, NodeInfo),
+    NotEquals(Box<AstNode>, Box<AstNode>, NodeInfo),
     GreaterOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
     Greater(Box<AstNode>, Box<AstNode>, NodeInfo),
 
@@ -157,6 +158,7 @@ impl Display for AstNode {
             AstNode::Less(_, _, _) => "Less".to_string(),
             AstNode::LessOrEq(_, _, _) => "LessOrEq".to_string(),
             AstNode::Equals(_, _, _) => "Equals".to_string(),
+            AstNode::NotEquals(_, _, _) => "NotEquals".to_string(),
             AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
             AstNode::Greater(_, _, _) => "Greater".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
@@ -234,6 +236,7 @@ impl AstNode {
             AstNode::Less(ref left, ref right, _) |
             AstNode::LessOrEq(ref left, ref right, _) |
             AstNode::Equals(ref left, ref right, _) |
+            AstNode::NotEquals(ref left, ref right, _) |
             AstNode::GreaterOrEq(ref left, ref right, _) |
             AstNode::Greater(ref left, ref right, _) => {
                 string = format!("{}{}", string, left.print_impl(next_int));
@@ -264,6 +267,7 @@ impl AstNode {
             AstNode::Less(_, _, ref info) |
             AstNode::LessOrEq(_, _, ref info) |
             AstNode::Equals(_, _, ref info) |
+            AstNode::NotEquals(_, _, ref info) |
             AstNode::GreaterOrEq(_, _, ref info) |
             AstNode::Greater(_, _, ref info) => info.line,
             AstNode::Integer(_, ref info) => info.line,
@@ -295,6 +299,7 @@ impl AstNode {
             AstNode::Less(_, _, ref info) |
             AstNode::LessOrEq(_, _, ref info) |
             AstNode::Equals(_, _, ref info) |
+            AstNode::NotEquals(_, _, ref info) |
             AstNode::GreaterOrEq(_, _, ref info) |
             AstNode::Greater(_, _, ref info) => info.column,
             AstNode::Integer(_, ref info) => info.column,
@@ -326,6 +331,7 @@ impl AstNode {
             AstNode::Less(_, _, ref info) |
             AstNode::LessOrEq(_, _, ref info) |
             AstNode::Equals(_, _, ref info) |
+            AstNode::NotEquals(_, _, ref info) |
             AstNode::GreaterOrEq(_, _, ref info) |
             AstNode::Greater(_, _, ref info) => info.length,
             AstNode::Integer(_, ref info) => info.length,

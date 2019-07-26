@@ -42,6 +42,7 @@ fn do_constant_folding(
                 Operator::Less => Operand::Boolean(val < val2),
                 Operator::LessOrEq => Operand::Boolean(val <= val2),
                 Operator::Equals => Operand::Boolean(val == val2),
+                Operator::NotEquals => Operand::Boolean(val != val2),
                 Operator::GreaterOrEq => Operand::Boolean(val >= val2),
                 Operator::Greater => Operand::Boolean(val > val2),
             };

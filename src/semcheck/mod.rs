@@ -126,12 +126,13 @@ impl SemanticsCheck {
                 ref mut opt_else_blk,
                 ref ni) =>
                 self.handle_if(expr, block, opt_else_blk, ni),
-            AstNode::Less(_, _, _) |
-            AstNode::LessOrEq(_, _, _) |
-            AstNode::Equals(_, _, _) |
-            AstNode::GreaterOrEq(_, _, _) |
-            AstNode::Greater(_, _, _) =>
-                self.handle_comparison_operation(node),
+            AstNode::Less(left, right, span) |
+            AstNode::LessOrEq(left, right, span) |
+            AstNode::Equals(left, right, span) |
+            AstNode::NotEquals(left, right, span) |
+            AstNode::GreaterOrEq(left, right, span) |
+            AstNode::Greater(left, right, span) =>
+                self.handle_comparison_operation(left, right, span),
             AstNode::Integer(value, info) => self.check_for_overflow(value, info),
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
@@ -766,16 +767,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn handle_comparison_operation(&mut self, node: &mut AstNode) {
-        let (left_child, right_child, info) = match *node {
-            AstNode::Less(ref mut l_child, ref mut r_child, ref info) |
-            AstNode::LessOrEq(ref mut l_child, ref mut r_child, ref info) |
-            AstNode::Equals(ref mut l_child, ref mut r_child, ref info) |
-            AstNode::GreaterOrEq(ref mut l_child, ref mut r_child, ref info) |
-            AstNode::Greater(ref mut l_child, ref mut r_child, ref info) =>
-                (l_child, r_child, info),
-            _ => ice!("Invalid node '{}' passed to comparison handler", node),
-        };
+    fn handle_comparison_operation(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, span: &NodeInfo) {
 
         self.do_check(left_child);
         self.do_check(right_child);
@@ -788,9 +780,9 @@ impl SemanticsCheck {
         {
             self.report_error(
                 ReportKind::TypeError,
-                info.line,
-                info.column,
-                info.length,
+                span.line,
+                span.column,
+                span.length,
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
         }
