@@ -100,3 +100,30 @@ fn order_of_operation_is_respected_in_while_loop_condition() {
     );
     assert_eq!("64\n", output);
 }
+
+#[test]
+fn while_loop_inside_while_loop_works() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let i: int = 0;
+            let j: int = 7;
+            let cnt: int = 0;
+            while i < 10 {
+                while j >= 0 {
+                   cnt = cnt + 1;
+                   j = j - 1;
+                }
+                i = i + 1;
+                cnt = cnt+2;
+                j = 7;
+            }
+
+            return cnt;
+
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("100\n", output);
+
+}

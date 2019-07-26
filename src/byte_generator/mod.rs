@@ -1,11 +1,11 @@
-use crate::tac_generator::{Statement, Operator, Operand};
+use crate::tac_generator::{Statement, Operator, Operand, TMP_NAME};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::X64Register;
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::byte_generator::Value::VirtualRegister;
+use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,22 +172,36 @@ impl ByteGenerator {
         let src1 = self.get_source(op1);
         let src2 = self.get_source(op2);
 
-        if let Operand::Variable(_, id) = *dest {
-            // mark the variable as comparison result
+        self.current_function().code.push(
+            ByteCode::Compare(
+                ComparisonOperation{
+                    src1,
+                    src2,
+                }));
+
+        if let Operand::Variable(declaration_info, id) = dest {
+            // mark the variable as comparison result, if we assing into tmp_var
             // this is needed, so that code gen knows to generate appropriate
             // jmp command or read from cpu status register
-            self.variable_to_comparison_result.
-                insert(id, comparison_type.clone());
+
+            // if we assign to non-temp variable, generate appropriate byte move into reg, so that
+            // the result is stored for later use
+            if declaration_info.name.starts_with(TMP_NAME) {
+                self.variable_to_comparison_result.
+                    insert(*id, comparison_type.clone());
+            } else {
+                let reg = self.get_register_for(declaration_info,*id);
+                self.current_function().code.push(
+                    ByteCode::Mov(UnaryOperation{
+                        src: ComparisonResult(comparison_type.clone()),
+                        dest: reg,
+                    })
+                );
+            }
         } else {
             ice!("Non-variable destination for comparison results");
         }
 
-        self.current_function().code.push(
-            ByteCode::Compare(
-                ComparisonOperation{
-                    src1: src1,
-                    src2: src2,
-                }));
     }
 
     fn emit_label(&mut self, id: u32) {
@@ -200,10 +214,7 @@ impl ByteGenerator {
 
     fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
 
-        println!("JumpIfTrue: {:#?}", op);
         let src =  self.get_source(op);
-        println!("JumpIfTrue src: {:#?}", src);
-
         match src {
             Value::ComparisonResult(cmp_type)  => {
                 self.current_function().

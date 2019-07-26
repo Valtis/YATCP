@@ -1,5 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant};
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult};
 use crate::semcheck::Type::Integer;
 
 use super::x64::X64Register;
@@ -208,6 +208,38 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             }));
 
 
+        },
+        UnaryOperation {
+            src: ComparisonResult(comparison_type),
+            dest: VirtualRegister(vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: IntegerConstant(0),
+                        dest: StackOffset{
+                            offset: stack_slot.offset,
+                            size: stack_slot.size
+                        }
+                    }
+                )
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: ComparisonResult(comparison_type.clone()),
+                        dest: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        }
+                    }
+                )
+            )
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }

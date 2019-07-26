@@ -27,7 +27,7 @@ pub enum Operator {
     Greater
 }
 
-const TMP_NAME : &'static str = "%tmp";
+pub const TMP_NAME : &'static str = "%tmp";
 
 impl Display for Operator {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
@@ -533,6 +533,15 @@ impl TACGenerator {
             }
             AstNode::GreaterOrEq(left, right, span) => {
                 AstNode::Less(left.clone(), right.clone(), span.clone())
+            },
+            AstNode::Boolean(value, span) => {
+                AstNode::Boolean(!*value, span.clone())
+            },
+            AstNode::Identifier(name, info) => {
+                AstNode::Equals(
+                    Box::new(node.clone()),
+                    Box::new(AstNode::Boolean(false, info.clone())),
+                    info.clone())
             }
             _ => ice!("Unexpected node when comparison node expected: {:#?}", node),
         }

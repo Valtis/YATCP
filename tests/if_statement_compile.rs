@@ -1156,3 +1156,96 @@ fn if_statement_taken_if_boolean_variable_is_false() {
     );
     assert_eq!("52\n", output);
 }
+
+#[test]
+fn if_inside_if_works() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let my_var: bool = true;
+            let count: int = 0;
+            let x: int = 50;
+            if my_var {
+                count = count + 1;
+                if 3 < 2 {
+                    count = count + 2;
+                } else if x < 20 {
+                    count = count + 4;
+                } else {
+                    count = count + 8;
+                }
+            } else {
+                count = count + 16;
+            }
+
+            return count;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("9\n", output);
+
+}
+
+/*
+    Test case for a bug where successive stores ended up mangling the results; in this case value of
+    'b' would be used for when 'a' is needed
+*/
+#[test]
+fn successive_boolean_stores_do_not_overwrite_comparison_results() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let a: bool = 2 < 3;
+            let b: bool = 4 < 3;
+
+            if b {
+                return 4;
+            } else if a {
+                return 2;
+            }
+            return 0;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("2\n", output);
+}
+
+
+
+#[test]
+fn multiple_successive_ifs_work() {
+
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let a: int = 10;
+            let true1: bool = 2 < 3;
+            let true2: bool = a == 10;
+            let false1: bool = a > 10;
+            let false2: bool = 5 >= 6;
+
+            let ret: int = 0;
+
+            if true1 {
+                ret = ret + 1;
+            }
+
+            if true2 {
+                ret = ret + 2;
+            }
+
+            if false1 {
+                ret = ret + 4;
+            }
+
+            if false2 {
+                ret = ret + 8;
+            }
+
+            return ret;
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("3\n", output);
+
+}

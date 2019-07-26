@@ -46,6 +46,7 @@ const DIV_OPCODE_EXT: u8 = 0x07;
 
 const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 
+const COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
 const COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
 const COMPARE_REG_WITH_RM_32_BIT: u8 = 0x3B;
 const CMP_OPCODE_EXT: u8 = 0x07;
@@ -63,8 +64,10 @@ const JUMP_IF_GREATER : u8 = 0x7F;
 const SET_BYTE_IF_LESS : u16 = 0x0F9C;
 const SET_BYTE_IF_LESS_OR_EQ : u16 = 0x0F9E;
 const SET_BYTE_IF_EQ : u16 = 0x0F94;
+const SET_BYTE_IF_NEQ : u16 = 0x0F95;
 const SET_BYTE_IF_GREATER_OR_EQ : u16 = 0x0F9D;
 const SET_BYTE_IF_GREATER : u16 = 0x0F9F;
+const SET_BYTE_OPCODE_EXT: u8 = 0x00;
 
 const NOP : u8 = 0x90;
 
@@ -417,6 +420,13 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         } => {
             emit_mov_integer_to_register(*value, *reg, asm);
         },
+        UnaryOperation {
+            dest: StackOffset {offset, size },
+            src: ComparisonResult(comparison_type),
+
+        } => {
+            emit_mov_comp_result_into_stack(comparison_type, *offset, *size, asm);
+        }
         _ => ice!("Invalid MOV operation:\n{:#?}", operand),
     }
 }
@@ -594,31 +604,38 @@ fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mu
     );
 }
 
-/*
-fn emit_set_byte(
-    &mut self,
-    cmp_type: &ComparisonType,
-    operand: &UnaryOperation) {
+fn emit_mov_comp_result_into_stack(comparison_type: &ComparisonType, offset: u32, size: u32, asm: &mut Vec<u8>) {
 
-    let opcode = match *cmp_type {
+    let opcode = match comparison_type {
         ComparisonType::Less => SET_BYTE_IF_LESS,
         ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
         ComparisonType::Equals => SET_BYTE_IF_EQ,
+        ComparisonType::NotEquals => SET_BYTE_IF_NEQ,
         ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
         ComparisonType::Greater => SET_BYTE_IF_GREATER,
     };
 
-    self.emit_instruction(
-        SizedOpCode::from(opcode),
-        Some((
-            Mode::Register,
-            ModReg::OpCode(0),
-            &operand.dest)),
-        None,
-        0);
 
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(SET_BYTE_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        None,
+    );
 }
-*/
+
 fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
     match operand {
@@ -1168,6 +1185,14 @@ fn emit_compare_immediate_with_register(reg: X64Register, immediate: i32, asm: &
 fn emit_compare_immediate_with_stack(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
+    let (opcode, immediate) = if size == 4 {
+        (COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE, Immediate::from(immediate))
+    } else if size == 1 {
+        (COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Immediate::from(immediate as u8))
+    } else {
+        unimplemented!();
+    };
+
     let modrm = ModRM {
         addressing_mode,
         rm_field: RmField::Register(X64Register::RBP),
@@ -1179,10 +1204,10 @@ fn emit_compare_immediate_with_stack(offset: u32, size: u32, immediate: i32, asm
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE),
+        SizedOpCode::from(opcode),
         Some(modrm),
         sib,
-        Some(Immediate::from(immediate)),
+        Some(immediate),
     );
 }
 
