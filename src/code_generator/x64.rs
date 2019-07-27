@@ -2,21 +2,19 @@
 use crate::byte_generator;
 use crate::byte_generator::Value::*;
 use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
-
 use crate::code_generator;
+use crate::obj_generator::Architecture::X64;
+use crate::code_generator::x64::X64Register::RBP;
+use crate::code_generator::x64::RegField::{OpcodeExtension, Register};
+use crate::byte_generator::ByteCode::Call;
 
 use byteorder::{ByteOrder, LittleEndian };
+use rayon::prelude::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
-
-use rayon::prelude::*;
 use std::hash::Hash;
-use crate::obj_generator::Architecture::X64;
-use crate::code_generator::x64::X64Register::RBP;
-use crate::code_generator::x64::RegField::{OpcodeExtension, Register};
-use std::hint::unreachable_unchecked;
 
 const INTEGER_SIZE: usize = 4;
 
@@ -52,6 +50,7 @@ const COMPARE_REG_WITH_RM_32_BIT: u8 = 0x3B;
 const CMP_OPCODE_EXT: u8 = 0x07;
 
 
+const CALL_32_BIT_NEAR_RELATIVE: u8 = 0xE8;
 const JUMP_32BIT_NEAR_RELATIVE : u8 = 0xE9;
 
 const JUMP_IF_LESS : u8 = 0x7C;
@@ -71,7 +70,11 @@ const SET_BYTE_OPCODE_EXT: u8 = 0x00;
 
 const NOP : u8 = 0x90;
 
+
+
 const NEAR_RETURN : u8 = 0xC3;
+
+
 
 const PUSH : u8 = 0x50;
 const POP : u8 = 0x58;
@@ -176,6 +179,13 @@ enum SizedOpCode {
 enum JumpPatch {
     Jump(u32, usize),
     ConditionalShortJump(u32, usize),
+}
+
+// used to store function calls that need the target patched afterwards
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CallPatch {
+    name: String,
+    location: usize,
 }
 
 impl From<u8> for SizedOpCode {
@@ -295,14 +305,25 @@ impl X64Register {
 
 
 pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<code_generator::Function>, Vec<u8>) {
-    let function_asm: Vec<(String, Vec<u8>)> = functions.par_iter()
+    let function_asm: Vec<(String, Vec<u8>, Vec<CallPatch>)> = functions.par_iter()
         .map(|(function, stack_size)| generate_code_for_function(function, *stack_size))
         .collect();
 
     let mut codegen_functions = vec![];
     let mut combined_asm = vec![];
 
-    for (name, mut asm) in function_asm {
+    let mut combined_call_patches = vec![];
+    let mut function_positions = HashMap::new();
+
+    for (name, mut asm, mut calls_requiring_updates) in function_asm {
+
+        function_positions.insert(name.clone(), combined_asm.len());
+
+        for patch in calls_requiring_updates.iter_mut() {
+            patch.location = patch.location + combined_asm.len();
+            combined_call_patches.push(patch.clone())
+        }
+
         codegen_functions.push(code_generator::Function{
            name: name,
            start: combined_asm.len(),
@@ -312,16 +333,19 @@ pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<co
         combined_asm.append(&mut asm);
     }
 
+    update_calls(&combined_call_patches, &function_positions, &mut combined_asm);
+
 
     (codegen_functions, combined_asm)
 }
 
-fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (String, Vec<u8>) {
+fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (String, Vec<u8>, Vec<CallPatch>) {
 
 
     let mut asm = vec![];
     let mut label_pos: HashMap<u32, usize> = HashMap::new();
     let mut jumps_requiring_updates = vec![];
+    let mut calls_requiring_updates = vec![];
 
     emit_function_prologue(&mut asm, stack_size);
     for b in function.code.iter() {
@@ -339,13 +363,14 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Jump(id) => emit_unconditional_jump(*id, &mut jumps_requiring_updates, &mut asm),
             ByteCode::JumpConditional(id,  jmp_type) =>
                 emit_conditional_jump(*id, jmp_type, &mut jumps_requiring_updates,  &mut asm),
+            ByteCode::Call(name) => emit_function_call(name, &mut calls_requiring_updates, &mut asm),
             _ => unimplemented!("{:#?}", b),
         }
     }
 
     update_jumps(&jumps_requiring_updates, &label_pos, &mut asm);
 
-    (function.name.clone(), asm)
+    (function.name.clone(), asm, calls_requiring_updates)
 }
 
 // Comment out pending rewrite/fixes, as ByteCode representation is undergoing large changes
@@ -1277,6 +1302,24 @@ fn emit_conditional_jump(
 
 }
 
+fn emit_function_call(name: &str, calls_requiring_updates: &mut Vec<CallPatch>, asm: &mut Vec<u8> ) {
+
+    calls_requiring_updates.push(CallPatch {
+        name: name.to_owned(),
+        location: asm.len(),
+    });
+
+    let placeholder = 0u32;
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(CALL_32_BIT_NEAR_RELATIVE),
+        None,
+        None,
+        Some(Immediate::from(placeholder))
+    );
+}
+
 fn emit_instruction(
     asm: &mut Vec<u8>,
     rex: Option<u8>,
@@ -1502,7 +1545,8 @@ fn update_jumps(
 
                     for i in 0..4 {
                         // +1 so that the one-byte opcode is skipped
-                        asm[jump_opcode_location + 1 + i] = buffer[i];
+                        let opcode_offset = 1;
+                        asm[jump_opcode_location + opcode_offset + i] = buffer[i];
                     }
                 } else {
                     ice!("No jump target for jump stored: {:#?}", jump);
@@ -1525,5 +1569,32 @@ fn update_jumps(
         }
     }
 }
+
+fn update_calls(
+    calls_requiring_updates: &Vec<CallPatch>,
+    function_positions: &HashMap<String, usize>,
+    asm: &mut Vec<u8>) {
+    for call in calls_requiring_updates.iter() {
+        if function_positions.contains_key(&call.name) {
+            let call_address = function_positions[&call.name];
+            // Note: Breaks if the offset is larger than i32::maxval
+            // (although call of that size is hopefully unlikely)
+            let call_size = 5; // 1 for opcode, 4 for location
+            let offset : i32 = call_address as i32 - call.location as i32 - call_size;
+
+            let mut buffer = [0; 4];
+            LittleEndian::write_i32(&mut buffer, offset);
+
+            for i in 0..4 {
+                // +1 so that the one-byte opcode is skipped
+                let opcode_offset = 1;
+                asm[call.location + opcode_offset + i] = buffer[i];
+            }
+        } else {
+            ice!("No call target for call stored: {:#?}", call);
+        }
+    }
+}
+
 
 

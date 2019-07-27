@@ -112,7 +112,6 @@ impl SemanticsCheck {
                 }
             }
             *table_entry = self.symbol_table.top();
-            println!("table_entry:\n{:#?}", table_entry);
         } else {
             ice!("Unexpected node type when Block was expected:\n{:#?}", node);
         }

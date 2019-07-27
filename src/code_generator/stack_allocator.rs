@@ -4,6 +4,9 @@ use crate::semcheck::Type::Integer;
 
 use super::x64::X64Register;
 
+const RETURN_VALUE_REGISTER: X64Register = X64Register::EAX; // TODO: Abstract calling convention
+
+
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -56,7 +59,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Jump(_) |
             ByteCode::Ret(Some(IntegerConstant(_))) |
             ByteCode::JumpConditional(_, _) |
-            ByteCode::Ret(None) => (), // do nothing
+            ByteCode::Ret(None) |
+            ByteCode::Call(_) => (), // do nothing
 
             ByteCode::Mov(unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(binary_op) |
@@ -108,6 +112,8 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
 fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
     if !map.reg_to_stack_slot.contains_key(&data.id) {
 
+        // adjust for RBP storing, so we dont't mangle the value
+
         let slot_size = if data.size < 4 {
             4 // 4 byte align the variables
         } else {
@@ -147,9 +153,11 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
 
             ByteCode::Jump(_) |
             ByteCode::JumpConditional(_, _) |
-            ByteCode::Label(_) => {
+            ByteCode::Label(_) |
+            ByteCode::Call(_) => {
               updated_instructions.push(instr.clone());
             },
+
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
     }
@@ -240,6 +248,25 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     }
                 )
             )
+        },
+        UnaryOperation {
+            src: ReturnValue,
+            dest: VirtualRegister(vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(RETURN_VALUE_REGISTER),
+                        dest: StackOffset{
+                            offset: stack_slot.offset,
+                            size: stack_slot.size
+                        }
+                    }
+                )
+            );
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }

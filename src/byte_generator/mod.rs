@@ -51,6 +51,7 @@ pub enum Value {
     BooleanConstant(bool),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
+    ReturnValue
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +67,7 @@ pub enum ByteCode {
     Label(u32),
     Jump(u32),
     JumpConditional(u32, ComparisonType),
+    Call(String),
     Ret(Option<Value>),
 }
 
@@ -127,6 +129,7 @@ impl ByteGenerator {
                     Statement::Label(id) => self.emit_label(id),
                     Statement::Jump(id) => self.emit_jump(id),
                     Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_jump(operand, id),
+                    Statement::Call(ref callee, ref args, ref retval) => self.emit_function_call(callee, args, retval),
                     Statement::Empty => (),
                    _ => panic!("Not implemented: {:?}", s),
                 }
@@ -244,6 +247,28 @@ impl ByteGenerator {
         }
     }
 
+    fn emit_function_call(&mut self, callee: &str, args: &Vec<Operand>, retval: &Option<Operand>) {
+        if args.len() > 0 {
+            unimplemented!("Function call with arguments not yet implemented");
+        }
+
+        self.current_function().code.push(
+            ByteCode::Call(callee.to_owned() )
+        );
+
+        if let Some(dest) = retval {
+            let dest = self.get_source(dest);
+            self.current_function().code.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: Value::ReturnValue,
+                        dest,
+                    }
+            ));
+        }
+
+    }
+
     fn emit_binary_op(&mut self, operator: Operator, op1: &Operand, op2: &Operand, dest: &Operand) {
         let data = self.form_binary_operation(op1, op2, dest);
         let code = self.form_binary_code(operator, data);
@@ -253,7 +278,7 @@ impl ByteGenerator {
     fn form_unary_operation(&mut self, op: &Operand, dest: &Operand) -> UnaryOperation {
         let src = self.get_source(op);
         let dest = self.get_source(dest);
-        UnaryOperation { src: src, dest: dest }
+        UnaryOperation { src, dest }
     }
 
     fn form_binary_operation(&mut self, op1: &Operand, op2: &Operand, dest: &Operand) -> BinaryOperation {
@@ -265,6 +290,7 @@ impl ByteGenerator {
     }
 
     fn get_source(&mut self, op: &Operand) -> Value {
+
         match op {
             Operand::Variable(declaration_info, id) => {
                 if self.variable_to_comparison_result.contains_key(&id) {
