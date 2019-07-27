@@ -24,16 +24,16 @@ impl TableEntry {
         self.symbols.push(symbol);
     }
 
-    pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
+    pub fn find_symbol(&self, name: &str) -> Option<Symbol> {
         for s in self.symbols.iter() {
             match *s {
                 Symbol::Function(ref info) => {
-                    if *info.name == *name {
+                    if *info.name == name {
                         return Some(s.clone());
                     }
                 },
                 Symbol::Variable(ref info, _) => {
-                    if *info.name == *name {
+                    if *info.name == name {
                         return Some(s.clone());
                     }
                 },
@@ -81,7 +81,7 @@ impl SymbolTable {
         self.entries[last].add_symbol(symbol);
     }
 
-    pub fn find_symbol(&self, name: &String) -> Option<Symbol> {
+    pub fn find_symbol(&self, name: &str) -> Option<Symbol> {
         for i in self.entries.iter().rev() {
             if let Some(entry) = i.find_symbol(name) {
                 return Some(entry);

@@ -91,15 +91,37 @@ impl SemanticsCheck {
     }
 
     pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
+        self.check_and_gather_functions(node);
         self.do_check(node);
         self.errors
+    }
+
+    // only process function declarations initially, so that we can call functions that appear later
+    fn check_and_gather_functions(&mut self, node: &mut AstNode) {
+        self.symbol_table.push_empty();
+        if let AstNode::Block(ref mut children, _, _) = node {
+
+            for child in children.iter_mut() {
+                match child {
+                    AstNode::Function(ref mut child, ref fi) => {
+
+                        self.check_function_declaration(fi);
+
+                    }
+                    _ => (), // don't care right now
+                }
+            }
+        } else {
+            ice!("Unexpected node type when Block was expected:\n{:#?}", node);
+        }
+
     }
 
     fn do_check(&mut self, node: &mut AstNode) {
         match node {
             AstNode::Block(ref mut children, ref mut tab_ent, ref ni) =>
                 self.handle_block(children, tab_ent, ni),
-            AstNode::Function(ref mut child, ref fi) =>
+            AstNode::Function(ref mut child,  ref fi) =>
                 self.handle_function(child, fi),
             AstNode::ExternFunction(ref fi) =>
                 self.check_function_declaration(fi),
@@ -163,7 +185,6 @@ impl SemanticsCheck {
         child: &mut AstNode,
         function_info: &FunctionInfo) {
 
-        self.check_function_declaration(function_info);
 
         /*
          we need a new symbol table level, so that the parameters
@@ -229,11 +250,12 @@ impl SemanticsCheck {
                     "Previously declared here".to_string());
 
             } else {
-                unimplemented!();
+                unimplemented!("Function redeclared, but not shadowing a symbol");
             }
         } else {
             self.symbol_table.add_symbol(
-                Symbol::Function(function_info.clone()));
+                Symbol::Function(function_info.clone())
+            );
         }
 
         let mut seen_param = HashMap::new();
@@ -374,6 +396,7 @@ impl SemanticsCheck {
                 },
             }
         } else {
+
             self.report_error(
                 ReportKind::NameError,
                 node_info.line,
