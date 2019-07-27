@@ -333,7 +333,7 @@ impl TACGenerator {
                     "Invalid symbol {:?} in symbol table when function expected", sym)
             }
         } else {
-            None
+            ice!("Failed to find function '{}' from symbol table", name);
         };
 
         self.current_function().statements.push(

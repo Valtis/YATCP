@@ -52,6 +52,7 @@ impl TableEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct SymbolTable {
     entries: Vec<TableEntry>
 }
@@ -73,6 +74,15 @@ impl SymbolTable {
 
     pub fn pop(&mut self) -> Option<TableEntry> {
         self.entries.pop()
+    }
+
+    pub fn top(&mut self) -> Option<TableEntry> {
+        if self.entries.is_empty() {
+            None
+        } else {
+            Some(self.entries.last().unwrap().clone())
+        }
+
     }
 
     pub fn add_symbol(&mut self, symbol: Symbol) {

@@ -99,7 +99,7 @@ impl SemanticsCheck {
     // only process function declarations initially, so that we can call functions that appear later
     fn check_and_gather_functions(&mut self, node: &mut AstNode) {
         self.symbol_table.push_empty();
-        if let AstNode::Block(ref mut children, _, _) = node {
+        if let AstNode::Block(ref mut children, ref mut table_entry, _) = node {
 
             for child in children.iter_mut() {
                 match child {
@@ -111,9 +111,12 @@ impl SemanticsCheck {
                     _ => (), // don't care right now
                 }
             }
+            *table_entry = self.symbol_table.top();
+            println!("table_entry:\n{:#?}", table_entry);
         } else {
             ice!("Unexpected node type when Block was expected:\n{:#?}", node);
         }
+
 
     }
 
@@ -177,7 +180,10 @@ impl SemanticsCheck {
             self.do_check(child);
         }
 
-        *tab_ent = self.symbol_table.pop();
+        let entry = self.symbol_table.pop();
+        if let None = tab_ent {
+            *tab_ent = entry;
+        }
     }
 
     fn handle_function(
