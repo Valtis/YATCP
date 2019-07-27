@@ -852,6 +852,7 @@ impl SemanticsCheck {
             AstNode::Less(_, _, _) |
             AstNode::LessOrEq(_, _, _) |
             AstNode::Equals(_, _, _) |
+            AstNode::NotEquals(_, _, _) |
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) => Type::Boolean,
             AstNode::Plus(_, _, ref info) |

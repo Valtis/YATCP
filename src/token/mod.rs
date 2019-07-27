@@ -120,7 +120,7 @@ pub enum TokenSubType {
   LessOrEq,
   Greater,
   GreaterOrEq,
-  NotEq,
+  NotEquals,
   ErrorToken
 }
 
@@ -149,7 +149,7 @@ impl Display for TokenSubType {
         TokenSubType::Greater => ">".to_string(),
         TokenSubType::GreaterOrEq => ">=".to_string(),
         TokenSubType::LessOrEq => "<=".to_string(),
-        TokenSubType::NotEq => "!=".to_string(),
+        TokenSubType::NotEquals => "!=".to_string(),
         TokenSubType::ErrorToken => "<Invalid token>".to_string(),
     })?;
 

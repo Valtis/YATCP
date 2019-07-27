@@ -544,6 +544,16 @@ impl Parser {
                             next_token.length));
                     Ok(equals_node)
                 },
+                TokenSubType::NotEquals => {
+                    let equals_node = AstNode::NotEquals(
+                        Box::new(node),
+                        Box::new(n_node),
+                        NodeInfo::new(
+                            next_token.line,
+                            next_token.column,
+                            next_token.length));
+                    Ok(equals_node)
+                },
                 TokenSubType::GreaterOrEq => {
                     let greater_or_eq_node = AstNode::GreaterOrEq(
                         Box::new(node),

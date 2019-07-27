@@ -365,7 +365,7 @@ fn operators_are_accepted() {
     assert_eq_token!(
       lexer.next_token(),
       TokenType::Comparison,
-      TokenSubType::NotEq);
+      TokenSubType::NotEquals);
 
     assert_eq_token!(
       lexer.next_token(),

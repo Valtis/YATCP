@@ -112,7 +112,7 @@ impl ReadLexer {
         (TokenType::Comparison, TokenSubType::Less)),
       '!' => self.multi_char_operator_helper(
         '=',
-        (TokenType::Comparison, TokenSubType::NotEq),
+        (TokenType::Comparison, TokenSubType::NotEquals),
         (TokenType::Not, TokenSubType::NoSubType)),
       _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
     }
@@ -369,7 +369,7 @@ impl ReadLexer {
       }
     }
 
-    if type_str == "d" || type_str == "f" {
+    if &type_str == "d" || &type_str == "f" {
       self.create_number_token(type_str, number_str)
     } else {
         let (line, column) = (self.line, self.column - type_str.len() as i32);
@@ -388,14 +388,14 @@ impl ReadLexer {
 
   fn create_number_token(&mut self, type_str: String, number_str: String) -> Token {
 
-    if type_str == "d" {
+    if &type_str == "d" {
       match number_str.parse() {
         Ok(number) => self.create_token(TokenType::Number, TokenSubType::DoubleNumber(number)),
         Err(e) =>
             ice!("Non-numeric characters in number token at {}:{} ({})",
               self.line, self.column, e),
       }
-    } else if type_str == "f" {
+    } else if &type_str == "f" {
       match number_str.parse() {
         Ok(number) => self.create_token(TokenType::Number, TokenSubType::FloatNumber(number)),
         Err(e) =>

@@ -1078,6 +1078,60 @@ fn variable_variable_greater_than_evaluates_false_when_less() {
 }
 
 #[test]
+fn variable_variable_not_equals_evaluates_to_true_when_less() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let a: int = 1;
+            let b: int = 2;
+            if a !=  b {
+                return 23;
+            }
+            return 52;
+
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("23\n", output);
+}
+
+#[test]
+fn variable_variable_not_equals_evaluates_to_false_when_equal() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let a: int = 2;
+            let b: int = 2;
+            if a !=  b {
+                return 23;
+            }
+            return 52;
+
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("52\n", output);
+}
+
+#[test]
+fn variable_variable_not_equals_evaluates_to_true_when_greater() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+            let a: int = 3;
+            let b: int = 2;
+            if a !=  b {
+                return 23;
+            }
+            return 52;
+
+        } "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("23\n", output);
+}
+
+#[test]
 fn constant_constant_order_of_operation_is_respected() {
     let output = compile_and_run_no_opt(
         r#"
