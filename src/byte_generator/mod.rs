@@ -2,6 +2,7 @@ use crate::tac_generator::{Statement, Operator, Operand, TMP_NAME};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::X64Register;
+use crate::semcheck::Type;
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -51,7 +52,8 @@ pub enum Value {
     BooleanConstant(bool),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
-    ReturnValue
+    ReturnValue,
+    FunctionParameter(Type, usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -67,6 +69,7 @@ pub enum ByteCode {
     Label(u32),
     Jump(u32),
     JumpConditional(u32, ComparisonType),
+    FunctionArgument(Value, usize),
     Call(String),
     Ret(Option<Value>),
 }
@@ -84,7 +87,8 @@ pub struct ByteGenerator {
     tac_functions: Vec<tac_generator::Function>,
     next_register: u32,
     variable_id_to_register: HashMap<u32, VirtualRegisterData>,
-    variable_to_comparison_result: HashMap<u32, ComparisonType>
+    variable_to_comparison_result: HashMap<u32, ComparisonType>,
+    parameter_count: u32,
 }
 
 impl ByteGenerator {
@@ -95,6 +99,7 @@ impl ByteGenerator {
             next_register: 0,
             variable_id_to_register: HashMap::new(),
             variable_to_comparison_result: HashMap::new(),
+            parameter_count: 0,
         }
     }
 
@@ -108,6 +113,7 @@ impl ByteGenerator {
                 code: vec![],
             });
             self.next_register = 0;
+            self.parameter_count = 0;
 
             let cmp = vec![Operator::Less, Operator::LessOrEq, Operator::Equals, Operator::NotEquals, Operator::GreaterOrEq, Operator::Greater];
 
@@ -248,9 +254,14 @@ impl ByteGenerator {
     }
 
     fn emit_function_call(&mut self, callee: &str, args: &Vec<Operand>, retval: &Option<Operand>) {
-        if args.len() > 0 {
-            unimplemented!("Function call with arguments not yet implemented");
+
+        for (pos, arg) in args.iter().enumerate() {
+            let value = self.get_source(arg);
+            self.current_function().code.push(
+                ByteCode::FunctionArgument(value, pos)
+            );
         }
+
 
         self.current_function().code.push(
             ByteCode::Call(callee.to_owned() )
@@ -303,6 +314,11 @@ impl ByteGenerator {
             },
             Operand::Integer(val) => Value::IntegerConstant(*val),
             Operand::Boolean(val) => Value::BooleanConstant(*val),
+            Operand::Initialized(value_type) => {
+                let pos = self.parameter_count;
+                self.parameter_count += 1;
+                Value::FunctionParameter( *value_type, pos as usize)
+            },
             x => panic!("Not implemented yet for {}", x),
         }
     }

@@ -139,7 +139,8 @@ enum Displacement {
 enum Immediate {
     Byte(u8),
     FourByteSigned(i32),
-    FourByte(u32)
+    FourByte(u32),
+    EightByteSigned(i64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -218,6 +219,12 @@ impl From<i32> for Immediate {
     }
 }
 
+impl From<i64> for Immediate {
+    fn from(val: i64) -> Immediate {
+        Immediate::EightByteSigned(val)
+    }
+}
+
 impl Immediate {
     fn write_into_buffer(&self, write_buffer: &mut Vec<u8>) {
         match self {
@@ -227,17 +234,24 @@ impl Immediate {
             Immediate::FourByte(val) => {
                 let mut buffer = [0; 4];
                 LittleEndian::write_u32(&mut buffer, *val);
-                for i in 0..4 {
+                for i in 0..buffer.len() {
                     write_buffer.push(buffer[i]);
                 }
             },
             Immediate::FourByteSigned(val) => {
                 let mut buffer = [0; 4];
                 LittleEndian::write_i32(&mut buffer, *val);
-                for i in 0..4 {
+                for i in 0..buffer.len() {
                     write_buffer.push(buffer[i]);
                 }
             },
+            Immediate::EightByteSigned(val ) => {
+                let mut buffer = [0; 8];
+                LittleEndian::write_i64(&mut buffer, *val);
+                for i in 0..buffer.len() {
+                    write_buffer.push(buffer[i]);
+                }
+            }
         }
     }
 
@@ -528,14 +542,37 @@ fn get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset: u32
     immediate: the 32 bit immediate
 */
 fn emit_mov_integer_to_register(immediate: i32, register: X64Register, asm: &mut Vec<u8>)  {
+
+
+    /*
+        Modrm is not really used by this instruction, just used to get correct reg encoding in REX
+        prefix
+        */
+
+    let rex_modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing, // not used
+        reg_field: RegField::Unused,
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(rex_modrm), None);
+
+
+
+    let immediate = if register.is_64_bit_register() {
+        Immediate::from(immediate as i64)
+    } else {
+        Immediate::from(immediate)
+    };
+
     // register encoded in the opcode itself
     emit_instruction(
         asm,
-        None,
+        rex,
         SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_REG_BASE | register.encoding()),
         None,
         None,
-        Some(Immediate::from(immediate)),
+        Some(immediate),
     )
 
 }

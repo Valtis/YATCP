@@ -1,6 +1,6 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult};
-use crate::semcheck::Type::Integer;
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, ReturnValue, FunctionParameter};
+use crate::semcheck::Type;
 
 use super::x64::X64Register;
 
@@ -60,6 +60,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Ret(Some(IntegerConstant(_))) |
             ByteCode::JumpConditional(_, _) |
             ByteCode::Ret(None) |
+            ByteCode::FunctionArgument(_, _) |
             ByteCode::Call(_) => (), // do nothing
 
             ByteCode::Mov(unary_op) => handle_unary_op(unary_op, &mut stack_map),
@@ -156,6 +157,8 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
             ByteCode::Call(_) => {
               updated_instructions.push(instr.clone());
             },
+            ByteCode::FunctionArgument(val, pos) =>
+                handle_function_argument(val, *pos, &mut updated_instructions, stack_map),
 
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
@@ -165,6 +168,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
 }
 
 fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+
     match unary_op {
         /*
            A = constant
@@ -249,7 +253,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             )
         },
         UnaryOperation {
-            src: ReturnValue,
+            src: Value::ReturnValue,
             dest: VirtualRegister(vregdata),
         } => {
 
@@ -266,6 +270,31 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     }
                 )
             );
+        },
+        UnaryOperation {
+            src: FunctionParameter(param_type, pos),
+            dest: VirtualRegister(vregdata),
+        } => {
+            match param_type {
+                Type::Integer => {
+                    if *pos > 6 {
+                        unimplemented!("Not implemented for stack params");
+                    }
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: get_destination_for_integer_and_pointer_argument(*pos),
+                                dest: StackOffset {
+                                    offset: stack_slot.offset,
+                                    size: stack_slot.size,
+                                }
+                            }
+                        ));
+
+                },
+                _ => unimplemented!("Not implemented for non-integral function parameters, got type: {:?}", param_type),
+            }
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
@@ -1227,6 +1256,43 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
     }
 }
 
+/*
+Assumption: pos is on per-type basis (so if we have e.g. float and int parameters, first instance of
+both will have pos==0
+*/
+fn handle_function_argument(value: &Value, position: usize, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match value {
+        IntegerConstant(val) => {
+            let dest = get_destination_for_integer_and_pointer_argument(position);
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: IntegerConstant(*val),
+                        dest,
+                    }
+                )
+            )
+        } ,
+        VirtualRegister(vregdata) => {
+            let dest = get_destination_for_integer_and_pointer_argument(position);
+            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: stack_slot.size,
+                            offset: stack_slot.offset,
+                        },
+                        dest,
+                    }
+                ));
+        },
+        _ => unimplemented!("Not implemented for:\n{:#?}", value),
+    }
+
+}
+
 fn get_register_for_size(size: u32) -> X64Register {
     match size {
         4 => X64Register::EAX,
@@ -1238,6 +1304,18 @@ fn get_register_for_size_for_division(size: u32) -> X64Register {
     match size {
         4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
+    }
+}
+
+fn get_destination_for_integer_and_pointer_argument(position: usize) -> Value {
+    match position {
+        0 => PhysicalRegister(X64Register::RDI),
+        1 => PhysicalRegister(X64Register::RSI),
+        2 => PhysicalRegister(X64Register::RDX),
+        3 => PhysicalRegister(X64Register::RCX),
+        4 => PhysicalRegister(X64Register::R8),
+        5 => PhysicalRegister(X64Register::R9),
+        _ => unimplemented!("Stack argument passing not yet implemented"),
     }
 }
 
