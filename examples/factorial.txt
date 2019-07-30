@@ -1,0 +1,16 @@
+extern fn int_printer(x: int) : void;
+
+fn main() : int {
+    let res: int = factorial(6);
+    int_printer(res);
+    return 0;
+}
+
+fn factorial(n: int) : int {
+    if n <= 1 {
+        return 1;
+    }
+    
+    return n*factorial(n-1);
+}
+
