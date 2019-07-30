@@ -218,3 +218,111 @@ fn recursive_functions_work() {
     );
     assert_eq!("40320\n", output);
 }
+
+#[test]
+fn multiple_recursive_functions_calls_work() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+
+            return fibonacci(12);
+        }
+
+        fn fibonacci(n: int) : int {
+            if n <= 1 {
+                return n;
+            }
+
+            return fibonacci(n-1) + fibonacci(n-2);
+        }
+        "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("144\n", output);
+}
+
+#[test]
+fn function_with_large_number_of_args_works() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+
+            return lots_of_args(1, 2, 3, 4, 5, 6 ,7 ,8, 9, 10, 11, 12, 13);
+        }
+
+        fn lots_of_args(
+            a: int,
+            b: int,
+            c: int,
+            d: int,
+            e: int,
+            f: int,
+            g: int,
+            h: int,
+            i: int,
+            j: int,
+            k: int,
+            l: int,
+            m: int) : int {
+
+
+            return (m*l)*(a+b);
+        }
+        "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("468\n", output);
+
+}
+
+#[test]
+fn deep_calls_with_functions_with_large_number_of_args_works() {
+    let output = compile_and_run_no_opt(
+        r#"
+        fn test() : int {
+
+            return lots_of_args(1, 2, 3, 4, 5, 6 ,7 ,8, 9, 10, 11, 12, 13);
+        }
+
+        fn lots_of_args(
+            a: int,
+            b: int,
+            c: int,
+            d: int,
+            e: int,
+            f: int,
+            g: int,
+            h: int,
+            i: int,
+            j: int,
+            k: int,
+            l: int,
+            m: int) : int {
+
+
+           return more_of_the_same(a, 2*b, c, d, e, f, g, h, i, j, k, l/2, m*3);
+        }
+
+        fn more_of_the_same(
+            a: int,
+            b: int,
+            c: int,
+            d: int,
+            e: int,
+            f: int,
+            g: int,
+            h: int,
+            i: int,
+            j: int,
+            k: int,
+            l: int,
+            m: int) : int {
+            return (m*l)*(a+b);
+        }
+        "#,
+        FunctionKind::INT("test".to_owned())
+    );
+    assert_eq!("1170\n", output);
+
+}
+

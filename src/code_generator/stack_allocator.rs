@@ -20,7 +20,8 @@ struct StackSlot {
 #[derive(Debug)]
 struct StackMap {
     reg_to_stack_slot: HashMap<u32, StackSlot>,
-    stack_size: u32,
+    stack_size: u32, // stack size, size chosen so that stack is aligned to 16 byte boundary (adjusted for arg pushes)
+    stack_space_used: u32, // stack size, unaligned.
 }
 
 
@@ -30,6 +31,7 @@ impl StackMap {
         StackMap {
             reg_to_stack_slot: HashMap::new(),
             stack_size: 0,
+            stack_space_used: 0,
         }
     }
 }
@@ -43,8 +45,8 @@ pub fn allocate( bytecode_functions: Vec<Function>)  -> Vec<(Function, u32)> {
 
 fn allocate_function(function: &Function) -> (Function, u32) {
 
-    let stack_map = allocate_variables_to_stack(function);
-    (update_instructions(function, &stack_map), stack_map.stack_size)
+    let mut stack_map = allocate_variables_to_stack(function);
+    (update_instructions(function, &mut stack_map), stack_map.stack_size)
 }
 
 // create stack slots for each variable
@@ -60,7 +62,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Ret(Some(IntegerConstant(_))) |
             ByteCode::JumpConditional(_, _) |
             ByteCode::Ret(None) |
-            ByteCode::FunctionArgument(_, _) |
+            ByteCode::FunctionArguments(_) |
             ByteCode::Call(_) => (), // do nothing
 
             ByteCode::Mov(unary_op) => handle_unary_op(unary_op, &mut stack_map),
@@ -76,7 +78,11 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
         }
     }
 
+
+
     // 16 byte align the stack
+
+    stack_map.stack_space_used = stack_map.stack_size;
 
     stack_map.stack_size = if stack_map.stack_size & 0b1111 == 0 {
         stack_map.stack_size
@@ -112,16 +118,14 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
 
 fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
     if !map.reg_to_stack_slot.contains_key(&data.id) {
-        let stack_offset = 8; // offset to account for PUSH RBP; otherwise will be mangled
-
         let slot_size = if data.size < 4 {
             4 // 4 byte align the variables
         } else {
             data.size
         };
 
-        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size+stack_offset, size: slot_size} );
         map.stack_size += slot_size;
+        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: slot_size} );
     }
 }
 
@@ -130,16 +134,17 @@ fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
 //
 // Also fix instructions to use the two-address code forms where necessary
 // FIXME: Lots of unnecessary reallocations here, updating inplace could be smarter
-fn update_instructions(function: &Function, stack_map: &StackMap) -> Function {
+fn update_instructions(function: &Function, stack_map: &mut StackMap) -> Function {
     let final_code = update_instructions_to_stack_form(&function.code, stack_map);
 
     Function {
         name: function.name.clone(),
-        code: final_code
+        code: final_code,
+        parameter_count: function.parameter_count,
     }
 }
 
-fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap) -> Vec<ByteCode> {
+fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut StackMap) -> Vec<ByteCode> {
     let mut updated_instructions = vec![];
     for instr in code.iter() {
         match instr {
@@ -157,9 +162,8 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
             ByteCode::Call(_) => {
               updated_instructions.push(instr.clone());
             },
-            ByteCode::FunctionArgument(val, pos) =>
-                handle_function_argument(val, *pos, &mut updated_instructions, stack_map),
-
+            ByteCode::FunctionArguments(args) =>
+                handle_function_arguments(args, &mut updated_instructions, stack_map),
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
     }
@@ -167,7 +171,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &StackMap)
     updated_instructions
 }
 
-fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &mut StackMap) {
 
     match unary_op {
         /*
@@ -277,20 +281,49 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } => {
             match param_type {
                 Type::Integer => {
-                    if *pos > 6 {
-                        unimplemented!("Not implemented for stack params");
-                    }
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-                    updated_instructions.push(
-                        ByteCode::Mov(
-                            UnaryOperation {
-                                src: get_destination_for_integer_and_pointer_argument(*pos),
-                                dest: StackOffset {
-                                    offset: stack_slot.offset,
-                                    size: stack_slot.size,
+                    if *pos < 6 {
+                        updated_instructions.push(
+                            ByteCode::Mov(
+                                UnaryOperation {
+                                    src: get_destination_for_integer_and_pointer_argument(*pos),
+                                    dest: StackOffset {
+                                        offset: stack_slot.offset,
+                                        size: stack_slot.size,
+                                    }
                                 }
-                            }
-                        ));
+                            ));
+                    } else {
+                        let reg = PhysicalRegister(get_register_for_size(stack_slot.size));
+
+                        // mov from known offset to reg
+                        updated_instructions.push(
+                            ByteCode::Mov(UnaryOperation {
+                                src: StackOffset {
+                                    size: stack_slot.size,
+                                    offset: (-16i32 - 8*(*pos as i32 -6)) as u32,
+                                },
+                                dest: reg.clone(),
+                            }));
+
+                        updated_instructions.push(
+                            ByteCode::Mov(
+                                UnaryOperation {
+                                    src: reg.clone(),
+                                    dest: StackOffset {
+                                        size: stack_slot.size,
+                                        offset: stack_slot.offset,
+                                    }
+                                }
+                            ));
+
+                        // adjust stack size to account for pushed arguments, so that 16 byte alignment is maintained
+
+                        stack_map.stack_size -= stack_slot.size;
+                        if stack_map.stack_size < stack_map.stack_space_used {
+                            stack_map.stack_size += 16;
+                        }
+                    }
 
                 },
                 _ => unimplemented!("Not implemented for non-integral function parameters, got type: {:?}", param_type),
@@ -1256,41 +1289,84 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
     }
 }
 
-/*
-Assumption: pos is on per-type basis (so if we have e.g. float and int parameters, first instance of
-both will have pos==0
-*/
-fn handle_function_argument(value: &Value, position: usize, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
-    match value {
-        IntegerConstant(val) => {
-            let dest = get_destination_for_integer_and_pointer_argument(position);
+fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
 
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
-                        src: IntegerConstant(*val),
-                        dest,
-                    }
-                )
-            )
-        } ,
-        VirtualRegister(vregdata) => {
-            let dest = get_destination_for_integer_and_pointer_argument(position);
-            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
-                        src: StackOffset {
-                            size: stack_slot.size,
-                            offset: stack_slot.offset,
-                        },
-                        dest,
-                    }
-                ));
-        },
-        _ => unimplemented!("Not implemented for:\n{:#?}", value),
+    /*
+    stack arguments need to pushed right-to left, so first iterate over args that go into regs,
+    then reverse-iterate if there are more than 6 args and push those into stack
+    */
+
+    for i in (0..args.len()).rev() {
+        let value =  &args[i];
+
+        // register arguments
+        if i < 6 {
+            match value {
+                IntegerConstant(val) => {
+                    let dest = get_destination_for_integer_and_pointer_argument(i);
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: IntegerConstant(*val),
+                                dest,
+                            }
+                        )
+                    )
+                },
+                VirtualRegister(vregdata) => {
+                    let dest = get_destination_for_integer_and_pointer_argument(i);
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    size: stack_slot.size,
+                                    offset: stack_slot.offset,
+                                },
+                                dest,
+                            }
+                        ));
+                },
+                _ => unimplemented!("Not implemented for:\n{:#?}", value),
+            }
+        } else {
+            // stack arguments
+
+            let value = match value {
+                IntegerConstant(i32) => value.clone(),
+                VirtualRegister(vregdata) => {
+                    // cannot push stack offset directly, as due to usage of RBP, it defaults to
+                    // 64 bit operand, and stack slots in general are not of this size (32 bit
+                    // for integer). As such, need to move value from stack slot to register, and
+                    // push it
+                    //
+                    //  Example attempt to push stack slot directly:
+                    //      push   QWORD PTR [rbp-0x8]
+                    //
+                    // Could emit a push directly of 8 byte variable in stack though
+
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                    let reg = PhysicalRegister(get_register_for_size(stack_slot.size));
+
+                    updated_instructions.push(
+                        ByteCode::Mov(UnaryOperation {
+                            src: StackOffset {
+                                size: stack_slot.size,
+                                offset: stack_slot.offset,
+                            },
+                            dest: reg.clone(),
+                        })
+                    );
+
+                    reg
+                },
+                _ => unimplemented!("Not implemented for:\n{:#?}", value),
+            };
+
+            updated_instructions.push(ByteCode::Push(value));
+        }
     }
-
 }
 
 fn get_register_for_size(size: u32) -> X64Register {
@@ -1315,7 +1391,7 @@ fn get_destination_for_integer_and_pointer_argument(position: usize) -> Value {
         3 => PhysicalRegister(X64Register::RCX),
         4 => PhysicalRegister(X64Register::R8),
         5 => PhysicalRegister(X64Register::R9),
-        _ => unimplemented!("Stack argument passing not yet implemented"),
+        _ => ice!("No register for position {}", position),
     }
 }
 
@@ -1324,7 +1400,7 @@ mod tests {
 
     use super::*;
 
-    const STACK_OFFSET: u32 = 8;
+    const STACK_OFFSET: u32 = 4;
     const TMP_REGISTER: X64Register = X64Register::EAX;
     const DIV_TMP_REGISTER: X64Register = X64Register::EBX;
 
@@ -1333,6 +1409,7 @@ mod tests {
             Function {
                 name: "foo".to_owned(),
                 code:  bytecode,
+                parameter_count: 0,
             }
         ]
     }

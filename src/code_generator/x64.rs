@@ -73,11 +73,16 @@ const NOP : u8 = 0x90;
 
 
 const NEAR_RETURN : u8 = 0xC3;
+const LEAVE: u8 = 0xC9;
 
 
+const POP_REG: u8 = 0x58;
 
-const PUSH : u8 = 0x50;
-const POP : u8 = 0x58;
+const PUSH_REG: u8 = 0x50;
+const PUSH_RM: u8 = 0xFF;
+const PUSH_32_BIT_IMMEDIATE: u8 = 0x68;
+const PUSH_OPCODE_EXTENSION: u8 = 0x06;
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AddressingMode {
@@ -370,7 +375,7 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Sub(operands) => emit_sub(operands, &mut asm),
             ByteCode::Mul(operands) => emit_mul(operands, &mut asm),
             ByteCode::Div(operands) => emit_div(operands, &mut asm),
-            ByteCode::Ret(value) => emit_ret(value, stack_size, &mut asm),
+            ByteCode::Ret(value) => emit_ret(value, stack_size, function.parameter_count, &mut asm),
             ByteCode::SignExtend(operands) => emit_sign_extension(operands, &mut asm),
             ByteCode::Compare(ref operands) => emit_comparison(operands, &mut asm),
             ByteCode::Label(id) => handle_label(*id, asm.len(), &mut label_pos),
@@ -378,6 +383,8 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::JumpConditional(id,  jmp_type) =>
                 emit_conditional_jump(*id, jmp_type, &mut jumps_requiring_updates,  &mut asm),
             ByteCode::Call(name) => emit_function_call(name, &mut calls_requiring_updates, &mut asm),
+            ByteCode::Push(value) => emit_push(value, &mut asm),
+            ByteCode::Pop(value) => emit_pop(value, &mut asm),
             _ => unimplemented!("{:#?}", b),
         }
     }
@@ -555,15 +562,11 @@ fn emit_mov_integer_to_register(immediate: i32, register: X64Register, asm: &mut
         rm_field: RmField::Register(register),
     };
 
-    let rex = create_rex_prefix(register.is_64_bit_register(), Some(rex_modrm), None);
+    let rex = create_rex_prefix(false, Some(rex_modrm), None);
 
 
 
-    let immediate = if register.is_64_bit_register() {
-        Immediate::from(immediate as i64)
-    } else {
-        Immediate::from(immediate)
-    };
+    let immediate = Immediate::from(immediate);
 
     // register encoded in the opcode itself
     emit_instruction(
@@ -1457,7 +1460,7 @@ fn emit_instruction(
 
 }
 
-fn emit_ret(value: &Option<Value>, stack_size: u32, asm: &mut Vec<u8>) {
+fn emit_ret(value: &Option<Value>, stack_size: u32, args: u32, asm: &mut Vec<u8>) {
 
     match value {
         Some(IntegerConstant(value)) => {
@@ -1468,10 +1471,26 @@ fn emit_ret(value: &Option<Value>, stack_size: u32, asm: &mut Vec<u8>) {
         _ =>  ice!("Invalid return value: {:#?}", value),
     }
 
-    emit_function_epilogue(asm, stack_size);
+    emit_function_epilogue(asm, stack_size, args);
     asm.push(NEAR_RETURN);
 }
 
+
+fn emit_push(value: &Value, asm: &mut Vec<u8>) {
+    match value {
+        IntegerConstant(val) => push_integer(*val, asm),
+        StackOffset{offset, size} => push_stack_offset(*offset, *size, asm),
+        PhysicalRegister(reg) => push_register(*reg, asm),
+        _ => unimplemented!("Not yet implemented for:\n{:#?}", value),
+    }
+}
+
+fn emit_pop(value: &Value, asm: &mut Vec<u8>) {
+    match value {
+        PhysicalRegister(reg) => pop_register(*reg, asm),
+        _ => unimplemented!("Not yet implemented for:\n{:#?}", value),
+    }
+}
 
 /*
     FIXME: Unnecessary stack pointer modifications under certain conditions
@@ -1489,32 +1508,71 @@ fn emit_ret(value: &Option<Value>, stack_size: u32, asm: &mut Vec<u8>) {
           as red zone seems to be mostly only an issue in kernel mode, but might as well
 */
 fn emit_function_prologue(asm: &mut Vec<u8>, stack_size: u32) {
-    push(X64Register::RBP, asm);
+    push_register(X64Register::RBP, asm);
     emit_mov_reg_to_reg(X64Register::RBP, X64Register::RSP, asm);
     if stack_size != 0 {
         emit_sub_immediate_from_register(X64Register::RSP, stack_size as i32, asm);
     }
 }
 
-fn emit_function_epilogue(asm: &mut Vec<u8>, stack_size: u32) {
-    if stack_size != 0 {
+fn emit_function_epilogue(asm: &mut Vec<u8>, stack_size: u32, args: u32) {
+    //ca
+    asm.push(LEAVE);
+  /*  if stack_size != 0 {
         emit_add_immediate_to_register(X64Register::RSP, stack_size as i32, asm);
     }
-    pop(X64Register::RBP, asm);
+    pop_register(X64Register::RBP, asm);
+   */
+
 }
 
-fn push(register: X64Register, asm: &mut Vec<u8>) {
+fn push_register(register: X64Register, asm: &mut Vec<u8>) {
     if register.is_extended_reg() {
         asm.push(0x41);
     }
-    asm.push(PUSH + register.encoding());
+    asm.push(PUSH_REG + register.encoding());
 }
 
-fn pop(register: X64Register, asm: &mut Vec<u8>) {
+// pushing a value from stack to stack sounds bit funny, but is necessary when using stack allocator
+// and pushing function arguments
+fn push_stack_offset(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        rm_field: RmField::Register(X64Register::RBP),
+        reg_field: RegField::OpcodeExtension(PUSH_OPCODE_EXTENSION),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(PUSH_RM),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn push_integer(val: i32, asm: &mut Vec<u8>) {
+
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(PUSH_32_BIT_IMMEDIATE),
+        None,
+        None,
+        Some(Immediate::from(val)),
+    );
+}
+
+fn pop_register(register: X64Register, asm: &mut Vec<u8>) {
     if register.is_extended_reg() {
         asm.push(0x41);
     }
-    asm.push(POP + register.encoding());
+    asm.push(POP_REG + register.encoding());
 }
 
 
