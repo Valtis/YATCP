@@ -352,6 +352,7 @@ mod tests {
                 },
             },
             statements,
+            attributes: vec![],
         }
     }
 

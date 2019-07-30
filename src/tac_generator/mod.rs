@@ -2,8 +2,8 @@ mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
 use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo};
-
 use crate::semcheck::Type;
+use crate::function_attributes::FunctionAttribute;
 
 use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
@@ -150,6 +150,7 @@ impl Display for Statement {
 pub struct Function {
     pub statements: Vec<Statement>,
     pub function_info: FunctionInfo,
+    pub attributes: Vec<FunctionAttribute>,
 }
 
 impl Function {
@@ -157,6 +158,7 @@ impl Function {
         Function {
             statements: vec![],
             function_info,
+            attributes: vec![],
         }
     }
 
@@ -170,6 +172,10 @@ impl Function {
         println!();
     }
 
+
+    pub fn has_attribute(&self, attribute: FunctionAttribute) -> bool {
+        self.attributes.contains(&attribute)
+    }
 }
 
 
@@ -217,6 +223,8 @@ impl TACGenerator {
                 self.handle_block(children, sym_tab, node_info),
             AstNode::Function(ref child, ref info) =>
                 self.handle_function(child, info),
+           AstNode::ExternFunction(ref function_info) =>
+                self.handle_extern_function(function_info),
             AstNode::FunctionCall(ref args, ref name, ref node_info) =>
                 self.handle_function_call(name, args, node_info),
             AstNode::VariableDeclaration(ref child, ref info) =>
@@ -244,7 +252,6 @@ impl TACGenerator {
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison(node),
-
             ref x => panic!("Three-address code generation not implemented for '{}'", x),
         }
     }
@@ -312,6 +319,12 @@ impl TACGenerator {
                 || ice!("Function stack empty when generating function 3AC")));
     }
 
+    fn handle_extern_function(&mut self, info: &FunctionInfo) {
+        let mut function = Function::new(info.clone());
+        function.attributes.push(FunctionAttribute::External);
+        self.functions.push(function);
+    }
+
     fn handle_function_call(
         &mut self,
         name: &Rc<String>,
@@ -325,9 +338,14 @@ impl TACGenerator {
 
         let dest = if let Some(sym) = self.symbol_table.find_symbol(name) {
             if let Symbol::Function(ref fi) = sym {
-                let tmp = self.get_temporary(fi.return_type);
-                self.operands.push(tmp.clone());
-                Some(tmp)
+                if fi.return_type == Type::Void {
+                    None
+                } else {
+                    let tmp = self.get_temporary(fi.return_type);
+                    self.operands.push(tmp.clone());
+                    Some(tmp)
+                }
+
             } else {
                 ice!(
                     "Invalid symbol {:?} in symbol table when function expected", sym)
@@ -939,4 +957,81 @@ mod tests {
             functions[0].statements[0]);
     }
 
+    #[test]
+    fn function_call_to_void_function_does_not_emit_destination() {
+
+
+
+        /*
+        fn foo() : int {
+            bar();
+        }
+
+        fn bar() : void() {
+        }
+        */
+
+        let mut block_symtab_entry = TableEntry::new();
+        let mut foo_info = FunctionInfo::new_alt(
+            Rc::new("foo".to_string()), Type::Integer, 0, 0, 0);
+
+        let mut bar_info = FunctionInfo::new_alt(
+            Rc::new("bar".to_string()), Type::Void, 0, 0, 0);
+
+        block_symtab_entry.add_symbol(Symbol::Function(foo_info.clone()));
+        block_symtab_entry.add_symbol(Symbol::Function(bar_info.clone()));
+
+
+        let node = AstNode::Block(
+            vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![
+                                AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    NodeInfo::new(0, 0, 0),
+                                )
+                            ],
+                            Some(TableEntry::new()),
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                    foo_info,
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(
+                            vec![],
+                            Some(TableEntry::new()),
+                            NodeInfo::new(0, 0, 0)
+                        )),
+                    bar_info,
+                ),
+            ],
+            Some(block_symtab_entry),
+            NodeInfo::new(0, 0, 0),
+        );
+
+        let mut generator = TACGenerator::new(1);
+        let functions = generator.generate_tac_functions(&node);
+
+        assert_eq!(2, functions.len());
+
+        let (foo_func, bar_func) = if *functions[0].function_info.name == "foo" {
+            (&functions[0], &functions[1])
+        } else {
+            (&functions[1], &functions[0])
+        };
+
+        assert_eq!(1, foo_func.statements.len());
+        assert_eq!(1, bar_func.statements.len());
+
+        assert_eq!(
+            Statement::Call(Rc::new("bar".to_owned()), vec![], None),
+            foo_func.statements[0],
+        );
+
+        assert_eq!(Statement::Empty, bar_func.statements[0]);
+    }
 }

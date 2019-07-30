@@ -323,6 +323,23 @@ fn deep_calls_with_functions_with_large_number_of_args_works() {
         FunctionKind::INT("test".to_owned())
     );
     assert_eq!("1170\n", output);
+}
+
+#[test]
+fn can_call_external_function() {
+    let output = compile_and_run_no_opt(
+        r#"
+        extern fn c_printer(x: int) : void;
+
+        fn test() : void  {
+            let a: int = 4;
+            c_printer(1+a)
+        }
+        "#,
+        FunctionKind::VOID("test".to_owned())
+    );
+    assert_eq!("External C function call: 5\n", output);
+
 
 }
 

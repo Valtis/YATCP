@@ -141,6 +141,7 @@ fn update_instructions(function: &Function, stack_map: &mut StackMap) -> Functio
         name: function.name.clone(),
         code: final_code,
         parameter_count: function.parameter_count,
+        attributes: function.attributes.clone(),
     }
 }
 
@@ -1410,6 +1411,7 @@ mod tests {
                 name: "foo".to_owned(),
                 code:  bytecode,
                 parameter_count: 0,
+                attributes: vec![],
             }
         ]
     }

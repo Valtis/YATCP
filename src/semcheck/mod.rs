@@ -103,7 +103,8 @@ impl SemanticsCheck {
 
             for child in children.iter_mut() {
                 match child {
-                    AstNode::Function(ref mut child, ref fi) => {
+                    AstNode::Function(_, ref fi) |
+                    AstNode::ExternFunction(ref fi) => {
 
                         self.check_function_declaration(fi);
 
@@ -125,8 +126,7 @@ impl SemanticsCheck {
                 self.handle_block(children, tab_ent, ni),
             AstNode::Function(ref mut child,  ref fi) =>
                 self.handle_function(child, fi),
-            AstNode::ExternFunction(ref fi) =>
-                self.check_function_declaration(fi),
+            AstNode::ExternFunction(ref fi) => (), // do nothing, handled in the initial function definition pass
             AstNode::FunctionCall(ref mut args, ref name, ref ni) =>
                 self.handle_function_call(args, name, ni),
             AstNode::VariableDeclaration(ref mut child, ref vi) =>

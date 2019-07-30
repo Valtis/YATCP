@@ -456,6 +456,7 @@ mod tests {
                 },
             },
             statements,
+            attributes: vec![],
         }
     }
     #[test]

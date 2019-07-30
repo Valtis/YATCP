@@ -3,6 +3,8 @@ mod stack_allocator;
 
 use crate::byte_generator;
 use std::rc::Rc;
+use std::collections::HashMap;
+use crate::function_attributes::FunctionAttribute;
 
 pub struct CodeGenerator {
     bytecode_functions: Vec<byte_generator::Function>
@@ -13,11 +15,19 @@ pub struct Function {
     pub name: String, // FIXME Make string table thread safe so that string ref can be shared
     pub start: usize,
     pub length: usize,
+    pub attributes: Vec<FunctionAttribute>
+}
+
+impl Function {
+    pub fn contains_attribute(&self, attribute: FunctionAttribute) -> bool {
+        self.attributes.contains(&attribute)
+    }
 }
 
 pub struct Code {
     pub code: Vec<u8>,
     pub functions: Vec<Function>,
+    pub relocations: HashMap<String, usize>,
 }
 
 impl CodeGenerator {
@@ -31,12 +41,7 @@ impl CodeGenerator {
         // TODO - remove hard coded architecture
         let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions);
 
-        let (functions, code) = x64::generate_code(bytecode_with_allocations);
-
-        Code {
-            code,
-            functions
-        }
+        x64::generate_code(bytecode_with_allocations)
     }
 }
 

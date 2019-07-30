@@ -11,6 +11,8 @@ use std::io::prelude::*;
 use std::io::Error;
 
 use std::rc::Rc;
+use crate::function_attributes::FunctionAttribute;
+use crate::obj_generator::elf_obj::ElfSize::Elf64Signed;
 
 // elf file magic number
 const MAGIC_NUMBER : &'static str  ="\u{007f}ELF";
@@ -76,13 +78,13 @@ const ELF_SECTION_HEADER_SIZE_32 : u16 = 40;
 const ELF_SECTION_HEADER_SIZE_64 : u16 = 64;
 
 // reserved section indices
-const SHN_UNDEF : u32 = 0;
-const SHN_LORESERVE : u32 = 0xff00;
-const SHN_LOPROC : u32 = 0xff00;
-const SHN_HIPROC : u32 = 0xff1f;
-const SHN_ABS : u32 = 0xfff1;
-const SHN_COMMON : u32 = 0xfff2;
-const SHN_HIRESERVE : u32 = 0xffff;
+const SHN_UNDEF : u16 = 0;
+const SHN_LORESERVE : u16 = 0xff00;
+const SHN_LOPROC : u16 = 0xff00;
+const SHN_HIPROC : u16 = 0xff1f;
+const SHN_ABS : u16 = 0xfff1;
+const SHN_COMMON : u16 = 0xfff2;
+const SHN_HIRESERVE : u16 = 0xffff;
 
 // section header types
 const SHT_NULL : u32 = 0;
@@ -106,6 +108,7 @@ const SHT_HIUSER : u32 = 0xffffffff;
 const SHF_WRITE : u32 = 0x1;
 const SHF_ALLOC : u32 = 0x2;
 const SHF_EXECINSTR : u32 = 0x4;
+const SHF_INFO_LINKS: u32 = 0x40;
 const SHF_MASKPROC : u32 = 0xf0000000;
 
 
@@ -124,6 +127,18 @@ const STT_SECTION : u8 = 3;
 const STT_FILE : u8 = 4;
 const STT_LOPROC : u8 = 13;
 const STT_HIPROC : u8 = 15;
+
+
+// Relocations, partial
+
+const RELOCATION_AMD64_PLT32: u32 = 4;
+
+// FIXME: Relies on the ordering of sections, should be dynamic
+const SECTION_STRING_TABLE_INDEX: u16 = 1;
+const STRING_TABLE_INDEX: u16 = 2;
+const SYMBOL_TABLE_INDEX: u16 = 3;
+const TEXT_SECTION_INDEX: u16 = 4;
+
 
 pub struct ElfHeader {
     magic_number: &'static str,
@@ -191,11 +206,26 @@ struct SymbolEntry {
     size: ElfSize,
 }
 
+
+struct RelocationSection {
+    entries: Vec<RelocationEntry>
+}
+
+struct RelocationEntry {
+    offset: ElfSize,
+    info: ElfSize,
+    addend: ElfSize,
+}
+
+
+
 #[derive(Clone, Copy, Debug)]
 enum ElfSize {
     Elf32(u32),
     Elf64(u64),
+    Elf64Signed(i64),
 }
+
 
 impl ElfHeader {
     pub fn new(architecture: Architecture) -> ElfHeader {
@@ -223,7 +253,6 @@ impl ElfHeader {
             section_header_entry_size: section_header_size,
             section_header_entry_count: 0,
             section_header_string_table_index: 0,
-
         }
     }
 
@@ -301,7 +330,7 @@ impl SectionHeader {
             virtual_address: zero,
             offset: zero,
             size: zero,
-            link: SHN_UNDEF,
+            link: SHN_UNDEF as u32,
             info: 0,
             address_alignment: zero,
             entry_size: zero,
@@ -352,6 +381,7 @@ impl Section for SymbolSection {
     }
 }
 
+
 impl SymbolEntry {
     fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
         write_u32(file, self.string_index, architecture)?;
@@ -363,13 +393,34 @@ impl SymbolEntry {
     }
 }
 
+impl Section for RelocationSection {
+    fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+        for v in self.entries.iter() {
+            v.write(file, architecture)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl RelocationEntry {
+    fn write(&self, file: &mut File, architecture: Architecture) -> Result<(), Error> {
+        write_elfsize(file, self.offset, architecture)?;
+        write_elfsize(file, self.info, architecture)?;
+        write_elfsize(file, self.addend, architecture)?;
+        Ok(())
+    }
+}
+
 pub struct ElfGenerator {
     architecture: Architecture,
     output_file: String,
     elf_header: ElfHeader,
     section_headers: Vec<SectionHeader>,
     sections: Vec<Box<Section>>,
-    string_pos: HashMap<Rc<String>, u32>,
+    string_pos: HashMap<String, u32>,
+    section_string_pos: HashMap<String, u32>,
+    symbol_table_entries: HashMap<String, usize>,
     code: Code,
 }
 
@@ -385,20 +436,25 @@ impl ElfGenerator {
             section_headers: vec![],
             sections: vec![],
             string_pos: HashMap::new(),
-            code: code
+            section_string_pos: HashMap::new(),
+            symbol_table_entries: HashMap::new(),
+            code
         }
     }
 
     pub fn generate(mut self) {
         let mut file = File::create(&self.output_file).expect("An IO error occured when creating object file");
 
+
+        // FIXME: There are hardcoded references to section table index, based on this ordering here. Change to dynamic
+        // In general, adding new table in the middle of the existing ones breaks things
         self.add_undefined_header();
 
         self.add_section_string_table();
         self.add_string_table();
         self.add_symbol_table();
         self.add_text_table();
-
+        self.add_relocation_table();
         self.update_offsets();
 
 
@@ -422,18 +478,24 @@ impl ElfGenerator {
             Rc::new(".strtab".to_string()),
             Rc::new(".symtab".to_string()),
             Rc::new(".data".to_string()),
-            Rc::new(".text".to_string())];
+            Rc::new(".text".to_string()),
+            Rc::new(".rela.text".to_string()),
+        ];
 
-        // string.len() -> null terminator count
-        let string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
-        println!("Size: {}", string_size);
+        // string table size, including null terminator bytes
+        let mut string_size = 0;
+
+        for s in strings.iter() {
+            self.section_string_pos.insert((**s).clone(), string_size as u32);
+            string_size += s.len() + 1; // +1 for null terminator
+        }
 
         let section = Box::new(StringSection {
             strings: strings,
         });
 
         let mut header = SectionHeader::new(self.architecture);
-        header.string_index = 1;
+        header.string_index = self.section_string_pos[".shstrtab"];
         header.header_type = SHT_STRTAB;
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(string_size as u64),
@@ -456,24 +518,21 @@ impl ElfGenerator {
             Rc::new(self.output_file.clone()),
             ];
 
-        // string.len() -> null terminator count
+        // string table size, including null terminator bytes
         let mut string_size = strings.len() + strings.iter().fold(0, |sum, x| sum + x.len());
 
         for f in self.code.functions.iter() {
             strings.push(Rc::new(f.name.clone()));
-            self.string_pos.insert(Rc::new(f.name.clone()), string_size as u32);
+            self.string_pos.insert(f.name.clone(), string_size as u32);
             string_size += f.name.len() + 1; // +1 for null terminatoe
         }
-
-
-        println!("Size: {}", string_size);
 
         let section = Box::new(StringSection {
             strings: strings,
         });
 
         let mut header = SectionHeader::new(self.architecture);
-        header.string_index = 11; // HARDCODED ASSUMPTION IN REGARDS OF SECTION STRING TABLE!
+        header.string_index = self.section_string_pos[".strtab"];
         header.header_type = SHT_STRTAB;
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(string_size as u64),
@@ -507,18 +566,25 @@ impl ElfGenerator {
             string_index: 1,
             info: (((STB_LOCAL) << 4) + ((STT_FILE) & 0xf)),
             other: 0,
-            section_header_index: SHN_ABS as u16,
+            section_header_index: SHN_ABS,
             value: zero,
             size: zero,
         });
 
         for f in self.code.functions.iter() {
-            println!("Function '{}' start: {} length: {}", f.name, f.start, f.length);
+            let index = if f.contains_attribute(FunctionAttribute::External) {
+                SHN_UNDEF
+            } else {
+                TEXT_SECTION_INDEX
+            };
+
+            self.symbol_table_entries.insert(f.name.clone(), entries.len());
+
             entries.push(SymbolEntry {
                 string_index: self.string_pos[&f.name],
                 info: (((STB_GLOBAL) << 4) + ((STT_FUNC) & 0xf)),
                 other: 0,
-                section_header_index: 4, // text section index
+                section_header_index: index,
                 value: match self.architecture {
                     Architecture::X64 => ElfSize::Elf64(f.start as u64),
                 },
@@ -534,23 +600,26 @@ impl ElfGenerator {
             entries: entries,
         });
 
+        let entry_bytes = 24;
+
         let mut header = SectionHeader::new(self.architecture);
-        header.string_index = 19; // HARDCODED ASSUMPTION IN REGARDS OF SECTION STRING TABLE!
+        header.string_index = self.section_string_pos[".symtab"];
         header.header_type = SHT_SYMTAB;
         header.size = match self.architecture {
-            Architecture::X64 => ElfSize::Elf64((entries_len*24) as u64),
+            Architecture::X64 => ElfSize::Elf64((entries_len*entry_bytes) as u64),
         };
 
         header.entry_size = match self.architecture {
-            Architecture::X64 => ElfSize::Elf64(24),
+            Architecture::X64 => ElfSize::Elf64(entry_bytes as u64),
         };
 
-        header.link = 2; // dirty hardcoded value for the string table
+        header.link = STRING_TABLE_INDEX as u32;
         header.info = 2; // one larger than the index of the last local binding
 
         header.address_alignment = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(8),
         };
+
 
         self.add_section_header(header);
         self.add_section(section);
@@ -566,13 +635,11 @@ impl ElfGenerator {
 
         let mut header = SectionHeader::new(self.architecture);
 
-        header.string_index = 33; // HARDCODED ASSUMPTION IN REGARDS OF SECTION STRING TABLE!
+        header.string_index = self.section_string_pos[".text"];
         header.header_type = SHT_PROGBITS;
         header.size = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(len as u64),
         };
-
-        println!("Text table header size: {:?}", header.size);
 
         header.address_alignment = match self.architecture {
             Architecture::X64 => ElfSize::Elf64(1),
@@ -581,6 +648,79 @@ impl ElfGenerator {
         header.flags = match self.architecture {
             Architecture::X64 => ElfSize::Elf64((SHF_ALLOC | SHF_EXECINSTR) as u64),
         };
+
+        self.add_section_header(header);
+        self.add_section(section);
+    }
+
+    fn add_relocation_table(&mut self) {
+
+        if self.code.relocations.is_empty() {
+            return;
+        }
+
+        let mut header = SectionHeader::new(self.architecture);
+
+        header.string_index = self.section_string_pos[".rela.text"];
+        header.header_type = SHT_RELA;
+
+
+        let entry_bytes = 24;
+        let mut entries = vec![];
+
+        for (name, offset) in self.code.relocations.iter() {
+
+            let offset = match self.architecture {
+                Architecture::X64 => ElfSize::Elf64(*offset as u64),
+            };
+
+            // symbol table index in high 32 bits, type in low 32 bits
+            let info = match self.architecture {
+                Architecture::X64 => ElfSize::Elf64(
+                    (self.symbol_table_entries[name] as u64) << 32
+                        | RELOCATION_AMD64_PLT32 as u64),
+            };
+
+            let addend = match self.architecture {
+                Architecture::X64 => ElfSize::Elf64Signed(-4), // account for the field length in bytes we are patching
+            };
+
+
+            entries.push(
+                RelocationEntry {
+                    offset,
+                    info,
+                    addend,
+                }
+            );
+        }
+
+
+        header.size = match self.architecture {
+            Architecture::X64 => ElfSize::Elf64((entries.len()*entry_bytes) as u64),
+        };
+
+        header.entry_size = match self.architecture {
+            Architecture::X64 => ElfSize::Elf64(entry_bytes as u64),
+        };
+
+        header.address_alignment = match self.architecture {
+            Architecture::X64 => ElfSize::Elf64(1),
+        };
+
+        header.flags = match self.architecture {
+           Architecture::X64 => ElfSize::Elf64(SHF_INFO_LINKS as u64),
+        };
+
+        header.link = SYMBOL_TABLE_INDEX as u32;
+        header.info = TEXT_SECTION_INDEX as u32; // SHF_INFO_LINKS flag must be set also
+
+
+        let section = Box::new(
+            RelocationSection {
+            entries,
+            }
+        );
 
         self.add_section_header(header);
         self.add_section(section);
@@ -601,9 +741,9 @@ impl ElfGenerator {
         self.update_remaining_section_offsets();
     }
 
+
     fn update_section_string_table_offset(&mut self) {
-        // HARDCODED ASSUMPTION! Assumes that section string table header is the second entity in section_header vector
-        let string_header = &mut self.section_headers[1];
+        let string_header = &mut self.section_headers[SECTION_STRING_TABLE_INDEX as usize];
         string_header.offset = match self.architecture {
             Architecture::X64 => {
                 if let ElfSize::Elf64(val) = self.elf_header.section_header_table_offset {
@@ -691,10 +831,21 @@ fn write_u64(file: &mut File, value: u64, architecture: Architecture) -> Result<
     Ok(())
 }
 
+fn write_i64(file: &mut File, value: i64, architecture: Architecture) -> Result<(), Error> {
+    let mut buffer = [0;8];
+    match architecture {
+        Architecture::X64 => LittleEndian::write_i64(&mut buffer, value),
+    };
+
+    file.write(&buffer)?;
+    Ok(())
+}
+
 fn write_elfsize(file: &mut File, elfval: ElfSize, architecture: Architecture) -> Result<(), Error> {
     match elfval {
         ElfSize::Elf32(val) => write_u32(file, val, architecture)?,
         ElfSize::Elf64(val) => write_u64(file, val, architecture)?,
+        ElfSize::Elf64Signed(val) => write_i64(file, val, architecture)?,
     };
 
     Ok(())

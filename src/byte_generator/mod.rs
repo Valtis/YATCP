@@ -7,6 +7,7 @@ use crate::semcheck::Type;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
+use crate::function_attributes::FunctionAttribute;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +82,13 @@ pub struct Function {
     pub name: String,
     pub code: Vec<ByteCode>,
     pub parameter_count: u32,
+    pub attributes: Vec<FunctionAttribute>
+}
+
+impl Function {
+    pub fn has_attribute(&self, attribute: FunctionAttribute) -> bool {
+        self.attributes.contains(&attribute)
+    }
 }
 
 
@@ -113,6 +121,7 @@ impl ByteGenerator {
                 name: (*f.function_info.name).clone(),
                 code: vec![],
                 parameter_count: 0,
+                attributes: f.attributes,
             });
             self.next_register = 0;
 
@@ -386,6 +395,7 @@ mod test {
                 },
             },
             statements,
+            attributes: vec![],
         }
     }
 

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::hash::Hash;
+use crate::function_attributes::FunctionAttribute;
 
 const INTEGER_SIZE: usize = 4;
 
@@ -321,10 +322,9 @@ impl X64Register {
     }
 }
 
-
-
-pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<code_generator::Function>, Vec<u8>) {
-    let function_asm: Vec<(String, Vec<u8>, Vec<CallPatch>)> = functions.par_iter()
+pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> super::Code {
+    let function_asm: Vec<(byte_generator::Function, Vec<u8>, Vec<CallPatch>)> = functions.par_iter()
+        .filter(|(function, _)| !function.has_attribute(FunctionAttribute::External))
         .map(|(function, stack_size)| generate_code_for_function(function, *stack_size))
         .collect();
 
@@ -333,10 +333,29 @@ pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<co
 
     let mut combined_call_patches = vec![];
     let mut function_positions = HashMap::new();
+    // for external functions, just leave the call offset as a placeholder, linker deals with it
 
-    for (name, mut asm, mut calls_requiring_updates) in function_asm {
+    let external_functions: HashSet<String> = functions.iter()
+        .filter(|(function, _)| function.has_attribute(FunctionAttribute::External))
+        .map(|(function, _)| function.name.clone()).collect();
 
-        function_positions.insert(name.clone(), combined_asm.len());
+      functions.iter()
+        .filter(|(function, _)| function.has_attribute(FunctionAttribute::External))
+        .for_each(|(function, _)| codegen_functions.push(
+            code_generator::Function {
+                name: function.name.clone(),
+                start: 0,
+                length: 0,
+                attributes: function.attributes.clone(),
+            }));
+
+
+    for (function, mut asm, mut calls_requiring_updates) in function_asm {
+
+        ice_if!(function_positions.contains_key(&function.name),
+             "Function {} already present in function call location patch table", function.name);
+
+        function_positions.insert(function.name.clone(), combined_asm.len());
 
         for patch in calls_requiring_updates.iter_mut() {
             patch.location = patch.location + combined_asm.len();
@@ -344,21 +363,26 @@ pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> (Vec<co
         }
 
         codegen_functions.push(code_generator::Function{
-           name: name,
+           name: function.name,
            start: combined_asm.len(),
            length: asm.len(),
+           attributes: function.attributes,
         });
 
         combined_asm.append(&mut asm);
     }
 
-    update_calls(&combined_call_patches, &function_positions, &mut combined_asm);
+    let relocations = update_calls(&combined_call_patches, &function_positions, external_functions, &mut combined_asm);
 
 
-    (codegen_functions, combined_asm)
+    super::Code {
+        functions: codegen_functions,
+        code: combined_asm,
+        relocations,
+    }
 }
 
-fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (String, Vec<u8>, Vec<CallPatch>) {
+fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (byte_generator::Function, Vec<u8>, Vec<CallPatch>) {
 
 
     let mut asm = vec![];
@@ -391,7 +415,7 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
 
     update_jumps(&jumps_requiring_updates, &label_pos, &mut asm);
 
-    (function.name.clone(), asm, calls_requiring_updates)
+    (function.clone(), asm, calls_requiring_updates)
 }
 
 // Comment out pending rewrite/fixes, as ByteCode representation is undergoing large changes
@@ -1668,8 +1692,20 @@ fn update_jumps(
 fn update_calls(
     calls_requiring_updates: &Vec<CallPatch>,
     function_positions: &HashMap<String, usize>,
-    asm: &mut Vec<u8>) {
+    external_functions: HashSet<String>,
+    asm: &mut Vec<u8>) -> HashMap<String, usize> {
+
+    let mut relocations = HashMap::new();
     for call in calls_requiring_updates.iter() {
+        // +1 so that the one-byte opcode is skipped
+        let opcode_offset = 1;
+        let call_location = call.location + opcode_offset;
+
+        if external_functions.contains(&call.name) {
+            relocations.insert(call.name.clone(), call_location);
+            continue;
+        }
+
         if function_positions.contains_key(&call.name) {
             let call_address = function_positions[&call.name];
             // Note: Breaks if the offset is larger than i32::maxval
@@ -1681,14 +1717,14 @@ fn update_calls(
             LittleEndian::write_i32(&mut buffer, offset);
 
             for i in 0..4 {
-                // +1 so that the one-byte opcode is skipped
-                let opcode_offset = 1;
-                asm[call.location + opcode_offset + i] = buffer[i];
+                asm[call_location + i] = buffer[i];
             }
         } else {
             ice!("No call target for call stored: {:#?}", call);
         }
     }
+
+    relocations
 }
 
 
