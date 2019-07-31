@@ -1,11 +1,12 @@
-
-use super::{ErrorReporter, ReportKind, Message, HighlightMessage };
+use super::{ErrorReporter, ReportKind, Message };
 
 use crate::ast::NodeInfo as Span;
 
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::cmp;
+use std::iter;
 
 
 
@@ -15,7 +16,7 @@ Reports errors by printing/highlighting content from the given file
 pub struct FileErrorReporter {
     file_path: String,
     errors: i32,
-    messages: Vec<Box<dyn Message>>
+    messages: Vec<Message>,
 }
 
 impl FileErrorReporter {
@@ -29,7 +30,8 @@ impl FileErrorReporter {
 
     fn read_lines(&self) -> Vec<String> {
         let mut lines = vec![];
-        // Todo: Replace with something sligtly saner
+        // Todo: Replace with something slightly saner
+        // Works for small files, but can be expensive memory wise in case the source file is huge
         let f = match File::open(&self.file_path) {
             Ok(file) => file,
             Err(e) => panic!("Failed to open file {}: {}", self.file_path, e),
@@ -58,15 +60,16 @@ impl FileErrorReporter {
 }
 
 impl ErrorReporter for FileErrorReporter {
-    fn report_error(&mut self, error_type: ReportKind, span: Span, message : String) {
+    fn report_error(&mut self, report: ReportKind, span: Span, message : String) {
 
-        self.update_error_count(&error_type);
+        self.update_error_count(&report);
 
         self.messages.push(
-            Box::new(HighlightMessage::new(
+            Message::HighlightMessage {
                 span,
-                error_type,
-                message)));
+                report,
+                message
+            });
 
     }
 
@@ -86,9 +89,55 @@ impl ErrorReporter for FileErrorReporter {
         let lines = self.read_lines();
 
         for msg in self.messages.iter() {
-            msg.write_message(&lines);
+            match msg {
+                Message::HighlightMessage{
+                    span,
+                    report,
+                    message,
+                } => {
+                    write_highlight_message(span, *report, message, lines.as_slice())
+                }
+            }
         }
 
     }
+}
+
+
+
+fn write_highlight_message(span: &Span, report: ReportKind, message: &String, lines: &[String]) {
+
+    // group notes with the warning/error, otherwise add a newline
+    if report != ReportKind::Note {
+        eprintln!();
+    }
+
+    // main error/warning/note print
+    eprintln!("{}:{} {}: {}",
+            span.line,
+            span.column,
+            report,
+            message);
+
+    // print line
+    let line = &lines[(span.line-1) as usize];
+    eprint!("{}", line);
+    if !line.ends_with("\n") {
+        eprintln!();
+    }
+
+    // indentation for highlighting line
+    eprint!("{}",
+        iter::repeat(" ").
+            take(cmp::max(span.column-1, 0) as usize).
+            collect::<String>());
+
+
+    // highlighting
+    let color = report.get_color();
+    for _ in 0..span.length {
+        eprint!("{}", color.bold().paint("^").to_string());
+    }
+    eprintln!();
 }
 

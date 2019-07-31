@@ -1,21 +1,17 @@
 use crate::ast::NodeInfo as Span;
 
+use ansi_term::Colour::{Red, Cyan, Yellow};
+use ansi_term;
+
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
 use std::io::Write;
 
-use std::cmp;
-use std::iter;
-
-use ansi_term::Colour::{Red, Cyan, Yellow};
-use ansi_term;
-use crate::ast::NodeInfo;
-
 pub mod file_reporter;
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReportKind {
     Note,
     Warning,
@@ -67,70 +63,14 @@ pub trait ErrorReporter {
 
 }
 
-fn write_stderr(txt: String) {
-    match write!(&mut ::std::io::stderr(), "{}", txt) {
-        Ok(_) => {},
-        Err(x) => panic!("Unable to write to stderr: {}", x),
-    }
 
-}
-
-trait Message {
-    fn write_message(&self, lines: &Vec<String>);
-}
-
-
-struct HighlightMessage {
-    span: Span,
-    report: ReportKind,
-    message: String,
-}
-
-impl HighlightMessage {
-    fn new(
+enum Message {
+    HighlightMessage {
         span: Span,
         report: ReportKind,
-        message: String) -> HighlightMessage {
-
-        HighlightMessage {
-            span,
-            report,
-            message
-        }
+        message: String,
     }
 }
 
 
-impl Message for HighlightMessage {
-    fn write_message(&self, lines: &Vec<String>) {
-        if self.report != ReportKind::Note {
-            write_stderr("\n".to_string());
-        }
 
-        write_stderr(
-            format!(
-                "{}:{} {}: {}\n",
-                self.span.line,
-                self.span.column,
-                self.report,
-                self.message));
-
-        let line = &lines[(self.span.line-1) as usize];
-
-        write_stderr(format!("{}", line));
-        if !line.ends_with("\n") {
-            write_stderr("\n".to_string());
-        }
-
-        write_stderr(
-            iter::repeat(" ").
-            take(cmp::max(self.span.column-1, 0) as usize).
-            collect::<String>());
-        let color = self.report.get_color();
-
-        for _ in 0..self.span.length {
-            write_stderr(color.bold().paint("^").to_string());
-        }
-        write_stderr("\n".to_string());
-    }
-}
