@@ -749,7 +749,6 @@ impl ElfGenerator {
 
                     let section_headers_size =
                         (self.elf_header.section_header_entry_size*self.elf_header.section_header_entry_count) as u64;
-                    println!("section string offset: {}", val + section_headers_size);
                     ElfSize::Elf64(val + section_headers_size)
                 } else {
                     panic!("Internal compiler error: Invalid variable size for architecture in ELF header");
@@ -760,10 +759,8 @@ impl ElfGenerator {
 
     fn update_remaining_section_offsets(&mut self) {
         for i in 2..self.section_headers.len() {
-            println!("Current header index: {} prev header index {}", i, i-1);
             let prev_header = &self.section_headers[i-1].clone();
             let current_header = &mut self.section_headers[i];
-            println!("Prev header: {:?} {:?}", prev_header.offset, prev_header.size);
 
             current_header.offset = match self.architecture {
                 Architecture::X64 => {
@@ -775,7 +772,6 @@ impl ElfGenerator {
                 }
             };
 
-            println!("Current header: {:?} {:?}", current_header.offset, current_header.size);
         }
 
 
@@ -783,7 +779,6 @@ impl ElfGenerator {
 
     fn write_section_headers(&mut self, file: &mut File) -> Result<(), Error> {
         for header in self.section_headers.iter() {
-            println!("Writing section header with offset {:?}", header.offset);
             header.write(file, self.architecture)?;
         }
 
