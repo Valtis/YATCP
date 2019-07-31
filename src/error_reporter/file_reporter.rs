@@ -1,4 +1,4 @@
-use super::{ErrorReporter, ReportKind, Message, HighlightMessage, HighlightWithOperatorMessage };
+use super::{ErrorReporter, ReportKind, Message, HighlightMessage };
 
 use std::fs::File;
 use std::io::BufRead;
@@ -67,28 +67,6 @@ impl ErrorReporter for FileErrorReporter {
                 error_type,
                 message)));
 
-    }
-
-    fn report_error_with_expression(
-        &mut self,
-        error_type: ReportKind,
-        line: i32,
-        expression_start: i32,
-        expression_end: i32,
-        operator_start: i32,
-        operator_length: i32,
-        message: String) {
-        self.update_error_count(&error_type);
-
-        self.messages.push(
-            Box::new(HighlightWithOperatorMessage::new(
-                line,
-                expression_start,
-                expression_end,
-                operator_start,
-                operator_length,
-                error_type,
-                message)));
     }
 
     fn has_errors(&self) -> bool {

@@ -727,22 +727,6 @@ impl SemanticsCheck {
         let left_type = self.get_type(left_child);
         let right_type = self.get_type(right_child);
 
-        let left_tree = self.get_subtree_width(left_child);
-        let right_tree = self.get_subtree_width(right_child);
-
-        let mut start = arith_info.node_info.column;
-        let mut end = arith_info.node_info.column + arith_info.node_info.length;
-
-        if let Some(x) = left_tree {
-            start = std::cmp::min(start, x.start);
-            end = std::cmp::max(end, x.end);
-        }
-
-        if let Some(x) = right_tree {
-            start = std::cmp::min(start, x.start);
-            end = std::cmp::max(end, x.end);
-        }
-
         // if left or right type is Type::Invalid, error has been reported
         // already. Just mark this node as invalid as well to propagate the
         // error upwards in the tree
@@ -750,11 +734,9 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
         } else if left_type != right_type {
             arith_info.node_type = Type::Invalid;
-            self.report_error_with_expression(
+            self.report_error(
                 ReportKind::TypeError,
                 arith_info.node_info.line,
-                start,
-                end,
                 arith_info.node_info.column,
                 arith_info.node_info.length,
                 format!(
@@ -951,26 +933,6 @@ impl SemanticsCheck {
     fn report_error(&mut self, error_type: ReportKind, line:i32, column:i32, token_length : i32, error: String) {
         self.errors += 1;
         self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);
-    }
-
-    fn report_error_with_expression(
-        &mut self,
-        error_type: ReportKind,
-        line: i32,
-        expression_start: i32,
-        expression_end:i32,
-        operator_start: i32,
-        operator_length : i32,
-        error: String) {
-        self.errors += 1;
-        self.error_reporter.borrow_mut().report_error_with_expression(
-            error_type,
-            line,
-            expression_start,
-            expression_end,
-            operator_start,
-            operator_length,
-            error);
     }
 
     fn report_type_error(

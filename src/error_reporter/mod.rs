@@ -59,7 +59,6 @@ impl Display for ReportKind {
 
 pub trait ErrorReporter {
     fn report_error(&mut self, error_type: ReportKind, line: i32, column: i32, token_length : i32, error_string: String);
-    fn report_error_with_expression(&mut self, error_type: ReportKind, line: i32, expression_start: i32, expression_end: i32, operator_start:i32, operator_length: i32, message: String);
 
     fn has_errors(&self) -> bool;
     fn has_reports(&self) -> bool;
@@ -139,81 +138,5 @@ impl Message for HighlightMessage {
             write_stderr(color.bold().paint("^").to_string());
         }
         write_stderr("\n".to_string());
-    }
-}
-
-struct HighlightWithOperatorMessage {
-    line: i32,
-    expression_start: i32,
-    expression_end: i32,
-    operator_start: i32,
-    operator_length: i32,
-    error: ReportKind,
-    message: String,
-}
-
-impl HighlightWithOperatorMessage {
-    fn new(
-        line: i32,
-        expression_start: i32,
-        expression_end: i32,
-        operator_start: i32,
-        operator_length: i32,
-        error: ReportKind,
-        message: String,
-        ) -> HighlightWithOperatorMessage {
-        HighlightWithOperatorMessage {
-            line,
-            expression_start,
-            expression_end,
-            operator_start,
-            operator_length,
-            error,
-            message,
-        }
-    }
-}
-
-impl Message for HighlightWithOperatorMessage {
-    fn write_message(&self, lines: &Vec<String>) {
-
-        if self.error != ReportKind::Note {
-            write_stderr("\n".to_string());
-        }
-
-        write_stderr(
-            format!(
-                "{}:{} {}: {}\n",
-                self.line,
-                self.operator_start,
-                self.error,
-                self.message));
-
-        let line = &lines[(self.line-1) as usize];
-
-        write_stderr(format!("{}", line));
-        if !line.ends_with("\n") {
-            write_stderr("\n".to_string());
-        }
-
-        write_stderr(
-            iter::repeat(" ").
-            take(cmp::max(self.expression_start-1, 0) as usize).
-            collect::<String>());
-        let color = self.error.get_color();
-
-        for _ in self.expression_start..self.operator_start {
-            write_stderr(color.bold().paint("~").to_string());
-        }
-
-        for _ in 0..self.operator_length {
-            write_stderr(color.bold().paint("^").to_string());
-        }
-
-        for _ in (self.operator_start + self.operator_length)..self.expression_end {
-            write_stderr(color.bold().paint("~").to_string());
-        }
-        write_stderr("\n".to_string());
-
     }
 }
