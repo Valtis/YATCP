@@ -58,7 +58,7 @@ impl Display for ReportKind {
 }
 
 pub trait ErrorReporter {
-    fn report_error(&mut self, error_type: ReportKind, line: i32, column: i32, token_length : i32, error_string: String);
+    fn report_error(&mut self, error_type: ReportKind, span: Span, error_string: String);
 
     fn has_errors(&self) -> bool;
     fn has_reports(&self) -> bool;
@@ -88,18 +88,12 @@ struct HighlightMessage {
 
 impl HighlightMessage {
     fn new(
-        line: i32,
-        column: i32,
-        length: i32,
+        span: Span,
         report: ReportKind,
         message: String) -> HighlightMessage {
 
         HighlightMessage {
-            span: Span {
-                line: line,
-                column: column,
-                length: length,
-            },
+            span,
             report,
             message
         }

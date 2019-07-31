@@ -1,5 +1,5 @@
 use crate::token::{Token, TokenType, TokenSubType};
-
+use crate::ast::NodeInfo as Span;
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::string_table::StringTable;
@@ -557,9 +557,7 @@ impl ReadLexer {
       reason: String) {
       self.error_reporter.borrow_mut().report_error(
         error_type,
-        line,
-        column,
-        length as i32,
+        Span::new(line, column, length as i32),
         reason);
   }
 }

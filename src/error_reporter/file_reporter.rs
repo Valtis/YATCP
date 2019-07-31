@@ -1,4 +1,7 @@
+
 use super::{ErrorReporter, ReportKind, Message, HighlightMessage };
+
+use crate::ast::NodeInfo as Span;
 
 use std::fs::File;
 use std::io::BufRead;
@@ -55,15 +58,13 @@ impl FileErrorReporter {
 }
 
 impl ErrorReporter for FileErrorReporter {
-    fn report_error(&mut self, error_type: ReportKind, line: i32, column: i32, token_length : i32, message : String) {
+    fn report_error(&mut self, error_type: ReportKind, span: Span, message : String) {
 
         self.update_error_count(&error_type);
 
         self.messages.push(
             Box::new(HighlightMessage::new(
-                line,
-                column,
-                token_length,
+                span,
                 error_type,
                 message)));
 

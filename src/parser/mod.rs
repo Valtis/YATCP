@@ -4,7 +4,7 @@ use crate::lexer::Lexer;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -55,7 +55,7 @@ impl Parser {
                     return AstNode::Block(
                             nodes,
                             None,
-                            NodeInfo::new(0, 0, 0),
+                            Span::new(0, 0, 0),
                         ),
                 _ => {
                     self.report_unexpected_token(
@@ -138,7 +138,7 @@ impl Parser {
         let block = AstNode::Block(
             nodes,
             None,
-            NodeInfo::new(0, 0, 0),
+            Span::new(0, 0, 0),
         );
 
         Ok(block)
@@ -191,9 +191,7 @@ impl Parser {
             TokenType::SemiColon => {
                 self.report_error(
                     ReportKind::SyntaxError,
-                    identifier.line,
-                    identifier.column,
-                    identifier.length as usize,
+                    Span::new(identifier.line, identifier.column, identifier.length),
                     format!("Variable declaration must be followed by initialization"));
                 return Err(());
             },
@@ -244,7 +242,7 @@ impl Parser {
         Ok(AstNode::VariableAssignment(
             Box::new(expression_node),
             name,
-            NodeInfo::new(
+            Span::new(
                 identifier.line,
                 identifier.column,
                 identifier.length)))
@@ -278,7 +276,7 @@ impl Parser {
         Ok(AstNode::FunctionCall(
             args,
             name,
-            NodeInfo::new(identifier.line, identifier.column, identifier.length)
+            Span::new(identifier.line, identifier.column, identifier.length)
             ))
     }
 
@@ -308,7 +306,7 @@ impl Parser {
         Ok(AstNode::While(
             Box::new(expr),
             Box::new(block),
-            NodeInfo::new(
+            Span::new(
                 while_node.line,
                 while_node.column,
                 while_node.length)))
@@ -332,7 +330,7 @@ impl Parser {
             Box::new(expr),
             Box::new(block),
             opt_else_blk,
-            NodeInfo::new(
+            Span::new(
                 if_node.line,
                 if_node.column,
                 if_node.length)))
@@ -371,9 +369,7 @@ impl Parser {
             if self.starts_operand(&next_token) {
                 self.report_error(
                     ReportKind::SyntaxError,
-                    next_token.line,
-                    next_token.column,
-                    next_token.length as usize,
+                    Span::new(next_token.line, next_token.column, next_token.length),
                     format!(
                         "Unexpected token '{}'. Missing operator?",
                         next_token));
@@ -437,7 +433,7 @@ impl Parser {
                         TokenSubType::Identifier(ref identifier) =>
                             Ok(AstNode::Identifier(
                                 identifier.clone(),
-                                NodeInfo::new(
+                                Span::new(
                                     token.line, token.column, token.length))),
                         TokenSubType::ErrorToken =>
                                 Ok(AstNode::ErrorNode),
@@ -449,15 +445,15 @@ impl Parser {
             TokenType::Number => {
                 match token.token_subtype {
                     TokenSubType::IntegerNumber(i) => {
-                        Ok(AstNode::Integer(AstInteger::from(i), NodeInfo::new(
+                        Ok(AstNode::Integer(AstInteger::from(i), Span::new(
                             token.line, token.column, token.length)))
                     },
                     TokenSubType::DoubleNumber(i) => {
-                        Ok(AstNode::Double(i, NodeInfo::new(
+                        Ok(AstNode::Double(i, Span::new(
                             token.line, token.column, token.length)))
                     },
                     TokenSubType::FloatNumber(i) => {
-                        Ok(AstNode::Float(i, NodeInfo::new(
+                        Ok(AstNode::Float(i, Span::new(
                             token.line, token.column, token.length)))
                     },
                     TokenSubType::ErrorToken => {
@@ -469,7 +465,7 @@ impl Parser {
             TokenType::Boolean => {
                 match token.token_subtype {
                     TokenSubType::BooleanValue(v) => {
-                        Ok(AstNode::Boolean(v, NodeInfo::new(
+                        Ok(AstNode::Boolean(v, Span::new(
                             token.line, token.column, token.length)))
                     },
                     _ => ice!("Invalid token '{}' passed when boolean value expected", token)
@@ -485,7 +481,7 @@ impl Parser {
                     TokenSubType::Text(ref text) =>
                         Ok(AstNode::Text(
                             text.clone(),
-                            NodeInfo::new(
+                            Span::new(
                                 token.line, token.column, token.length))),
                     TokenSubType::ErrorToken =>
                         Ok(AstNode::ErrorNode),
@@ -518,7 +514,7 @@ impl Parser {
                     let less_node = AstNode::Less(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -528,7 +524,7 @@ impl Parser {
                     let less_or_eq_node = AstNode::LessOrEq(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -538,7 +534,7 @@ impl Parser {
                     let equals_node = AstNode::Equals(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -548,7 +544,7 @@ impl Parser {
                     let equals_node = AstNode::NotEquals(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -558,7 +554,7 @@ impl Parser {
                     let greater_or_eq_node = AstNode::GreaterOrEq(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -568,7 +564,7 @@ impl Parser {
                     let greater_node = AstNode::Greater(
                         Box::new(node),
                         Box::new(n_node),
-                        NodeInfo::new(
+                        Span::new(
                             next_token.line,
                             next_token.column,
                             next_token.length));
@@ -691,9 +687,7 @@ impl Parser {
 
         if actual.token_type == TokenType::Eof {
             self.report_error(ReportKind::SyntaxError,
-                              actual.line,
-                              actual.column,
-                              actual.length as usize,
+                              Span::new(actual.line, actual.column, actual.length),
                               format!("Unexpected end of file when '{}' was expected",
                     expected));
 
@@ -701,9 +695,7 @@ impl Parser {
         }
 
         self.report_error(ReportKind::SyntaxError,
-                          actual.line,
-                          actual.column,
-                          actual.length as usize,
+                          Span::new(actual.line, actual.column, actual.length),
                           format!("Unexpected token '{}' when '{}' was expected",
                 actual.token_type,
                 expected));
@@ -720,9 +712,7 @@ impl Parser {
 
         if actual.token_type == TokenType::Eof {
             self.report_error(ReportKind::SyntaxError,
-                              actual.line,
-                              actual.column,
-                              actual.length as usize,
+                              Span::new(actual.line, actual.column, actual.length),
                               format!("Unexpected end of file when one of {} were expected",
                     expected_str));
 
@@ -730,9 +720,7 @@ impl Parser {
         }
 
         self.report_error(ReportKind::SyntaxError,
-                          actual.line,
-                          actual.column,
-                          actual.length as usize,
+                          Span::new(actual.line, actual.column, actual.length),
                           format!("Unexpected token '{}' when one of {} were expected",
                 actual.token_type,
                 expected_str));
@@ -742,15 +730,11 @@ impl Parser {
     fn report_error(
         &mut self,
         error_type: ReportKind,
-        line: i32,
-        column: i32,
-        length: usize,
+        span: Span,
         reason: String) {
         self.error_reporter.borrow_mut().report_error(
             error_type,
-            line,
-            column,
-            length as i32,
+            span,
             reason);
     }
 }

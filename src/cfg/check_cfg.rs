@@ -45,9 +45,7 @@ fn check_function(
                    if function.function_info.return_type != Type::Void {
                        error_reporter.borrow_mut().report_error(
                            ReportKind::DataFlowError,
-                           function.function_info.node_info.line,
-                           function.function_info.node_info.column,
-                           function.function_info.node_info.length,
+                           function.function_info.node_info.clone(),
                            format!("Function '{}': Not all control flow paths return a value", function.function_info.name)
                        )
                    } else {

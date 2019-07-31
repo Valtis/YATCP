@@ -248,100 +248,37 @@ impl AstNode {
         string
     }
 
-    pub fn line(&self) -> i32 {
-        match *self {
-            AstNode::Block(_, _, ref info) => info.line,
-            AstNode::Function(_, ref info) => info.node_info.line,
-            AstNode::ExternFunction(ref info) => info.node_info.line,
-            AstNode::FunctionCall(_, _, ref info) => info.line,
-            AstNode::VariableDeclaration(_, ref info) => info.node_info.line,
-            AstNode::VariableAssignment(_, _, ref info) => info.line,
+    pub fn span(&self) -> NodeInfo {
+        let empty = NodeInfo::new(0, 0, 0);
+        (match *self {
+            AstNode::Block(_, _, ref span) => span,
+            AstNode::Function(_, ref info) => &info.node_info,
+            AstNode::ExternFunction(ref info) => &info.node_info,
+            AstNode::FunctionCall(_, _, ref info) => info,
+            AstNode::VariableDeclaration(_, ref info) => &info.node_info,
+            AstNode::VariableAssignment(_, _, ref span) => span,
             AstNode::Plus(_, _, ref info) |
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _, ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_info.line,
-            AstNode::Negate(_, ref info) => info.node_info.line,
-            AstNode::Return(_, ref info) => info.node_info.line,
-            AstNode::While(_, _, ref info) => info.line,
-            AstNode::If(_, _, _, ref info) => info.line,
-            AstNode::Less(_, _, ref info) |
-            AstNode::LessOrEq(_, _, ref info) |
-            AstNode::Equals(_, _, ref info) |
-            AstNode::NotEquals(_, _, ref info) |
-            AstNode::GreaterOrEq(_, _, ref info) |
-            AstNode::Greater(_, _, ref info) => info.line,
-            AstNode::Integer(_, ref info) => info.line,
-            AstNode::Float(_, ref info) => info.line,
-            AstNode::Double(_, ref info) => info.line,
-            AstNode::Text(_, ref info) => info.line,
-            AstNode::Identifier(_, ref info) => info.line,
-            AstNode::Boolean(_, ref info) => info.line,
-            AstNode::ErrorNode => 0,
-        }
-    }
-
-    pub fn column(&self) -> i32 {
-        match *self {
-            AstNode::Block(_, _, ref info) => info.column,
-            AstNode::Function(_, ref info) => info.node_info.column,
-            AstNode::ExternFunction(ref info) => info.node_info.column,
-            AstNode::FunctionCall(_, _, ref info) => info.column,
-            AstNode::VariableDeclaration(_, ref info) => info.node_info.column,
-            AstNode::VariableAssignment(_, _, ref info) => info.column,
-            AstNode::Plus(_, _, ref info) |
-            AstNode::Minus(_, _, ref info) |
-            AstNode::Multiply(_, _, ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_info.column,
-            AstNode::Negate(_, ref info) => info.node_info.column,
-            AstNode::Return(_, ref info) => info.node_info.column,
-            AstNode::While(_, _, ref info) => info.column,
-            AstNode::If(_, _, _, ref info) => info.column,
-            AstNode::Less(_, _, ref info) |
-            AstNode::LessOrEq(_, _, ref info) |
-            AstNode::Equals(_, _, ref info) |
-            AstNode::NotEquals(_, _, ref info) |
-            AstNode::GreaterOrEq(_, _, ref info) |
-            AstNode::Greater(_, _, ref info) => info.column,
-            AstNode::Integer(_, ref info) => info.column,
-            AstNode::Float(_, ref info) => info.column,
-            AstNode::Double(_, ref info) => info.column,
-            AstNode::Text(_, ref info) => info.column,
-            AstNode::Identifier(_, ref info) => info.column,
-            AstNode::Boolean(_, ref info) => info.column,
-            AstNode::ErrorNode => 0,
-        }
-    }
-
-    pub fn length(&self) -> i32 {
-        match *self {
-            AstNode::Block(_, _, ref info) => info.length,
-            AstNode::Function(_, ref info) => info.node_info.length,
-            AstNode::ExternFunction(ref info) => info.node_info.length,
-            AstNode::FunctionCall(_, _, ref info) => info.length,
-            AstNode::VariableDeclaration(_, ref info) => info.node_info.length,
-            AstNode::VariableAssignment(_, _, ref info) => info.length,
-            AstNode::Plus(_, _, ref info) |
-            AstNode::Minus(_, _, ref info) |
-            AstNode::Multiply(_, _, ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_info.length,
-            AstNode::Negate(_, ref info) => info.node_info.length,
-            AstNode::Return(_, ref info) => info.node_info.length,
-            AstNode::While(_, _, ref info) => info.length,
-            AstNode::If(_, _, _, ref info) => info.length,
-            AstNode::Less(_, _, ref info) |
-            AstNode::LessOrEq(_, _, ref info) |
-            AstNode::Equals(_, _, ref info) |
-            AstNode::NotEquals(_, _, ref info) |
-            AstNode::GreaterOrEq(_, _, ref info) |
-            AstNode::Greater(_, _, ref info) => info.length,
-            AstNode::Integer(_, ref info) => info.length,
-            AstNode::Float(_, ref info) => info.length,
-            AstNode::Double(_, ref info) => info.length,
-            AstNode::Text(_, ref info) => info.length,
-            AstNode::Identifier(_, ref info) => info.length,
-            AstNode::Boolean(_, ref info) => info.column,
-            AstNode::ErrorNode => 0,
-        }
+            AstNode::Divide(_, _, ref info) => &info.node_info,
+            AstNode::Negate(_, ref info) => &info.node_info,
+            AstNode::Return(_, ref info) => &info.node_info,
+            AstNode::While(_, _, ref span) => span,
+            AstNode::If(_, _, _, ref span) => span,
+            AstNode::Less(_, _, ref span) |
+            AstNode::LessOrEq(_, _, ref span) |
+            AstNode::Equals(_, _, ref span) |
+            AstNode::NotEquals(_, _, ref span) |
+            AstNode::GreaterOrEq(_, _, ref span) |
+            AstNode::Greater(_, _, ref span) => span,
+            AstNode::Integer(_, ref span) => span,
+            AstNode::Float(_, ref span) => span,
+            AstNode::Double(_, ref span) => span,
+            AstNode::Text(_, ref span) => span,
+            AstNode::Identifier(_, ref span) => span,
+            AstNode::Boolean(_, ref span) => span,
+            AstNode::ErrorNode => &empty,
+        }).clone()
     }
 }
 

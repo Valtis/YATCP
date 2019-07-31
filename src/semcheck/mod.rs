@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo, DeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo};
 
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
@@ -122,17 +122,17 @@ impl SemanticsCheck {
 
     fn do_check(&mut self, node: &mut AstNode) {
         match node {
-            AstNode::Block(ref mut children, ref mut tab_ent, ref ni) =>
-                self.handle_block(children, tab_ent, ni),
+            AstNode::Block(ref mut children, ref mut tab_ent, ref span) =>
+                self.handle_block(children, tab_ent, span),
             AstNode::Function(ref mut child,  ref fi) =>
                 self.handle_function(child, fi),
             AstNode::ExternFunction(ref fi) => (), // do nothing, handled in the initial function definition pass
-            AstNode::FunctionCall(ref mut args, ref name, ref ni) =>
-                self.handle_function_call(args, name, ni),
+            AstNode::FunctionCall(ref mut args, ref name, ref span) =>
+                self.handle_function_call(args, name, span),
             AstNode::VariableDeclaration(ref mut child, ref vi) =>
                 self.handle_variable_declaration(child, vi),
-            AstNode::VariableAssignment(ref mut child, ref name, ref ni) =>
-                self.handle_variable_assignment(child, name, ni),
+            AstNode::VariableAssignment(ref mut child, ref name, ref span) =>
+                self.handle_variable_assignment(child, name, span),
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
@@ -142,14 +142,14 @@ impl SemanticsCheck {
                 self.handle_negation(child, ai),
             AstNode::Return(ref mut child, ref mut ai) =>
                 self.handle_return(child, ai),
-            AstNode::While(ref mut expr, ref mut child, ref ni) =>
-                self.handle_while(expr, child, ni),
+            AstNode::While(ref mut expr, ref mut child, ref span) =>
+                self.handle_while(expr, child, span),
             AstNode::If(
                 ref mut expr,
                 ref mut block,
                 ref mut opt_else_blk,
-                ref ni) =>
-                self.handle_if(expr, block, opt_else_blk, ni),
+                ref span) =>
+                self.handle_if(expr, block, opt_else_blk, span),
             AstNode::Less(left, right, span) |
             AstNode::LessOrEq(left, right, span) |
             AstNode::Equals(left, right, span) |
@@ -172,7 +172,7 @@ impl SemanticsCheck {
         &mut self,
         children: &mut Vec<AstNode>,
         tab_ent: &mut Option<TableEntry>,
-        _node_info: &NodeInfo) {
+        _node_info: &Span) {
 
         self.symbol_table.push_empty();
         for ref mut child in children {
@@ -241,17 +241,13 @@ impl SemanticsCheck {
             if let Symbol::Function(ref fi) = symbol {
                 self.report_error(
                     ReportKind::NameError,
-                    function_info.node_info.line,
-                    function_info.node_info.column,
-                    function_info.node_info.length,
+                    function_info.node_info.clone(),
                     format!("Redefinition of function '{}'",
                         function_info.name));
 
                 self.report_error(
                     ReportKind::Note,
-                    fi.node_info.line,
-                    fi.node_info.column,
-                    fi.node_info.length,
+                    fi.node_info.clone(),
                     "Previously declared here".to_string());
 
             } else {
@@ -271,17 +267,13 @@ impl SemanticsCheck {
                 if let Symbol::Function(ref fi) = symbol {
                     self.report_error(
                         ReportKind::NameError,
-                        param.node_info.line,
-                        param.node_info.column,
-                        param.node_info.length,
+                        param.node_info.clone(),
                         format!("Function parameter '{}' shadows function",
                             param.name));
 
                     self.report_error(
                         ReportKind::Note,
-                        fi.node_info.line,
-                        fi.node_info.column,
-                        fi.node_info.length,
+                        fi.node_info.clone(),
                         "Function declared here".to_string());
                 } else {
                     unimplemented!();
@@ -292,9 +284,7 @@ impl SemanticsCheck {
             if param.variable_type == Type::Void {
                 self.report_error(
                     ReportKind::TypeError,
-                    param.node_info.line,
-                    param.node_info.column,
-                    param.node_info.length,
+                    param.node_info.clone(),
                     "Parameter may not have type 'Void'".to_string());
             }
             // report parameter name collisions
@@ -305,9 +295,7 @@ impl SemanticsCheck {
             } else {
                 self.report_error(
                     ReportKind::NameError,
-                    param.node_info.line,
-                    param.node_info.column,
-                    param.node_info.length,
+                    param.node_info.clone(),
                     format!("Parameter '{}' shadows earlier parameter",
                         param.name)
                     );
@@ -315,9 +303,7 @@ impl SemanticsCheck {
                 let other_info = &seen_param[&param.name];
                 self.report_error(
                     ReportKind::Note,
-                    other_info.line,
-                    other_info.column,
-                    other_info.length,
+                    other_info.clone(),
                     "Parameter with same name previously declared here".to_string());
             }
         }
@@ -328,7 +314,7 @@ impl SemanticsCheck {
         &mut self,
         args: &mut Vec<AstNode>,
         function_name: &Rc<String>,
-        node_info: &NodeInfo) {
+        span: &Span) {
 
         for arg in args.iter_mut() {
             self.do_check(arg);
@@ -339,35 +325,27 @@ impl SemanticsCheck {
                 Symbol::Variable(ref declaration_info, _) => {
                     self.report_error(
                         ReportKind::TypeError,
-                        node_info.line,
-                        node_info.column,
-                        node_info.length,
+                        span.clone(),
                         format!("Usage of variable '{}' as function",
                         function_name));
 
                 self.report_error(
                     ReportKind::Note,
-                    declaration_info.node_info.line,
-                    declaration_info.node_info.column,
-                    declaration_info.node_info.length,
+                    declaration_info.node_info.clone(),
                     "Variable declared here".to_string());
                 }
                 Symbol::Function(ref function_info) => {
                     if args.len() != function_info.parameters.len() {
                         self.report_error(
                             ReportKind::TypeError,
-                            node_info.line,
-                            node_info.column,
-                            node_info.length,
+                            span.clone(),
                             format!("{} arguments expected but {} provided",
                                 function_info.parameters.len(),
                                 args.len()));
 
                         self.report_error(
                             ReportKind::Note,
-                            function_info.node_info.line,
-                            function_info.node_info.column,
-                            function_info.node_info.length,
+                            function_info.node_info.clone(),
                             "Function declared here".to_string());
                     } else {
                         for (param, arg) in function_info.parameters
@@ -379,9 +357,7 @@ impl SemanticsCheck {
                                 param.variable_type != Type::Void {
                                 self.report_error(
                                     ReportKind::TypeError,
-                                    arg.line(),
-                                    arg.column(),
-                                    arg.length(),
+                                    arg.span(),
                                     format!("Got argument of type '{}' when '{}' was expected",
                                         arg_type,
                                         param.variable_type,
@@ -389,9 +365,7 @@ impl SemanticsCheck {
 
                                 self.report_error(
                                     ReportKind::Note,
-                                    param.node_info.line,
-                                    param.node_info.column,
-                                    param.node_info.length,
+                                    param.node_info.clone(),
                                     "Corresponding parameter declared here"
                                         .to_string());
                             }
@@ -404,9 +378,7 @@ impl SemanticsCheck {
 
             self.report_error(
                 ReportKind::NameError,
-                node_info.line,
-                node_info.column,
-                node_info.length,
+                span.clone(),
                 format!("Function '{}' has not been declared",
                     function_name));
             return;
@@ -441,16 +413,12 @@ impl SemanticsCheck {
 
                 self.report_error(
                     ReportKind::NameError,
-                    variable_info.node_info.line,
-                    variable_info.node_info.column,
-                    variable_info.node_info.length,
+                    variable_info.node_info.clone(),
                     err_text);
 
                 self.report_error(
                     ReportKind::Note,
-                    prev_line,
-                    prev_column,
-                    prev_length,
+                    Span::new(prev_line, prev_column, prev_length),
                     "Previously declared here".to_string());
             },
             None => {
@@ -466,9 +434,7 @@ impl SemanticsCheck {
         if variable_info.variable_type == Type::Void {
             self.report_error(
                 ReportKind::TypeError,
-                variable_info.node_info.line,
-                variable_info.node_info.column,
-                variable_info.node_info.length,
+                variable_info.node_info.clone(),
                 "Variable may not have type 'Void'".to_string());
         } else if variable_info.variable_type != child_type &&
             child_type != Type::Invalid {
@@ -483,13 +449,13 @@ impl SemanticsCheck {
         &mut self,
         child: &mut AstNode,
         name: &String,
-        node_info: &NodeInfo
+        span: &Span
         ) {
 
         self.do_check(child);
         let child_type = self.get_type(child);
 
-        let opt_symbol = self.check_identifier_is_initialized(name, node_info);
+        let opt_symbol = self.check_identifier_is_initialized(name, span);
 
         let symbol = if let Some(sym) = opt_symbol {
             sym
@@ -506,18 +472,14 @@ impl SemanticsCheck {
 
             self.report_error(
                 ReportKind::TypeError,
-                child.line(),
-                child.column(),
-                child.length(),
+                child.span(),
                 format!(
                     "Expected '{}' but got '{}'",
                      sym_info.variable_type, child_type));
 
             self.report_error(
                 ReportKind::Note,
-                sym_info.node_info.line,
-                sym_info.node_info.column,
-                sym_info.node_info.length,
+                sym_info.node_info.clone(),
                 format!("Variable '{}', declared here, has type {}",
                     name,
                     sym_info.variable_type));
@@ -550,17 +512,13 @@ impl SemanticsCheck {
             if function_info.return_type != Type::Void {
                 self.report_error(
                     ReportKind::TypeError,
-                    arith_info.node_info.line,
-                    arith_info.node_info.column,
-                    arith_info.node_info.length,
+                    arith_info.node_info.clone(),
                     "Return statement without expression in non-void function".
                         to_string());
 
                 self.report_error(
                     ReportKind::Note,
-                    function_info.node_info.line,
-                    function_info.node_info.column,
-                    function_info.node_info.length,
+                    function_info.node_info.clone(),
                     format!("Function '{}', declared here, is expected to return '{}'",
                         function_info.name,
                         function_info.return_type));
@@ -593,16 +551,12 @@ impl SemanticsCheck {
             };
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.line,
-                arith_info.node_info.column,
-                arith_info.node_info.length,
+                arith_info.node_info.clone(),
                 err_str);
 
             self.report_error(
                 ReportKind::Note,
-                function_info.node_info.line,
-                function_info.node_info.column,
-                function_info.node_info.length,
+                function_info.node_info.clone(),
                 note_str);
 
             arith_info.node_type = Type::Invalid;
@@ -613,7 +567,7 @@ impl SemanticsCheck {
         &mut self,
         expr: &mut AstNode,
         body: &mut AstNode,
-        _info: &NodeInfo) {
+        _span: &Span) {
 
        self.do_check(expr);
        let expr_type = self.get_type(expr);
@@ -621,9 +575,7 @@ impl SemanticsCheck {
        if expr_type != Type::Invalid && expr_type != Type::Boolean {
             self.report_error(
                 ReportKind::TypeError,
-                expr.line(),
-                expr.column(),
-                expr.length(),
+                expr.span(),
                 format!("Expected '{}' for loop expression but was '{}'",
                     Type::Boolean, expr_type));
        }
@@ -636,7 +588,7 @@ impl SemanticsCheck {
         expr: &mut AstNode,
         if_blk: &mut AstNode,
         opt_else_blk: &mut Option<Box<AstNode>>,
-        _info: &NodeInfo) {
+        _span: &Span) {
 
         self.do_check(expr);
         let expr_type = self.get_type(expr);
@@ -644,9 +596,7 @@ impl SemanticsCheck {
         if expr_type != Type::Invalid && expr_type != Type::Boolean {
             self.report_error(
                 ReportKind::TypeError,
-                expr.line(),
-                expr.column(),
-                expr.length(),
+                expr.span(),
                 format!("Expected '{}' for if expression but was '{}'",
                     Type::Boolean, expr_type));
         }
@@ -683,9 +633,7 @@ impl SemanticsCheck {
                    if let AstInteger::Int(0) = value  {
                        self.report_error(
                            ReportKind::Warning,
-                           ai.node_info.line,
-                           ai.node_info.column,
-                           ai.node_info.length,
+                           ai.node_info.clone(),
                            "Division by zero".to_owned(),
                        )
                    }
@@ -706,9 +654,7 @@ impl SemanticsCheck {
         if !valid_types.iter().any(|t| *t == ai.node_type) {
             self.report_error(
                 ReportKind::TypeError,
-                ai.node_info.line,
-                ai.node_info.column,
-                ai.node_info.length,
+                ai.node_info.clone(),
                 format!("Operands of type '{}' are not valid for this operator",
                     ai.node_type));
             ai.node_type = Type::Invalid;
@@ -736,9 +682,7 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.line,
-                arith_info.node_info.column,
-                arith_info.node_info.length,
+                arith_info.node_info.clone(),
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
         } else {
@@ -767,9 +711,7 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.line,
-                arith_info.node_info.column,
-                arith_info.node_info.length,
+                arith_info.node_info.clone(),
                 format!(
                     "Cannot negate operand with type '{}'", child_type));
         } else {
@@ -777,7 +719,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn handle_comparison_operation(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, span: &NodeInfo) {
+    fn handle_comparison_operation(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, span: &Span) {
 
         self.do_check(left_child);
         self.do_check(right_child);
@@ -790,23 +732,19 @@ impl SemanticsCheck {
         {
             self.report_error(
                 ReportKind::TypeError,
-                span.line,
-                span.column,
-                span.length,
+                span.clone(),
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
         }
     }
 
-    fn check_for_overflow(&mut self, integer: &AstInteger, info: &NodeInfo) {
+    fn check_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         match integer {
             AstInteger::Int(_) => (), // OK
             AstInteger::IntMaxPlusOne | AstInteger::Invalid(_) => {
                 self.report_error(
                   ReportKind::TokenError,
-                    info.line,
-                    info.column,
-                    info.length,
+                    span.clone(),
                     "Integer overflow".to_owned(),
                 );
             },
@@ -814,7 +752,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn check_identifier_is_initialized(&mut self, name: &String, info: &NodeInfo) ->
+    fn check_identifier_is_initialized(&mut self, name: &String, span: &Span) ->
         Option<Symbol> {
         match self.symbol_table.find_symbol(name) {
             Some(symbol) => {
@@ -822,18 +760,14 @@ impl SemanticsCheck {
                     Symbol::Function(function_info) => {
                         self.report_error(
                             ReportKind::TypeError,
-                            info.line,
-                            info.column,
-                            info.length,
+                            span.clone(),
                             format!(
                                 "Usage of function '{}' as a variable",
                                 name));
 
                         self.report_error(
                             ReportKind::Note,
-                            function_info.node_info.line,
-                            function_info.node_info.column,
-                            function_info.node_info.length,
+                            function_info.node_info.clone(),
                             "Function declared here:".to_string());
                     }
                     Symbol::Variable(_, _) => { return Some(symbol.clone()); }
@@ -843,9 +777,7 @@ impl SemanticsCheck {
             None => {
                 self.report_error(
                     ReportKind::NameError,
-                    info.line,
-                    info.column,
-                    info.length,
+                    span.clone(),
                     format!("Undeclared identifier '{}'",
                         name));
             },
@@ -892,12 +824,12 @@ impl SemanticsCheck {
 
     fn get_subtree_width(&self, node: &AstNode) -> Option<Width> {
         return match *node {
-            AstNode::Integer(_, ref ni) |
-            AstNode::Text(_, ref ni) |
-            AstNode::Float(_, ref ni) |
-            AstNode::Double(_, ref ni) |
-            AstNode::Boolean(_, ref ni) |
-            AstNode::Identifier(_, ref ni) => Some(Width { start: ni.column, end: ni.column + ni.length }),
+            AstNode::Integer(_, ref span) |
+            AstNode::Text(_, ref span) |
+            AstNode::Float(_, ref span) |
+            AstNode::Double(_, ref span) |
+            AstNode::Boolean(_, ref span) |
+            AstNode::Identifier(_, ref span) => Some(Width { start: span.column, end: span.column + span.length }),
 
             AstNode::Plus(ref left, ref right, ref ai) |
             AstNode::Minus(ref left, ref right, ref ai) |
@@ -930,9 +862,9 @@ impl SemanticsCheck {
 
     }
 
-    fn report_error(&mut self, error_type: ReportKind, line:i32, column:i32, token_length : i32, error: String) {
+    fn report_error(&mut self, error_type: ReportKind, span: Span, error: String) {
         self.errors += 1;
-        self.error_reporter.borrow_mut().report_error(error_type, line, column, token_length, error);
+        self.error_reporter.borrow_mut().report_error(error_type, span,error);
     }
 
     fn report_type_error(
@@ -943,17 +875,12 @@ impl SemanticsCheck {
         ) {
         self.report_error(
             ReportKind::TypeError,
-            actual_node.line(),
-            actual_node.column(),
-            actual_node.length(),
+            actual_node.span(),
             format!("Expected '{}' but got '{}'",
                     variable_info.variable_type, actual_type));
-
-            self.report_error(
+        self.report_error(
                 ReportKind::Note,
-                variable_info.node_info.line,
-                variable_info.node_info.column,
-                variable_info.node_info.length,
+                variable_info.node_info.clone(),
                 format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
     }
 }
