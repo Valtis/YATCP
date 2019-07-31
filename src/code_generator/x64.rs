@@ -1,20 +1,15 @@
+#![allow(dead_code)] // primarily for the unused variant lints
 
 use crate::byte_generator;
 use crate::byte_generator::Value::*;
 use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
 use crate::code_generator;
-use crate::obj_generator::Architecture::X64;
-use crate::code_generator::x64::X64Register::RBP;
-use crate::code_generator::x64::RegField::{OpcodeExtension, Register};
-use crate::byte_generator::ByteCode::Call;
 
 use byteorder::{ByteOrder, LittleEndian };
 use rayon::prelude::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::rc::Rc;
-use std::hash::Hash;
 use crate::function_attributes::FunctionAttribute;
 
 const INTEGER_SIZE: usize = 4;
@@ -458,7 +453,7 @@ fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
 fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     match operand {
         UnaryOperation{
-            dest: StackOffset { offset, size},
+            dest: StackOffset { offset, size: _},
             src: BooleanConstant(value),
         } => {
 
@@ -468,7 +463,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                 asm);
         },
         UnaryOperation{
-            dest: StackOffset {offset, size} ,
+            dest: StackOffset {offset, size: _ } ,
             src: IntegerConstant(value)} => {
             emit_mov_integer_to_stack(*offset, *value, asm);
         },
@@ -693,7 +688,7 @@ fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mu
     );
 }
 
-fn emit_mov_comp_result_into_stack(comparison_type: &ComparisonType, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_mov_comp_result_into_stack(comparison_type: &ComparisonType, offset: u32, _size: u32, asm: &mut Vec<u8>) {
 
     let opcode = match comparison_type {
         ComparisonType::Less => SET_BYTE_IF_LESS,
@@ -811,7 +806,7 @@ fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &m
     immediate: the 32 bit immediate value
 
 */
-fn emit_add_immediate_to_stack(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+fn emit_add_immediate_to_stack(offset: u32, _size: u32, immediate: i32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -843,7 +838,7 @@ fn emit_add_immediate_to_stack(offset: u32, size: u32, immediate: i32, asm: &mut
 
 
 */
-fn emit_add_stack_to_reg(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_add_stack_to_reg(dest: X64Register, offset: u32, _size: u32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -876,7 +871,7 @@ fn emit_add_stack_to_reg(dest: X64Register, offset: u32, size: u32, asm: &mut Ve
 
 
 */
-fn emit_add_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_add_reg_to_stack(src: X64Register, offset: u32, _size: u32, asm: &mut Vec<u8>) {
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -948,7 +943,7 @@ fn emit_sub(operand: &BinaryOperation, asm: &mut Vec<u8>) {
     immediate: the 32 bit immediate value
 */
 
-fn emit_sub_immediate_from_stack(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+fn emit_sub_immediate_from_stack(offset: u32, _size: u32, immediate: i32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1015,7 +1010,7 @@ fn emit_sub_immediate_from_register(register: X64Register, immediate: i32, asm: 
     sib: byte not used, struct used to pass displacement
     immediate: not used
 */
-fn emit_sub_stack_from_reg(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_sub_stack_from_reg(dest: X64Register, offset: u32, _size: u32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1046,7 +1041,7 @@ fn emit_sub_stack_from_reg(dest: X64Register, offset: u32, size: u32, asm: &mut 
     sib: byte not used, struct used to pass displacement
     immediate: not used
 */
-fn emit_sub_reg_from_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_sub_reg_from_stack(src: X64Register, offset: u32, _size: u32, asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1129,7 +1124,7 @@ fn emit_mul_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, imme
 }
 
 
-fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, _size: u32, asm: &mut Vec<u8>) {
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -1539,8 +1534,8 @@ fn emit_function_prologue(asm: &mut Vec<u8>, stack_size: u32) {
     }
 }
 
-fn emit_function_epilogue(asm: &mut Vec<u8>, stack_size: u32, args: u32) {
-    //ca
+// TODO: Clarify the function prologue/epilogue handling
+fn emit_function_epilogue(asm: &mut Vec<u8>, _stack_size: u32, _args: u32) {
     asm.push(LEAVE);
   /*  if stack_size != 0 {
         emit_add_immediate_to_register(X64Register::RSP, stack_size as i32, asm);

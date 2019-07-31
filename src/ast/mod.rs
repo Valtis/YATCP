@@ -112,7 +112,7 @@ impl Display for AstNode {
             AstNode::Block(_, _, _) => "Block".to_string(),
             AstNode::Function(_, ref i) => {
 
-                let mut param_str = i.parameters.iter().fold(
+                let param_str = i.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
                 .chars()
@@ -124,7 +124,7 @@ impl Display for AstNode {
                     i.return_type)
             },
             AstNode::ExternFunction(ref i) => {
-                let mut param_str = i.parameters.iter().fold(
+                let param_str = i.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
                 .chars()

@@ -12,7 +12,6 @@ use std::io::Error;
 
 use std::rc::Rc;
 use crate::function_attributes::FunctionAttribute;
-use crate::obj_generator::elf_obj::ElfSize::Elf64Signed;
 
 // elf file magic number
 const MAGIC_NUMBER : &'static str  ="\u{007f}ELF";

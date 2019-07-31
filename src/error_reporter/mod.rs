@@ -107,6 +107,8 @@ impl Message {
 }
 
 impl PartialEq for Message {
+
+    #[allow(unreachable_patterns)] // for default case, lint complains as HighlightMessage is currently only variant
     fn eq(&self, other: &Message) -> bool {
         match (self, other) {
             (Message::HighlightMessage{

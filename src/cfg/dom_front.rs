@@ -8,9 +8,7 @@ use std::rc::Rc;
 pub fn calculate_dominance_frontier(
     func_cfgs: &mut HashMap<Rc<String>, CFG>) {
 
-    for (name, cfg) in func_cfgs.iter_mut() {
-
-        let dominators = calculate_dominators(cfg);
+    for (_, cfg) in func_cfgs.iter_mut() {
 
         cfg.immediate_dominators = calculate_immediate_dominator_opt(cfg).
             iter().
@@ -35,6 +33,7 @@ pub fn calculate_dominance_frontier(
     }
 }
 
+/*
 // find the list of nodes that dominate the given node
 fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
     let mut dominators = HashMap::new();
@@ -78,7 +77,7 @@ fn calculate_dominators(cfg: &CFG) -> HashMap<usize, HashSet<usize>> {
         }
     }
     dominators
-}
+}*/
 
 pub fn calculate_immediate_dominator_opt(cfg: &CFG) -> Vec<Option<usize>> {
     let mut opt_idom = vec![];

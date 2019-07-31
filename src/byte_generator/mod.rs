@@ -1,3 +1,5 @@
+#![allow(dead_code)] // primarily for the unused variant lints
+
 use crate::tac_generator::{Statement, Operator, Operand, TMP_NAME};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
@@ -5,7 +7,6 @@ use crate::code_generator::x64::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use std::rc::Rc;
 use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
 use crate::function_attributes::FunctionAttribute;
 

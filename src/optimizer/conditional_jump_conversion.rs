@@ -3,7 +3,6 @@ use crate::tac_generator::{Function, Operand, Statement};
 use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
 use std::collections::HashMap;
-use std::hint::unreachable_unchecked;
 
 // convert conditional jumps with constant operand into unconditional jumps
 pub fn convert_jumps(
@@ -164,6 +163,7 @@ fn immediately_dominated_nodes(
 
 
 
+#[allow(unreachable_code)] // ide has false positive about what's reachable and shows error, needs explicit unreachable!() to silence. This causes rustc to complain about unreachable code
 fn remove_non_reaching_defs_from_phi(
     operands: &mut Vec<Operand>,
     reaching_defs: &Vec<HashMap<u32, u32>>,

@@ -13,13 +13,6 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 
-
-struct Width {
-    start: i32,
-    end: i32
-}
-
-
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
     Integer,
@@ -126,7 +119,7 @@ impl SemanticsCheck {
                 self.handle_block(children, tab_ent, span),
             AstNode::Function(ref mut child,  ref fi) =>
                 self.handle_function(child, fi),
-            AstNode::ExternFunction(ref fi) => (), // do nothing, handled in the initial function definition pass
+            AstNode::ExternFunction(_) => (), // do nothing, handled in the initial function definition pass
             AstNode::FunctionCall(ref mut args, ref name, ref span) =>
                 self.handle_function_call(args, name, span),
             AstNode::VariableDeclaration(ref mut child, ref vi) =>
@@ -820,46 +813,6 @@ impl SemanticsCheck {
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
-    }
-
-    fn get_subtree_width(&self, node: &AstNode) -> Option<Width> {
-        return match *node {
-            AstNode::Integer(_, ref span) |
-            AstNode::Text(_, ref span) |
-            AstNode::Float(_, ref span) |
-            AstNode::Double(_, ref span) |
-            AstNode::Boolean(_, ref span) |
-            AstNode::Identifier(_, ref span) => Some(Width { start: span.column, end: span.column + span.length }),
-
-            AstNode::Plus(ref left, ref right, ref ai) |
-            AstNode::Minus(ref left, ref right, ref ai) |
-            AstNode::Multiply(ref left, ref right, ref ai) |
-            AstNode::Divide(ref left, ref right, ref ai) => {
-                let left_tree = self.get_subtree_width(left);
-                let right_tree = self.get_subtree_width(right);
-
-                let mut start = ai.node_info.column;
-                let mut end = ai.node_info.column + ai.node_info.length;
-
-                if let Some(x) = left_tree {
-                    start = std::cmp::min(start, x.start);
-                    end = std::cmp::max(end, x.end);
-                }
-
-                if let Some(x) = right_tree {
-                    start = std::cmp::min(start, x.start);
-                    end = std::cmp::max(end, x.end);
-                }
-
-                Some(Width {
-                    start: start,
-                    end: end,
-                })
-            },
-
-            _ => None
-        };
-
     }
 
     fn report_error(&mut self, error_type: ReportKind, span: Span, error: String) {

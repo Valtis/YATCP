@@ -1,5 +1,4 @@
 use super::CFG;
-use super::basic_block::BasicBlock;
 use super::{Adj};
 
 use crate::tac_generator::{Function, Statement};

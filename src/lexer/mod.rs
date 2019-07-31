@@ -13,7 +13,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 /* Unstable API - use this once stabilized */
 //use std::num::IntErrorKind::*;
-use crate::token::TokenSubType::ErrorToken;
 use std::error::Error;
 
 

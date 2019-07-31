@@ -555,7 +555,7 @@ impl TACGenerator {
             AstNode::Boolean(value, span) => {
                 AstNode::Boolean(!*value, span.clone())
             },
-            AstNode::Identifier(name, info) => {
+            AstNode::Identifier(_, info) => {
                 AstNode::Equals(
                     Box::new(node.clone()),
                     Box::new(AstNode::Boolean(false, info.clone())),

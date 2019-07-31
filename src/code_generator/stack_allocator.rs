@@ -1,5 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, ReturnValue, FunctionParameter};
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter};
 use crate::semcheck::Type;
 
 use super::x64::X64Register;
@@ -1335,7 +1335,7 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
             // stack arguments
 
             let value = match value {
-                IntegerConstant(i32) => value.clone(),
+                IntegerConstant(_) => value.clone(),
                 VirtualRegister(vregdata) => {
                     // cannot push stack offset directly, as due to usage of RBP, it defaults to
                     // 64 bit operand, and stack slots in general are not of this size (32 bit

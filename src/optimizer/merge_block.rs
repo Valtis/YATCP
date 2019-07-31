@@ -284,6 +284,7 @@ fn handle_two_successors(
     cfg.adjacency_list[parent+1].push(Adj::Block(false_block));
 }
 
+#[allow(unreachable_code)] // ide has false positive about what's reachable and shows error, needs explicit unreachable!() to silence. This causes rustc to complain about unreachable code
 fn get_false_branch_and_label(
     function: &mut Function,
     cfg: &mut CFG,

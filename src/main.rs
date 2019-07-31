@@ -6,7 +6,6 @@ use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
 use compiler::error_reporter::file_reporter::FileErrorReporter;
 
-use ansi_term::Colour::Yellow;
 use argparse::{ArgumentParser, StoreTrue, Store, StoreFalse};
 
 use std::rc::Rc;

@@ -2,7 +2,6 @@ pub mod x64;
 mod stack_allocator;
 
 use crate::byte_generator;
-use std::rc::Rc;
 use std::collections::HashMap;
 use crate::function_attributes::FunctionAttribute;
 
