@@ -61,6 +61,7 @@ pub struct SemanticsCheck {
     symbol_table: SymbolTable,
     error_reporter: Rc<RefCell<ErrorReporter>>,
     id_counter: u32,
+    enclosing_function_stack: Vec<FunctionInfo>,
 }
 
 impl SemanticsCheck {
@@ -70,6 +71,7 @@ impl SemanticsCheck {
             symbol_table: SymbolTable::new(),
             error_reporter: reporter,
             id_counter: 0,
+            enclosing_function_stack: vec![],
         }
     }
 
@@ -86,6 +88,10 @@ impl SemanticsCheck {
     pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
         self.check_and_gather_functions(node);
         self.do_check(node);
+
+        ice_if!(
+            !self.enclosing_function_stack.is_empty(),
+            "Enclosing function stack not empty after semantic checks");
         self.errors
     }
 
@@ -209,7 +215,10 @@ impl SemanticsCheck {
                     param.clone(),
                     next_id));
         }
+
+        self.enclosing_function_stack.push(function_info.clone());
         self.do_check(child);
+        self.enclosing_function_stack.pop();
         let outer_symtab_level = self.symbol_table.pop().unwrap();
 
         if let AstNode::Block(_, Some(ref mut inner_symtab_level), _) = *child {
@@ -491,11 +500,7 @@ impl SemanticsCheck {
         opt_child: &mut Option<Box<AstNode>>,
         arith_info: &mut ArithmeticInfo) {
 
-        let function_info = self.symbol_table.
-            get_enclosing_function_info().
-            unwrap_or_else(
-                || ice!(
-                    "No enclosing function found when handling return node {:?}", opt_child));
+        let function_info = self.get_enclosing_function_info();
 
         let child = if let Some(ref mut c) = *opt_child {
             c
@@ -523,13 +528,14 @@ impl SemanticsCheck {
         self.do_check(child);
         let child_type = self.get_type(child);
 
+
         arith_info.node_type = child_type;
         // if type is invalid, errors has already been reported
-        if function_info.return_type != child_type && child_type != Type::Invalid {
+        if (function_info.return_type == Type::Void || function_info.return_type != child_type) && child_type != Type::Invalid {
+
 
             let (err_str, note_str) = if function_info.return_type == Type::Void {
-                (format!("Return statement has type '{}' in void function",
-                    child_type),
+                ("Return statement with expression in a void function".to_owned(),
                 format!("Function '{}', declared here, has return type '{}' and is not expected to return a value",
                     function_info.name,
                     function_info.return_type))
@@ -544,7 +550,7 @@ impl SemanticsCheck {
             };
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.clone(),
+                child.span(),
                 err_str);
 
             self.report_error(
@@ -813,6 +819,13 @@ impl SemanticsCheck {
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
+    }
+
+    fn get_enclosing_function_info(&self) -> FunctionInfo {
+        ice_if!(self.enclosing_function_stack.is_empty(),
+            "No enclosing function found");
+
+        return self.enclosing_function_stack[self.enclosing_function_stack.len()-1].clone()
     }
 
     fn report_error(&mut self, error_type: ReportKind, span: Span, error: String) {
@@ -1302,7 +1315,7 @@ mod tests {
     }
 
     #[test]
-    fn return_with_correct_expression_type_is_allowed_in_function() {
+    fn return_with_correct_constant_type_is_allowed_in_function() {
         let (reporter, mut checker) = create_sem_checker();
         /*
         fn foo() : int {
@@ -1328,6 +1341,144 @@ mod tests {
                 )],
                 None,
                 Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn return_with_correct_variable_type_is_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : int {
+            let a : int = 24;
+            return a;
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Integer(
+                                    AstInteger::from(24),
+                                    Span::new(99, 88, 77)
+                                )),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_owned()),
+                                    Type::Integer,
+                                    55, 44, 33),
+                            ),
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn return_with_correct_function_type_is_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : int {
+          return bar();
+        }
+        fn bar() : int {
+            return 4;
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Integer(
+                                    AstInteger::from(4),
+                                    Span::new(7, 23, 212)
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                        None,
+                        Span::new(150, 160, 170))
+                    ),
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Integer, 9, 9, 9),
+                )],
+               None,
+               Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn return_with_correct_extern_function_type_is_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        extern fn bar() : int;
+        fn foo() : int {
+            return bar();
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Integer, 9, 9, 9),
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                        None,
+                        Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                ),
+                ],
+                           None,
+                           Span::new(0, 0, 0),
             );
 
         checker.check_semantics(&mut node);
@@ -2958,11 +3109,11 @@ mod tests {
     }
 
     #[test]
-    fn incorrect_type_of_return_expression_is_reported() {
+    fn return_with_incorrect_constant_type_is_not_allowed_in_function() {
         let (reporter, mut checker) = create_sem_checker();
         /*
         fn foo() : string {
-            return;
+            return 5;
         }
         */
 
@@ -2971,14 +3122,19 @@ mod tests {
                 AstNode::Function(
                     Box::new(
                         AstNode::Block(vec![
-                            AstNode::Return(None, ArithmeticInfo::new_alt(5, 6, 7)),
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Integer(
+                                    AstInteger::from(4),
+                                    Span::new(7, 23, 212)
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
                         ],
-                        None,
-                        Span::new(0, 0, 0))),
-                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::String, 6, 5, 4)
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::String, 6, 12, 53)
                 )],
                 None,
-                Span::new(0, 0, 0),
+                Span::new(2, 12, 23),
             );
 
         checker.check_semantics(&mut node);
@@ -2990,17 +3146,452 @@ mod tests {
         assert_eq!(
             Message::highlight_message(
                 ReportKind::TypeError,
-                Span::new(5,6, 7),
+                Span::new(7,23, 212),
                 "".to_owned()),
             messages[0]);
 
         assert_eq!(
             Message::highlight_message(
                 ReportKind::Note,
-                Span::new(6,5,4),
+                Span::new(6,12,53),
                 "".to_owned()),
             messages[1]);
     }
+
+    #[test]
+    fn return_with_incorrect_variable_type_is_not_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : int {
+            let a : float = 24f;
+            return a;
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::VariableDeclaration(
+                                Box::new(AstNode::Float(
+                                    234.2f32,
+                                    Span::new(99, 88, 77)
+                                )),
+                                DeclarationInfo::new_alt(
+                                    Rc::new("a".to_owned()),
+                                    Type::Float,
+                                    55, 44, 33),
+                            ),
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 4, 8, 12)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(4,8,12),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn return_with_incorrect_function_type_is_not_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : int {
+          return bar();
+        }
+        fn bar() : string {
+            return "string";
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 7, 14, 21)
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Text(
+                                    Rc::new("foobar".to_owned()),
+                                    Span::new(7, 23, 212)
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(150, 160, 170))
+                    ),
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::String, 9, 9, 9),
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(7,14,21),
+                "".to_owned()),
+            messages[1]);
+
+
+    }
+
+    #[test]
+    fn return_with_function_calling_void_function_is_not_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : void {
+          return bar();
+        }
+        fn bar() : string {
+            return string;
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 7, 14, 21)
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::Text(
+                                    Rc::new("foobar".to_owned()),
+                                    Span::new(7, 23, 212)
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(150, 160, 170))
+                    ),
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::String, 9, 9, 9),
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(7,14,21),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn returning_void_function_from_void_function_is_not_allowed(){
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        fn foo() : void {
+          return bar();
+        }
+        fn bar() : void {
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 7, 14, 21)
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                        ],
+                                       None,
+                                       Span::new(150, 160, 170))
+                    ),
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Void, 9, 9, 9),
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(7,14,21),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn return_with_incorrect_extern_function_type_is_not_allowed_in_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        extern fn bar() : double;
+        fn foo() : int {
+            return bar();
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Double, 9, 9, 9),
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 9, 18, 27)
+                ),
+            ],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(9,18,27),
+                "".to_owned()),
+            messages[1]);
+
+    }
+
+    #[test]
+    fn return_with_incorrect_extern_function_type_is_not_allowed_in_void_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        extern fn bar() : double;
+        fn foo() : void {
+            return bar();
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Double, 9, 9, 9),
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 2, 3)
+                ),
+            ],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(1,2,3),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn return_with_void_extern_function_is_not_allowed_in_void_function() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+        extern fn bar() : void;
+        fn foo() : void {
+            return bar();
+        }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::ExternFunction(
+                    FunctionInfo::new_alt(Rc::new("bar".to_owned()), Type::Void, 9, 9, 9),
+                ),
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::Return(
+                                Some(Box::new(AstNode::FunctionCall(
+                                    vec![],
+                                    Rc::new("bar".to_owned()),
+                                    Span::new(9, 8, 7),
+                                ))),
+                                ArithmeticInfo::new_alt(5, 6, 7)),
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 14, 28, 42)
+                ),
+            ],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(9,8, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(14,28,42),
+                "".to_owned()),
+            messages[1]);
+    }
+
+
+
 
     #[test]
     fn returning_value_from_void_function_is_reported() {
@@ -3040,7 +3631,7 @@ mod tests {
         assert_eq!(
             Message::highlight_message(
                 ReportKind::TypeError,
-                Span::new(5,6, 7),
+                Span::new(7,23, 212),
                 "".to_owned()),
             messages[0]);
 
@@ -4808,4 +5399,5 @@ mod tests {
                 "".to_owned()),
             messages[0]);
     }
+
 }

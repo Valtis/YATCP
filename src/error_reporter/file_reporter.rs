@@ -122,24 +122,27 @@ fn write_highlight_message(span: &Span, report_kind: ReportKind, message: &Strin
             message);
 
     // print line
-    let line = &lines[(span.line-1) as usize];
-    eprint!("{}", line);
-    if !line.ends_with("\n") {
+
+    if (span.line as usize) < lines.len() {
+        let line = &lines[(span.line - 1) as usize];
+        eprint!("{}", line);
+        if !line.ends_with("\n") {
+            eprintln!();
+        }
+
+        // indentation for highlighting line
+        eprint!("{}",
+                iter::repeat(" ").
+                    take(cmp::max(span.column - 1, 0) as usize).
+                    collect::<String>());
+
+
+        // highlighting
+        let color = report_kind.get_color();
+        for _ in 0..span.length {
+            eprint!("{}", color.bold().paint("^").to_string());
+        }
         eprintln!();
     }
-
-    // indentation for highlighting line
-    eprint!("{}",
-        iter::repeat(" ").
-            take(cmp::max(span.column-1, 0) as usize).
-            collect::<String>());
-
-
-    // highlighting
-    let color = report_kind.get_color();
-    for _ in 0..span.length {
-        eprint!("{}", color.bold().paint("^").to_string());
-    }
-    eprintln!();
 }
 

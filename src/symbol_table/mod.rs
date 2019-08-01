@@ -41,15 +41,6 @@ impl TableEntry {
         }
         None
     }
-
-    pub fn find_enclosing_function_info(&self) -> Option<FunctionInfo> {
-       for s in self.symbols.iter().rev() {
-            if let &Symbol::Function(ref info) = s {
-                return Some(info.clone())
-            }
-        }
-        None
-    }
 }
 
 #[derive(Debug)]
@@ -94,15 +85,6 @@ impl SymbolTable {
     pub fn find_symbol(&self, name: &str) -> Option<Symbol> {
         for i in self.entries.iter().rev() {
             if let Some(entry) = i.find_symbol(name) {
-                return Some(entry);
-            }
-        }
-        None
-    }
-
-    pub fn get_enclosing_function_info(&self) -> Option<FunctionInfo> {
-        for i in self.entries.iter().rev() {
-            if let Some(entry) = i.find_enclosing_function_info() {
                 return Some(entry);
             }
         }
