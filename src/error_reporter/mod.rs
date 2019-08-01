@@ -6,10 +6,9 @@ use ansi_term;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
-use std::io::Write;
 
 pub mod file_reporter;
-
+pub mod null_reporter;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReportKind {
@@ -32,6 +31,18 @@ impl ReportKind {
             ReportKind::TypeError |
             ReportKind::NameError |
             ReportKind::DataFlowError => Red,
+        }
+    }
+
+    fn is_error(&self) -> bool {
+        match self {
+            ReportKind::Note |
+            ReportKind::Warning => false,
+            ReportKind::TokenError |
+            ReportKind::SyntaxError |
+            ReportKind::TypeError |
+            ReportKind::NameError |
+            ReportKind::DataFlowError => true,
         }
     }
 }
@@ -59,18 +70,58 @@ pub trait ErrorReporter {
     fn has_errors(&self) -> bool;
     fn has_reports(&self) -> bool;
     fn errors(&self) -> i32;
+    fn reports(&self) -> i32;
     fn print_errors(&self);
 
 }
 
-
-enum Message {
+#[derive(Debug, Clone)]
+pub enum Message {
     HighlightMessage {
         span: Span,
-        report: ReportKind,
+        report_kind: ReportKind,
         message: String,
     }
 }
 
+impl Message {
+    pub fn is_error(&self) -> bool {
+        match self {
+            Message::HighlightMessage { span: _, report_kind, message: _ } => {
+                report_kind.is_error()
+            }
+        }
+    }
 
+    pub fn highlight_message(
+        report_kind: ReportKind,
+        span: Span,
+        message: String
+    ) -> Message {
+        Message::HighlightMessage {
+            span,
+            report_kind,
+            message
+        }
+    }
+}
 
+impl PartialEq for Message {
+    fn eq(&self, other: &Message) -> bool {
+        match (self, other) {
+            (Message::HighlightMessage{
+                span: my_span,
+                report_kind: my_kind,
+                message: _,
+            },
+            Message::HighlightMessage {
+                span: other_span,
+                report_kind: other_kind,
+                message: _
+            }) => {
+                my_span == other_span && my_kind == other_kind
+            }
+            _ => false
+        }
+    }
+}

@@ -2,7 +2,7 @@ use compiler::frontend::run_frontend;
 use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
 
-use compiler::error_reporter::FileErrorReporter;
+use compiler::error_reporter::file_reporter::FileErrorReporter;
 
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::env;

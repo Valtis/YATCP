@@ -60,14 +60,14 @@ impl FileErrorReporter {
 }
 
 impl ErrorReporter for FileErrorReporter {
-    fn report_error(&mut self, report: ReportKind, span: Span, message : String) {
+    fn report_error(&mut self, report_kind: ReportKind, span: Span, message : String) {
 
-        self.update_error_count(&report);
+        self.update_error_count(&report_kind);
 
         self.messages.push(
             Message::HighlightMessage {
                 span,
-                report,
+                report_kind,
                 message
             });
 
@@ -85,6 +85,10 @@ impl ErrorReporter for FileErrorReporter {
         self.errors
     }
 
+    fn reports(&self) -> i32 {
+        self.messages.len() as i32
+    }
+
     fn print_errors(&self) {
         let lines = self.read_lines();
 
@@ -92,10 +96,10 @@ impl ErrorReporter for FileErrorReporter {
             match msg {
                 Message::HighlightMessage{
                     span,
-                    report,
+                    report_kind,
                     message,
                 } => {
-                    write_highlight_message(span, *report, message, lines.as_slice())
+                    write_highlight_message(span, *report_kind, message, lines.as_slice())
                 }
             }
         }
@@ -103,12 +107,10 @@ impl ErrorReporter for FileErrorReporter {
     }
 }
 
-
-
-fn write_highlight_message(span: &Span, report: ReportKind, message: &String, lines: &[String]) {
+fn write_highlight_message(span: &Span, report_kind: ReportKind, message: &String, lines: &[String]) {
 
     // group notes with the warning/error, otherwise add a newline
-    if report != ReportKind::Note {
+    if report_kind != ReportKind::Note {
         eprintln!();
     }
 
@@ -116,7 +118,7 @@ fn write_highlight_message(span: &Span, report: ReportKind, message: &String, li
     eprintln!("{}:{} {}: {}",
             span.line,
             span.column,
-            report,
+            report_kind,
             message);
 
     // print line
@@ -134,7 +136,7 @@ fn write_highlight_message(span: &Span, report: ReportKind, message: &String, li
 
 
     // highlighting
-    let color = report.get_color();
+    let color = report_kind.get_color();
     for _ in 0..span.length {
         eprint!("{}", color.bold().paint("^").to_string());
     }
