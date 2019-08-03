@@ -1,0 +1,9 @@
+// Constant folding does not work properly, and fails to fold this into a single constant
+fn foo() : int {
+    let a : int = 5;
+    let b : int = 23;
+    let c : int = a;
+    c = 2 + c;
+    c = c + 3;
+    return a + 5 + b + c;  
+}
