@@ -6,6 +6,7 @@ use crate::tac_generator::{Function, TACGenerator};
 use crate::error_reporter::ErrorReporter;
 
 use std::fs::File;
+use std::io::Write;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -24,10 +25,9 @@ pub fn run_frontend(
         println!();
     }
 
-    let mut checker = SemanticsCheck::new(error_reporter.clone());
-    checker.check_semantics(&mut node);
+    let current_id = check_semantics(&mut node, error_reporter.clone());
 
-    let reporter = error_reporter.borrow();
+    let mut reporter = error_reporter.borrow_mut();
     if reporter.has_reports() {
         reporter.print_errors();
 
@@ -39,12 +39,15 @@ pub fn run_frontend(
                 "errors"
             };
 
-            println!("Terminating compilation due to {} {}", error_reporter.borrow().errors(), err);
+            let stderr = std::io::stderr();
+            let mut handle = stderr.lock();
+            writeln!(&mut handle, "Terminating compilation due to {} {}", reporter.errors(), err).unwrap();
                 return None;
         }
+        reporter.clear_reports();
     }
 
-    generate_three_address_code(&mut node, checker, print_tac)
+    generate_three_address_code(&mut node, current_id, print_tac)
 }
 
 
@@ -59,11 +62,17 @@ fn parse_code(file_name: &String, error_reporter: Rc<RefCell<dyn ErrorReporter>>
     parser.parse()
 }
 
+fn check_semantics(node: &mut AstNode, error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> u32 {
+    let mut checker = SemanticsCheck::new(error_reporter);
+    checker.check_semantics(node);
+    checker.get_current_id()
+}
+
 fn generate_three_address_code(
     mut node: &mut AstNode,
-    checker: SemanticsCheck,
+    current_id: u32,
     print_tac: bool) -> Option<Vec<Function>> {
-    let tac_gen = TACGenerator::new(checker.get_current_id());
+    let tac_gen = TACGenerator::new(current_id);
     let tac_functions = tac_gen.generate_tac_functions(&mut node);
     if print_tac {
         print_three_address_code(&tac_functions);

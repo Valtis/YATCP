@@ -1,0 +1,13 @@
+program: |
+  extern fn c_printer(x: int) : void;
+
+  fn main() : int {
+    c_printer(12345);
+    return 0;
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  External C function call: 12345
+
+

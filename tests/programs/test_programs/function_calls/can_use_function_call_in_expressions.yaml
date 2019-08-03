@@ -1,0 +1,15 @@
+program: |
+  fn test_function() : int {
+    let ret: int = bar()*2;
+    return ret;
+  }
+
+  fn bar() : int {
+    return 5;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  10

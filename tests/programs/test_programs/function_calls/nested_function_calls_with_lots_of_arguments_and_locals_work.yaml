@@ -1,0 +1,44 @@
+program: |
+  extern fn c_printer(x: int) : void;
+
+  fn test_function() : int {
+    let a: int = 1;
+    return bar(a, a*2, a*3, 4, 5, 6, 7, a*8)+1;
+  }
+
+  fn bar(a: int, b: int, c: int, d: int, e: int, f: int, g: int, h: int) : int {
+    let x: int = 2;
+    let ret: int = baz(a*x, b*x, c*x, d, e, f, g*x, h-4);
+    c_printer(x);
+    return ret + x;
+  }
+
+  fn baz(a: int, b: int, c: int, d: int, e: int, f: int, g: int, h: int) : int {
+    c_printer(a);
+    c_printer(b);
+    c_printer(c);
+    c_printer(d);
+    c_printer(e);
+    c_printer(f);
+    c_printer(g);
+    c_printer(h);
+
+    let x: int = 4;
+    return (a+b+c+d+e+f+g+h)/x;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  External C function call: 2
+  External C function call: 4
+  External C function call: 6
+  External C function call: 4
+  External C function call: 5
+  External C function call: 6
+  External C function call: 14
+  External C function call: 4
+  External C function call: 2
+  14
+  

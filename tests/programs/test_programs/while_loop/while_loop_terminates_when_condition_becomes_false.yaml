@@ -1,0 +1,18 @@
+program: |
+  fn test_function() : int {
+      let i: int = 0;
+
+      while i < 10 {
+        i = i + 1;
+      }
+
+      return i;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  10
+
+

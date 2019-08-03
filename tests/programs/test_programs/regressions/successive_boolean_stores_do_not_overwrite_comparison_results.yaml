@@ -1,0 +1,38 @@
+program: |
+  fn test_function() : int {
+    let a: int = 10;
+    let true1: bool = 2 < 3;
+    let true2: bool = a == 10;
+    let false1: bool = a > 10;
+    let false2: bool = 5 >= 6;
+
+
+    let ret: int = 0;
+
+    if true1 {
+      ret = ret + 1;
+    }
+
+    if true2 { 
+      ret = ret + 2;
+    }
+
+    if false1 {
+      ret = ret + 4;
+    }
+
+    if false2 {
+      ret = ret + 8;
+    }
+
+    return ret;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  3
+
+

@@ -3,8 +3,7 @@ use super::{ErrorReporter, ReportKind, Message };
 use crate::ast::NodeInfo as Span;
 
 use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader, Write};
 use std::cmp;
 use std::iter;
 
@@ -103,46 +102,56 @@ impl ErrorReporter for FileErrorReporter {
                 }
             }
         }
-
+    }
+    fn clear_reports(&mut self) {
+        self.messages.clear();
     }
 }
 
 fn write_highlight_message(span: &Span, report_kind: ReportKind, message: &String, lines: &[String]) {
+    // may be called from multiple threads, at least in e2e tests. Prevent output from being garbled
+    // when multiple threads attempt to print at the same time
+
+    let stdout = std::io::stdout();
+    let stderr = std::io::stderr();
+
+    let mut _stdouthandle = stdout.lock();
+    let mut handle = stderr.lock();
 
     // group notes with the warning/error, otherwise add a newline
     if report_kind != ReportKind::Note {
-        eprintln!();
+        writeln!(&mut handle).unwrap();
     }
 
     // main error/warning/note print
-    eprintln!("{}:{} {}: {}",
+    writeln!(&mut handle, "{}:{} {}: {}",
             span.line,
             span.column,
             report_kind,
-            message);
+            message).unwrap();
 
     // print line
 
     if (span.line as usize) < lines.len() {
         let line = &lines[(span.line - 1) as usize];
-        eprint!("{}", line);
+        write!(&mut handle, "{}", line).unwrap();
         if !line.ends_with("\n") {
-            eprintln!();
+            writeln!(&mut handle).unwrap();
         }
 
         // indentation for highlighting line
-        eprint!("{}",
+        write!(&mut handle, "{}",
                 iter::repeat(" ").
                     take(cmp::max(span.column - 1, 0) as usize).
-                    collect::<String>());
+                    collect::<String>()).unwrap();
 
 
         // highlighting
         let color = report_kind.get_color();
         for _ in 0..span.length {
-            eprint!("{}", color.bold().paint("^").to_string());
+            write!(&mut handle, "{}", color.bold().paint("^").to_string()).unwrap();
         }
-        eprintln!();
+        writeln!(&mut handle).unwrap();
     }
 }
 

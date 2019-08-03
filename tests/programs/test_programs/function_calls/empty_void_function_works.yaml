@@ -1,0 +1,8 @@
+program: |
+  fn test_function() : void {
+
+  }
+callable: test_function
+returns: void
+link_with: 
+  - tests/files/support/support.c 

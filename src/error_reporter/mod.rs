@@ -72,6 +72,7 @@ pub trait ErrorReporter {
     fn errors(&self) -> i32;
     fn reports(&self) -> i32;
     fn print_errors(&self);
+    fn clear_reports(&mut self);
 
 }
 

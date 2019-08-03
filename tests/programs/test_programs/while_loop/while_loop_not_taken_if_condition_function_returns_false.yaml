@@ -1,0 +1,25 @@
+program: |
+  fn test_function() : int {
+      let i: int = 0;
+
+      while returns_false() {
+         i = i + 1;
+         if i >= 10 {
+            return 10;
+         }
+      }
+
+      return i;
+  }
+
+  fn returns_false() : bool {
+    return false;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  10
+
+

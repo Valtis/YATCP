@@ -1,0 +1,22 @@
+program: |
+  fn test_function() : int {
+    let a: int = 1;
+    return bar(a)+1;
+  }
+
+  fn bar(a: int) : int {
+    let b: int = 4;
+    let ret: int = baz(a + b);
+    return ret + b;
+  }
+
+  fn baz(b: int) : int {
+    let c: int = 8;
+    return b*c;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  45

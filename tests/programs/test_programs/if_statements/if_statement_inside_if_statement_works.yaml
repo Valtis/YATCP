@@ -1,0 +1,27 @@
+program: |
+  fn test_function() : int {
+      let my_var: bool = true;
+      let count: int = 0;
+      let x: int = 50;
+      if my_var {
+        count = count + 1;
+        if 3 < 2 {
+          count = count + 2;
+        } else if x < 20 {
+           count = count + 4; 
+        } else {
+           count = count + 8;
+        }
+      } else {
+        count = count + 16;
+      }
+
+      return count;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+    9
+

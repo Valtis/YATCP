@@ -53,4 +53,8 @@ impl ErrorReporter for NullReporter {
     fn print_errors(&self) {
         () // do nothing
     }
+
+    fn clear_reports(&mut self) {
+        () // do nothing
+    }
 }

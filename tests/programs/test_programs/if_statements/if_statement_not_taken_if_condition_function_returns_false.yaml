@@ -1,0 +1,21 @@
+program: |
+  fn test_function() : int {
+
+      if returns_false() {
+          return 12345;
+      }
+
+      return 0;
+  }
+
+  fn returns_false() : bool {
+    return false;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  0
+
+

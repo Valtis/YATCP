@@ -4,6 +4,8 @@ use compiler::backend::run_backend;
 
 use compiler::error_reporter::file_reporter::FileErrorReporter;
 
+use ansi_term::Colour;
+
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::env;
 use std::fs::File;
@@ -11,16 +13,25 @@ use std::io::prelude::*;
 use std::process::Command;
 use std::os::unix::prelude::ExitStatusExt;
 
-
-
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::cell::RefCell;
 
 static FILE_COUNTER: AtomicI32 = AtomicI32::new(0);
 
+#[derive(Debug)]
 pub enum FunctionKind {
     VOID(String),
     INT(String),
+}
+
+#[derive(Debug)]
+pub struct CompileData {
+    pub program: String,
+    pub callable: Option<FunctionKind>,
+    pub expected_stdout: String,
+    pub expected_stderr: String,
+    pub link_with: Vec<PathBuf>,
 }
 
 impl FunctionKind {
@@ -39,19 +50,69 @@ impl FunctionKind {
     }
 }
 
-pub fn compile_and_run_no_opt(program: &str, kind: FunctionKind) -> String {
+
+fn indent(input: &str) -> String {
+    let indent = " ".repeat(8);
+
+    format!("{}{}", indent,  input.replace("\n", &format!("\n{}", indent)))
+}
+
+pub fn compile_and_run(compile_data: CompileData, optimize: bool) -> Result<(), String> {
 
     let ctr = FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    let input_file_str = write_program_into_tmp_file(program, ctr);
-    let output_file_str = create_obj_file(ctr, &input_file_str);
+    let input_file_str = write_program_into_tmp_file(&compile_data.program, ctr);
+    let output_file_str = create_obj_file(ctr, &input_file_str, optimize)?;
 
     let mut binary_out = env::temp_dir();
     binary_out.push(format!("yatcp_test_binary_{}", ctr));
     let binary_out_str = binary_out.to_str().unwrap().to_string();
 
-    compile_test_binary(kind, output_file_str.clone(), &binary_out_str);
-    run_test_binary(&output_file_str, &binary_out_str)
+    compile_test_binary(&compile_data, output_file_str.clone(), &binary_out_str)?;
+    let (stdout, stderr) = run_test_binary(&output_file_str, &binary_out_str);
+
+
+
+    fn format_message(name: &str, expected: &str, actual: &str) -> String {
+        let mut err_str = format!("{}: \nExpected:\n{}\nActual:\n{}",
+                          Colour::Yellow.bold().paint(format!("{0} does not match the expected {0}", name)),
+                          indent(expected),
+                          indent(actual));
+
+        if expected.trim() == actual.trim() {
+
+            err_str += &format!("\n{}: \nExpected:\n{}\nActual:\n{}",
+                                Colour::Blue.bold().paint("Note: Whitespace differs"),
+                                indent(&expected
+                                    .replace(" ", ".")
+                                    .replace("\t", "⇄")
+                                    .replace("\n", "↵")
+                                ),
+                                indent(&actual
+                                    .replace(" ", ".")
+                                    .replace("\t", "--->")
+                                    .replace("\n", "↵")
+                                ));
+        }
+
+        err_str
+    }
+
+    let mut err_str = String::new();
+    if stdout != compile_data.expected_stdout {
+        err_str = format_message("stdout", &compile_data.expected_stdout, &stdout);
+    }
+
+    if stderr != compile_data.expected_stderr {
+        err_str += &format_message("stderr", &compile_data.expected_stderr, &stderr);
+    }
+
+    if err_str.is_empty() {
+        Ok(())
+    } else {
+        err_str += &format!("\nExecutable: {}\n", binary_out_str);
+        Err(err_str)
+    }
 }
 
 fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
@@ -65,7 +126,7 @@ fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
     input_file_str.to_owned()
 }
 
-fn create_obj_file(ctr: i32, input_file_str: &String) -> String {
+fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<String, String> {
 
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(input_file_str)));
 
@@ -73,50 +134,54 @@ fn create_obj_file(ctr: i32, input_file_str: &String) -> String {
         input_file_str.to_string(),
         false,
         false,
-        error_reporter.clone()).unwrap();
+        error_reporter.clone()).ok_or("Frontend error (syntax/semantics)".to_owned())?;
+
     let mut output_file = env::temp_dir();
     output_file.push(format!("yatcp_test_output_{}.o", ctr));
     let output_file_str = output_file.to_str().unwrap().to_string();
 
     let functions = run_middleend(
         functions,
+        optimize,
         false,
         false,
-        false,
-        error_reporter.clone()).unwrap();
+        error_reporter.clone()).ok_or("Middle-end error (cfg)".to_owned())?;
 
     run_backend(output_file_str.clone(), functions, false);
-    output_file_str
+    Ok(output_file_str)
 }
 
-fn compile_test_binary(kind: FunctionKind, output_file_str: String, binary_out_str: &String) {
-    let output = Command::new("./wrapper.sh")
-        .arg(format!("-D{}={}", kind.to_define(), kind.name()))
-        .arg("tests/files/support/support.c")
+fn compile_test_binary(compile_data: &CompileData, output_file_str: String, binary_out_str: &String) -> Result<(), String> {
+
+    let callable_define = if let Some(ref kind ) = compile_data.callable {
+        format!("-D{}={}", kind.to_define(), kind.name())
+    } else {
+        "-Dno_callable".to_owned()
+    };
+
+    let output = Command::new("./tests/programs/wrapper.sh")
+        .arg(callable_define)
         .arg(output_file_str)
+        .args(compile_data.link_with.clone())
         .arg(format!("-o {}", binary_out_str))
         .output()
         .unwrap_or_else(|err| {
             panic!("Failed to compile the test binary: {}", err);
         });
 
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    println!("{}", stdout);
-
-
-    if !output.status.success() {
-        let mut stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        let indent = &" ".repeat(8);
-        stderr.insert_str(0, indent);
-        panic!("Failed to compile the test binary:\n\n{}",
-               stderr
-                   .replace("\n", &format!("\n{}", indent)));
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        Err(format!("Failed to compile the test binary:\n\nStdout:\n{}\nStderr:\n{}",
+               indent(&stdout),
+               indent(&stderr)))
     }
 }
 
-fn run_test_binary(object: &str, binary_out_str: &str) -> String {
+fn run_test_binary(object: &str, binary_out_str: &str) -> (String, String) {
 
-    // Need to wrap the execution with { } in order to grab SIGSEVS & friends
     let output = Command::new(binary_out_str)
         .output()
         .unwrap_or_else(|err| {
@@ -135,6 +200,7 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> String {
         let mut stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         stderr = stderr.replace("\n", &format!("\n{}", indent));
         stderr.insert_str(0, indent);
+
 
         eprintln!("Failed to run the test binary {}:\n\nExit code: {}\nStdout:{}\n\nStderr:\n{}",
                   binary_out_str,
@@ -172,8 +238,9 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> String {
         panic!();
     }
 
-    let cow = String::from_utf8_lossy(&output.stdout);
-    cow.into_owned()
+    let stdout_cow = String::from_utf8_lossy(&output.stdout);
+    let stderr_cow = String::from_utf8_lossy(&output.stderr);
+    (stdout_cow.into_owned(), stderr_cow.into_owned())
 }
 
 fn objdump_binary(binary: &str) {
@@ -186,10 +253,8 @@ fn objdump_binary(binary: &str) {
             panic!("Failed to objdump test binary {}: {}", binary, err);
         });
 
-    let indent = &" ".repeat(8);
     let mut stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    stdout = stdout.replace("\n", &format!("\n{}", indent));
-    stdout.insert_str(0, indent);
+    stdout = indent(&stdout);
 
     eprintln!("Disassembly output: \n\n{}", stdout);
 
@@ -198,8 +263,7 @@ fn objdump_binary(binary: &str) {
 
 
         let mut stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        stderr = stderr.replace("\n", &format!("\n{}", indent));
-        stderr.insert_str(0, indent);
+        stderr = indent(&stderr);
 
         panic!("Failed to obj dump the object file {}:\n\nStderr:\n{}",
                binary,
