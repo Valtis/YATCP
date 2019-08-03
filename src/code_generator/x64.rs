@@ -369,7 +369,6 @@ pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> super::
 
     let relocations = update_calls(&combined_call_patches, &function_positions, external_functions, &mut combined_asm);
 
-
     super::Code {
         functions: codegen_functions,
         code: combined_asm,
@@ -1688,16 +1687,16 @@ fn update_calls(
     calls_requiring_updates: &Vec<CallPatch>,
     function_positions: &HashMap<String, usize>,
     external_functions: HashSet<String>,
-    asm: &mut Vec<u8>) -> HashMap<String, usize> {
+    asm: &mut Vec<u8>) -> Vec<(String, usize)> {
 
-    let mut relocations = HashMap::new();
+    let mut relocations = vec![];
     for call in calls_requiring_updates.iter() {
         // +1 so that the one-byte opcode is skipped
         let opcode_offset = 1;
         let call_location = call.location + opcode_offset;
 
         if external_functions.contains(&call.name) {
-            relocations.insert(call.name.clone(), call_location);
+            relocations.push((call.name.clone(), call_location));
             continue;
         }
 

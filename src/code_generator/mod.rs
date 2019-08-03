@@ -2,7 +2,6 @@ pub mod x64;
 mod stack_allocator;
 
 use crate::byte_generator;
-use std::collections::HashMap;
 use crate::function_attributes::FunctionAttribute;
 
 pub struct CodeGenerator {
@@ -26,7 +25,7 @@ impl Function {
 pub struct Code {
     pub code: Vec<u8>,
     pub functions: Vec<Function>,
-    pub relocations: HashMap<String, usize>,
+    pub relocations: Vec<(String, usize)>,
 }
 
 impl CodeGenerator {
