@@ -560,7 +560,13 @@ impl TACGenerator {
                     Box::new(node.clone()),
                     Box::new(AstNode::Boolean(false, info.clone())),
                     info.clone())
-            }
+            },
+            AstNode::FunctionCall(_, _, ref info) => {
+                AstNode::Equals(
+                    Box::new(node.clone()),
+                    Box::new(AstNode::Boolean(false, info.clone())),
+                    info.clone())
+            },
             _ => ice!("Unexpected node when comparison node expected: {:#?}", node),
         }
     }

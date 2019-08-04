@@ -60,8 +60,10 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Label(_) |
             ByteCode::Jump(_) |
             ByteCode::Ret(Some(IntegerConstant(_))) |
-            ByteCode::JumpConditional(_, _) |
+            ByteCode::Ret(Some(BooleanConstant(_))) |
+            ByteCode::Ret(Some(ComparisonResult(_))) |
             ByteCode::Ret(None) |
+            ByteCode::JumpConditional(_, _) |
             ByteCode::FunctionArguments(_) |
             ByteCode::Call(_) => (), // do nothing
 
@@ -1124,8 +1126,22 @@ fn handle_return_value_allocation(value: &Option<Value>, updated_instructions: &
                 Some(Value::StackOffset{ offset: stack_slot.offset, size: stack_slot.size}),
             ));
         },
-        Some(IntegerConstant(value)) => {
-            updated_instructions.push(ByteCode::Ret(Some(Value::IntegerConstant(*value))));
+        Some(IntegerConstant(_)) => {
+            updated_instructions.push(ByteCode::Ret(value.clone()));
+        },
+        Some(BooleanConstant(_)) => {
+            updated_instructions.push(ByteCode::Ret(value.clone()));
+        },
+        Some(ComparisonResult(_)) => {
+            // FIXME: Replace with xor rax, rax
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: IntegerConstant(0),
+                    dest: PhysicalRegister(X64Register::RAX),
+                }
+            ));
+            updated_instructions.push(ByteCode::Ret(value.clone()));
+
         },
         None => updated_instructions.push(ByteCode::Ret(None)),
         _ => unimplemented!("Not implemented for {:#?}:", value),

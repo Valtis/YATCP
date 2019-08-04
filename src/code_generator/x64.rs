@@ -719,6 +719,36 @@ fn emit_mov_comp_result_into_stack(comparison_type: &ComparisonType, offset: u32
     );
 }
 
+fn emit_mov_comp_result_into_reg(comparison_type: &ComparisonType, reg: X64Register, asm: &mut Vec<u8>) {
+
+    let opcode = match comparison_type {
+        ComparisonType::Less => SET_BYTE_IF_LESS,
+        ComparisonType::LessOrEq => SET_BYTE_IF_LESS_OR_EQ,
+        ComparisonType::Equals => SET_BYTE_IF_EQ,
+        ComparisonType::NotEquals => SET_BYTE_IF_NEQ,
+        ComparisonType::GreaterOrEq => SET_BYTE_IF_GREATER_OR_EQ,
+        ComparisonType::Greater => SET_BYTE_IF_GREATER,
+    };
+
+
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(SET_BYTE_OPCODE_EXT),
+        rm_field: RmField::Register(reg)
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        None,
+    );
+}
 fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
     match operand {
@@ -1484,7 +1514,13 @@ fn emit_ret(value: &Option<Value>, stack_size: u32, args: u32, asm: &mut Vec<u8>
         Some(IntegerConstant(value)) => {
             emit_mov_integer_to_register(*value, X64Register::EAX, asm)
         }
+        Some(BooleanConstant(boolean)) => {
+            emit_mov_integer_to_register(if *boolean { 1 } else { 0 }, X64Register::EAX, asm)
+        }
         Some(StackOffset {offset, size}) => emit_mov_from_stack_to_reg(X64Register::RAX, *offset, *size, asm),
+        Some(ComparisonResult(comp_type)) => {
+            emit_mov_comp_result_into_reg(comp_type, X64Register::RAX, asm)
+        },
         None => (),
         _ =>  ice!("Invalid return value: {:#?}", value),
     }

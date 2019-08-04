@@ -1,0 +1,18 @@
+program: |
+  fn test_function() : int {
+    if bar() {
+      return 1334;
+    } else {
+      return 12;
+    }
+  }
+
+  fn bar() : bool {
+    return 2 < 3;
+  }
+link_with:
+  - tests/files/support/support.c
+callable: test_function
+returns: int
+expect_stdout: |
+  1334
