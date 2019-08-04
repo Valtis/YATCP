@@ -1,0 +1,22 @@
+extern fn int_printer(x: int) : void;
+extern fn int_reader() : int;
+
+fn main() : int {
+    let fib_number: int = int_reader();
+    let val : int = fib(fib_number);
+
+    int_printer(val);
+    return 0;
+}
+
+
+fn fib(n: int) : int {
+    if n <= 1 {
+        return n;
+    }
+
+    return fib(n-1) + fib(n-2);
+}
+
+
+
