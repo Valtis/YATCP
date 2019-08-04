@@ -8,7 +8,7 @@ use crate::semcheck::{Type};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-
+use crate::function_attributes::FunctionAttribute;
 
 
 pub fn check_cfg(
@@ -31,6 +31,10 @@ fn check_function(
     function: &mut Function,
     cfg: &mut CFG,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>)  {
+
+    if function.has_attribute(FunctionAttribute::External) {
+        return;
+    }
 
     let mut insert_positions = vec![];
 

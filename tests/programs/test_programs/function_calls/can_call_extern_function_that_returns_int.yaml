@@ -1,0 +1,11 @@
+program: |
+  extern fn returns_12345() : int;
+  fn test_function() : int {
+    return returns_12345();
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  12345

@@ -118,6 +118,8 @@ impl ByteGenerator {
         let functions = self.tac_functions.clone();
 
         for f in functions {
+
+
             self.bytecode_functions.push(Function {
                 name: (*f.function_info.name).clone(),
                 code: vec![],
@@ -153,7 +155,7 @@ impl ByteGenerator {
             }
 
             ice_if!(
-                self.current_function().code.is_empty(),
+                self.current_function().code.is_empty() && !self.current_function().has_attribute(FunctionAttribute::External),
                 "No bytecode was generated for function {}", f.function_info.name);
         }
     }
