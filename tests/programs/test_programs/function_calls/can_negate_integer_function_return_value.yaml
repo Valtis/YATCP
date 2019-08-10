@@ -1,6 +1,6 @@
 program: |
   fn test_function() : int {
-    let ret: int = bar()*2;
+    let ret: int = -bar();
     return ret;
   }
 
@@ -12,4 +12,4 @@ link_with:
 callable: test_function
 returns: int
 expect_stdout: |
-  10
+  -5

@@ -40,6 +40,9 @@ const DIV_OPCODE_EXT: u8 = 0x07;
 
 const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 
+const NEGATE_RM_32_BIT: u8 = 0xF7;
+const NEGATE_OPCODE_EXT: u8 = 0x03;
+
 const COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
 const COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
 const COMPARE_REG_WITH_RM_32_BIT: u8 = 0x3B;
@@ -393,6 +396,7 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Sub(operands) => emit_sub(operands, &mut asm),
             ByteCode::Mul(operands) => emit_mul(operands, &mut asm),
             ByteCode::Div(operands) => emit_div(operands, &mut asm),
+            ByteCode::Negate(operands) => emit_neg(operands, &mut asm),
             ByteCode::Ret(value) => emit_ret(value, stack_size, function.parameter_count, &mut asm),
             ByteCode::SignExtend(operands) => emit_sign_extension(operands, &mut asm),
             ByteCode::Compare(ref operands) => emit_comparison(operands, &mut asm),
@@ -1235,6 +1239,46 @@ fn emit_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
         asm,
         rex,
         SizedOpCode::from(SIGNED_DIV_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn emit_neg(operands: &UnaryOperation, asm: &mut Vec<u8>) {
+    match operands {
+        UnaryOperation{
+            src: StackOffset {
+                size: src_size,
+                offset: src_offset,
+            },
+            dest: StackOffset {
+                size: dest_size,
+                offset: dest_offset,
+            }
+        } if src_offset == dest_offset => {
+            ice_if!(src_size != dest_size, "Source and destination sizes are different");
+            emit_neg_stack(*src_offset, *src_size, asm);
+        },
+        _ => ice!("Invalid operand encoding for NEG: {:#?}", operands),
+    }
+}
+
+fn emit_neg_stack(offset: u32, _size: u32, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(NEGATE_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(NEGATE_RM_32_BIT),
         Some(modrm),
         sib,
         None,

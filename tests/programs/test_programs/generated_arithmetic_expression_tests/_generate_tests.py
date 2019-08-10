@@ -6,29 +6,29 @@ INT_MIN = -INT_MAX-1
         * Test file name without extension
         * Initialization expression(s) (e.g. variable declarations)
         * Expression for return statement
-        * Expected answer 
+        * Expected answer
         """
 condition_answer_tuples = [
 
-    # constant 
-    ("positive_constant_expression_works", 
+    # constant
+    ("positive_constant_expression_works",
         "",
-        "4", 
+        "4",
         4),
     ("negative_constant_expression_works",
         "",
-        "-4", 
+        "-4",
         -4),
 
 
     # addition
-    ("constant_constant_addition_works", 
+    ("constant_constant_addition_works",
         "",
-        "2 + 9", 
+        "2 + 9",
         11),
-    ("constant_constant_addition_with_negative_number_works", 
+    ("constant_constant_addition_with_negative_number_works",
         "",
-        "10 + (-5)", 
+        "10 + (-5)",
         5),
     ("variable_constant_addition_works",
         "let a: int = 24;",
@@ -96,12 +96,12 @@ condition_answer_tuples = [
         "0-a-b-c-d-1",
        21),
     ("can_subtract_to_int_min",
-        f"let a: int = {INT_MIN+1};", 
+        f"let a: int = {INT_MIN+1};",
         "a - 1",
         INT_MIN,
         ),
     ("subtraction_overflows_when_subtracting_from_int_min",
-        f"let a: int = {INT_MIN};", 
+        f"let a: int = {INT_MIN};",
         "a - 1",
         INT_MAX),
 
@@ -142,11 +142,11 @@ condition_answer_tuples = [
         "a*b*c*d*10",
        2880),
     ("positive_multiplication_result_can_overflow",
-        f"let a: int = {INT_MAX};", 
+        f"let a: int = {INT_MAX};",
         "a*2",
         -2),
     ("negative_multiplication_result_can_overflow",
-        f"let a: int = {INT_MIN};", 
+        f"let a: int = {INT_MIN};",
         "a*(-1)",
         INT_MIN,
         ),
@@ -186,6 +186,49 @@ condition_answer_tuples = [
         """,
         "500/a/b/c/d",
        2),
+
+    ("can_negate_variable",
+        """
+        let a: int = 4;
+        a = -a;
+        """,
+        "a",
+        -4),
+    ("can_negate_negative_variable",
+        """
+        let a: int = -4;
+        a = -a;
+        """,
+        "a",
+        4),
+    ("can_negate_variable_when_assigning_to_another_variable",
+        """
+        let a: int = 4;
+        let b: int = -a;
+        """,
+        "b",
+        -4),
+    ("can_negate_negative_variable_when_assigning_to_another_variable",
+        """
+        let a: int = -4;
+        let b: int = -a;
+        """,
+        "b",
+        4),
+    ("can_negate_int_max",
+        f"""
+        let a: int = {INT_MAX};
+        let b: int = -a;
+        """,
+        "b",
+        -INT_MAX),
+    ("negating_int_min_overflows_to_int_min",
+        f"""
+        let a: int = {INT_MIN};
+        let b: int = -a;
+        """,
+        "b",
+        INT_MIN),
 ]
 
 for t in condition_answer_tuples:

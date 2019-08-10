@@ -65,6 +65,7 @@ pub enum ByteCode {
     Sub(BinaryOperation),
     Mul(BinaryOperation),
     Div(BinaryOperation),
+    Negate(UnaryOperation),
     Mov(UnaryOperation),
     SignExtend(UnaryOperation),
     Compare(ComparisonOperation),
@@ -137,6 +138,7 @@ impl ByteGenerator {
                     Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
                     Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
                     Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
+                    Statement::Assignment(Some(Operator::Minus), Some(ref dest), None, Some(ref src)) => self.emit_negate(dest, src),
                     Statement::Assignment(
                         Some(ref x),
                         Some(ref dest),
@@ -168,6 +170,11 @@ impl ByteGenerator {
         };
 
         self.current_function().code.push(ByteCode::Ret(ret_val));
+    }
+
+    fn emit_negate(&mut self, dest: &Operand, src: &Operand) {
+        let data = self.form_unary_operation(src, dest);
+        self.current_function().code.push(ByteCode::Negate(data));
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {

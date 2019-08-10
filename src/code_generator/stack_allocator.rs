@@ -67,7 +67,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::FunctionArguments(_) |
             ByteCode::Call(_) => (), // do nothing
 
-            ByteCode::Mov(unary_op) => handle_unary_op(unary_op, &mut stack_map),
+            ByteCode::Mov(unary_op) |
+            ByteCode::Negate(unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(binary_op) |
             ByteCode::Sub(binary_op) |
             ByteCode::Mul(binary_op) |
@@ -152,6 +153,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
     for instr in code.iter() {
         match instr {
             ByteCode::Mov(unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Negate(unary_op) => handle_negate_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Add(binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Sub(binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Mul(binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
@@ -335,6 +337,69 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
 }
+
+fn handle_negate_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match unary_op {
+        UnaryOperation{
+            src: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dst_vregdata),
+        } if src_vregdata.id == dst_vregdata.id => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+
+            updated_instructions.push(ByteCode::Negate(UnaryOperation {
+                src: StackOffset {
+                    offset: stack_slot.offset,
+                    size: stack_slot.size,
+                },
+                dest: StackOffset {
+                    offset: stack_slot.offset,
+                    size: stack_slot.size,
+                }
+            }));
+        },
+        UnaryOperation{
+            src: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dst_vregdata),
+        } if src_vregdata.id != dst_vregdata.id => {
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dst_vregdata.id];
+
+            let reg = get_register_for_size(dst_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                src: StackOffset {
+                    offset: src_stack_slot.offset,
+                    size: src_stack_slot.size,
+                },
+                dest: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                src: PhysicalRegister(reg),
+                dest: StackOffset {
+                    offset: dest_stack_slot.offset,
+                    size: dest_stack_slot.size,
+                },
+            }));
+
+            updated_instructions.push(ByteCode::Negate(
+                UnaryOperation {
+                    src: StackOffset {
+                        offset: dest_stack_slot.offset,
+                        size: dest_stack_slot.size,
+                    },
+                    dest: StackOffset {
+                        offset: dest_stack_slot.offset,
+                        size: dest_stack_slot.size,
+                    }
+                }
+            ));
+
+        }
+        _ => unimplemented!("Not implemented for: {:#?}", unary_op),
+    }
+}
+
 
 fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match binary_op {

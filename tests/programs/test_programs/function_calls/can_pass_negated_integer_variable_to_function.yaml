@@ -1,15 +1,15 @@
 program: |
   fn test_function() : int {
-    let ret: int = bar()*2;
-    return ret;
+    let a: int = 6;
+    return bar(-a);
   }
 
-  fn bar() : int {
-    return 5;
+  fn bar(a: int) : int {
+    return a*2;
   }
 link_with:
   - tests/files/support/support.c
 callable: test_function
 returns: int
 expect_stdout: |
-  10
+  -12

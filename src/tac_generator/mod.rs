@@ -1,7 +1,7 @@
 mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo};
+use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo, ArithmeticInfo};
 use crate::semcheck::Type;
 use crate::function_attributes::FunctionAttribute;
 
@@ -114,12 +114,12 @@ impl Display for Statement {
                 .collect::<String>();
 
                 let dest_str = if let Some(ref op) = *dest {
-                    format!("{} =", op)
+                    format!("{} = ", op)
                 } else {
                     String::new()
                 };
 
-                format!("{} {}({})",
+                format!("{}{}({})",
                     dest_str,
                     name,
                     op_str)
@@ -218,7 +218,7 @@ impl TACGenerator {
     }
 
     fn generate_tac(&mut self, node: &AstNode) {
-        match *node {
+        match node {
             AstNode::Block(ref children, ref sym_tab, ref node_info) =>
                 self.handle_block(children, sym_tab, node_info),
             AstNode::Function(ref child, ref info) =>
@@ -252,7 +252,8 @@ impl TACGenerator {
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison(node),
-            ref x => panic!("Three-address code generation not implemented for '{}'", x),
+            AstNode::Negate(child, arith_info) => self.handle_negate(child, arith_info),
+            ref x => panic!("Three-address code generation not implemented for '{}'", *x),
         }
     }
 
@@ -596,6 +597,20 @@ impl TACGenerator {
 
         self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
+        ));
+
+        self.operands.push(temp);
+    }
+
+    fn handle_negate(&mut self, child_node: &AstNode, arith_info: &ArithmeticInfo) {
+        let op = self.get_operand(child_node);
+
+        let temp = self.get_temporary(arith_info.node_type);
+        self.current_function().statements.push(Statement::Assignment(
+            Some(Operator::Minus),
+            Some(temp.clone()),
+            None,
+            Some(op)
         ));
 
         self.operands.push(temp);
