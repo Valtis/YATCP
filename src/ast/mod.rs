@@ -82,6 +82,9 @@ pub enum AstNode {
     Divide(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Negate(Box<AstNode>, ArithmeticInfo),
 
+    BooleanAnd(Box<AstNode>, Box<AstNode>, NodeInfo),
+    BooleanOr(Box<AstNode>, Box<AstNode>, NodeInfo),
+
     Return(Option<Box<AstNode>>, ArithmeticInfo),
 
     While(Box<AstNode>, Box<AstNode>, NodeInfo),
@@ -151,6 +154,8 @@ impl Display for AstNode {
             AstNode::Minus(_, _, _) => "Minus".to_string(),
             AstNode::Multiply(_, _, _) => "Multiply".to_string(),
             AstNode::Divide(_, _, _) => "Divide".to_string(),
+            AstNode::BooleanAnd(_, _, _) => "And".to_string(),
+            AstNode::BooleanOr(_, _, _) => "Or".to_string(),
             AstNode::Negate(_, _) => "Negate".to_string(),
             AstNode::Return(_, _) => "Return".to_string(),
             AstNode::While(_, _, _) => "While".to_string(),
@@ -207,6 +212,8 @@ impl AstNode {
             AstNode::Text(_, _) => {},
             AstNode::Identifier(_, _) => {},
             AstNode::Boolean(_, _) => {},
+            AstNode::BooleanAnd(ref left, ref right, _) |
+            AstNode::BooleanOr(ref left, ref right, _) |
             AstNode::Plus(ref left, ref right, _) |
             AstNode::Minus(ref left, ref right, _) |
             AstNode::Multiply(ref left, ref right, _ ) |
@@ -257,6 +264,8 @@ impl AstNode {
             AstNode::FunctionCall(_, _, ref info) => info,
             AstNode::VariableDeclaration(_, ref info) => &info.node_info,
             AstNode::VariableAssignment(_, _, ref span) => span,
+            AstNode::BooleanAnd(_, _, ref span) |
+            AstNode::BooleanOr(_, _, ref span) => span,
             AstNode::Plus(_, _, ref info) |
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _, ref info) |

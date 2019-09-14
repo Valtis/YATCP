@@ -766,7 +766,7 @@ mod tests {
             NodeInfo::new(0, 0, 0),
         );
 
-        let mut generator = TACGenerator::new(3);
+        let generator = TACGenerator::new(3);
         let functions = generator.generate_tac_functions(&node);
 
         assert_eq!(1, functions.len());
@@ -874,7 +874,7 @@ mod tests {
             NodeInfo::new(0, 0, 0),
         );
 
-        let mut generator = TACGenerator::new(2);
+        let generator = TACGenerator::new(2);
         let functions = generator.generate_tac_functions(&node);
 
         assert_eq!(1, functions.len());
@@ -963,7 +963,7 @@ mod tests {
             NodeInfo::new(0, 0, 0),
         );
 
-        let mut generator = TACGenerator::new(1);
+        let generator = TACGenerator::new(1);
         let functions = generator.generate_tac_functions(&node);
 
         assert_eq!(1, functions.len());
@@ -993,10 +993,10 @@ mod tests {
         */
 
         let mut block_symtab_entry = TableEntry::new();
-        let mut foo_info = FunctionInfo::new_alt(
+        let foo_info = FunctionInfo::new_alt(
             Rc::new("foo".to_string()), Type::Integer, 0, 0, 0);
 
-        let mut bar_info = FunctionInfo::new_alt(
+        let bar_info = FunctionInfo::new_alt(
             Rc::new("bar".to_string()), Type::Void, 0, 0, 0);
 
         block_symtab_entry.add_symbol(Symbol::Function(foo_info.clone()));
@@ -1034,7 +1034,7 @@ mod tests {
             NodeInfo::new(0, 0, 0),
         );
 
-        let mut generator = TACGenerator::new(1);
+        let generator = TACGenerator::new(1);
         let functions = generator.generate_tac_functions(&node);
 
         assert_eq!(2, functions.len());

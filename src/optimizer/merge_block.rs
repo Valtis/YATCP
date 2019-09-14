@@ -333,7 +333,7 @@ fn get_false_branch_and_label(
 mod tests {
     use super::*;
 
-    use crate::tac_generator::{Operand, Operator};
+    use crate::tac_generator::{Operand};
     use crate::cfg::basic_block::BasicBlock;
     use crate::ast::{FunctionInfo, NodeInfo};
     use crate::semcheck::Type;

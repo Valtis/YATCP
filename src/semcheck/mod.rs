@@ -164,6 +164,7 @@ impl SemanticsCheck {
                 { self.check_identifier_is_initialized(name, info); }
             AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
+            _ => unimplemented!()
         }
     }
 

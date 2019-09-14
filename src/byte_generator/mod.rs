@@ -385,8 +385,7 @@ mod test {
     use super::*;
     use super::Value::*;
 
-    use crate::tac_generator::{Operand, Operator, Function};
-    use crate::cfg::basic_block::BasicBlock;
+    use crate::tac_generator::{Operand, Function};
     use crate::ast::{FunctionInfo, NodeInfo};
     use crate::semcheck::Type;
 

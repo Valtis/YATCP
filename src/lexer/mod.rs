@@ -74,47 +74,57 @@ impl ReadLexer {
   }
 
   fn starts_symbol(&mut self, ch: char) -> bool {
-    match ch {
-      '+' | '-' | '*' | '/' | '[' | ']' | '{' | '}' | '(' | ')' | '<' | '>' | '=' | ';' | ',' | ':' | '!' => true,
-      '.' => self.does_not_start_desimal_number(),
-      _ => false,
-    }
+      match ch {
+          '+' | '-' | '*' | '/' | '[' | ']' | '{' | '}' | '(' | ')' | '<' | '>' | '=' | ';' | ',' | ':' | '!' | '&' | '|' | '~' | '^' => true,
+          '.' => self.does_not_start_desimal_number(),
+          _ => false,
+      }
   }
 
   fn handle_symbols(&mut self, ch: char) -> Token {
-    match ch {
-      '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
-      '-' => self.create_token(TokenType::Minus, TokenSubType::NoSubType),
-      '*' => self.create_token(TokenType::Multiply, TokenSubType::NoSubType),
-      '/' => self.create_token(TokenType::Divide, TokenSubType::NoSubType),
-      '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
-      ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
-      '{' => self.create_token(TokenType::LBrace, TokenSubType::NoSubType),
-      '}' => self.create_token(TokenType::RBrace, TokenSubType::NoSubType),
-      '(' => self.create_token(TokenType::LParen, TokenSubType::NoSubType),
-      ')' => self.create_token(TokenType::RParen, TokenSubType::NoSubType),
-      ';' => self.create_token(TokenType::SemiColon, TokenSubType::NoSubType),
-      ',' => self.create_token(TokenType::Comma, TokenSubType::NoSubType),
-      '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
-      ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
-      '=' => self.multi_char_operator_helper(
+      match ch {
+              '-' => self.create_token(TokenType::Minus, TokenSubType::NoSubType),
+          '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
+          '*' => self.create_token(TokenType::Multiply, TokenSubType::NoSubType),
+          '/' => self.create_token(TokenType::Divide, TokenSubType::NoSubType),
+          '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
+          ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
+          '{' => self.create_token(TokenType::LBrace, TokenSubType::NoSubType),
+          '}' => self.create_token(TokenType::RBrace, TokenSubType::NoSubType),
+          '(' => self.create_token(TokenType::LParen, TokenSubType::NoSubType),
+          ')' => self.create_token(TokenType::RParen, TokenSubType::NoSubType),
+          ';' => self.create_token(TokenType::SemiColon, TokenSubType::NoSubType),
+          ',' => self.create_token(TokenType::Comma, TokenSubType::NoSubType),
+          '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
+          ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
+          '^' => self.create_token(TokenType::Caret, TokenSubType::NoSubType),
+          '~' => self.create_token(TokenType::Tilde, TokenSubType::NoSubType),
+          '=' => self.multi_char_operator_helper(
         '=',
         (TokenType::Comparison, TokenSubType::Equals),
         (TokenType::Assign, TokenSubType::NoSubType)),
-      '>' => self.multi_char_operator_helper(
+          '>' => self.multi_char_operator_helper(
         '=',
         (TokenType::Comparison, TokenSubType::GreaterOrEq),
         (TokenType::Comparison, TokenSubType::Greater)),
-      '<' => self.multi_char_operator_helper(
+          '<' => self.multi_char_operator_helper(
         '=',
         (TokenType::Comparison, TokenSubType::LessOrEq),
         (TokenType::Comparison, TokenSubType::Less)),
-      '!' => self.multi_char_operator_helper(
+          '!' => self.multi_char_operator_helper(
         '=',
         (TokenType::Comparison, TokenSubType::NotEquals),
         (TokenType::Not, TokenSubType::NoSubType)),
-      _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
-    }
+          '&' => self.multi_char_operator_helper(
+              '&',
+              (TokenType::DoubleAmpersand, TokenSubType::NoSubType),
+              (TokenType::Ampersand, TokenSubType::NoSubType)),
+          '|' => self.multi_char_operator_helper(
+              '|',
+              (TokenType::DoublePipe, TokenSubType::NoSubType),
+              (TokenType::Pipe, TokenSubType::NoSubType)),
+          _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
+      }
   }
 
   fn does_not_start_desimal_number(&mut self) -> bool {
@@ -626,7 +636,6 @@ mod tests {
     use super::*;
 
     use crate::error_reporter::{ReportKind, Message, null_reporter::NullReporter};
-    use crate::string_table::StringTable;
 
     use std::io::Read;
     use std::io;
@@ -942,7 +951,7 @@ mod tests {
 
     #[test]
     fn operators_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * /");
+        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1002,6 +1011,36 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Divide,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Ampersand,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoubleAmpersand,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Pipe,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoublePipe,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Caret,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Tilde,
             TokenSubType::NoSubType);
 
         assert_eq_token!(
@@ -1484,7 +1523,7 @@ mod tests {
     fn unexpected_starting_symbol_are_reported() {
         let (mut lexer, reporter) = create_lexer(r"
         `hello
-        |foo");
+        $foo");
         lexer.next_token();
         lexer.next_token();
 
@@ -1511,7 +1550,7 @@ mod tests {
     fn unexpected_starting_symbol_are_ignored_when_getting_tokens() {
         let (mut lexer, reporter) = create_lexer(r"
         `hello
-        |foo");
+        $foo");
 
         assert_eq_token!(
             lexer.next_token(),

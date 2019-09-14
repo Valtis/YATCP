@@ -41,6 +41,12 @@ pub enum TokenType {
   Minus,
   Multiply,
   Divide,
+  Ampersand,
+  DoubleAmpersand,
+  Pipe,
+  DoublePipe,
+  Caret,
+  Tilde,
   Eof,
 }
 
@@ -83,6 +89,12 @@ impl Display for TokenType {
         TokenType::Minus => "-",
         TokenType::Multiply => "*",
         TokenType::Divide => "/",
+        TokenType::Ampersand => "&",
+        TokenType::DoubleAmpersand => "&&",
+        TokenType::Pipe=> "|",
+        TokenType::DoublePipe => "||",
+        TokenType::Caret => "^",
+        TokenType::Tilde => "~",
         TokenType::Eof => "<EOF>",
 
       }, formatter)

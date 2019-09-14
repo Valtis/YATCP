@@ -740,24 +740,6 @@ mod tests {
 
     #[test]
     fn creating_new_block_after_a_block_inserts_new_zero_sized_block() {
-        let statements = vec![
-            // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
-            Statement::Jump(0),
-            // block 2
-            Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
-            Statement::Jump(2),
-            // block 3
-            Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-            Statement::JumpIfTrue(Operand::Boolean(true), 1),
-            // block 4:
-            Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
-        ];
-
-        let function = create_function(statements);
 
         let mut cfg = CFG {
             basic_blocks: vec![
@@ -819,24 +801,6 @@ mod tests {
 
     #[test]
     fn creating_new_block_as_the_first_block_inserts_new_zero_sized_block() {
-        let statements = vec![
-            // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
-            Statement::Jump(0),
-            // block 2
-            Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
-            Statement::Jump(2),
-            // block 3
-            Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-            Statement::JumpIfTrue(Operand::Boolean(true), 1),
-            // block 4:
-            Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
-        ];
-
-        let function = create_function(statements);
 
         let mut cfg = CFG {
             basic_blocks: vec![
@@ -900,24 +864,7 @@ mod tests {
 
     #[test]
     fn creating_new_block_as_the_last_block_inserts_new_zero_sized_block() {
-        let statements = vec![
-            // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
-            Statement::Jump(0),
-            // block 2
-            Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
-            Statement::Jump(2),
-            // block 3
-            Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-            Statement::JumpIfTrue(Operand::Boolean(true), 1),
-            // block 4:
-            Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
-        ];
 
-        let function = create_function(statements);
 
         let mut cfg = CFG {
             basic_blocks: vec![
@@ -980,24 +927,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn creating_new_block_out_of_bounds_panics() {
-        let statements = vec![
-            // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
-            Statement::Jump(0),
-            // block 2
-            Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
-            Statement::Jump(2),
-            // block 3
-            Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
-            Statement::JumpIfTrue(Operand::Boolean(true), 1),
-            // block 4:
-            Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
-        ];
-
-        let function = create_function(statements);
 
         let mut cfg = CFG {
             basic_blocks: vec![
@@ -1416,7 +1345,7 @@ mod tests {
             Statement::JumpIfTrue(Operand::Boolean(true), 1),
         ];
 
-        let mut f = create_function(statements);
+        let f = create_function(statements);
 
         let basic_blocks = vec![
             BasicBlock{

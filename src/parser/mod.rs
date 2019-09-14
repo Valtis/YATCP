@@ -4,7 +4,7 @@ use crate::lexer::Lexer;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo, NodeInfo};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -347,6 +347,38 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_arithmetic_expression_with_boolean_and()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+
+            match next_token.token_type {
+                TokenType::DoublePipe => {
+                    node = self.parse_boolean_or_expression(node)?
+                }
+                _ => break,
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_arithmetic_expression_with_boolean_and(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_arithmetic_expression_with_comparisons()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::DoubleAmpersand {
+                node = self.parse_boolean_and_expression(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_arithmetic_expression_with_comparisons(&mut self) -> Result<AstNode, ()> {
         let mut node = self.parse_arithmetic_expression()?;
 
         loop {
@@ -357,6 +389,7 @@ impl Parser {
                 break;
             }
         }
+
         Ok(node)
     }
 
@@ -578,6 +611,36 @@ impl Parser {
 
     }
 
+    fn parse_boolean_or_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let token = self.expect(TokenType::DoublePipe)?;
+        let n_node = self.parse_arithmetic_expression_with_boolean_and()?;
+        let boolean_or_node = AstNode::BooleanOr(
+            Box::new(node),
+            Box::new(n_node),
+            Span::new(
+                token.line,
+                token.column,
+                token.length,
+            ));
+
+        Ok(boolean_or_node)
+    }
+
+    fn parse_boolean_and_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let token = self.expect(TokenType::DoubleAmpersand)?;
+        let n_node = self.parse_arithmetic_expression_with_comparisons()?;
+        let boolean_or_node = AstNode::BooleanAnd(
+            Box::new(node),
+            Box::new(n_node),
+            Span::new(
+                token.line,
+                token.column,
+                token.length,
+            ));
+
+        Ok(boolean_or_node)
+    }
+
     fn parse_plus_minus_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let next_token = self.lexer.peek_token();
 
@@ -748,7 +811,6 @@ mod tests {
     use crate::parser::Parser;
     use crate::semcheck::Type;
     use crate::token::{Token, TokenType, TokenSubType};
-    use crate::string_table::StringTable;
     use crate::error_reporter::null_reporter::NullReporter;
 
     use std::rc::Rc;
@@ -1238,7 +1300,7 @@ mod tests {
     }
 
     #[test]
-    fn assignment_with_INT_MIN_produces_correct_ast() {
+    fn assignment_with_int_min_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
@@ -3444,4 +3506,95 @@ mod tests {
             ),
             node);
     }
+
+
+    #[test]
+    fn boolean_and_is_parsed_correctly() {
+        let (mut parser, reporter) = create_parser(vec![
+            // fn foo() : int {
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // let a : bool = true;
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+            // let b : bool = false;
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Boolean, TokenSubType::BooleanValue(false), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+
+            // if a && b { }
+
+            Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::DoubleAmpersand, TokenSubType::NoSubtype, 0, 0, 0);
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // }
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                           /* AstNode::VariableAssignment(
+                                AstNode::True
+                                ""
+                            )*/
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn boolean_or_is_parsed_correctly() {
+        unimplemented!()
+    }
+
+    #[test]
+    fn boolean_and_boolean_or_have_correct_precedence() {
+        unimplemented!()
+    }
+
 }
