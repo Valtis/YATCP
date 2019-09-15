@@ -379,6 +379,8 @@ impl PartialEq for AstNode {
              AstNode::LessOrEq(o_lchld, o_rchld, o_ni)) |
             (AstNode::Equals(s_lchld, s_rchld, s_ni),
              AstNode::Equals(o_lchld, o_rchld, o_ni)) |
+            (AstNode::NotEquals(s_lchld, s_rchld, s_ni),
+             AstNode::NotEquals(o_lchld, o_rchld, o_ni)) |
             (AstNode::GreaterOrEq(s_lchld, s_rchld, s_ni),
              AstNode::GreaterOrEq(o_lchld, o_rchld, o_ni)) |
             (AstNode::Greater(s_lchld, s_rchld, s_ni),

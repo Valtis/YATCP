@@ -364,7 +364,7 @@ impl Parser {
     }
 
     fn parse_arithmetic_expression_with_boolean_and(&mut self) -> Result<AstNode, ()> {
-        let mut node = self.parse_arithmetic_expression_with_comparisons()?;
+        let mut node = self.parse_arithmetic_expression_with_equals_not_equals_comparisons()?;
 
         loop {
             let next_token = self.lexer.peek_token();
@@ -378,14 +378,33 @@ impl Parser {
         Ok(node)
     }
 
-    fn parse_arithmetic_expression_with_comparisons(&mut self) -> Result<AstNode, ()> {
+    fn parse_arithmetic_expression_with_equals_not_equals_comparisons(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_arithmetic_expression_with_greater_less_comparisons()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::Comparison &&
+                (next_token.token_subtype == TokenSubType::Equals ||
+                next_token.token_subtype == TokenSubType::NotEquals) {
+                node = self.parse_equals_not_equals_comparison_expression(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_arithmetic_expression_with_greater_less_comparisons(&mut self) -> Result<AstNode, ()> {
         let mut node = self.parse_arithmetic_expression()?;
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::Comparison {
-                node = self.parse_comparison_expression(node)?;
-            } else {
+            if next_token.token_type == TokenType::Comparison &&
+                !(next_token.token_subtype == TokenSubType::Equals ||
+                    next_token.token_subtype == TokenSubType::NotEquals) {
+                    node = self.parse_greater_less_comparison_expression(node)?;
+                } else {
                 break;
             }
         }
@@ -534,83 +553,88 @@ impl Parser {
         token.token_type ==TokenType::Text
     }
 
-    fn parse_comparison_expression(
+    fn parse_equals_not_equals_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.lexer.peek_token();
-        if next_token.token_type == TokenType::Comparison {
-            self.lexer.next_token();
-            let n_node = self.parse_arithmetic_expression()?;
+        let next_token = self.expect(TokenType::Comparison)?;
+        let n_node = self.parse_arithmetic_expression_with_greater_less_comparisons()?;
 
-            match next_token.token_subtype {
-                TokenSubType::Less => {
-                    let less_node = AstNode::Less(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(less_node)
-                },
-                TokenSubType::LessOrEq => {
-                    let less_or_eq_node = AstNode::LessOrEq(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(less_or_eq_node)
-                },
-                TokenSubType::Equals => {
-                    let equals_node = AstNode::Equals(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(equals_node)
-                },
-                TokenSubType::NotEquals => {
-                    let equals_node = AstNode::NotEquals(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(equals_node)
-                },
-                TokenSubType::GreaterOrEq => {
-                    let greater_or_eq_node = AstNode::GreaterOrEq(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(greater_or_eq_node)
-                },
-                TokenSubType::Greater => {
-                    let greater_node = AstNode::Greater(
-                        Box::new(node),
-                        Box::new(n_node),
-                        Span::new(
-                            next_token.line,
-                            next_token.column,
-                            next_token.length));
-                    Ok(greater_node)
-                },
-                _ => ice!("Invalid token subtype '{}' for comparison", next_token),
-            }
-        } else {
-            Ok(node)
+        match next_token.token_subtype {
+            TokenSubType::Equals => {
+                let equals_node = AstNode::Equals(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(equals_node)
+            },
+            TokenSubType::NotEquals => {
+                let not_equals_node = AstNode::NotEquals(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(not_equals_node)
+            },
+            _ => ice!("Got token {} when equals/not equals token was expected", next_token),
+        }
+    }
+
+    fn parse_greater_less_comparison_expression(
+        &mut self, node: AstNode) -> Result<AstNode, ()> {
+
+        let next_token = self.expect(TokenType::Comparison)?;
+        let n_node = self.parse_arithmetic_expression()?;
+
+        match next_token.token_subtype {
+            TokenSubType::Less => {
+                let less_node = AstNode::Less(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(less_node)
+            },
+            TokenSubType::LessOrEq => {
+                let less_or_eq_node = AstNode::LessOrEq(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(less_or_eq_node)
+            },
+            TokenSubType::GreaterOrEq => {
+                let greater_or_eq_node = AstNode::GreaterOrEq(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(greater_or_eq_node)
+            },
+            TokenSubType::Greater => {
+                let greater_node = AstNode::Greater(
+                    Box::new(node),
+                    Box::new(n_node),
+                    Span::new(
+                        next_token.line,
+                        next_token.column,
+                        next_token.length));
+                Ok(greater_node)
+            },
+            _ => ice!("Got token {} when less/less or eq/greater or eq/greater token was expected", next_token),
         }
 
     }
-
     fn parse_boolean_or_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::DoublePipe)?;
         let n_node = self.parse_arithmetic_expression_with_boolean_and()?;
@@ -628,7 +652,7 @@ impl Parser {
 
     fn parse_boolean_and_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::DoubleAmpersand)?;
-        let n_node = self.parse_arithmetic_expression_with_comparisons()?;
+        let n_node = self.parse_arithmetic_expression_with_equals_not_equals_comparisons()?;
         let boolean_or_node = AstNode::BooleanAnd(
             Box::new(node),
             Box::new(n_node),
@@ -3522,35 +3546,12 @@ mod tests {
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-            // let a : bool = true;
-            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(
-                TokenType::Identifier,
-                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 0, 0, 0),
-            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-
-            // let b : bool = false;
-            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(
-                TokenType::Identifier,
-                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
-            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Boolean, TokenSubType::BooleanValue(false), 0, 0, 0),
-            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-
             // if a && b { }
-
             Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::DoubleAmpersand, TokenSubType::NoSubtype, 0, 0, 0);
+            Token::new(TokenType::DoubleAmpersand, TokenSubType::NoSubType, 8, 9, 10),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
@@ -3571,10 +3572,23 @@ mod tests {
                 AstNode::Function(
                     Box::new(
                         AstNode::Block(vec![
-                           /* AstNode::VariableAssignment(
-                                AstNode::True
-                                ""
-                            )*/
+                            AstNode::If(
+                               Box::new(
+                                   AstNode::BooleanAnd(
+                                       Box::new(
+                                           AstNode::Identifier(
+                                               Rc::new("a".to_owned()),
+                                               Span::new(0, 0, 0))),
+                                       Box::new(
+                                           AstNode::Identifier(
+                                               Rc::new("b".to_owned()),
+                                               Span::new(0, 0, 0))),
+                                       Span::new(8, 9, 10),
+                                   )),
+                                Box::new(
+                                    AstNode::Block(vec![], None, Span::new(0,0,0))),
+                                None,
+                                Span::new(0, 0, 0))
                         ],
                                        None,
                                        Span::new(0, 0, 0)
@@ -3589,12 +3603,374 @@ mod tests {
 
     #[test]
     fn boolean_or_is_parsed_correctly() {
-        unimplemented!()
+        let (mut parser, reporter) = create_parser(vec![
+            // fn foo() : int {
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // if a && b { }
+            Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::DoublePipe, TokenSubType::NoSubType, 8, 9, 10),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // }
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::If(
+                                Box::new(
+                                    AstNode::BooleanOr(
+                                        Box::new(
+                                            AstNode::Identifier(
+                                                Rc::new("a".to_owned()),
+                                                Span::new(0, 0, 0))),
+                                        Box::new(
+                                            AstNode::Identifier(
+                                                Rc::new("b".to_owned()),
+                                                Span::new(0, 0, 0))),
+                                        Span::new(8, 9, 10),
+                                    )),
+                                Box::new(
+                                    AstNode::Block(vec![], None, Span::new(0,0,0))),
+                                None,
+                                Span::new(0, 0, 0))
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
     }
 
     #[test]
-    fn boolean_and_boolean_or_have_correct_precedence() {
+    fn boolean_and_boolean_or_have_correct_precedence_with_other_operators() {
+
+        let (mut parser, reporter) = create_parser(vec![
+            // fn foo() : int {
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // if a || b && c || d > 2 == e { }
+            Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::DoublePipe, TokenSubType::NoSubType, 8, 9, 10),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::DoubleAmpersand, TokenSubType::NoSubType, 28, 91, 140),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 0, 0, 0),
+            Token::new(TokenType::DoublePipe, TokenSubType::NoSubType, 99, 88, 77),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("d".to_string())), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::Greater, 1, 2, 3),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::Equals, 11, 22, 33),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("e".to_string())), 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // }
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::If(
+                                Box::new(
+                                    AstNode::BooleanOr(
+                                        Box::new(
+                                            AstNode::BooleanOr(
+                                                Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(0, 0, 0))),
+                                                Box::new(
+                                                    AstNode::BooleanAnd(
+                                                        Box::new(
+                                                            AstNode::Identifier(
+                                                                Rc::new("b".to_owned()),
+                                                                Span::new(0, 0, 0))),
+                                                        Box::new(
+                                                            AstNode::Identifier(
+                                                                Rc::new("c".to_owned()),
+                                                                Span::new(0, 0, 0))),
+                                                        Span::new(28, 91, 140))),
+                                                Span::new(8, 9, 10))),
+                                        Box::new(
+                                            AstNode::Equals(
+                                                Box::new(AstNode::Greater(
+                                                    Box::new(
+                                                        AstNode::Identifier(
+                                                            Rc::new("d".to_owned()),
+                                                            Span::new(0, 0, 0))),
+                                                    Box::new(
+                                                        AstNode::Integer(
+                                                            AstInteger::Int(2),
+                                                            Span::new(0, 0, 0))),
+                                                    Span::new(1, 2, 3))),
+                                                Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("e".to_owned()),
+                                                        Span::new(0, 0, 0))),
+                                                Span::new(11, 22, 33))),
+                                        Span::new(99, 88, 77))),
+                                Box::new(
+                                    AstNode::Block(vec![], None, Span::new(0,0,0))),
+                                None,
+                                Span::new(0, 0, 0))
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
         unimplemented!()
     }
 
+
+/*
+    #[test]
+    fn boolean_not_is_parsed_correctly() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn boolean_not_has_correct_precedence() {
+        unimplemented!();
+    }
+
+    #[test]
+    fn can_use_boolean_not_multiple_times_on_same_value() {
+        unimplemented!();
+    }*/
+
+
+    #[test]
+    fn equals_has_lower_precedence_than_greater_less_operators() {
+
+        let (mut parser, reporter) = create_parser(vec![
+            // fn foo() : int {
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // if a > 2 == b <= 8 { }
+            Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::Greater, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::Equals, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // }
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::If(
+                                Box::new(
+                                    AstNode::Equals(
+                                        Box::new(
+                                        AstNode::Greater(
+                                            Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("a".to_owned()),
+                                                    Span::new(0, 0, 0))),
+                                            Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::Int(2),
+                                                    Span::new(0, 0, 0))),
+                                            Span::new(0, 0, 0))),
+                                        Box::new(
+                                            AstNode::LessOrEq(
+                                                Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("b".to_owned()),
+                                                        Span::new(0, 0, 0))),
+                                                Box::new(
+                                                    AstNode::Integer(
+                                                        AstInteger::Int(8),
+                                                        Span::new(0, 0, 0))),
+                                                Span::new(0, 0, 0))),
+                                        Span::new(0, 0, 0),
+                                    )),
+                                Box::new(
+                                    AstNode::Block(vec![], None, Span::new(0,0,0))),
+                                None,
+                                Span::new(0, 0, 0))
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn not_equals_has_lower_precedence_than_greater_less_operators() {
+        let (mut parser, reporter) = create_parser(vec![
+            // fn foo() : int {
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // if a > 2 != b <= 8 { }
+            Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::Greater, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::NotEquals, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            // }
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![
+                            AstNode::If(
+                                Box::new(
+                                    AstNode::NotEquals(
+                                        Box::new(
+                                            AstNode::Greater(
+                                                Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(0, 0, 0))),
+                                                Box::new(
+                                                    AstNode::Integer(
+                                                        AstInteger::Int(2),
+                                                        Span::new(0, 0, 0))),
+                                                Span::new(0, 0, 0))),
+                                        Box::new(
+                                            AstNode::LessOrEq(
+                                                Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("b".to_owned()),
+                                                        Span::new(0, 0, 0))),
+                                                Box::new(
+                                                    AstNode::Integer(
+                                                        AstInteger::Int(8),
+                                                        Span::new(0, 0, 0))),
+                                                Span::new(0, 0, 0))),
+                                        Span::new(0, 0, 0),
+                                    )),
+                                Box::new(
+                                    AstNode::Block(vec![], None, Span::new(0,0,0))),
+                                None,
+                                Span::new(0, 0, 0))
+                        ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
+    }
 }
