@@ -294,98 +294,104 @@ impl AstNode {
 impl PartialEq for AstNode {
     fn eq(&self, other: &AstNode) -> bool {
         match (self, other) {
-            (&AstNode::Block(ref s_chld, ref _s_entry, ref s_info),
-             &AstNode::Block(ref o_chld, ref _o_entry, ref o_info)) => {
+            (AstNode::Block(s_chld, _s_entry, s_info),
+             AstNode::Block(o_chld, _o_entry, o_info)) => {
                 // disregard symbol table contents for now
                 *s_chld == *o_chld && *s_info == *o_info
             }
-            (&AstNode::Function(ref s_blk, ref s_fi),
-             &AstNode::Function(ref o_blk, ref o_fi)) => {
+            (AstNode::Function(s_blk, s_fi),
+             AstNode::Function(o_blk, o_fi)) => {
                 s_blk == o_blk && s_fi == o_fi
             },
-            (&AstNode::ExternFunction(ref s_fi),
-             &AstNode::ExternFunction(ref o_fi)) => {
+            (AstNode::ExternFunction(s_fi),
+             AstNode::ExternFunction(o_fi)) => {
                 s_fi == o_fi
             },
-            (&AstNode::FunctionCall(ref s_args, ref s_name, ref s_info),
-             &AstNode::FunctionCall(ref o_args, ref o_name, ref o_info)) => {
+            (AstNode::FunctionCall(s_args, s_name, s_info),
+             AstNode::FunctionCall(o_args, o_name, o_info)) => {
                 s_args == o_args && s_name == o_name && s_info == o_info
             }
-            (&AstNode::VariableDeclaration(ref s_chld, ref s_vi),
-             &AstNode::VariableDeclaration(ref o_chld, ref o_vi)) => {
+            (AstNode::VariableDeclaration(s_chld, s_vi),
+             AstNode::VariableDeclaration(o_chld, o_vi)) => {
                 s_chld == o_chld && s_vi == o_vi
             },
-            (&AstNode::VariableAssignment(ref s_chld, ref s_name, ref s_ni),
-             &AstNode::VariableAssignment(ref o_chld, ref o_name, ref o_ni)) => {
+            (AstNode::VariableAssignment(s_chld, s_name, s_ni),
+             AstNode::VariableAssignment(o_chld, o_name, o_ni)) => {
                 s_chld == o_chld && s_name == o_name && s_ni == o_ni
             },
-            (&AstNode::Integer(ref s_num, ref s_ni),
-             &AstNode::Integer(ref o_num, ref o_ni)) => {
+            (AstNode::Integer(s_num, s_ni),
+             AstNode::Integer(o_num, o_ni)) => {
                 *s_num == *o_num && s_ni == o_ni
             },
-            (&AstNode::Float(s_num, ref s_ni),
-             &AstNode::Float(o_num, ref o_ni)) => {
+            (AstNode::Float(s_num, s_ni),
+             AstNode::Float(o_num, o_ni)) => {
                 s_num == o_num && s_ni == o_ni
             },
-            (&AstNode::Double(s_num, ref s_ni),
-             &AstNode::Double(o_num, ref o_ni)) => {
+            (AstNode::Double(s_num, s_ni),
+             AstNode::Double(o_num, o_ni)) => {
                 s_num == o_num && s_ni == o_ni
             },
-            (&AstNode::Text(ref s_text, ref s_ni),
-             &AstNode::Text(ref o_text, ref o_ni)) => {
+            (AstNode::Text(s_text, s_ni),
+             AstNode::Text(o_text, o_ni)) => {
                 s_text == o_text && s_ni == o_ni
             },
-            (&AstNode::Boolean(ref s_bool, ref s_ni),
-             &AstNode::Boolean(ref o_bool, ref o_ni)) => {
+            (AstNode::Boolean(s_bool, s_ni),
+             AstNode::Boolean(o_bool, o_ni)) => {
                 s_bool == o_bool && s_ni == o_ni
             },
-            (&AstNode::Identifier(ref s_name, ref s_ni),
-             &AstNode::Identifier(ref o_name, ref o_ni)) => {
+            (AstNode::Identifier(s_name, s_ni),
+             AstNode::Identifier(o_name, o_ni)) => {
                 s_name == o_name && s_ni == o_ni
             }
-            (&AstNode::Plus(ref s_lchld, ref s_rchld, ref s_ai),
-             &AstNode::Plus(ref o_lchld, ref o_rchld, ref o_ai)) |
-            (&AstNode::Minus(ref s_lchld, ref s_rchld, ref s_ai),
-             &AstNode::Minus(ref o_lchld, ref o_rchld, ref o_ai)) |
-            (&AstNode::Multiply(ref s_lchld, ref s_rchld, ref s_ai),
-             &AstNode::Multiply(ref o_lchld, ref o_rchld, ref o_ai)) |
-            (&AstNode::Divide(ref s_lchld, ref s_rchld, ref s_ai),
-             &AstNode::Divide(ref o_lchld, ref o_rchld, ref o_ai))
+            (AstNode::Plus(s_lchld, s_rchld, s_ai),
+             AstNode::Plus(o_lchld, o_rchld, o_ai)) |
+            (AstNode::Minus(s_lchld, s_rchld, s_ai),
+             AstNode::Minus(o_lchld, o_rchld, o_ai)) |
+            (AstNode::Multiply(s_lchld, s_rchld, s_ai),
+             AstNode::Multiply(o_lchld, o_rchld, o_ai)) |
+            (AstNode::Divide(s_lchld, s_rchld, s_ai),
+             AstNode::Divide(o_lchld, o_rchld, o_ai))
               => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ai == o_ai
             },
-            (&AstNode::Negate(ref s_child, ref s_ai),
-             &AstNode::Negate(ref o_child, ref o_ai)) => {
+            (AstNode::Negate(s_child, s_ai),
+             AstNode::Negate(o_child, o_ai)) => {
                 s_child == o_child && s_ai == o_ai
             },
-            (&AstNode::Return(ref s_child, ref s_ai),
-             &AstNode::Return(ref o_child, ref o_ai)) => {
+            (AstNode::Return(s_child, s_ai),
+             AstNode::Return(o_child, o_ai)) => {
                 s_child == o_child && s_ai == o_ai
             },
-            (&AstNode::While(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::While(ref o_lchld, ref o_rchld, ref o_ni)) => {
+            (AstNode::While(s_lchld, s_rchld, s_ni),
+             AstNode::While(o_lchld, o_rchld, o_ni)) => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
             },
-            (&AstNode::If(
-                ref s_lchld, ref s_rchld, ref s_opt_else_blk, ref s_ni),
-             &AstNode::If(
-                ref o_lchld, ref o_rchld, ref o_opt_else_blk, ref o_ni)) => {
+            (AstNode::If(
+                s_lchld, s_rchld, s_opt_else_blk, s_ni),
+             AstNode::If(
+                o_lchld, o_rchld, o_opt_else_blk, o_ni)) => {
                 s_lchld == o_lchld && s_rchld == o_rchld &&
                 s_opt_else_blk == o_opt_else_blk && s_ni == o_ni
             }
-            (&AstNode::Less(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::Less(ref o_lchld, ref o_rchld, ref o_ni)) |
-            (&AstNode::LessOrEq(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::LessOrEq(ref o_lchld, ref o_rchld, ref o_ni)) |
-            (&AstNode::Equals(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::Equals(ref o_lchld, ref o_rchld, ref o_ni)) |
-            (&AstNode::GreaterOrEq(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::GreaterOrEq(ref o_lchld, ref o_rchld, ref o_ni)) |
-            (&AstNode::Greater(ref s_lchld, ref s_rchld, ref s_ni),
-             &AstNode::Greater(ref o_lchld, ref o_rchld, ref o_ni)) => {
+            (AstNode::Less(s_lchld, s_rchld, s_ni),
+             AstNode::Less(o_lchld, o_rchld, o_ni)) |
+            (AstNode::LessOrEq(s_lchld,  s_rchld, s_ni),
+             AstNode::LessOrEq(o_lchld, o_rchld, o_ni)) |
+            (AstNode::Equals(s_lchld, s_rchld, s_ni),
+             AstNode::Equals(o_lchld, o_rchld, o_ni)) |
+            (AstNode::GreaterOrEq(s_lchld, s_rchld, s_ni),
+             AstNode::GreaterOrEq(o_lchld, o_rchld, o_ni)) |
+            (AstNode::Greater(s_lchld, s_rchld, s_ni),
+             AstNode::Greater(o_lchld, o_rchld, o_ni)) => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ni == o_ni
             },
-            (&AstNode::ErrorNode, &AstNode::ErrorNode) => true,
+            (AstNode::BooleanAnd(s_lchild, s_rchild, s_span),
+            AstNode::BooleanAnd(o_lchild, o_rchild, o_span)) |
+            (AstNode::BooleanOr(s_lchild, s_rchild, s_span),
+             AstNode::BooleanOr(o_lchild, o_rchild, o_span))=> {
+                s_lchild == o_lchild && s_rchild == o_rchild && s_span == o_span
+            },
+            (AstNode::ErrorNode, &AstNode::ErrorNode) => true,
             _ => false,
         }
     }
