@@ -96,6 +96,7 @@ pub enum AstNode {
     NotEquals(Box<AstNode>, Box<AstNode>, NodeInfo),
     GreaterOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
     Greater(Box<AstNode>, Box<AstNode>, NodeInfo),
+    Not(Box<AstNode>, NodeInfo),
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
 
@@ -166,6 +167,7 @@ impl Display for AstNode {
             AstNode::NotEquals(_, _, _) => "NotEquals".to_string(),
             AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
             AstNode::Greater(_, _, _) => "Greater".to_string(),
+            AstNode::Not(_, _) => "Not".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
       })
   }
@@ -249,6 +251,9 @@ impl AstNode {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
             }
+            AstNode::Not(ref child, ref span) => {
+                string = format!("{}{}", string, child.print_impl(next_int));
+            },
             AstNode::ErrorNode => {}
         }
 
@@ -286,6 +291,7 @@ impl AstNode {
             AstNode::Text(_, ref span) => span,
             AstNode::Identifier(_, ref span) => span,
             AstNode::Boolean(_, ref span) => span,
+            AstNode::Not(_, ref span) => span,
             AstNode::ErrorNode => &empty,
         }).clone()
     }
@@ -392,6 +398,10 @@ impl PartialEq for AstNode {
             (AstNode::BooleanOr(s_lchild, s_rchild, s_span),
              AstNode::BooleanOr(o_lchild, o_rchild, o_span))=> {
                 s_lchild == o_lchild && s_rchild == o_rchild && s_span == o_span
+            },
+            (AstNode::Not(s_child, s_span),
+            AstNode::Not(o_child, o_span)) => {
+                s_child == o_child && s_span == o_span
             },
             (AstNode::ErrorNode, &AstNode::ErrorNode) => true,
             _ => false,
