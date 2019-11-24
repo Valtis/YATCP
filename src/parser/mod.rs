@@ -455,14 +455,12 @@ impl Parser {
 
     fn parse_boolean_not(&mut self) -> Result<AstNode, ()> {
 
-        loop {
-            let next_token = self.lexer.peek_token();
-            match next_token.token_type {
-                TokenType::Not => {
-                    return self.parse_boolean_not_expression();
-                },
-                _ => break,
-            }
+        let next_token = self.lexer.peek_token();
+        match next_token.token_type {
+            TokenType::Not => {
+                return self.parse_boolean_not_expression();
+            },
+            _ => (),
         }
 
         let mut node = self.parse_factor()?;
@@ -683,14 +681,28 @@ impl Parser {
     }
 
     fn parse_boolean_not_expression(&mut self) -> Result<AstNode, ()> {
+
         let token = self.expect(TokenType::Not)?;
 
-        let n_node = self.parse_boolean_not()?;
-        let not_node = AstNode::Not(
-            Box::new(n_node),
-            Span::new(token.line, token.column, token.length),
-        );
+        let mut need_not = true;
+        loop {
+            match self.lexer.peek_token().token_type {
+                TokenType::Not => {
+                    self.expect(TokenType::Not)?;
+                    need_not = !need_not;
+                },
+                _ => break,
+            }
+        }
 
+        let mut not_node = self.parse_factor()?;
+
+        if need_not {
+            not_node = AstNode::Not(
+                Box::new(not_node),
+                Span::new(token.line, token.column, token.length),
+            );
+        }
         Ok(not_node)
     }
 

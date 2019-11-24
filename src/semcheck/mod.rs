@@ -12,6 +12,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use std::collections::HashMap;
+use crate::semcheck::Type::Boolean;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
@@ -156,6 +157,9 @@ impl SemanticsCheck {
             AstNode::GreaterOrEq(left, right, span) |
             AstNode::Greater(left, right, span) =>
                 self.handle_comparison_operation(left, right, span),
+            AstNode::BooleanAnd(left, right, span) |
+            AstNode::BooleanOr(left, right, span) => self.check_boolean_and_or(left, right, span),
+            AstNode::Not(child, span) => self.check_boolean_not(child, span),
             AstNode::Integer(value, info) => self.check_for_overflow(value, info),
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
@@ -164,7 +168,6 @@ impl SemanticsCheck {
                 { self.check_identifier_is_initialized(name, info); }
             AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
-            _ => unimplemented!()
         }
     }
 
@@ -738,6 +741,47 @@ impl SemanticsCheck {
         }
     }
 
+    fn check_boolean_and_or(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, _span: &Span) {
+        self.do_check(left_child);
+        self.do_check(right_child);
+
+        let left_type = self.get_type(left_child);
+        let right_type = self.get_type(right_child);
+
+        if left_type != Type::Boolean &&
+            left_type != Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                left_child.span(),
+                format!(
+                    "Operand must be '{}', got '{}' instead", Type::Boolean, left_type));
+        }
+
+        if right_type != Type::Boolean &&
+            right_type != Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                right_child.span(),
+                format!(
+                    "Operand must be '{}', got '{}' instead", Type::Boolean, right_type));
+        }
+
+    }
+
+    fn check_boolean_not(&mut self, child: &mut AstNode, _span: &Span) {
+        self.do_check(child);
+        let child_type = self.get_type(child);
+
+        if child_type != Type::Boolean &&
+            child_type != Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                child.span(),
+                format!(
+                    "Operand must be '{}', got '{}' instead", Type::Boolean, child_type));
+        }
+    }
+
     fn check_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         match integer {
             AstInteger::Int(_) => (), // OK
@@ -816,6 +860,9 @@ impl SemanticsCheck {
                     Type::Invalid
                 }
             },
+            AstNode::BooleanAnd(_, _, _) |
+            AstNode::BooleanOr(_, _, _) |
+            AstNode::Not(_, _) => Type::Boolean,
             AstNode::Text(_, _) => Type::String,
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
@@ -5397,6 +5444,336 @@ mod tests {
             Message::highlight_message(
                 ReportKind::TokenError,
                 Span::new(2, 3, 4),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn binary_and_with_boolean_values_is_accepted() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let a : bool = false;
+                let b : bool = true && a;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Boolean(
+                                false,
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("a".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        ),
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::BooleanAnd(
+                                Box::new(AstNode::Boolean(
+                                    true,
+                                    Span::new(8, 6, 3)
+                                )),
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 7, 2)
+                                )),
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                    None,
+                    Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+               None,
+               Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn binary_and_with_non_boolean_values_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let a : bool = false;
+                let b : bool = 5 && a;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Boolean(
+                                false,
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("a".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        ),
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::BooleanAnd(
+                                Box::new(AstNode::Integer(
+                                    AstInteger::from(5),
+                                    Span::new(8, 6, 3)
+                                )),
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 7, 2)
+                                )),
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                    None,
+                    Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+               None,
+               Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(8, 6, 3),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn binary_or_with_boolean_values_is_accepted() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let a : bool = false;
+                let b : bool = true || a;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Boolean(
+                                false,
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("a".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        ),
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::BooleanOr(
+                                Box::new(AstNode::Boolean(
+                                    true,
+                                    Span::new(8, 6, 3)
+                                )),
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 7, 2)
+                                )),
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                                            None,
+                                            Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn binary_or_with_non_boolean_values_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let a : bool = false;
+                let b : bool = 5 && a;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Boolean(
+                                false,
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("a".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        ),
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::BooleanOr(
+                                Box::new(AstNode::Integer(
+                                    AstInteger::from(5),
+                                    Span::new(8, 6, 3)
+                                )),
+                                Box::new(AstNode::Identifier(
+                                    Rc::new("a".to_owned()),
+                                    Span::new(9, 7, 2)
+                                )),
+                                Span::new(3, 4, 1)
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                    None,
+                    Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(8, 6, 3),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn binary_not_with_boolean_value_is_accepted() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let b : bool = !true;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Not(
+                                Box::new(AstNode::Boolean(
+                                    true,
+                                    Span::new(8, 6, 3)
+                                )),
+                                Span::new(3, 4, 1),
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                                            None,
+                                            Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 0);
+    }
+
+    #[test]
+    fn binary_not_with_non_boolean_value_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let b : bool = !5;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                        AstNode::VariableDeclaration(
+                            Box::new(AstNode::Not(
+                                Box::new(AstNode::Integer(
+                                    AstInteger::from(5),
+                                    Span::new(8, 6, 3)
+                                )),
+                                Span::new(3, 4, 1),
+                            )),
+                            DeclarationInfo::new_alt(
+                                Rc::new("b".to_string()),
+                                Type::Boolean,
+                                2, 2, 2),
+                        )
+                    ],
+                    None,
+                    Span::new(0, 0, 0))),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                )],
+               None,
+               Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(8, 6, 3),
                 "".to_owned()),
             messages[0]);
     }
