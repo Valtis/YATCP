@@ -134,6 +134,7 @@ fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<
         input_file_str.to_string(),
         false,
         false,
+        false,
         error_reporter.clone()).ok_or("Frontend error (syntax/semantics)".to_owned())?;
 
     let mut output_file = env::temp_dir();

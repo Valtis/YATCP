@@ -17,6 +17,8 @@ fn main() {
     let mut optimize = false;
     let mut output = "a.out".to_string();
     let mut input= "".to_string(); // one file for now
+
+    let mut print_token= false;
     let mut print_ast= false;
     let mut print_tac= false;
     let mut print_cfg = false;
@@ -34,6 +36,9 @@ fn main() {
         argparse.refer(&mut input)
             .add_argument("file", Store, "Input file name")
             .required();
+
+        argparse.refer(&mut print_token)
+            .add_option(&["--print-token"], StoreTrue, "Print out tokens");
 
         argparse.refer(&mut print_ast)
             .add_option(&["--print-ast"], StoreTrue, "Print out the syntax tree");
@@ -53,7 +58,7 @@ fn main() {
     }
 
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));
-    let opt_functions = run_frontend(input, print_ast, print_tac, error_reporter.clone());
+    let opt_functions = run_frontend(input, print_token, print_ast, print_tac, error_reporter.clone());
 
     if let Some(functions) = opt_functions {
         if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, error_reporter.clone()) {

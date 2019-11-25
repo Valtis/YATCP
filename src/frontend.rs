@@ -1,4 +1,5 @@
-use crate::lexer::ReadLexer;
+use crate::lexer::{ReadLexer, Lexer};
+use crate::token::{TokenType};
 use crate::parser::Parser;
 use crate::ast::AstNode;
 use crate::semcheck::SemanticsCheck;
@@ -13,12 +14,13 @@ use std::cell::RefCell;
 
 pub fn run_frontend(
     file_name: String,
+    print_token: bool,
     print_ast: bool,
     print_tac: bool,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     ) -> Option<Vec<Function>> {
 
-    let mut node = parse_code(&file_name,error_reporter.clone());
+    let mut node = parse_code(&file_name,error_reporter.clone(), print_token);
 
     if print_ast {
         node.print();
@@ -51,10 +53,26 @@ pub fn run_frontend(
 }
 
 
-fn parse_code(file_name: &String, error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> AstNode {
+fn parse_code(
+    file_name: &str,
+    error_reporter: Rc<RefCell<dyn ErrorReporter>>,
+    print_tokens: bool) -> AstNode {
+
+    if print_tokens {
+        let file = File::open(file_name)
+            .unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
+
+        let mut lexer = Box::new(
+            ReadLexer::new(Box::new(file),error_reporter.clone()));
+
+        while lexer.peek_token().token_type != TokenType::Eof {
+            println!("{}", lexer.next_token());
+        }
+        println!();
+    }
+
     let file = File::open(file_name)
         .unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_name, e));
-
     let lexer = Box::new(
         ReadLexer::new(Box::new(file),error_reporter.clone()));
 
