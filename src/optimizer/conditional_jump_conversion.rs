@@ -1,6 +1,6 @@
 use crate::tac_generator::{Function, Operand, Statement};
 
-use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
+use crate::cfg::{Adj, CFG, basic_block::BasicBlock, dom_front::calculate_immediate_dominator_opt};
 
 use std::collections::HashMap;
 
@@ -20,27 +20,47 @@ pub fn convert_jumps(
     }
 
     for (bb_id, bb) in cfg.basic_blocks.iter().enumerate() {
-        match function.statements[bb.end-1] {
-            Statement::JumpIfTrue(Operand::Boolean(val), label_id) => {
-                if val {
-                    function.statements[bb.end-1] = Statement::Jump(label_id);
-                    // remove the next block from adjacency_list, as this is
-                    // no longer connected to this block
-                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
-                } else {
-                    remove_list.push(bb.end-1);
-                    let target = label_to_block[&label_id];
-                    // remove the target block, as this is no longer reachable from this block
-                    cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(target));
-                }
 
+        let vals = match function.statements[bb.end-1] {
+            Statement::JumpIfTrue(Operand::Boolean(val), label_id) => {
+                Some((val, label_id))
             },
-            _ => {},
+            Statement::JumpIfFalse(Operand::Boolean(val), label_id) => {
+                Some((!val, label_id))
+            }
+            _ => None,
+        };
+
+        if let Some((val, label_id)) = vals {
+            if val {
+                function.statements[bb.end-1] = Statement::Jump(label_id);
+                // remove the next block from adjacency_list, as this is
+                // no longer connected to this block
+                cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(bb_id + 1));
+            } else {
+                remove_list.push(bb.end-1);
+                let target = label_to_block[&label_id];
+                // remove the target block, as this is no longer reachable from this block
+                cfg.adjacency_list[bb_id].retain(|v| *v != Adj::Block(target));
+            }
         }
     }
 
     cfg.remove_statements(function, remove_list);
     update_phi_functions(function, cfg);
+}
+
+fn convert_jump_common(
+    bb_id: usize,
+    label_id: u32,
+    bb: &BasicBlock,
+    val: bool,
+    function: &mut Function,
+    cfg: &mut CFG,
+    remove_list: &mut Vec<usize>,
+    label_to_block: &HashMap<u32, usize>) {
+
+
 }
 
 fn update_phi_functions(

@@ -502,8 +502,6 @@ impl TACGenerator {
         if_blk: &AstNode,
         opt_else_blk: &Option<Box<AstNode>>) {
 
-        let reversed_condition = self.reverse_condition(condition);
-
         /*
             * REVERSED COMPARISON
             JUMP TO ELSE_LABEL IF COMPARISON TRUE
@@ -516,9 +514,10 @@ impl TACGenerator {
         let skip_true_block = self.get_label_id();
         let out_label = self.get_label_id();
 
-        let operand = self.get_operand(&reversed_condition);
+        let operand = self.get_operand(&condition);
         self.current_function().statements.push(
-            Statement::JumpIfTrue(operand, skip_true_block));
+            Statement::JumpIfFalse(operand, skip_true_block));
+
         self.generate_tac(if_blk);
 
         if let Some(_) = opt_else_blk {
@@ -535,47 +534,6 @@ impl TACGenerator {
                 Statement::Label(out_label));
         }
     }
-
-    fn reverse_condition(&mut self, node: &AstNode) -> AstNode {
-        match node {
-
-            AstNode::Less(left, right, span) => {
-                AstNode::GreaterOrEq(left.clone(), right.clone(), span.clone())
-            },
-            AstNode::LessOrEq(left, right, span) => {
-                AstNode::Greater(left.clone(), right.clone(), span.clone())
-            },
-            AstNode::Equals(left, right, span) => {
-                AstNode::NotEquals(left.clone(), right.clone(), span.clone())
-            },
-            AstNode::NotEquals(left, right, span) => {
-                AstNode::Equals(left.clone(), right.clone(), span.clone())
-            },
-            AstNode::Greater(left, right, span) => {
-                AstNode::LessOrEq(left.clone(), right.clone(), span.clone())
-            }
-            AstNode::GreaterOrEq(left, right, span) => {
-                AstNode::Less(left.clone(), right.clone(), span.clone())
-            },
-            AstNode::Boolean(value, span) => {
-                AstNode::Boolean(!*value, span.clone())
-            },
-            AstNode::Identifier(_, info) => {
-                AstNode::Equals(
-                    Box::new(node.clone()),
-                    Box::new(AstNode::Boolean(false, info.clone())),
-                    info.clone())
-            },
-            AstNode::FunctionCall(_, _, ref info) => {
-                AstNode::Equals(
-                    Box::new(node.clone()),
-                    Box::new(AstNode::Boolean(false, info.clone())),
-                    info.clone())
-            },
-            _ => ice!("Unexpected node when comparison node expected: {:#?}", node),
-        }
-    }
-
     fn handle_comparison(&mut self, node: &AstNode) {
         let (operator, left, right) = match *node {
             AstNode::Less(ref left, ref right, _) =>

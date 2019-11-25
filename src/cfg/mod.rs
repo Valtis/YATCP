@@ -303,7 +303,8 @@ fn create_adj_list(basic_blocks: &Vec<BasicBlock>, f: &Function) -> Vec<Vec<Adj>
                     vec,
                     Adj::Block(id));
             },
-            Statement::JumpIfTrue(_, id) => {
+            Statement::JumpIfTrue(_, id) |
+            Statement::JumpIfFalse(_, id) => {
 
                 let id = label_id_to_bb[&id];
 

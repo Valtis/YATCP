@@ -59,6 +59,9 @@ pub fn remove_dead_stores(
                 },
                 Statement::JumpIfTrue(
                     Operand::SSAVariable(_, ref var_id, ref ssa_id),
+                    _) |
+                Statement::JumpIfFalse(
+                    Operand::SSAVariable(_, ref var_id, ref ssa_id),
                     _) => {
 
                     reads.insert((*var_id, *ssa_id));

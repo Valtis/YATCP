@@ -178,7 +178,8 @@ fn merge_labels(
     for s in function.statements.iter_mut() {
         match *s {
             Statement::Jump(ref mut label_id) |
-            Statement::JumpIfTrue(_, ref mut label_id)
+            Statement::JumpIfTrue(_, ref mut label_id) |
+            Statement::JumpIfFalse(_, ref mut label_id)
             if *label_id == prev_label => {
                 *label_id = cur_label;
             }

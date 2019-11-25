@@ -52,7 +52,8 @@ fn merge_blocks(
     if parent_block.end - parent_block.start != 0 {
         match function.statements[parent_block.end-1] {
             Statement::Jump(_) |
-            Statement::JumpIfTrue(_, _) =>
+            Statement::JumpIfTrue(_, _) |
+            Statement::JumpIfFalse(_, _) =>
                 remove_list.push(parent_block.end-1),
             _ => {},
         }
@@ -173,7 +174,8 @@ fn handle_single_successor_case(
                 // ok, jump present
                 false
             },
-            Statement::JumpIfTrue(_, _) => {
+            Statement::JumpIfTrue(_, _) |
+            Statement::JumpIfFalse(_, _) => {
                 // something has gone wrong, conditional jump means two children
                 ice!("Invalid conditional jump present when unconditional jump or no jump expected");
             },
@@ -234,10 +236,11 @@ fn handle_two_successors(
     // if the fallthrough block is the false branch of the conditional jump,
     // do nothing. Otherwise generate a new basic block and add a unconditional
     // jump to the false branch, adding a label if necessary
-    let jump_label_id = if let Statement::JumpIfTrue(_, jump_label_id) = child_instructions[child_instructions.len() - 1] {
-        jump_label_id
-    } else {
-        ice!("Missing conditional jump in child block when block has two successors");
+
+    let jump_label_id = match child_instructions[child_instructions.len() - 1] {
+        Statement::JumpIfTrue(_, jump_label_id) |
+        Statement::JumpIfFalse(_, jump_label_id) => jump_label_id,
+        _ => ice!("Missing conditional jump in child block when block has two successors"),
     };
 
     if cfg.adjacency_list[parent].contains(&Adj::Block(parent+1)) {

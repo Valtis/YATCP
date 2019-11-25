@@ -182,7 +182,10 @@ fn remove_trivial_phi_functions(
             },
             Statement::JumpIfTrue(
                 Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id),
-                _) => {
+                _) |
+            Statement::JumpIfFalse(
+                Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id),
+                _)  => {
                     if renames.contains_key(&(*var_id, *ssa_id)) {
                         let (new_var_id, new_ssa_id) = renames[&(*var_id, *ssa_id)];
                         *var_id = new_var_id;

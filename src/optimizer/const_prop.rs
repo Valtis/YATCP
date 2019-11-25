@@ -110,11 +110,17 @@ fn do_constant_propagation(
 
             return changes;
         },
-        Statement::JumpIfTrue(ref val, _) => {
+        Statement::JumpIfTrue(ref val, _) |
+        Statement::JumpIfFalse(ref val, _) => {
             match *val {
                 Operand::SSAVariable(_, var_id, ssa_id) => {
                     if known_constants.contains_key(&(var_id, ssa_id)) {
                         if let Statement::JumpIfTrue(ref mut op, _) = *s {
+                            *op = known_constants[&(var_id, ssa_id)].clone();
+                            return true;
+                        }
+
+                        if let Statement::JumpIfFalse(ref mut op, _) = *s {
                             *op = known_constants[&(var_id, ssa_id)].clone();
                             return true;
                         }

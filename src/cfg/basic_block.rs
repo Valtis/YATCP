@@ -36,6 +36,7 @@ impl BasicBlock {
                 },
                 Statement::Jump(_) |
                 Statement::JumpIfTrue(_, _) |
+                Statement::JumpIfFalse(_, _) |
                 Statement::Return(_)  => {
                     // include the jump in the block
                     basic_blocks.push(BasicBlock::new(start, end + 1));
