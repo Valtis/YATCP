@@ -21,6 +21,12 @@ fn replace_conditional_jumps_with_literal_condition_with_unconditional_ones(func
             Statement::JumpIfTrue(Operand::Boolean(false), _) => {
                 *statement = Statement::Empty;
             }
+            Statement::JumpIfFalse(Operand::Boolean(true), _) => {
+                *statement = Statement::Empty;
+            },
+            Statement::JumpIfFalse(Operand::Boolean(false), label) => {
+                *statement = Statement::Jump(*label);
+            },
 
             _ => (),
         }

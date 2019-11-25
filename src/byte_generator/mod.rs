@@ -149,7 +149,8 @@ impl ByteGenerator {
                     Statement::Return(val) => self.emit_return(val),
                     Statement::Label(id) => self.emit_label(id),
                     Statement::Jump(id) => self.emit_jump(id),
-                    Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_jump(operand, id),
+                    Statement::JumpIfTrue(ref operand, id) => self.emit_conditional_equals_jump(operand, id),
+                    Statement::JumpIfFalse(ref operand, id) => self.emit_conditional_not_equals_jump(operand, id),
                     Statement::Call(ref callee, ref args, ref retval) => self.emit_function_call(callee, args, retval),
                     Statement::Empty => (),
                    _ => panic!("Not implemented: {:?}", s),
@@ -241,11 +242,24 @@ impl ByteGenerator {
         self.current_function().code.push(ByteCode::Jump(id));
     }
 
-    fn emit_conditional_jump(&mut self, op: &Operand, id: u32) {
+    fn emit_conditional_equals_jump(&mut self, op: &Operand, id: u32) {
+        self.emit_conditional_jump(op, id, false);
+    }
 
+    fn emit_conditional_not_equals_jump(&mut self, op: &Operand, id: u32) {
+        self.emit_conditional_jump(op, id, true);
+    }
+
+    fn emit_conditional_jump(&mut self, op: &Operand, id: u32, reverse_comparison: bool) {
         let src =  self.get_source(op);
         match src {
             Value::ComparisonResult(cmp_type)  => {
+                let cmp_type = if reverse_comparison {
+                   self.reverse_comparison(cmp_type)
+                } else {
+                    cmp_type
+                };
+
                 self.current_function().
                     code.
                     push(
@@ -265,11 +279,26 @@ impl ByteGenerator {
                     })
                 );
 
+                let cmp = if reverse_comparison {
+                    ComparisonType::NotEquals
+                } else {
+                    ComparisonType::Equals
+                };
                 self.current_function().code.push(
-                    ByteCode::JumpConditional(id, ComparisonType::Equals)
-                )
+                    ByteCode::JumpConditional(id, cmp));
             },
             _ => ice!("Invalid operand type in conditional jump: {:#?}", src),
+        }
+    }
+
+    fn reverse_comparison(&mut self, cmp_type: ComparisonType) -> ComparisonType {
+        match cmp_type {
+            ComparisonType::Equals => ComparisonType::NotEquals,
+            ComparisonType::NotEquals => ComparisonType::Equals,
+            ComparisonType::Greater => ComparisonType::LessOrEq,
+            ComparisonType::GreaterOrEq => ComparisonType::Less,
+            ComparisonType::LessOrEq => ComparisonType::Greater,
+            ComparisonType::Less => ComparisonType::GreaterOrEq
         }
     }
 

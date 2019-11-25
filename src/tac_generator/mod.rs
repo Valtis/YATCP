@@ -1,7 +1,7 @@
 mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo, ArithmeticInfo};
+use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo as Span, ArithmeticInfo};
 use crate::semcheck::Type;
 use crate::function_attributes::FunctionAttribute;
 
@@ -83,6 +83,7 @@ pub enum Statement {
     Label(u32),
     Jump(u32),
     JumpIfTrue(Operand, u32),
+    JumpIfFalse(Operand, u32),
     Return(Option<Operand>),
     Empty,
     PhiFunction(Operand, Vec<Operand>)
@@ -130,6 +131,8 @@ impl Display for Statement {
             Statement::Jump(id) => format!("Jump {}", id),
             Statement::JumpIfTrue(ref op, id) =>
                 format!("Jump {} if {}", id, op),
+            Statement::JumpIfFalse(ref op, id) =>
+                format!("Jump {} if not {}", id, op),
             Statement::PhiFunction(ref dest, ref operands) => {
                 let mut op_str = operands.
                     iter().
@@ -253,6 +256,9 @@ impl TACGenerator {
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison(node),
             AstNode::Negate(child, arith_info) => self.handle_negate(child, arith_info),
+            AstNode::BooleanAnd(left, right, span) => {
+                self.handle_boolean_and(left, right, span);
+            },
             ref x => panic!("Three-address code generation not implemented for '{}'", *x),
         }
     }
@@ -261,7 +267,7 @@ impl TACGenerator {
         &mut self,
         children: &Vec<AstNode>,
         table_entry: &Option<TableEntry>,
-        _node_info: &NodeInfo) {
+        _node_info: &Span) {
 
         if let Some(ref entry) = *table_entry {
            self.symbol_table.push(entry.clone());
@@ -330,7 +336,7 @@ impl TACGenerator {
         &mut self,
         name: &Rc<String>,
         args: &Vec<AstNode>,
-        _info: &NodeInfo) {
+        _info: &Span) {
 
         let mut function_operands = vec![];
         for arg in args.iter() {
@@ -496,9 +502,7 @@ impl TACGenerator {
         if_blk: &AstNode,
         opt_else_blk: &Option<Box<AstNode>>) {
 
-
         let reversed_condition = self.reverse_condition(condition);
-
 
         /*
             * REVERSED COMPARISON
@@ -616,6 +620,31 @@ impl TACGenerator {
         self.operands.push(temp);
     }
 
+    fn handle_boolean_and(&mut self, left: &AstNode, right: &AstNode, span: &Span) {
+       /*
+            Execute first condition
+            cmp to false
+            Jump to out_label if comparison is true
+            out_lbl:
+       */
+
+        let out_label = self.get_label_id();
+        let tmp = self.get_temporary(Type::Boolean);
+
+
+        let operand = self.get_operand(left);
+        self.current_function().statements.push(
+            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand.clone())));
+        self.current_function().statements.push(
+            Statement::JumpIfFalse(operand, out_label));
+        let operand = self.get_operand(right);
+        self.current_function().statements.push(
+            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand)));
+        self.operands.push(tmp);
+        self.current_function().statements.push(
+            Statement::Label(out_label));
+    }
+
     fn get_type(&self, operand: &Operand) -> Type {
         match *operand {
             Operand::Variable(ref info, _) => info.variable_type,
@@ -725,7 +754,7 @@ mod tests {
                                     Box::new(
                                         AstNode::Integer(
                                             AstInteger::from(4),
-                                            NodeInfo::new(0, 0, 0)
+                                            Span::new(0, 0, 0)
                                         )
                                     ),
                                     decl_info_a.clone(),
@@ -734,12 +763,12 @@ mod tests {
                                     Box::new(AstNode::Multiply(
                                         Box::new(AstNode::Integer(
                                             AstInteger::from(9),
-                                            NodeInfo::new(0, 0, 0)
+                                            Span::new(0, 0, 0)
                                         )
                                         ),
                                         Box::new(AstNode::Integer(
                                             AstInteger::from(4),
-                                            NodeInfo::new(0, 0, 0)
+                                            Span::new(0, 0, 0)
                                         )
                                         ),
                                         ArithmeticInfo::new_alt(0, 0, 0),
@@ -750,20 +779,20 @@ mod tests {
                                     Box::new(
                                         AstNode::Integer(
                                             AstInteger::from(6),
-                                            NodeInfo::new(0, 0, 0)
+                                            Span::new(0, 0, 0)
                                         )
                                     ),
                                     decl_info_c.clone(),
                                 ),
                             ],
                             Some(func_symtab_entry),
-                            NodeInfo::new(0, 0, 0)
+                            Span::new(0, 0, 0)
                         )),
                     func_info,
                 )
             ],
             Some(block_symtab_entry),
-            NodeInfo::new(0, 0, 0),
+            Span::new(0, 0, 0),
         );
 
         let generator = TACGenerator::new(3);
@@ -843,7 +872,7 @@ mod tests {
                                     Box::new(
                                         AstNode::Integer(
                                             AstInteger::from(4),
-                                            NodeInfo::new(0, 0, 0)
+                                            Span::new(0, 0, 0)
                                         )
                                     ),
                                     decl_info_a.clone(),
@@ -853,25 +882,25 @@ mod tests {
                                         vec![
                                             AstNode::Identifier(
                                                 Rc::new("a".to_string()),
-                                                NodeInfo::new(0, 0, 0)),
+                                                Span::new(0, 0, 0)),
                                             AstNode::Integer(
                                                 AstInteger::from(9),
-                                                NodeInfo::new(0, 0, 0))
+                                                Span::new(0, 0, 0))
                                         ],
                                         Rc::new("foo".to_string()),
-                                        NodeInfo::new(0, 0, 0),
+                                        Span::new(0, 0, 0),
                                     )),
                                     decl_info_b.clone(),
                                 ),
                             ],
                             Some(func_symtab_entry),
-                            NodeInfo::new(0, 0, 0)
+                            Span::new(0, 0, 0)
                         )),
                     func_info,
                 )
             ],
             Some(block_symtab_entry),
-            NodeInfo::new(0, 0, 0),
+            Span::new(0, 0, 0),
         );
 
         let generator = TACGenerator::new(2);
@@ -954,13 +983,13 @@ mod tests {
                         AstNode::Block(
                             vec![],
                             Some(func_symtab_entry),
-                            NodeInfo::new(0, 0, 0)
+                            Span::new(0, 0, 0)
                         )),
                     foo_info,
                 )
             ],
             Some(block_symtab_entry),
-            NodeInfo::new(0, 0, 0),
+            Span::new(0, 0, 0),
         );
 
         let generator = TACGenerator::new(1);
@@ -1012,11 +1041,11 @@ mod tests {
                                 AstNode::FunctionCall(
                                     vec![],
                                     Rc::new("bar".to_owned()),
-                                    NodeInfo::new(0, 0, 0),
+                                    Span::new(0, 0, 0),
                                 )
                             ],
                             Some(TableEntry::new()),
-                            NodeInfo::new(0, 0, 0)
+                            Span::new(0, 0, 0)
                         )),
                     foo_info,
                 ),
@@ -1025,13 +1054,13 @@ mod tests {
                         AstNode::Block(
                             vec![],
                             Some(TableEntry::new()),
-                            NodeInfo::new(0, 0, 0)
+                            Span::new(0, 0, 0)
                         )),
                     bar_info,
                 ),
             ],
             Some(block_symtab_entry),
-            NodeInfo::new(0, 0, 0),
+            Span::new(0, 0, 0),
         );
 
         let generator = TACGenerator::new(1);
