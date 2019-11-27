@@ -6,26 +6,40 @@ IF_STATEMENT_NOT_TAKEN = 20
 		* Test file name without extension
         * First function return value
 		* Second function return value
-		* Expected stdout
+		* Expected stdotu
 """
 condition_answer_pairs = [
 
 
-	("both_and_conditions_should_be_evaluated",
+	("all_and_expressions_should_be_evaluated_if_all_return_true",
 		"true",
     "true",
-		f"External C function call: 123\nExternal C function call: 987\n{IF_STATEMENT_TAKEN}"),
-  ("should_only_evaluate_first_argument_if_it_returns_false",
+    "true",
+		f"External C function call: 123\nExternal C function call: 987\nExternal C function call: 443\n{IF_STATEMENT_TAKEN}"),
+
+  ("should_only_evaluate_first_expression_if_it_returns_false",
     "false",
+    "true",
     "true",
     f"External C function call: 123\n{IF_STATEMENT_NOT_TAKEN}"),
 
+   ("should_evaluate_first_two_expressions_second_returns_false",
+    "true",
+    "false",
+    "true",
+    f"External C function call: 123\nExternal C function call: 987\n{IF_STATEMENT_NOT_TAKEN}"),
+
+   ("should_evaluate_all_expressions_if_last_returns_false",
+    "true",
+    "true",
+    "false",
+    f"External C function call: 123\nExternal C function call: 987\nExternal C function call: 443\n{IF_STATEMENT_NOT_TAKEN}"),
 ]
 
 
 for pair in condition_answer_pairs:
 
-  expect_stdout = pair[3].replace("\n", "\n  ")
+  expect_stdout = pair[4].replace("\n", "\n  ")
   out = f'''program: |
   extern fn c_printer(integer: int) : void;
 
@@ -39,8 +53,13 @@ for pair in condition_answer_pairs:
     return {pair[2]};
   }}
 
+  fn third() : bool {{
+    c_printer(443);
+    return {pair[3]};
+  }}
+
   fn test_function() : int {{
-      let cond: bool = first() && second();
+      let cond: bool = first() && second() && third();
       if cond {{
       	return {IF_STATEMENT_TAKEN};
       }}
