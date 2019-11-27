@@ -259,6 +259,9 @@ impl TACGenerator {
             AstNode::BooleanAnd(left, right, span) => {
                 self.handle_boolean_and(left, right, span);
             },
+            AstNode::BooleanOr(left, right, span) => {
+                self.handle_boolean_or(left, right, span);
+            },
             ref x => panic!("Three-address code generation not implemented for '{}'", *x),
         }
     }
@@ -503,8 +506,8 @@ impl TACGenerator {
         opt_else_blk: &Option<Box<AstNode>>) {
 
         /*
-            * REVERSED COMPARISON
-            JUMP TO ELSE_LABEL IF COMPARISON TRUE
+            COMPARE
+            JUMP TO ELSE_LABEL IF COMPARISON FALSE
                 TRUE BLOCK
                 OPTIONAL JUMP TO OUT_LABEL IF ELSE BLOCK PRESENT
             ELSE_LABEL
@@ -580,9 +583,10 @@ impl TACGenerator {
 
     fn handle_boolean_and(&mut self, left: &AstNode, right: &AstNode, span: &Span) {
        /*
-            Execute first condition
-            cmp to false
-            Jump to out_label if comparison is true
+
+            GET FIRST EXPRESSION RESULT
+            JUMP TO out_lbl IF FALSE
+            GET SECOND EXPRESSION RESULT
             out_lbl:
        */
 
@@ -595,6 +599,30 @@ impl TACGenerator {
             Statement::Assignment(None, Some(tmp.clone()), None, Some(operand.clone())));
         self.current_function().statements.push(
             Statement::JumpIfFalse(operand, out_label));
+        let operand = self.get_operand(right);
+        self.current_function().statements.push(
+            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand)));
+        self.operands.push(tmp);
+        self.current_function().statements.push(
+            Statement::Label(out_label));
+    }
+
+    fn handle_boolean_or(&mut self, left: &AstNode, right: &AstNode, span: &Span) {
+        /*
+            GET FIRST EXPRESSION RESULT
+            JUMP TO out_lbl IF TRUE
+            GET SECOND EXPRESSION RESULT
+            out_lbl:
+        */
+
+        let out_label = self.get_label_id();
+        let tmp = self.get_temporary(Type::Boolean);
+
+        let operand = self.get_operand(left);
+        self.current_function().statements.push(
+            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand.clone())));
+        self.current_function().statements.push(
+            Statement::JumpIfTrue(operand, out_label));
         let operand = self.get_operand(right);
         self.current_function().statements.push(
             Statement::Assignment(None, Some(tmp.clone()), None, Some(operand)));
