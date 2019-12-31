@@ -57,6 +57,12 @@ fn main() {
         argparse.parse_args_or_exit();
     }
 
+    if optimize {
+        eprintln!("\nOptimizations are currently broken due to changes to TAC generation. Needs to be fixed once TAC stabilizes a bit");
+        std::process::exit(1);
+        return;
+    }
+
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));
     let opt_functions = run_frontend(input, print_token, print_ast, print_tac, error_reporter.clone());
 
@@ -65,7 +71,11 @@ fn main() {
             if generate_code {
                 run_backend(output, functions, print_bytecode);
             }
+        } else {
+            std::process::exit(1);
         }
+    } else {
+        std::process::exit(1);
     }
 }
 
