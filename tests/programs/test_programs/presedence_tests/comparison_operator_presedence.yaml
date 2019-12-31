@@ -1,0 +1,109 @@
+program: |
+    extern fn int_printer(value: int) : void;
+
+    fn main() : int {
+        let a: int = 24;
+        let b: int = 9;
+
+        // true
+        let result: bool = a > 2 == b > 2;
+        if result {
+          int_printer(1);
+        }
+
+        // false
+        result = a < 2 == b > 2;
+        if result {
+          int_printer(2);
+        }
+
+        // true
+        result = (a == 24) == (b == 9);
+        if result {
+          int_printer(3);
+        }
+
+
+        let c: bool = true;
+        let d: bool = false;
+
+        // true
+        result = d && false || c;
+        if result {
+          int_printer(4);
+        }
+
+        // false
+        result = c && false || d;
+        if result {
+          int_printer(5);
+        }
+
+        // true
+        result = c && true || d;
+        if result {
+          int_printer(6);
+        }
+
+        // true 
+        result = c || true && d;
+        if result {
+          int_printer(7);
+        }
+
+        // false
+        result = false || true && d;
+        if result {
+          int_printer(8);
+        }
+
+        // true
+        result = false || true && c;
+        if result {
+          int_printer(9);
+        }
+
+        // true
+        result = a == 4 || b > 4*2;
+        if result {
+          int_printer(10);
+        }
+
+        // false
+        result = a == 4 || b > 4*6;
+        if result {
+          int_printer(11);
+        }
+
+        // false
+        result = a < 3 || false == b < 2 && d;
+        if result {
+          int_printer(12);
+        }
+
+        // true
+        result = a > 3 || false == b < 2 && d;
+        if result {
+          int_printer(13);
+        }
+
+        // true
+        result = a < 3 || false == b < 2 && c;
+        if result {
+          int_printer(14);
+        }
+
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    1
+    3
+    4
+    6
+    7
+    9
+    10
+    13
+    14

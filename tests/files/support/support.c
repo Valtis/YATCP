@@ -25,6 +25,9 @@ void c_printer(int a) {
     printf("External C function call: %d\n", a);
 }
 
+void int_printer(int a) {
+    printf("%d\n", a);
+}
 
 int returns_12345(void) {
     return 12345;

@@ -1,0 +1,11 @@
+program: |
+    fn test_function() : int {
+        let a: int = 2+3*8-4/2*6+2/1;
+        return a-2*3;
+    }
+link_with:
+    - tests/files/support/support.c
+callable: test_function
+returns: int
+expect_stdout: |
+    10
