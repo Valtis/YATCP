@@ -1275,7 +1275,10 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
         },
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
-            src2: BooleanConstant(val),
+            src2: constant @ BooleanConstant(_),
+        } | ComparisonOperation {
+            src1: constant @ BooleanConstant(_),
+            src2: VirtualRegister(src_vregdata)
         } => {
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             updated_instructions.push(
@@ -1285,7 +1288,7 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                             offset: stack_slot.offset,
                             size: stack_slot.size,
                         },
-                        src2: BooleanConstant(*val),
+                        src2: constant.clone()
                     }
                 )
             )
