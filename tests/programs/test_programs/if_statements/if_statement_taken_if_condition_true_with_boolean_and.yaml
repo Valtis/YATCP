@@ -1,0 +1,22 @@
+program: |
+  fn test_function() : int {
+
+      let a: int = 6;
+      let b: bool = true;
+      
+      if returns_true() && a > 4 && b  {
+        return 12345;
+      }
+      return 0;
+  }
+
+  fn returns_true() : bool {
+    return true;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  12345
+
