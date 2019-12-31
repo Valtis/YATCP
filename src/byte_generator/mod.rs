@@ -93,14 +93,11 @@ impl Function {
     }
 }
 
-
-
 pub struct ByteGenerator {
     pub bytecode_functions: Vec<Function>,
     tac_functions: Vec<tac_generator::Function>,
     next_register: u32,
     variable_id_to_register: HashMap<u32, VirtualRegisterData>,
-    variable_to_comparison_result: HashMap<u32, ComparisonType>,
 }
 
 impl ByteGenerator {
@@ -110,7 +107,6 @@ impl ByteGenerator {
             tac_functions: functions,
             next_register: 0,
             variable_id_to_register: HashMap::new(),
-            variable_to_comparison_result: HashMap::new(),
         }
     }
 
@@ -210,24 +206,13 @@ impl ByteGenerator {
                 }));
 
         if let Operand::Variable(declaration_info, id) = dest {
-            // mark the variable as comparison result, if we assing into tmp_var
-            // this is needed, so that code gen knows to generate appropriate
-            // jmp command or read from cpu status register
-
-            // if we assign to non-temp variable, generate appropriate byte move into reg, so that
-            // the result is stored for later use
-            if declaration_info.name.starts_with(TMP_NAME) {
-                self.variable_to_comparison_result.
-                    insert(*id, comparison_type.clone());
-            } else {
-                let reg = self.get_register_for(declaration_info,*id);
-                self.current_function().code.push(
-                    ByteCode::Mov(UnaryOperation{
-                        src: ComparisonResult(comparison_type.clone()),
-                        dest: reg,
-                    })
-                );
-            }
+            let reg = self.get_register_for(declaration_info,*id);
+            self.current_function().code.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ComparisonResult(comparison_type.clone()),
+                    dest: reg,
+                })
+            );
         } else {
             ice!("Non-variable destination for comparison results");
         }
@@ -251,20 +236,10 @@ impl ByteGenerator {
     }
 
     fn emit_conditional_jump(&mut self, op: &Operand, id: u32, reverse_comparison: bool) {
-        let src =  self.get_source(op);
-        match src {
-            Value::ComparisonResult(cmp_type)  => {
-                let cmp_type = if reverse_comparison {
-                   self.reverse_comparison(cmp_type)
-                } else {
-                    cmp_type
-                };
 
-                self.current_function().
-                    code.
-                    push(
-                        ByteCode::JumpConditional(id, cmp_type));
-            },
+        let src = self.get_source(op);
+
+        match src {
             Value::VirtualRegister(vregdata) => {
                 ice_if!(
                     vregdata.size != 1,
@@ -357,13 +332,7 @@ impl ByteGenerator {
 
         match op {
             Operand::Variable(declaration_info, id) => {
-                if self.variable_to_comparison_result.contains_key(&id) {
-                    Value::ComparisonResult(
-                        self.variable_to_comparison_result[&id].clone())
-                }
-                else {
-                    self.get_register_for(declaration_info, *id)
-                }
+                self.get_register_for(declaration_info, *id)
             },
             Operand::Integer(val) => Value::IntegerConstant(*val),
             Operand::Boolean(val) => Value::BooleanConstant(*val),

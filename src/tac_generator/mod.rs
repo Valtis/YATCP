@@ -557,8 +557,7 @@ impl TACGenerator {
         let left_op = self.get_operand(left);
         let right_op = self.get_operand(right);
 
-        let tmp_type = self.get_type(&left_op);
-        let temp = self.get_temporary(tmp_type);
+        let temp = self.get_temporary(Type::Boolean);
 
         self.current_function().statements.push(Statement::Assignment(
             Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
