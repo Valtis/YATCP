@@ -1,6 +1,6 @@
 #![allow(dead_code)] // primarily for the unused variant lints
 
-use crate::tac_generator::{Statement, Operator, Operand, TMP_NAME};
+use crate::tac_generator::{Statement, Operator, Operand};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::X64Register;
@@ -66,6 +66,7 @@ pub enum ByteCode {
     Mul(BinaryOperation),
     Div(BinaryOperation),
     Negate(UnaryOperation),
+    Xor(BinaryOperation),
     Mov(UnaryOperation),
     SignExtend(UnaryOperation),
     Compare(ComparisonOperation),
@@ -135,6 +136,7 @@ impl ByteGenerator {
                     Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
                     Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
                     Statement::Assignment(Some(Operator::Minus), Some(ref dest), None, Some(ref src)) => self.emit_negate(dest, src),
+                    Statement::Assignment(Some(Operator::Xor), Some(ref dest), Some(ref src1), Some(ref src2)) => self.emit_xor(dest, src1, src2),
                     Statement::Assignment(
                         Some(ref x),
                         Some(ref dest),
@@ -172,6 +174,11 @@ impl ByteGenerator {
     fn emit_negate(&mut self, dest: &Operand, src: &Operand) {
         let data = self.form_unary_operation(src, dest);
         self.current_function().code.push(ByteCode::Negate(data));
+    }
+
+    fn emit_xor(&mut self, dest: &Operand, src1: &Operand, src2: &Operand) {
+        let data = self.form_binary_operation(src1, src2, dest);
+        self.current_function().code.push(ByteCode::Xor(data));
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {

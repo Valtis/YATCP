@@ -38,6 +38,10 @@ const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
 const SIGNED_DIV_RM_32_BIT: u8 = 0xF7;
 const DIV_OPCODE_EXT: u8 = 0x07;
 
+const XOR_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
+const XOR_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
+const XOR_OPCODE_EXT: u8 = 0x06;
+
 const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 
 const NEGATE_RM_32_BIT: u8 = 0xF7;
@@ -397,6 +401,7 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
             ByteCode::Mul(operands) => emit_mul(operands, &mut asm),
             ByteCode::Div(operands) => emit_div(operands, &mut asm),
             ByteCode::Negate(operands) => emit_neg(operands, &mut asm),
+            ByteCode::Xor(operands) => emit_xor(operands, &mut asm),
             ByteCode::Ret(value) => emit_ret(value, stack_size, function.parameter_count, &mut asm),
             ByteCode::SignExtend(operands) => emit_sign_extension(operands, &mut asm),
             ByteCode::Compare(ref operands) => emit_comparison(operands, &mut asm),
@@ -805,7 +810,7 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 */
 fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
-    let (imm, opcode) = if immediate <= 127 && immediate >= -128 {
+    let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
         (Immediate::from(immediate as u8), ADD_IMMEDIATE_8_BIT_TO_RM)
     } else {
         (Immediate::from(immediate), ADD_IMMEDIATE_32_BIT_TO_RM)
@@ -1009,7 +1014,7 @@ fn emit_sub_immediate_from_stack(offset: u32, _size: u32, immediate: i32, asm: &
 fn emit_sub_immediate_from_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
 
-    let (imm, opcode) = if immediate <= 127 && immediate >= -128 {
+    let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
         (Immediate::from(immediate as u8), SUB_IMMEDIATE_8_BIT_FROM_RM)
     } else {
         (Immediate::from(immediate), SUB_IMMEDIATE_32_BIT_FROM_RM)
@@ -1132,7 +1137,7 @@ fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
 fn emit_mul_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
-    let (imm, opcode) = if immediate <= 127 && immediate >= -128 {
+    let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
         (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_)
     } else {
         (Immediate::from(immediate), SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE)
@@ -1282,6 +1287,47 @@ fn emit_neg_stack(offset: u32, _size: u32, asm: &mut Vec<u8>) {
         Some(modrm),
         sib,
         None,
+    );
+}
+
+fn emit_xor(operands: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operands {
+        BinaryOperation {
+            src1: StackOffset { offset: src_offset, size: src_size},
+            src2: IntegerConstant(immediate),
+            dest: StackOffset { offset: dest_offset, size: dest_size}
+        } if src_offset == dest_offset => {
+            ice_if!(src_size != dest_size, "Source and destination sizes are different");
+            emit_xor_immediate_with_stack(*dest_offset, *dest_size, *immediate, asm);
+        },
+        _ => ice!("Invalid operand encoding for XOR: {:#?}", operands),
+    }
+}
+
+fn emit_xor_immediate_with_stack(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let (opcode, immediate) = if immediate_fits_in_8_bits(immediate)  {
+        (XOR_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Immediate::from(immediate as u8))
+    } else {
+        (XOR_RM_32_BIT_WITH_32_BIT_IMMEDIATE, Immediate::from(immediate))
+    };
+
+    let modrm = ModRM {
+        addressing_mode,
+        rm_field: RmField::Register(X64Register::RBP),
+        reg_field: RegField::OpcodeExtension(XOR_OPCODE_EXT),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        Some(immediate),
     );
 }
 
@@ -1801,5 +1847,7 @@ fn update_calls(
     relocations
 }
 
-
+fn immediate_fits_in_8_bits(immediate: i32) -> bool {
+    immediate <= 127 && immediate >= -128
+}
 

@@ -60,7 +60,6 @@ fn main() {
     if optimize {
         eprintln!("\nOptimizations are currently broken due to changes to TAC generation. Needs to be fixed once TAC stabilizes a bit");
         std::process::exit(1);
-        return;
     }
 
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));

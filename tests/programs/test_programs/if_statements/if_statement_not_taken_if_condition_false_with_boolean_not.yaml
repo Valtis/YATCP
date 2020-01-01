@@ -1,0 +1,17 @@
+program: |
+  fn test_function() : int {
+
+      let a: int = 5;
+      
+      if !(a > 4) {
+        return 12345;
+      }
+      return 0;
+  }
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  0
+

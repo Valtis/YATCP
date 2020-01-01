@@ -24,7 +24,8 @@ pub enum Operator {
     Equals,
     NotEquals,
     GreaterOrEq,
-    Greater
+    Greater,
+    Xor,
 }
 
 pub const TMP_NAME : &'static str = "%tmp";
@@ -42,6 +43,7 @@ impl Display for Operator {
             Operator::NotEquals => "!=".to_string(),
             Operator::GreaterOrEq => ">=".to_string(),
             Operator::Greater => ">".to_string(),
+            Operator::Xor => "^".to_string(),
         })
     }
 }
@@ -262,6 +264,9 @@ impl TACGenerator {
             AstNode::BooleanOr(left, right, span) => {
                 self.handle_boolean_or(left, right, span);
             },
+            AstNode::Not(expr, span) => {
+                self.handle_not(expr, span);
+            }
             ref x => panic!("Three-address code generation not implemented for '{}'", *x),
         }
     }
@@ -580,7 +585,7 @@ impl TACGenerator {
         self.operands.push(temp);
     }
 
-    fn handle_boolean_and(&mut self, left: &AstNode, right: &AstNode, span: &Span) {
+    fn handle_boolean_and(&mut self, left: &AstNode, right: &AstNode, _span: &Span) {
        /*
 
             GET FIRST EXPRESSION RESULT
@@ -606,7 +611,7 @@ impl TACGenerator {
             Statement::Label(out_label));
     }
 
-    fn handle_boolean_or(&mut self, left: &AstNode, right: &AstNode, span: &Span) {
+    fn handle_boolean_or(&mut self, left: &AstNode, right: &AstNode, _span: &Span) {
         /*
             GET FIRST EXPRESSION RESULT
             JUMP TO out_lbl IF TRUE
@@ -628,6 +633,19 @@ impl TACGenerator {
         self.operands.push(tmp);
         self.current_function().statements.push(
             Statement::Label(out_label));
+    }
+
+    fn handle_not(&mut self, node: &AstNode, _span: &Span) {
+        let operand = self.get_operand(node);
+        let tmp = self.get_temporary(Type::Boolean);
+        self.current_function().statements.push(
+            Statement::Assignment(
+                Some(Operator::Xor),
+                Some(tmp.clone()),
+                Some(operand),
+                Some(Operand::Integer(1))));
+
+        self.operands.push(tmp);
     }
 
     fn get_type(&self, operand: &Operand) -> Type {

@@ -1,15 +1,49 @@
-use crate::tac_generator::{Function, Statement, Operand, TMP_NAME};
+use crate::tac_generator::{Function, Statement, Operand, Operator, TMP_NAME};
 
 use std::collections::HashMap;
 // removes some inefficiencies in the generated three-address code
 pub fn optimize(functions: &mut Vec<Function>) {
 
-    for function in functions.iter_mut() {
-        replace_conditional_jumps_with_literal_condition_with_unconditional_ones(function);
-        remove_unconditional_jumps_into_unconditional_jumps(function);
-        remove_unnecessary_temporaries(function);
-        merge_successive_labels(function);
+    let mut changes = true;
+    while changes {
+        changes = false;
+        for function in functions.iter_mut() {
+            changes = changes || replace_boolean_not_on_constant_value(function);
+            // FIXME: Update below methods to return change status as well
+            replace_conditional_jumps_with_literal_condition_with_unconditional_ones(function);
+            remove_unconditional_jumps_into_unconditional_jumps(function);
+            remove_unnecessary_temporaries(function);
+            merge_successive_labels(function);
+        }
     }
+}
+
+fn replace_boolean_not_on_constant_value(function: &mut Function) -> bool{
+    let mut changes = false;
+    for statement in function.statements.iter_mut() {
+
+        match statement {
+            // !true or !false
+            Statement::Assignment(
+                Some(Operator::Xor),
+                Some(ref var @ Operand::Variable(_, _)),
+                Some(Operand::Boolean(bool_var)),
+                Some(Operand::Integer(1))
+            ) => {
+                *statement = Statement::Assignment(
+                    None,
+                    Some(var.clone()),
+                    None,
+                    Some(Operand::Boolean(!*bool_var))
+                );
+                changes = true;
+            }
+
+            _ => (),
+        }
+    }
+
+    changes
 }
 
 fn replace_conditional_jumps_with_literal_condition_with_unconditional_ones(function: &mut Function) {
@@ -187,3 +221,4 @@ fn merge_labels(
         }
     }
 }
+

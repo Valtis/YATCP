@@ -1,6 +1,7 @@
 use crate::tac_generator::{Function, Operand, Operator, Statement};
 
 use std::collections::HashMap;
+use std::any::Any;
 
 pub fn propagate_and_fold_constants(
     functions: &mut Vec<Function>) {
@@ -45,6 +46,7 @@ fn do_constant_folding(
                 Operator::NotEquals => Operand::Boolean(val != val2),
                 Operator::GreaterOrEq => Operand::Boolean(val >= val2),
                 Operator::Greater => Operand::Boolean(val > val2),
+                Operator::Xor => Operand::Integer(val ^ val2),
             };
             *s = Statement::Assignment(None,
                 Some(var), None, Some(new_val));

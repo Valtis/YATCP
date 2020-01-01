@@ -686,7 +686,7 @@ impl Parser {
 
         let next_token = self.lexer.peek_token();
 
-        let mut node = if next_token.token_type == TokenType::Not {
+        let node = if next_token.token_type == TokenType::Not {
             self.parse_boolean_not_expression()?
         } else {
             self.parse_factor()?
