@@ -1,7 +1,4 @@
 extern crate yaml_rust;
-mod compiler_helper;
-
-use compiler_helper::{FunctionKind, CompileData};
 
 use yaml_rust::YamlLoader;
 use rayon::prelude::*;
@@ -11,23 +8,28 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::panic;
+use crate::compiler_helper::{compile_and_run, CompileData, FunctionKind};
 
 const TEST_FILE_EXTENSION: &'static str= "yaml";
 
-fn run_tests() {
+pub fn run_tests() {
     let programs = find_all_test_programs();
+    println!("Discovered {} test cases\n", programs.len());
+
     let results: Vec<Result<(), (String, String)>> = programs.par_iter().map(|program| run_test(program)).collect();
 
     let mut failures = vec![];
 
+    let mut passes = 0;
     for result in results {
         match result {
-            Ok(_) => (), // don't care
+            Ok(_) => passes +=1,
             Err(fail) => {
                 failures.push(fail);
             }
         }
     }
+
 
     for f in failures.iter() {
         println!("{}:\n{}", Colour::Cyan.paint(&f.0), f.1);
@@ -40,11 +42,11 @@ fn run_tests() {
         println!("{0}\nThere were {1} failures\n{0}\n\n", stars, Colour::Red.paint(format!("{}", failures.len())));
     }
 
-    assert_eq!(0, failures.len());
+    println!("\nRan {} test, {} passed, {} failed", programs.len(), passes, failures.len());
 }
 
 fn find_all_test_programs() -> Vec<PathBuf> {
-    find_files_recursively(Path::new("tests/programs"))
+    find_files_recursively(Path::new("../programs"))
 }
 
 fn find_files_recursively(path: &Path) -> Vec<PathBuf> {
@@ -96,10 +98,10 @@ fn run_test(path: &Path) -> Result<(), (String, String)> {
            ).unwrap();
        },
        Err((_, err)) => {
-           writeln!(&mut handle, "\n{}\n{}: {}",
-                    err,
+           writeln!(&mut handle, "{}: {}\n\n{}",
                     Colour::Red.paint("FAIL"),
                     testcase,
+                    err,
                     ).unwrap();
        }
 
@@ -109,11 +111,12 @@ fn run_test(path: &Path) -> Result<(), (String, String)> {
 
 fn do_run(path: &Path) -> Result<(), String> {
     let data = load_values_from_yaml(path);
-    compiler_helper::compile_and_run(data, false)
+    compile_and_run(data, false)
 }
 
 
 fn load_values_from_yaml(path: &Path) -> CompileData {
+
     let content = fs::read_to_string(path).unwrap();
     let yaml = YamlLoader::load_from_str(&content)
         .unwrap_or_else(|err| panic!("Malformed test file {}: {}", path.to_str().unwrap(), err));
@@ -169,7 +172,4 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
     }
 }
 
-#[test]
-fn run_e2e_tests() {
-    run_tests();
-}
+

@@ -1,9 +1,3 @@
-use compiler::frontend::run_frontend;
-use compiler::middleend::run_middleend;
-use compiler::backend::run_backend;
-
-use compiler::error_reporter::file_reporter::FileErrorReporter;
-
 use ansi_term::Colour;
 
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -18,6 +12,10 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 static FILE_COUNTER: AtomicI32 = AtomicI32::new(0);
+
+// FIXME Hardcoded path to test binary, assumes that it is compiled
+// preferably all paths are given as inputs, so we can test arbitrary binaries
+const COMPILER_BINARY:&'static str = "../../target/debug/compiler";
 
 #[derive(Debug)]
 pub enum FunctionKind {
@@ -69,7 +67,7 @@ pub fn compile_and_run(compile_data: CompileData, optimize: bool) -> Result<(), 
     let binary_out_str = binary_out.to_str().unwrap().to_string();
 
     compile_test_binary(&compile_data, output_file_str.clone(), &binary_out_str)?;
-    let (stdout, stderr) = run_test_binary(&output_file_str, &binary_out_str);
+    let (stdout, stderr) = run_test_binary(&output_file_str, &binary_out_str)?;
 
 
 
@@ -128,28 +126,38 @@ fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
 
 fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<String, String> {
 
-    let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(input_file_str)));
-
-    let functions = run_frontend(
-        input_file_str.to_string(),
-        false,
-        false,
-        false,
-        error_reporter.clone()).ok_or("Frontend error (syntax/semantics)".to_owned())?;
 
     let mut output_file = env::temp_dir();
     output_file.push(format!("yatcp_test_output_{}.o", ctr));
     let output_file_str = output_file.to_str().unwrap().to_string();
 
-    let functions = run_middleend(
-        functions,
-        optimize,
-        false,
-        false,
-        error_reporter.clone()).ok_or("Middle-end error (cfg)".to_owned())?;
 
-    run_backend(output_file_str.clone(), functions, false);
-    Ok(output_file_str)
+    let mut args = vec![];
+    args.push("-o".to_owned());
+    args.push(output_file_str.to_owned());
+
+    if optimize {
+        args.push("-O".to_owned());
+    }
+
+    args.push(input_file_str.to_owned());
+
+    let mut output = Command::new(COMPILER_BINARY)
+        .args(args)
+        .output()
+        .unwrap_or_else(|err| {
+            panic!("Failed to create object file: {}", err)
+        });
+
+    if output.status.success() {
+        Ok(output_file_str)
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        Err(format!("Failed to create the object file:\n\nStdout:\n{}\nStderr:\n{}",
+                    indent(&stdout),
+                    indent(&stderr)))
+    }
 }
 
 fn compile_test_binary(compile_data: &CompileData, output_file_str: String, binary_out_str: &String) -> Result<(), String> {
@@ -160,14 +168,15 @@ fn compile_test_binary(compile_data: &CompileData, output_file_str: String, bina
         "-Dno_callable".to_owned()
     };
 
-    let output = Command::new("./tests/programs/wrapper.sh")
+    let output = Command::new("tests/programs/wrapper.sh")
         .arg(callable_define)
         .arg(output_file_str)
         .args(compile_data.link_with.clone())
         .arg(format!("-o {}", binary_out_str))
+        .current_dir("../../") // compatibility hack; links_with directory path is wrong after code reorg
         .output()
         .unwrap_or_else(|err| {
-            panic!("Failed to compile the test binary: {}", err);
+            panic!("Failed to link the test binary: {}", err);
         });
 
     if output.status.success() {
@@ -175,13 +184,13 @@ fn compile_test_binary(compile_data: &CompileData, output_file_str: String, bina
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        Err(format!("Failed to compile the test binary:\n\nStdout:\n{}\nStderr:\n{}",
+        Err(format!("Failed to link the test binary:\n\nStdout:\n{}\nStderr:\n{}",
                indent(&stdout),
                indent(&stderr)))
     }
 }
 
-fn run_test_binary(object: &str, binary_out_str: &str) -> (String, String) {
+fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String), String> {
 
     let output = Command::new(binary_out_str)
         .output()
@@ -202,8 +211,8 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> (String, String) {
         stderr = stderr.replace("\n", &format!("\n{}", indent));
         stderr.insert_str(0, indent);
 
-
-        eprintln!("Failed to run the test binary {}:\n\nExit code: {}\nStdout:{}\n\nStderr:\n{}",
+        let mut err_str =
+            format!("Failed to run the test binary {}:\n\nExit code: {}\nStdout:{}\n\nStderr:\n{}",
                   binary_out_str,
                   match output.status.code() {
                      Some(code) => {
@@ -234,17 +243,20 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> (String, String) {
                   stderr,
         );
 
-        objdump_binary(object);
+        err_str = format!("{}\n\n{}", err_str, objdump_binary(object)?);
 
-        panic!();
+        return Err(err_str)
     }
 
     let stdout_cow = String::from_utf8_lossy(&output.stdout);
     let stderr_cow = String::from_utf8_lossy(&output.stderr);
-    (stdout_cow.into_owned(), stderr_cow.into_owned())
+
+    let res: (String, String) = (stdout_cow.into_owned(), stderr_cow.into_owned());
+
+    Ok(res)
 }
 
-fn objdump_binary(binary: &str) {
+fn objdump_binary(binary: &str) -> Result<String, String> {
     let output = Command::new("objdump")
         .arg("-d")
         .arg("-Mintel")
@@ -257,17 +269,15 @@ fn objdump_binary(binary: &str) {
     let mut stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     stdout = indent(&stdout);
 
-    eprintln!("Disassembly output: \n\n{}", stdout);
 
     if !output.status.success() {
-
-
-
         let mut stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         stderr = indent(&stderr);
 
-        panic!("Failed to obj dump the object file {}:\n\nStderr:\n{}",
+        return Err(format!("Failed to obj dump the object file {}:\n\nStderr:\n{}",
                binary,
-               stderr);
+               stderr));
     }
+
+    Ok(format!("Disassembly output: \n\n{}", stdout))
 }

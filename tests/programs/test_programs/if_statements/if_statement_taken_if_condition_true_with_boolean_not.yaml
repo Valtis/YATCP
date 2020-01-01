@@ -2,16 +2,13 @@ program: |
   fn test_function() : int {
 
       let a: bool = false;
-      
+
       if !a {
         return 12345;
       }
       return 0;
   }
 
-  fn returns_true() : bool {
-    return true;
-  }
 link_with:
   - tests/files/support/support.c 
 callable: test_function
