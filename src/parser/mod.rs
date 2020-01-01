@@ -684,25 +684,19 @@ impl Parser {
 
         let token = self.expect(TokenType::Not)?;
 
-        let mut need_not = true;
-        loop {
-            match self.lexer.peek_token().token_type {
-                TokenType::Not => {
-                    self.expect(TokenType::Not)?;
-                    need_not = !need_not;
-                },
-                _ => break,
-            }
-        }
+        let next_token = self.lexer.peek_token();
 
-        let mut not_node = self.parse_factor()?;
+        let mut node = if next_token.token_type == TokenType::Not {
+            self.parse_boolean_not_expression()?
+        } else {
+            self.parse_factor()?
+        };
 
-        if need_not {
-            not_node = AstNode::Not(
-                Box::new(not_node),
-                Span::new(token.line, token.column, token.length),
-            );
-        }
+        let not_node = AstNode::Not(
+            Box::new(node),
+            Span::new(token.line, token.column, token.length),
+        );
+
         Ok(not_node)
     }
 
@@ -3882,7 +3876,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Known bug in parser, will be fixed at some point"]
     fn can_use_boolean_not_multiple_times_on_same_value() {
         let (mut parser, reporter) = create_parser(vec![
             // fn foo() : int {
