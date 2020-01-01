@@ -16,6 +16,8 @@ use std::cell::RefCell;
 use std::error::Error;
 
 
+pub const SPACES_PER_TAB: i32 = 4;
+
 pub trait Lexer {
     fn next_token(&mut self) -> Token;
     fn peek_token(&mut self) -> Token;
@@ -515,7 +517,7 @@ impl ReadLexer {
               self.line += 1;
               self.column = 1;
             } else if ch as char == '\t' { // TODO: Handle better
-              self.column += 4;
+              self.column += SPACES_PER_TAB;
             }
             else {
               self.column += 1;

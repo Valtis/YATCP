@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::cmp;
 use std::iter;
-
+use crate::lexer::SPACES_PER_TAB;
 
 
 /*
@@ -39,7 +39,7 @@ impl FileErrorReporter {
         let reader = BufReader::new(f);
         for line in reader.lines()  {
             match line {
-                Ok(content) => lines.push(content),
+                Ok(content) => lines.push(content.replace("\t", &" ".repeat(SPACES_PER_TAB as usize))),
                 Err(e) => panic!("IO error: {}", e),
             }
         }
