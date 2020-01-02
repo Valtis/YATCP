@@ -1,7 +1,6 @@
 use crate::tac_generator::{Function, Operand, Operator, Statement};
 
 use std::collections::HashMap;
-use std::any::Any;
 
 pub fn propagate_and_fold_constants(
     functions: &mut Vec<Function>) {

@@ -26,20 +26,21 @@ pub fn remove_dead_code(
         println!("\n\nAfter trivial conditional jump removal\n\n");
         print_cfg(f, cfg);
         remove_dead_blocks(f, cfg);
-        println!("\n\nAfter dead block removal\n\n");;
+        println!("\n\nAfter dead block removal\n\n");
         print_cfg(f, cfg);
 
         remove_trivial_phi_functions(f, cfg);
         remove_dead_stores(f, cfg);
-        println!("\n\nAfter dead store elimination\n\n");;
+        println!("\n\nAfter dead store elimination\n\n");
         print_cfg(f, cfg);
         merge_linear_blocks(f, cfg);
-        println!("\n\nAfter merging linear blocks\n\n");;
+        println!("\n\nAfter merging linear blocks\n\n");
         print_cfg(f, cfg);
 
         remove_dead_jumps(f, cfg);
 
-        println!("\n\nAfter removing dead jumps\n\n");;
+        println!("\n\nAfter removing dead jumps\n\n");
+
         print_cfg(f, cfg);
 
         remove_trivial_jumps(f, cfg);

@@ -416,7 +416,7 @@ pub struct ElfGenerator {
     output_file: String,
     elf_header: ElfHeader,
     section_headers: Vec<SectionHeader>,
-    sections: Vec<Box<Section>>,
+    sections: Vec<Box<dyn Section>>,
     string_pos: HashMap<String, u32>,
     section_string_pos: HashMap<String, u32>,
     symbol_table_entries: HashMap<String, usize>,
@@ -730,7 +730,7 @@ impl ElfGenerator {
         self.elf_header.add_section();
     }
 
-    fn add_section(&mut self, section: Box<Section>) {
+    fn add_section(&mut self, section: Box<dyn Section>) {
         self.sections.push(section);
     }
 

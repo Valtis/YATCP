@@ -1,6 +1,6 @@
 use crate::tac_generator::{Function, Operand, Statement};
 
-use crate::cfg::{Adj, CFG, basic_block::BasicBlock, dom_front::calculate_immediate_dominator_opt};
+use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
 use std::collections::HashMap;
 
@@ -48,19 +48,6 @@ pub fn convert_jumps(
 
     cfg.remove_statements(function, remove_list);
     update_phi_functions(function, cfg);
-}
-
-fn convert_jump_common(
-    bb_id: usize,
-    label_id: u32,
-    bb: &BasicBlock,
-    val: bool,
-    function: &mut Function,
-    cfg: &mut CFG,
-    remove_list: &mut Vec<usize>,
-    label_to_block: &HashMap<u32, usize>) {
-
-
 }
 
 fn update_phi_functions(
