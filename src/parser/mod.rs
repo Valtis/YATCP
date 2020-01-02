@@ -244,16 +244,16 @@ impl Parser {
     fn parse_array_declaration(&mut self) -> Result<Vec<AstInteger>, ()> {
 
         // TODO: Support for multidimensional arrays
-        let size = self.expect(TokenType::Number)?;
+        let size = self.parse_expression()?;
         self.expect(TokenType::RBracket)?;
 
-        if let  TokenSubType::IntegerNumber(dim) = size.token_subtype {
+        if let AstNode::Integer(dim, _) = size {
             Ok(vec![AstInteger::from(dim)])
         } else {
             self.report_error(
                 ReportKind::TypeError,
-                Span::new(size.line, size.column, size.length),
-                "Array dimension must be an integer".to_owned());
+                size.span(),
+                "Array dimension must be an integer constant".to_owned());
             Err(())
         }
     }
@@ -4206,7 +4206,7 @@ mod tests {
         let node = parser.parse();
 
         let borrowed = reporter.borrow();
-        let messages = borrowed.get_messages();
+
         assert_eq!(borrowed.errors(), 0);
         assert_eq!(
             AstNode::Block(vec![
