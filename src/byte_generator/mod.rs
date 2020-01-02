@@ -465,7 +465,8 @@ mod test {
                             line: 1,
                             column: 1,
                             length: 1,
-                        }
+                        },
+                        extra_info: None
                     },
                     3)
                 ),
@@ -507,7 +508,9 @@ mod test {
                             line: 1,
                             column: 1,
                             length: 1,
-                        }
+                        },
+                        extra_info: None,
+
                     },
                     3)
                 ),
@@ -546,7 +549,8 @@ mod test {
                             line: 1,
                             column: 1,
                             length: 1,
-                        }},
+                        },
+                        extra_info: None, },
                         1),
                     3),
         ];

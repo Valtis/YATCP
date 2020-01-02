@@ -4,20 +4,22 @@ use crate::lexer::Lexer;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo, NodeInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo, ExtraDeclarationInfo};
+
+use crate::semcheck::Type;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Parser {
-    lexer: Box<Lexer>,
-    error_reporter: Rc<RefCell<ErrorReporter>>,
+    lexer: Box<dyn Lexer>,
+    error_reporter: Rc<RefCell<dyn ErrorReporter>>,
 }
 
 impl Parser {
     pub fn new(
-        lexer: Box<Lexer>,
-        error_reporter: Rc<RefCell<ErrorReporter>>) -> Parser {
+        lexer: Box<dyn Lexer>,
+        error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> Parser {
         Parser {
             lexer: lexer,
             error_reporter: error_reporter,
@@ -184,9 +186,27 @@ impl Parser {
         self.expect(TokenType::Colon)?;
         let var_type = self.expect(TokenType::VarType)?;
 
-        // Custom error handling
-        let maybe_assign = self.lexer.next_token();
-        match maybe_assign.token_type {
+        // Array parse & custom error handling for missing initialization
+        let mut next_token = self.lexer.next_token();
+        let extra_info = match next_token.token_type {
+            TokenType::LBracket => {
+                let dimension = self.parse_array_declaration()?;
+                next_token = self.lexer.next_token();
+
+                Some(ExtraDeclarationInfo::ArrayDimension(dimension))
+            },
+            _ => None,
+        };
+
+
+        let is_array = if let Some(_) = extra_info {
+            true
+        } else {
+            false
+        };
+
+        // Custom error handling for case where expression is missing
+        match next_token.token_type {
             TokenType::Assign => {}, // ok
             TokenType::SemiColon => {
                 self.report_error(
@@ -198,18 +218,44 @@ impl Parser {
             _ => {
                 self.report_unexpected_token(
                     TokenType::Assign,
-                    &maybe_assign);
+                    &next_token);
                 return Err(());
             },
+        }
+
+        let mut declaration_info = DeclarationInfo::new_with_extra_info(&identifier, &var_type, extra_info);
+
+        if is_array {
+            declaration_info.variable_type = match declaration_info.variable_type {
+                Type::Integer => Type::IntegerArray,
+                _ => todo!(),
+            }
         }
 
         let node = self.parse_expression()?;
         self.expect(TokenType::SemiColon)?;
         let declaration = AstNode::VariableDeclaration(
                 Box::new(node),
-                DeclarationInfo::new(&identifier, &var_type));
+                declaration_info);
 
         Ok(declaration)
+    }
+
+    fn parse_array_declaration(&mut self) -> Result<Vec<AstInteger>, ()> {
+
+        // TODO: Support for multidimensional arrays
+        let size = self.expect(TokenType::Number)?;
+        self.expect(TokenType::RBracket)?;
+
+        if let  TokenSubType::IntegerNumber(dim) = size.token_subtype {
+            Ok(vec![AstInteger::from(dim)])
+        } else {
+            self.report_error(
+                ReportKind::TypeError,
+                Span::new(size.line, size.column, size.length),
+                "Array dimension must be an integer".to_owned());
+            Err(())
+        }
     }
 
     fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, ()> {
@@ -862,7 +908,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
 
-    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, DeclarationInfo, NodeInfo as Span};
+    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, DeclarationInfo, NodeInfo as Span, ExtraDeclarationInfo};
     use crate::error_reporter::{ReportKind, ErrorReporter, Message};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
@@ -4199,6 +4245,188 @@ mod tests {
                                 None,
                                 Span::new(0, 0, 0))
                         ],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn one_dimensional_integer_array_declaration_is_parsed_correctly() {
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 5, 15, 4),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 1, 2, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableDeclaration(
+                                        Box::new(
+                                            AstNode::Integer(
+                                                AstInteger::from(4),
+                                                Span::new(1, 2, 3),
+                                            ),
+                                        ),
+                                        DeclarationInfo {
+                                            name: Rc::new("a".to_string()),
+                                            node_info: Span::new(8, 12, 2),
+                                            variable_type: Type::IntegerArray,
+                                            extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::from(6)])),
+                                        }
+                                    )
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn array_declaration_with_non_integer_number_dimension_is_reported() {
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::FloatNumber(32.2), 5, 15, 4),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(5,15,4),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![],
+                                       None,
+                                       Span::new(0, 0, 0)
+                        )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                )],
+                           None,
+                           Span::new(0, 0, 0),
+            ),
+            node);
+    }
+    #[test]
+    fn array_declaration_with_non_numeric_dimension_is_reported() {
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 15, 4),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(5,15,4),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(
+                        AstNode::Block(vec![],
                                        None,
                                        Span::new(0, 0, 0)
                         )),

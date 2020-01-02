@@ -99,7 +99,6 @@ pub enum AstNode {
     Not(Box<AstNode>, NodeInfo),
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
-
     Integer(AstInteger, NodeInfo),
     Float(f32, NodeInfo),
     Double(f64, NodeInfo),
@@ -141,8 +140,28 @@ impl Display for AstNode {
             },
             AstNode::FunctionCall(_, ref name, _) =>
                 format!("Call function {}", name),
-            AstNode::VariableDeclaration(_, ref i) =>
-                format!("Variable declaration '{}' : {}", i.name, i.variable_type),
+            AstNode::VariableDeclaration(_, ref i) => {
+                match i.variable_type {
+                    _ if i.variable_type.is_array() => {
+                        let mut dim_str = "".to_owned();
+
+                        if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = i.extra_info {
+                            for dim in dims.iter() {
+                                match dim {
+                                    AstInteger::Int(val) => dim_str = format!("{}[{}]", dim_str, val),
+                                    AstInteger::IntMaxPlusOne => dim_str = format!("{}[{}]", dim_str, (std::i32::MAX as u64) + 1),
+                                    AstInteger::Invalid(val) => dim_str = format!("{}[{}<invalid>]", dim_str, val),
+                                }
+                            }
+                        } else {
+                            ice!("Non-array dimension information on array declaration");
+                        }
+
+                        format!("Variable declaration '{}' : {}{}", i.name, i.variable_type, dim_str)
+                    },
+                    _ => format!("Variable declaration '{}' : {}", i.name, i.variable_type),
+                }
+            }
             AstNode::VariableAssignment(_, ref name, _ ) =>
                 format!("Variable assignment '{}'", name),
             AstNode::Integer(val, _) => format!("Integer: {}", val),
@@ -251,7 +270,7 @@ impl AstNode {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
             }
-            AstNode::Not(ref child, ref span) => {
+            AstNode::Not(ref child, _) => {
                 string = format!("{}{}", string, child.print_impl(next_int));
             },
             AstNode::ErrorNode => {}
@@ -470,6 +489,7 @@ pub struct DeclarationInfo {
     pub name: Rc<String>,
     pub variable_type: Type,
     pub node_info: NodeInfo,
+    pub extra_info: Option<ExtraDeclarationInfo>,
 }
 
 impl DeclarationInfo {
@@ -492,10 +512,30 @@ impl DeclarationInfo {
         DeclarationInfo {
             name: name,
             variable_type: var_type,
-            node_info: NodeInfo::new(line, column, length)
+            node_info: NodeInfo::new(line, column, length),
+            extra_info: None,
+        }
+    }
+
+    pub fn new_with_extra_info(
+        identifier: &Token,
+        variable_type: &Token,
+        extra_info: Option<ExtraDeclarationInfo>) -> DeclarationInfo {
+        DeclarationInfo {
+            name: get_text_from_identifier(identifier),
+            variable_type: get_type_from_type_token(variable_type),
+            node_info: NodeInfo::new(identifier.line, identifier.column, identifier.length),
+            extra_info,
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExtraDeclarationInfo {
+    ArrayDimension(Vec<AstInteger>), // left-to-right, in declaration order
+}
+
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArithmeticInfo {

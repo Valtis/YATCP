@@ -29,17 +29,17 @@ pub struct ReadLexer {
     column: i32,
     token_start_line: i32,
     token_start_column: i32,
-    iter: Peekable<Bytes<BufReader<Box<Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
+    iter: Peekable<Bytes<BufReader<Box<dyn Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
     next_token: Option<Token>, // used for storing token after peeking
     current_token: Option<Token>, // token that was returned by next_token.
-    error_reporter: Rc<RefCell<ErrorReporter>>,
+    error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     string_table: StringTable,
 }
 
 impl ReadLexer {
     pub fn new(
-        input: Box<Read>,
-        error_reporter: Rc<RefCell<ErrorReporter>>) -> ReadLexer {
+        input: Box<dyn Read>,
+        error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> ReadLexer {
 
         ReadLexer {
           line: 1,

@@ -12,7 +12,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use std::collections::HashMap;
-use crate::semcheck::Type::Boolean;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {
@@ -22,12 +21,12 @@ pub enum Type {
     String,
     Boolean,
     Void,
+    IntegerArray,
     Uninitialized,
     Invalid, // type error occured
 }
 
 impl Type {
-
     pub fn size_in_bytes(&self) -> u32 {
         match *self {
             Type::Integer => 4,
@@ -36,8 +35,23 @@ impl Type {
             Type::String => 8, // ptr
             Type::Boolean => 1,
             Type::Void => ice!("Reguesting size of a void type"),
+            Type::IntegerArray => unimplemented!(),
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match *self {
+            Type::Integer => false,
+            Type::Double => false,
+            Type::Float => false,
+            Type::String => false,
+            Type::Boolean => false,
+            Type::Void => false,
+            Type::IntegerArray => true,
+            Type::Uninitialized => false,
+            Type::Invalid => false,
         }
     }
 }
@@ -45,14 +59,15 @@ impl Type {
 impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
         Display::fmt( match *self {
-          Type::Integer => "Integer",
-          Type::Double => "Double",
-          Type::Float => "Float",
-          Type::String=> "String",
-          Type::Boolean => "Boolean",
-          Type::Void => "Void",
-          Type::Uninitialized => "Uninitialized",
-          Type::Invalid => "Invalid",
+            Type::Integer => "Integer",
+            Type::Double => "Double",
+            Type::Float => "Float",
+            Type::String=> "String",
+            Type::Boolean => "Boolean",
+            Type::Void => "Void",
+            Type::IntegerArray => "Integer array",
+            Type::Uninitialized => "Uninitialized",
+            Type::Invalid => "Invalid",
       }, formatter)
   }
 }
@@ -60,13 +75,13 @@ impl Display for Type {
 pub struct SemanticsCheck {
     pub errors: u32,
     symbol_table: SymbolTable,
-    error_reporter: Rc<RefCell<ErrorReporter>>,
+    error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     id_counter: u32,
     enclosing_function_stack: Vec<FunctionInfo>,
 }
 
 impl SemanticsCheck {
-    pub fn new(reporter: Rc<RefCell<ErrorReporter>>) -> SemanticsCheck {
+    pub fn new(reporter: Rc<RefCell<dyn ErrorReporter>>) -> SemanticsCheck {
         SemanticsCheck {
             errors: 0,
             symbol_table: SymbolTable::new(),
