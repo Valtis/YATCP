@@ -75,6 +75,8 @@ pub enum AstNode {
     FunctionCall(Vec<AstNode>, Rc<String>, NodeInfo),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
     VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
+    // TODO update rest of the nodes from tuples to structs for better readability
+    ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo },
 
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -164,6 +166,12 @@ impl Display for AstNode {
             }
             AstNode::VariableAssignment(_, ref name, _ ) =>
                 format!("Variable assignment '{}'", name),
+            AstNode::ArrayAssignment {
+                index_expression: _,
+                assignment_expression: _,
+                variable_name: name,
+                span: _
+            } => format!("Array assignment '{}'", name),
             AstNode::Integer(val, _) => format!("Integer: {}", val),
             AstNode::Float(val, _) => format!("Float: {}", val),
             AstNode::Double(val, _) => format!("Double: {}", val),
@@ -227,6 +235,15 @@ impl AstNode {
                 string = format!("{}{}", string, child.print_impl(next_int)),
             AstNode::VariableAssignment(ref child, _, _) =>
                 string = format!("{}{}", string, child.print_impl(next_int)),
+            AstNode::ArrayAssignment {
+                index_expression: ref index,
+                assignment_expression: ref assign,
+                variable_name: _,
+                span: _,
+            } => {
+                string = format!("{}{}", string, index.print_impl(next_int));
+                string = format!("{}{}", string, assign.print_impl(next_int));
+            },
             AstNode::Integer(_, _) |
             AstNode::Float(_, _) |
             AstNode::Double(_, _) => {},
@@ -288,6 +305,12 @@ impl AstNode {
             AstNode::FunctionCall(_, _, ref info) => info,
             AstNode::VariableDeclaration(_, ref info) => &info.node_info,
             AstNode::VariableAssignment(_, _, ref span) => span,
+            AstNode::ArrayAssignment{
+                index_expression: _,
+                assignment_expression: _,
+                variable_name: _,
+                span: ref span,
+            } => span,
             AstNode::BooleanAnd(_, _, ref span) |
             AstNode::BooleanOr(_, _, ref span) => span,
             AstNode::Plus(_, _, ref info) |
@@ -344,6 +367,11 @@ impl PartialEq for AstNode {
              AstNode::VariableAssignment(o_chld, o_name, o_ni)) => {
                 s_chld == o_chld && s_name == o_name && s_ni == o_ni
             },
+            (AstNode::ArrayAssignment { index_expression: s_indx, assignment_expression: s_asgn, variable_name: s_name, span: s_span },
+             AstNode::ArrayAssignment { index_expression: o_indx, assignment_expression: o_asgn, variable_name: o_name, span: o_span })
+                => {
+                s_indx == o_indx && s_asgn == o_asgn && s_name == o_name && s_span == o_span
+            }
             (AstNode::Integer(s_num, s_ni),
              AstNode::Integer(o_num, o_ni)) => {
                 *s_num == *o_num && s_ni == o_ni
@@ -438,9 +466,19 @@ pub struct NodeInfo {
 impl NodeInfo {
     pub fn new(line: i32, column: i32, length: i32) -> NodeInfo {
         NodeInfo {
-            line: line,
-            column: column,
-            length: length,
+            line,
+            column,
+            length,
+        }
+    }
+}
+
+impl From<Token> for NodeInfo {
+    fn from(val: Token) -> NodeInfo {
+        NodeInfo{
+            line: val.line,
+            column: val.column,
+            length: val.length,
         }
     }
 }

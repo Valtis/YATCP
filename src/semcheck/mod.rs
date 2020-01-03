@@ -155,6 +155,12 @@ impl SemanticsCheck {
                 self.handle_variable_declaration(child, vi),
             AstNode::VariableAssignment(ref mut child, ref name, ref span) =>
                 self.handle_variable_assignment(child, name, span),
+            AstNode::ArrayAssignment {
+                index_expression,
+                assignment_expression,
+                variable_name,
+                span,
+            } => todo!(),
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |

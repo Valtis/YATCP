@@ -264,9 +264,10 @@ impl Parser {
         match token.token_type {
             TokenType::Assign => self.parse_assignment(identifier),
             TokenType::LParen => self.parse_function_call(identifier),
+            TokenType::LBracket => self.parse_array_assignment(identifier),
             _ => {
                 self.report_unexpected_token_mul(
-                    &vec![TokenType::Assign, TokenType::LParen],
+                    &vec![TokenType::Assign, TokenType::LParen, TokenType::LBracket],
                     &token);
                 Err(())
             },
@@ -324,6 +325,27 @@ impl Parser {
             name,
             Span::new(identifier.line, identifier.column, identifier.length)
             ))
+    }
+
+    fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
+        self.expect(TokenType::LBracket)?;
+        let index_expression = self.parse_expression()?;
+        self.expect(TokenType::RBracket)?;
+        self.expect(TokenType::Assign)?;
+        let assignment_expression = self.parse_expression()?;
+
+        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
+            ident.clone()
+        } else {
+            ice!("Non-identifier token '{}' passed to parse_assignment",
+                identifier);
+        };
+
+        Ok(AstNode::ArrayAssignment{
+            index_expression: Box::new(index_expression),
+            assignment_expression: Box::new(assignment_expression),
+            variable_name: name,
+            span: Span::from(identifier) })
     }
 
     fn parse_return_statement(&mut self) -> Result<AstNode, ()> {
@@ -4436,5 +4458,202 @@ mod tests {
                            Span::new(0, 0, 0),
             ),
             node);
+    }
+
+
+    #[test]
+    fn array_assignment_is_parsed_correctly() {
+
+        /*
+            fn foo() : void {
+                a[4-2] = 2*3;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 5, 15, 4),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 9, 13, 12),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
+            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 1, 2, 4),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::ArrayAssignment{
+                                        variable_name: Rc::new("a".to_owned()),
+                                        span: Span::new(8, 12, 2),
+                                        index_expression: Box::new(
+                                            AstNode::Minus(
+                                                Box::new(
+                                                  AstNode::Integer(
+                                                      AstInteger::Int(4),
+                                                      Span::new(5, 15, 4),
+                                                  ),
+                                                ),
+                                                Box::new(
+                                                   AstNode::Integer(
+                                                       AstInteger::Int(2),
+                                                       Span::new(5, 15, 6),
+                                                   )
+                                                ),
+                                                ArithmeticInfo::new_alt(9, 13, 12),
+                                            ),
+                                        ),
+                                        assignment_expression: Box::new(
+                                          AstNode::Multiply(
+                                              Box::new(
+                                                  AstNode::Integer(
+                                                    AstInteger::Int(2),
+                                                      Span::new(1, 2, 3),
+                                                  ),
+                                              ),
+                                              Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::Int(3),
+                                                    Span::new(1, 2, 4)
+                                                )
+                                              ),
+                                              ArithmeticInfo::new_alt(5, 3, 9)
+                                          )
+                                        ),
+                                    }
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn array_assignment_with_error_in_index_expression_is_reported() {
+
+        /*
+            fn foo() : void {
+                a[4-] = 2*3;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 5, 15, 4),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 9, 13, 12),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 2, 1, 40),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
+            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 1, 2, 4),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(2,1,40),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn array_assignment_with_error_in_assignment_expression_is_reported() {
+        /*
+            fn foo() : void {
+                a[4-2] = 2*;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 5, 15, 4),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 9, 13, 12),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
+            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 4, 30, 1),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(4,30,1),
+                "".to_owned()),
+            messages[0]);
     }
 }
