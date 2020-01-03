@@ -200,8 +200,8 @@ impl SemanticsCheck {
             AstNode::Identifier(ref name, ref info) => {
                 self.check_identifier_is_declared(name, info);
             }
-            AstNode::ArrayAccess{ index_expression, variable_name, span } => {
-                self.handle_array_access(index_expression, variable_name, span);
+            AstNode::ArrayAccess{ index_expression, indexable_expression } => {
+                 self.handle_array_access(index_expression, indexable_expression);
             },
             AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
@@ -663,49 +663,32 @@ impl SemanticsCheck {
     fn handle_array_access(
         &mut self,
         index_expression: &mut AstNode,
-        name: &str,
-        span: &Span) {
-
-        let opt_symbol = self.check_identifier_is_declared(name, span);
+        indexable_expression: &mut AstNode,
+    ) {
 
         self.do_check(index_expression);
+        self.do_check(indexable_expression);
 
-        let symbol = if let Some(sym) = opt_symbol {
-            sym
-        } else {
-            // identifier has not been declared. Above method reports this, bail out
+        let indexable_type = self.get_type(indexable_expression);
+
+        if !indexable_type.is_array() && indexable_type != Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                indexable_expression.span(),
+                format!("Cannot index expression of type '{}', array type expected", indexable_type));
+
             return;
-        };
+        }
 
-        if let Symbol::Variable(ref sym_info, _) = symbol {
+        let index_type = self.get_type(index_expression);
 
-            if !sym_info.variable_type.is_array() {
-                self.report_error(
-                    ReportKind::TypeError,
-                    span.clone(),
-                    format!("Variable '{}' is not an array", name));
-
-                self.report_error(
-                    ReportKind::Note,
-                    sym_info.node_info.clone(),
-                    format!("Variable '{}', declared here, has type '{}'",
-                            name,
-                            sym_info.variable_type));
-                return;
-            }
-
-            let index_type = self.get_type(index_expression);
-
-            if index_type != Type::Invalid && index_type != Type::Integer {
-                self.report_error(
-                    ReportKind::TypeError,
-                    index_expression.span(),
-                    format!(
-                        "Array index must be an '{}', but got '{}' instead",
-                        Type::Integer, index_type));
-            }
-        } else {
-            ice!("Non-variable symbol '{:#?}' returned when variable expected", symbol);
+        if index_type != Type::Invalid && index_type != Type::Integer {
+            self.report_error(
+                ReportKind::TypeError,
+                index_expression.span(),
+                format!(
+                    "Array index must be an '{}', but got '{}' instead",
+                    Type::Integer, index_type));
         }
     }
 
@@ -1076,17 +1059,22 @@ impl SemanticsCheck {
             AstNode::Text(_, _) => Type::String,
             AstNode::ArrayAccess {
                 index_expression: _,
-                ref variable_name,
-                span: _,
+                ref indexable_expression,
             } => {
-                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(variable_name) {
-                    if info.variable_type.is_array() {
-                        info.variable_type.get_array_basic_type()
-                    } else {
-                        Type::Invalid
-                    }
-                } else {
-                    Type::Invalid
+                match **indexable_expression {
+                    AstNode::Identifier(ref name, _) => {
+                        if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                            if info.variable_type.is_array() {
+                                info.variable_type.get_array_basic_type()
+                            } else {
+                                Type::Invalid
+                            }
+                        } else {
+                            Type::Invalid
+                        }
+                    },
+                    AstNode::FunctionCall(_, _, _) => todo!(),
+                    _ => Type::Invalid,
                 }
             }
             AstNode::ErrorNode => Type::Invalid,
@@ -6895,8 +6883,12 @@ mod tests {
                                                   Span::new(8, 1, 3),
                                               )
                                             ),
-                                            variable_name: Rc::new("a".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("a".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            )
                                         }
                                     ),
                                     Rc::new("b".to_owned()),
@@ -6974,8 +6966,12 @@ mod tests {
                                                     Span::new(8, 1, 3),
                                                 )
                                             ),
-                                            variable_name: Rc::new("abc".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("abc".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            ),
                                         }
                                     ),
                                     Rc::new("b".to_owned()),
@@ -7060,8 +7056,12 @@ mod tests {
                                                     Span::new(8, 1, 3),
                                                 )
                                             ),
-                                            variable_name: Rc::new("foo".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("foo".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            ),
                                         }
                                     ),
                                     Rc::new("b".to_owned()),
@@ -7152,8 +7152,12 @@ mod tests {
                                                     Span::new(8, 1, 3),
                                                 )
                                             ),
-                                            variable_name: Rc::new("b".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("b".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            ),
                                         }
                                     ),
                                     Rc::new("b".to_owned()),
@@ -7173,7 +7177,7 @@ mod tests {
         let borrowed = reporter.borrow();
         let messages = borrowed.get_messages();
 
-        assert_eq!(borrowed.reports(), 2);
+        assert_eq!(borrowed.reports(), 1);
 
         assert_eq!(
             Message::highlight_message(
@@ -7181,13 +7185,6 @@ mod tests {
                 Span::new(3, 8, 2),
                 "".to_owned()),
             messages[0]);
-
-        assert_eq!(
-            Message::highlight_message(
-                ReportKind::Note,
-                Span::new(1, 5, 9),
-                "".to_owned()),
-            messages[1]);
     }
 
     #[test]
@@ -7244,8 +7241,12 @@ mod tests {
                                                     Span::new(8, 1, 3),
                                                 )
                                             ),
-                                            variable_name: Rc::new("a".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("a".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            ),
                                         }
                                     ),
                                     Rc::new("b".to_owned()),
@@ -7329,8 +7330,12 @@ mod tests {
                                                     Span::new(8, 1, 3),
                                                 )
                                             ),
-                                            variable_name: Rc::new("a".to_owned()),
-                                            span: Span::new(3, 8, 2),
+                                            indexable_expression: Box::new(
+                                                AstNode::Identifier(
+                                                    Rc::new("a".to_owned()),
+                                                    Span::new(3, 8, 2)
+                                                )
+                                            ),
                                         }
                                     ),
                                     Rc::new("b".to_owned()),

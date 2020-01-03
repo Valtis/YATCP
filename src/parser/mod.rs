@@ -531,27 +531,41 @@ impl Parser {
             _ => (),
         }
 
-        let node = self.parse_factor_with_member_access()?;
+        let node = self.parse_factor_with_member_or_array_access()?;
 
         Ok(node)
     }
 
-    fn parse_factor_with_member_access(&mut self) -> Result<AstNode, ()> {
+    fn parse_factor_with_member_or_array_access(&mut self) -> Result<AstNode, ()> {
 
         let mut expr = self.parse_factor()?;
-
 
         loop {
             let next_token = self.lexer.peek_token();
             match next_token.token_type {
                 TokenType::Dot => {
                     expr = self.parse_member_access(expr)?;
+                },
+                TokenType::LBracket => {
+                    expr =
+                        self.parse_array_access(expr)?;
                 }
                 _ => break,
             }
         }
 
         Ok(expr)
+    }
+
+    fn parse_array_access(&mut self, indexable_expression: AstNode) -> Result<AstNode, ()> {
+        self.expect(TokenType::LBracket)?;
+        let index_expression = self.parse_expression()?;
+        self.expect(TokenType::RBracket)?;
+
+        Ok(AstNode::ArrayAccess {
+            index_expression: Box::new(index_expression),
+            indexable_expression: Box::new(indexable_expression),
+        })
     }
 
     fn parse_member_access(&mut self, expression: AstNode) -> Result<AstNode, ()> {
@@ -603,8 +617,10 @@ impl Parser {
                     self.parse_function_call(token)
                 } else {
                     match token.token_subtype {
-                        TokenSubType::Identifier(_) =>
-                            self.parse_identifier_or_array_access(token),
+                        TokenSubType::Identifier(ref name) =>
+                            Ok(AstNode::Identifier(
+                                name.clone(),
+                                Span::new(token.line, token.column, token.length))),
                         TokenSubType::ErrorToken =>
                                 Ok(AstNode::ErrorNode),
                         _ => ice!(
@@ -662,39 +678,6 @@ impl Parser {
                     "Invalid token '{}' passed to match statement in parse_factor",
                     token),
         }
-    }
-
-    fn parse_identifier_or_array_access(&mut self, identifier: Token) -> Result<AstNode, ()> {
-
-        let name = if let TokenSubType::Identifier(ref name) = identifier.token_subtype {
-            name.clone()
-        } else {
-            ice!("Non-identifier token '{:#?}' passed to function expecting identifier", identifier);
-        };
-
-        let next_token = self.lexer.peek_token();
-        let span = Span::new(
-            identifier.line, identifier.column, identifier.length);
-
-        if next_token.token_type == TokenType::LBracket {
-            return self.parse_array_access(name, span)
-        }
-
-        Ok(AstNode::Identifier(
-            name.clone(),
-            span))
-    }
-
-    fn parse_array_access(&mut self, name: Rc<String>, span: Span) -> Result<AstNode, ()> {
-        self.expect(TokenType::LBracket)?;
-        let index_expression = self.parse_expression()?;
-        self.expect(TokenType::RBracket)?;
-
-        Ok(AstNode::ArrayAccess {
-            index_expression: Box::new(index_expression),
-            variable_name: name,
-            span,
-        })
     }
 
     fn starts_operand(&self, token: &Token) -> bool {
@@ -825,7 +808,7 @@ impl Parser {
         let node = if next_token.token_type == TokenType::Not {
             self.parse_boolean_not_expression()?
         } else {
-            self.parse_factor_with_member_access()?
+            self.parse_factor_with_member_or_array_access()?
         };
 
         let not_node = AstNode::Not(
@@ -4780,8 +4763,12 @@ mod tests {
                                                       Span::new(5, 15, 6),
                                                   )
                                                 ),
-                                                variable_name: Rc::new("a".to_owned()),
-                                                span: Span::new(18, 4, 2),
+                                                indexable_expression: Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(18, 4, 2),
+                                                    )
+                                                )
                                             }
                                         ),
                                         Rc::new("b".to_owned()),
@@ -4799,6 +4786,86 @@ mod tests {
             node);
     }
 
+    #[test]
+    fn array_access_from_function_is_parsed_correctly() {
+        /*
+            fn foo() : void {
+                b = a()[2];
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableAssignment(
+                                        Box::new(
+                                            AstNode::ArrayAccess {
+                                                index_expression: Box::new(
+                                                    AstNode::Integer(
+                                                        AstInteger::Int(2),
+                                                        Span::new(5, 15, 6),
+                                                    )
+                                                ),
+                                                indexable_expression: Box::new(
+                                                    AstNode::FunctionCall(
+                                                        vec![],
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(18, 4, 2),
+                                                    )
+                                                )
+                                            }
+                                        ),
+                                        Rc::new("b".to_owned()),
+                                        Span::new(8, 12, 2),
+                                    ),
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
     #[test]
     fn array_access_with_error_in_index_expression_is_rejected() {
         /*

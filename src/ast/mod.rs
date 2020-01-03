@@ -109,7 +109,7 @@ pub enum AstNode {
     Text(Rc<String>, NodeInfo),
     Boolean(bool, NodeInfo),
     Identifier(Rc<String>, NodeInfo),
-    ArrayAccess{index_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo},
+    ArrayAccess{index_expression: Box<AstNode>, indexable_expression: Box<AstNode>},
 
     ErrorNode,
 }
@@ -181,7 +181,7 @@ impl Display for AstNode {
             AstNode::Double(val, _) => format!("Double: {}", val),
             AstNode::Text(ref text, _) => format!("Text: {}", text),
             AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
-            AstNode::ArrayAccess{variable_name: ref name, index_expression: _, span: _}=> format!("Array access: {}", name),
+            AstNode::ArrayAccess{index_expression: _, indexable_expression: _}=> format!("Array access"),
             AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
             AstNode::Plus(_, _, _) => "Plus".to_string(),
             AstNode::Minus(_, _, _) => "Minus".to_string(),
@@ -262,8 +262,9 @@ impl AstNode {
             AstNode::Double(_, _) => {},
             AstNode::Text(_, _) => {},
             AstNode::Identifier(_, _) => {},
-            AstNode::ArrayAccess{index_expression: ref child, variable_name: _, span: _ } => {
-              string = format!("{}{}", string, child.print_impl(next_int));
+            AstNode::ArrayAccess{ref index_expression,  ref indexable_expression} => {
+                string = format!("{}{}", string, indexable_expression.print_impl(next_int));
+                string = format!("{}{}", string, index_expression.print_impl(next_int));
             },
             AstNode::Boolean(_, _) => {},
             AstNode::BooleanAnd(ref left, ref right, _) |
@@ -314,50 +315,51 @@ impl AstNode {
 
     pub fn span(&self) -> NodeInfo {
         let empty = NodeInfo::new(0, 0, 0);
-        (match *self {
-            AstNode::Block(_, _, ref span) => span,
-            AstNode::Function(_, ref info) => &info.node_info,
-            AstNode::ExternFunction(ref info) => &info.node_info,
-            AstNode::FunctionCall(_, _, ref info) => info,
-            AstNode::VariableDeclaration(_, ref info) => &info.node_info,
-            AstNode::VariableAssignment(_, _, ref span) => span,
+        let x = match self {
+            AstNode::Block(_, _, span) => *span,
+            AstNode::Function(_, info) => info.node_info,
+            AstNode::ExternFunction(info) => info.node_info,
+            AstNode::FunctionCall(_, _, info) => *info,
+            AstNode::VariableDeclaration(_, info) => info.node_info,
+            AstNode::VariableAssignment(_, _, span) => *span,
             AstNode::ArrayAssignment{
                 index_expression: _,
                 assignment_expression: _,
                 variable_name: _,
-                ref span,
-            } => span,
+                span,
+            } => *span,
             AstNode::MemberAccess {
                 member_access_expression: _,
                 member: _,
-                ref span,
-            } => span,
-            AstNode::BooleanAnd(_, _, ref span) |
-            AstNode::BooleanOr(_, _, ref span) => span,
-            AstNode::Plus(_, _, ref info) |
-            AstNode::Minus(_, _, ref info) |
-            AstNode::Multiply(_, _, ref info) |
-            AstNode::Divide(_, _, ref info) => &info.node_info,
-            AstNode::Negate(_, ref info) => &info.node_info,
-            AstNode::Return(_, ref info) => &info.node_info,
-            AstNode::While(_, _, ref span) => span,
-            AstNode::If(_, _, _, ref span) => span,
-            AstNode::Less(_, _, ref span) |
-            AstNode::LessOrEq(_, _, ref span) |
-            AstNode::Equals(_, _, ref span) |
-            AstNode::NotEquals(_, _, ref span) |
-            AstNode::GreaterOrEq(_, _, ref span) |
-            AstNode::Greater(_, _, ref span) => span,
-            AstNode::Integer(_, ref span) => span,
-            AstNode::Float(_, ref span) => span,
-            AstNode::Double(_, ref span) => span,
-            AstNode::Text(_, ref span) => span,
-            AstNode::Identifier(_, ref span) => span,
-            AstNode::ArrayAccess {variable_name: _, index_expression: _, ref span} => span,
-            AstNode::Boolean(_, ref span) => span,
-            AstNode::Not(_, ref span) => span,
-            AstNode::ErrorNode => &empty,
-        }).clone()
+                span,
+            } => *span,
+            AstNode::BooleanAnd(_, _, span) |
+            AstNode::BooleanOr(_, _, span) => *span,
+            AstNode::Plus(_, _, info) |
+            AstNode::Minus(_, _, info) |
+            AstNode::Multiply(_, _, info) |
+            AstNode::Divide(_, _, info) => info.node_info,
+            AstNode::Negate(_,  info) => info.node_info,
+            AstNode::Return(_, info) => info.node_info,
+            AstNode::While(_, _, span) => *span,
+            AstNode::If(_, _, _, span) => *span,
+            AstNode::Less(_, _, span) |
+            AstNode::LessOrEq(_, _, span) |
+            AstNode::Equals(_, _, span) |
+            AstNode::NotEquals(_, _, span) |
+            AstNode::GreaterOrEq(_, _, span) |
+            AstNode::Greater(_, _, span) => *span,
+            AstNode::Integer(_, span) => *span,
+            AstNode::Float(_, span) => *span,
+            AstNode::Double(_, span) => *span,
+            AstNode::Text(_, span) => *span,
+            AstNode::Identifier(_, span) => *span,
+            AstNode::ArrayAccess { index_expression: _, indexable_expression} => indexable_expression.span(),
+            AstNode::Boolean(_, span) => *span,
+            AstNode::Not(_, span) => *span,
+            AstNode::ErrorNode => empty,
+        };
+        x
     }
 }
 
@@ -433,11 +435,10 @@ impl PartialEq for AstNode {
               => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ai == o_ai
             },
-            (AstNode::ArrayAccess { variable_name: s_name, index_expression: s_idx, span: s_span},
-             AstNode::ArrayAccess { variable_name: o_name, index_expression: o_idx, span: o_span }
-
+            (AstNode::ArrayAccess { indexable_expression: s_indexable_expr, index_expression: s_idx },
+             AstNode::ArrayAccess { indexable_expression: o_indexable_expr, index_expression: o_idx },
             ) => {
-                s_name == o_name && s_idx == o_idx && s_span == o_span
+                s_indexable_expr == o_indexable_expr && s_idx == o_idx
             }
             (AstNode::Negate(s_child, s_ai),
              AstNode::Negate(o_child, o_ai)) => {
@@ -488,7 +489,7 @@ impl PartialEq for AstNode {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NodeInfo {
     pub line: i32,
     pub column: i32,
