@@ -67,6 +67,8 @@ impl Display for AstInteger {
     }
 }
 
+// NOTE: When adding nodes, rememver to update the eq method to include the new node.
+// TODO update rest of the nodes from tuples to structs for better readability
 #[derive(Clone)]
 pub enum AstNode {
     Block(Vec<AstNode>, Option<symbol_table::TableEntry>, NodeInfo),
@@ -75,7 +77,6 @@ pub enum AstNode {
     FunctionCall(Vec<AstNode>, Rc<String>, NodeInfo),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
     VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
-    // TODO update rest of the nodes from tuples to structs for better readability
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo },
 
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -107,6 +108,7 @@ pub enum AstNode {
     Text(Rc<String>, NodeInfo),
     Boolean(bool, NodeInfo),
     Identifier(Rc<String>, NodeInfo),
+    ArrayAccess{index_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo},
 
     ErrorNode,
 }
@@ -177,6 +179,7 @@ impl Display for AstNode {
             AstNode::Double(val, _) => format!("Double: {}", val),
             AstNode::Text(ref text, _) => format!("Text: {}", text),
             AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
+            AstNode::ArrayAccess{variable_name: ref name, index_expression: _, span: _}=> format!("Array access: {}", name),
             AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
             AstNode::Plus(_, _, _) => "Plus".to_string(),
             AstNode::Minus(_, _, _) => "Minus".to_string(),
@@ -249,6 +252,9 @@ impl AstNode {
             AstNode::Double(_, _) => {},
             AstNode::Text(_, _) => {},
             AstNode::Identifier(_, _) => {},
+            AstNode::ArrayAccess{index_expression: ref child, variable_name: _, span: _ } => {
+              string = format!("{}{}", string, child.print_impl(next_int));
+            },
             AstNode::Boolean(_, _) => {},
             AstNode::BooleanAnd(ref left, ref right, _) |
             AstNode::BooleanOr(ref left, ref right, _) |
@@ -309,7 +315,7 @@ impl AstNode {
                 index_expression: _,
                 assignment_expression: _,
                 variable_name: _,
-                span: ref span,
+                ref span,
             } => span,
             AstNode::BooleanAnd(_, _, ref span) |
             AstNode::BooleanOr(_, _, ref span) => span,
@@ -332,6 +338,7 @@ impl AstNode {
             AstNode::Double(_, ref span) => span,
             AstNode::Text(_, ref span) => span,
             AstNode::Identifier(_, ref span) => span,
+            AstNode::ArrayAccess {variable_name: _, index_expression: _, ref span} => span,
             AstNode::Boolean(_, ref span) => span,
             AstNode::Not(_, ref span) => span,
             AstNode::ErrorNode => &empty,
@@ -407,6 +414,12 @@ impl PartialEq for AstNode {
               => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ai == o_ai
             },
+            (AstNode::ArrayAccess { variable_name: s_name, index_expression: s_idx, span: s_span},
+             AstNode::ArrayAccess { variable_name: o_name, index_expression: o_idx, span: o_span }
+
+            ) => {
+                s_name == o_name && s_idx == o_idx && s_span == o_span
+            }
             (AstNode::Negate(s_child, s_ai),
              AstNode::Negate(o_child, o_ai)) => {
                 s_child == o_child && s_ai == o_ai

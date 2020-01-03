@@ -194,6 +194,9 @@ impl SemanticsCheck {
             AstNode::Text(_, _) => {},
             AstNode::Identifier(ref name, ref info) =>
                 { self.check_identifier_is_declared(name, info); }
+            AstNode::ArrayAccess{ index_expression, variable_name, span } => {
+
+            },
             AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
         }

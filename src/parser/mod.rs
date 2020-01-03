@@ -565,11 +565,8 @@ impl Parser {
                     self.parse_function_call(token)
                 } else {
                     match token.token_subtype {
-                        TokenSubType::Identifier(ref identifier) =>
-                            Ok(AstNode::Identifier(
-                                identifier.clone(),
-                                Span::new(
-                                    token.line, token.column, token.length))),
+                        TokenSubType::Identifier(_) =>
+                            self.parse_identifier_or_array_access(token),
                         TokenSubType::ErrorToken =>
                                 Ok(AstNode::ErrorNode),
                         _ => ice!(
@@ -627,6 +624,39 @@ impl Parser {
                     "Invalid token '{}' passed to match statement in parse_factor",
                     token),
         }
+    }
+
+    fn parse_identifier_or_array_access(&mut self, identifier: Token) -> Result<AstNode, ()> {
+
+        let name = if let TokenSubType::Identifier(ref name) = identifier.token_subtype {
+            name.clone()
+        } else {
+            ice!("Non-identifier token '{:#?}' passed to function expecting identifier", identifier);
+        };
+
+        let next_token = self.lexer.peek_token();
+        let span = Span::new(
+            identifier.line, identifier.column, identifier.length);
+
+        if next_token.token_type == TokenType::LBracket {
+            return self.parse_array_access(name, span)
+        }
+
+        Ok(AstNode::Identifier(
+            name.clone(),
+            span))
+    }
+
+    fn parse_array_access(&mut self, name: Rc<String>, span: Span) -> Result<AstNode, ()> {
+        self.expect(TokenType::LBracket)?;
+        let index_expression = self.parse_expression()?;
+        self.expect(TokenType::RBracket)?;
+
+        Ok(AstNode::ArrayAccess {
+            index_expression: Box::new(index_expression),
+            variable_name: name,
+            span,
+        })
     }
 
     fn starts_operand(&self, token: &Token) -> bool {
@@ -4656,4 +4686,127 @@ mod tests {
                 "".to_owned()),
             messages[0]);
     }
+
+    #[test]
+    fn array_access_is_parsed_correctly() {
+        /*
+            fn foo() : void {
+                b = a[2];
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableAssignment(
+                                        Box::new(
+                                            AstNode::ArrayAccess {
+                                                index_expression: Box::new(
+                                                  AstNode::Integer(
+                                                      AstInteger::Int(2),
+                                                      Span::new(5, 15, 6),
+                                                  )
+                                                ),
+                                                variable_name: Rc::new("a".to_owned()),
+                                                span: Span::new(18, 4, 2),
+                                            }
+                                        ),
+                                        Rc::new("b".to_owned()),
+                                        Span::new(8, 12, 2),
+                                    ),
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn array_access_with_error_in_index_expression_is_rejected() {
+        /*
+             fn foo() : void {
+                 b = a[2-];
+             }
+         */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 12, 567, 5),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 9, 3, 12),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(9,3,12),
+                "".to_owned()),
+            messages[0]);
+    }
+
 }
