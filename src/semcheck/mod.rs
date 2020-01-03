@@ -192,10 +192,11 @@ impl SemanticsCheck {
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
             AstNode::Text(_, _) => {},
-            AstNode::Identifier(ref name, ref info) =>
-                { self.check_identifier_is_declared(name, info); }
+            AstNode::Identifier(ref name, ref info) => {
+                self.check_identifier_is_declared(name, info);
+            }
             AstNode::ArrayAccess{ index_expression, variable_name, span } => {
-
+                self.handle_array_access(index_expression, variable_name, span);
             },
             AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
@@ -649,13 +650,58 @@ impl SemanticsCheck {
                             name,
                             sym_info.variable_type));
             }
-
-
         } else {
             ice!("Non-variable symbol '{:#?}' returned when variable expected", symbol);
         }
+    }
 
+    fn handle_array_access(
+        &mut self,
+        index_expression: &mut AstNode,
+        name: &str,
+        span: &Span) {
 
+        let opt_symbol = self.check_identifier_is_declared(name, span);
+
+        self.do_check(index_expression);
+
+        let symbol = if let Some(sym) = opt_symbol {
+            sym
+        } else {
+            // identifier has not been declared. Above method reports this, bail out
+            return;
+        };
+
+        if let Symbol::Variable(ref sym_info, _) = symbol {
+
+            if !sym_info.variable_type.is_array() {
+                self.report_error(
+                    ReportKind::TypeError,
+                    span.clone(),
+                    format!("Variable '{}' is not an array", name));
+
+                self.report_error(
+                    ReportKind::Note,
+                    sym_info.node_info.clone(),
+                    format!("Variable '{}', declared here, has type '{}'",
+                            name,
+                            sym_info.variable_type));
+                return;
+            }
+
+            let index_type = self.get_type(index_expression);
+
+            if index_type != Type::Invalid && index_type != Type::Integer {
+                self.report_error(
+                    ReportKind::TypeError,
+                    index_expression.span(),
+                    format!(
+                        "Array index must be an '{}', but got '{}' instead",
+                        Type::Integer, index_type));
+            }
+        } else {
+            ice!("Non-variable symbol '{:#?}' returned when variable expected", symbol);
+        }
     }
 
     fn handle_return(
@@ -1023,6 +1069,21 @@ impl SemanticsCheck {
             AstNode::BooleanOr(_, _, _) |
             AstNode::Not(_, _) => Type::Boolean,
             AstNode::Text(_, _) => Type::String,
+            AstNode::ArrayAccess {
+                index_expression: _,
+                ref variable_name,
+                span: _,
+            } => {
+                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(variable_name) {
+                    if info.variable_type.is_array() {
+                        info.variable_type.get_array_basic_type()
+                    } else {
+                        Type::Invalid
+                    }
+                } else {
+                    Type::Invalid
+                }
+            }
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
@@ -6774,4 +6835,528 @@ mod tests {
             messages[1]);
     }
 
+    #[test]
+    fn valid_array_access_is_accepted() {
+
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : int = 4;
+                b = a[0];
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Integer,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                              AstNode::Integer(
+                                                  AstInteger::from(0),
+                                                  Span::new(8, 1, 3),
+                                              )
+                                            ),
+                                            variable_name: Rc::new("a".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 0);
+    }
+
+    #[test]
+    fn array_access_on_undeclared_identifier_is_rejected() {
+
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : int = 4;
+                b = abc[0];
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Integer,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::from(0),
+                                                    Span::new(8, 1, 3),
+                                                )
+                                            ),
+                                            variable_name: Rc::new("abc".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 1);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::NameError,
+                Span::new(3, 8, 2),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn array_access_with_method_identifier_is_rejected() {
+
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : int = 4;
+                b = foo[0];
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Integer,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::from(0),
+                                                    Span::new(8, 1, 3),
+                                                )
+                                            ),
+                                            variable_name: Rc::new("foo".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 54, 3)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(3, 8, 2),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(1, 54, 3),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn array_access_with_regular_variable_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : int = 4;
+                b = b[0];
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Integer,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::from(0),
+                                                    Span::new(8, 1, 3),
+                                                )
+                                            ),
+                                            variable_name: Rc::new("b".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 1, 54, 3)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 2);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(3, 8, 2),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(1, 5, 9),
+                "".to_owned()),
+            messages[1]);
+    }
+
+    #[test]
+    fn array_access_with_non_integer_index_expression_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : int = 4;
+                b = a[34.2];
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Integer,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                                AstNode::Float(
+                                                    34.2f32,
+                                                    Span::new(8, 1, 3),
+                                                )
+                                            ),
+                                            variable_name: Rc::new("a".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 1);
+
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(8, 1, 3),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn array_access_in_expression_with_incompatible_type_is_rejected() {
+        let (reporter, mut checker) = create_sem_checker();
+        /*
+            fn foo() {
+                let a : int[4] = 0;
+                let b : float = 2.32f;
+                b = a[3];
+            }
+        */
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::from(0),
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::IntegerArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Float(
+                                            2.3f32,
+                                            Span::new(6, 2, 8),
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("b".to_owned()),
+                                        variable_type: Type::Float,
+                                        node_info: Span::new(1, 5, 9),
+                                        extra_info: None
+                                    }
+                                ),
+                                AstNode::VariableAssignment(
+                                    Box::new(
+                                        AstNode::ArrayAccess {
+                                            index_expression: Box::new(
+                                                AstNode::Integer(
+                                                    AstInteger::from(3),
+                                                    Span::new(8, 1, 3),
+                                                )
+                                            ),
+                                            variable_name: Rc::new("a".to_owned()),
+                                            span: Span::new(3, 8, 2),
+                                        }
+                                    ),
+                                    Rc::new("b".to_owned()),
+                                    Span::new(3, 1, 8),
+                                )
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 2);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TypeError,
+                Span::new(3, 8, 2),
+                "".to_owned()),
+            messages[0]);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(1, 5, 9),
+                "".to_owned()),
+            messages[1]);
+    }
 }
