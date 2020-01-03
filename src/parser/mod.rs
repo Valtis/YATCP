@@ -531,10 +531,48 @@ impl Parser {
             _ => (),
         }
 
-        let node = self.parse_factor()?;
+        let node = self.parse_factor_with_member_access()?;
 
         Ok(node)
     }
+
+    fn parse_factor_with_member_access(&mut self) -> Result<AstNode, ()> {
+
+        let mut expr = self.parse_factor()?;
+
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            match next_token.token_type {
+                TokenType::Dot => {
+                    expr = self.parse_member_access(expr)?;
+                }
+                _ => break,
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_member_access(&mut self, expression: AstNode) -> Result<AstNode, ()> {
+        let dot = self.expect(TokenType::Dot)?;
+        let member = self.expect(TokenType::Identifier)?;
+
+        let name = if let TokenSubType::Identifier(id) = member.token_subtype {
+            id
+        } else {
+            ice!("Invalid token '{:#?'} received when identifier was expected");
+        };
+
+
+
+        Ok(AstNode::MemberAccess {
+            member_access_expression: Box::new(expression),
+            member: Box::new(AstNode::Identifier(name, Span::new(member.line, member.column, member.length))),
+            span: Span::new(dot.line, dot.column, dot.length),
+        })
+    }
+
 
     fn parse_factor(&mut self) -> Result<AstNode, ()> {
         let token = self.expect_one_of(vec![
@@ -787,7 +825,7 @@ impl Parser {
         let node = if next_token.token_type == TokenType::Not {
             self.parse_boolean_not_expression()?
         } else {
-            self.parse_factor()?
+            self.parse_factor_with_member_access()?
         };
 
         let not_node = AstNode::Not(
@@ -4805,6 +4843,321 @@ mod tests {
             Message::highlight_message(
                 ReportKind::SyntaxError,
                 Span::new(9,3,12),
+                "".to_owned()),
+            messages[0]);
+    }
+
+    #[test]
+    fn valid_member_access_is_parsed_correctly() {
+        /*
+            fn foo() : void {
+
+                c = a.b;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Dot, TokenSubType::NoSubType, 1, 6, 31),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 18, 4, 2),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableAssignment(
+                                        Box::new(
+                                            AstNode::MemberAccess {
+                                                member_access_expression: Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(8, 12, 2),
+                                                    )
+                                                ),
+                                                member: Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("b".to_owned()),
+                                                        Span::new(18, 4, 2)
+                                                    )),
+                                                span: Span::new(1, 6, 31),
+                                            }
+                                        ),
+                                        Rc::new("c".to_string()),
+                                        Span::new(8, 12, 2)
+                                    ),
+
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn chained_member_accesses_are_parsed_correctly() {
+        /*
+    fn foo() : void {
+
+        c = a.b.d;
+    }
+*/
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Dot, TokenSubType::NoSubType, 1, 6, 31),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 18, 4, 2),
+            Token::new(TokenType::Dot, TokenSubType::NoSubType, 4, 1, 1),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("d".to_string())), 11, 7, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableAssignment(
+                                        Box::new(
+                                            AstNode::MemberAccess {
+                                                member_access_expression: Box::new(
+                                                    AstNode::MemberAccess {
+                                                        member_access_expression: Box::new(
+                                                            AstNode::Identifier(
+                                                                Rc::new("a".to_owned()),
+                                                                Span::new(8, 12, 2),
+                                                            )
+                                                        ),
+                                                        member: Box::new(
+                                                            AstNode::Identifier(
+                                                                Rc::new("b".to_owned()),
+                                                                Span::new(18, 4, 2)
+                                                            )
+                                                        ),
+                                                        span: Span::new(1, 6, 31),
+                                                    }
+                                                ),
+                                                member: Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("d".to_owned()),
+                                                        Span::new(11, 7, 3),
+                                                    )
+                                                ),
+                                                span: Span::new(4, 1, 1),
+                                            }
+
+                                        ),
+                                        Rc::new("c".to_string()),
+                                        Span::new(8, 12, 2)
+                                    ),
+
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn member_access_from_function_call_is_parsed_correctly() {
+        /*
+            fn foo() : void {
+
+                c = a().b;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Dot, TokenSubType::NoSubType, 1, 6, 31),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 18, 4, 2),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableAssignment(
+                                        Box::new(
+                                            AstNode::MemberAccess {
+                                                member_access_expression: Box::new(
+                                                    AstNode::FunctionCall(
+                                                        vec![],
+                                                        Rc::new("a".to_owned()),
+                                                        Span::new(8, 12, 2),
+                                                    )
+                                                ),
+                                                member: Box::new(
+                                                    AstNode::Identifier(
+                                                        Rc::new("b".to_owned()),
+                                                        Span::new(18, 4, 2)
+                                                    )),
+                                                span: Span::new(1, 6, 31),
+                                            }
+                                        ),
+                                        Rc::new("c".to_string()),
+                                        Span::new(8, 12, 2)
+                                    ),
+
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+    #[test]
+    fn member_access_followed_by_non_identifier_is_reported() {
+        /*
+            fn foo() : void {
+               c = a.!b;
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+
+            Token::new(TokenType::Dot, TokenSubType::NoSubType, 1, 6, 31),
+            Token::new(TokenType::Not, TokenSubType::NoSubType, 1, 3, 9),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 18, 4, 2),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.errors(), 1);
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(1,3,9),
                 "".to_owned()),
             messages[0]);
     }

@@ -79,6 +79,7 @@ pub enum AstNode {
     VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo },
 
+    MemberAccess { member_access_expression: Box<AstNode>, member: Box<AstNode>, span: NodeInfo },
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -174,6 +175,7 @@ impl Display for AstNode {
                 variable_name: name,
                 span: _
             } => format!("Array assignment '{}'", name),
+            AstNode::MemberAccess {member_access_expression: _, member, span: _} => format!("Member access"),
             AstNode::Integer(val, _) => format!("Integer: {}", val),
             AstNode::Float(val, _) => format!("Float: {}", val),
             AstNode::Double(val, _) => format!("Double: {}", val),
@@ -247,6 +249,14 @@ impl AstNode {
                 string = format!("{}{}", string, index.print_impl(next_int));
                 string = format!("{}{}", string, assign.print_impl(next_int));
             },
+            AstNode::MemberAccess {
+                member_access_expression: ref member_access,
+                member: ref member,
+                span: _,
+            } => {
+                string = format!("{}{}", string, member_access.print_impl(next_int));
+                string = format!("{}{}", string, member.print_impl(next_int));
+            }
             AstNode::Integer(_, _) |
             AstNode::Float(_, _) |
             AstNode::Double(_, _) => {},
@@ -317,6 +327,11 @@ impl AstNode {
                 variable_name: _,
                 ref span,
             } => span,
+            AstNode::MemberAccess {
+                member_access_expression: _,
+                member: _,
+                ref span,
+            } => span,
             AstNode::BooleanAnd(_, _, ref span) |
             AstNode::BooleanOr(_, _, ref span) => span,
             AstNode::Plus(_, _, ref info) |
@@ -378,7 +393,11 @@ impl PartialEq for AstNode {
              AstNode::ArrayAssignment { index_expression: o_indx, assignment_expression: o_asgn, variable_name: o_name, span: o_span })
                 => {
                 s_indx == o_indx && s_asgn == o_asgn && s_name == o_name && s_span == o_span
-            }
+            },
+            (AstNode::MemberAccess { member_access_expression: s_expr, member: s_member, span: s_span},
+             AstNode::MemberAccess { member_access_expression: o_expr, member: o_member, span: o_span}) => {
+                s_expr == o_expr && s_member == o_member && s_span == o_span
+            },
             (AstNode::Integer(s_num, s_ni),
              AstNode::Integer(o_num, o_ni)) => {
                 *s_num == *o_num && s_ni == o_ni

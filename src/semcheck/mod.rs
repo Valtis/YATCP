@@ -161,6 +161,11 @@ impl SemanticsCheck {
                 variable_name,
                 span,
             } => self.handle_array_assignment(index_expression, assignment_expression, variable_name, span),
+            AstNode::MemberAccess {
+                member_access_expression,
+                member,
+                span,
+            } => todo!(),
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
