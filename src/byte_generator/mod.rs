@@ -1,16 +1,14 @@
 #![allow(dead_code)] // primarily for the unused variant lints
 
-use crate::tac_generator::{Statement, Operator, Operand};
+use crate::tac_generator::{Statement, Operator, Operand, TACGenerator, ARRAY_LENGTH_SLOT_SIZE};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
+use crate::byte_generator::Value::{VirtualRegister, ComparisonResult, IntegerConstant};
 use crate::function_attributes::FunctionAttribute;
-
-const ARRAY_LENGTH_SLOT_SIZE: u32 = 4; // bytes for storing array length
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOperation {
@@ -55,7 +53,7 @@ pub enum Value {
     BooleanConstant(bool),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
-    DynamicStackOffset {index: Box<Value>, offset: u32, size: u32 },
+    DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
     ReturnValue,
     FunctionParameter(Type, usize),
 }
@@ -63,6 +61,7 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ByteCode {
     Nop,
+    PseudoArrayInit{size_in_bytes: u32, id: u32}, // for adjusting stack & dynamic offsets
     Add(BinaryOperation),
     Sub(BinaryOperation),
     Mul(BinaryOperation),
@@ -145,7 +144,9 @@ impl ByteGenerator {
                         Some(ref op1),
                         Some(ref op2)) if cmp.contains(x) =>
                         self.emit_comparison(x, op1, op2, dest),
-
+                    Statement::Array{id, length, size_in_bytes} => {
+                        self.emit_array_init(id, length, size_in_bytes);
+                    }
                     Statement::Return(val) => self.emit_return(val),
                     Statement::Label(id) => self.emit_label(id),
                     Statement::Jump(id) => self.emit_jump(id),
@@ -186,6 +187,10 @@ impl ByteGenerator {
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {
         let data = self.form_unary_operation(op, dest);
         self.current_function().code.push(ByteCode::Mov(data));
+    }
+
+    fn emit_array_init(&mut self, id: u32, length: i32, size_in_bytes: u32) {
+        self.current_function().code.push(ByteCode::PseudoArrayInit { size_in_bytes, id });
     }
 
     fn emit_comparison(&mut self,
@@ -352,12 +357,13 @@ impl ByteGenerator {
             },
             Operand::ArrayIndex {
                 index_operand,
-                id: _,
+                id,
                 variable_info
             } => {
                 // TODO: Dynamically allocated arrays
                 let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
                 Value::DynamicStackOffset {
+                    id: *id,
                     index: Box::new(self.get_source(index_operand)),
                     offset: ARRAY_LENGTH_SLOT_SIZE,
                     size,

@@ -13,6 +13,8 @@ use std::fmt::Result;
 
 use std::rc::Rc;
 
+pub const ARRAY_LENGTH_SLOT_SIZE: u32 = 4;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Plus,
@@ -89,6 +91,7 @@ impl Display for Operand {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Assignment(Option<Operator>, Option<Operand>, Option<Operand>, Option<Operand>),
+    Array{ id: u32, length: i32, size_in_bytes: u32 },
     Call(Rc<String>, Vec<Operand>, Option<Operand>),
     Label(u32),
     Jump(u32),
@@ -115,6 +118,7 @@ impl Display for Statement {
                     opt_to_str(v2),
                     opt_to_str(op),
                     opt_to_str(v3)),
+            Statement::Array{ id: _, length, size_in_bytes} => format!("Init<Array[{}], {} bytes>", length, size_in_bytes),
             Statement::Call(ref name, ref operands, ref dest) => {
                 let op_str = operands.iter()
                 .fold(
@@ -244,6 +248,9 @@ impl TACGenerator {
                 self.handle_variable_declaration(child, info),
             AstNode::VariableAssignment(ref child, ref name, _) =>
                 self.handle_variable_assignment(child, name),
+            AstNode::ArrayAccess { index_expression, indexable_expression} => {
+                self.handle_array_access(indexable_expression, index_expression);
+            }
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
@@ -275,7 +282,7 @@ impl TACGenerator {
             AstNode::Not(expr, span) => {
                 self.handle_not(expr, span);
             }
-            ref x => panic!("Three-address code generation not implemented for '{}'", *x),
+            x => panic!("Three-address code generation not implemented for '{}'", x),
         }
     }
 
@@ -405,27 +412,32 @@ impl TACGenerator {
         let (variable_info, id) = self.get_variable_info_and_id(&info.name);
         let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
 
-        let size = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = variable_info.extra_info {
-            let mut size = 1 as u64;
+        let length = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = variable_info.extra_info {
+            let mut length = 1 as u64;
             for dim in dims.iter() {
                 match dim {
-                    AstInteger::Int(val) => size *= *val as u64,
+                    AstInteger::Int(val) => length *= *val as u64,
                     _ => ice!("Invalid array dimension {:?}", dim),
                 }
             }
 
-            ice_if!(size > std::i32::MAX as u64,"Array size exceeds maximum size");
-            size as i32
+            ice_if!(length > std::i32::MAX as u64,"Array length exceeds maximum size");
+            length as i32
         } else {
             ice!("Invalid extra declaration field {:?} for an array", variable_info.extra_info);
         };
 
-        self.store_array_length(size);
-        self.emit_array_initialization(id, variable_info, size, operand);
+        self.store_array_length(id,
+                                length,
+                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
+        self.emit_array_initialization(id, variable_info, length, operand);
     }
 
-    fn store_array_length(&mut self, size: i32) {
-
+    fn store_array_length(&mut self,
+                          id: u32,
+                          length: i32,
+                          size_in_bytes: u32) {
+        self.current_function().statements.push(Statement::Array{ id, length, size_in_bytes });
     }
 
     fn emit_array_initialization(
@@ -532,6 +544,50 @@ impl TACGenerator {
                         var_info, id)),
                 None,
                 operand));
+    }
+
+    fn handle_array_access(&mut self,
+        indexable_expression: &AstNode,
+        index_expression: &AstNode,
+    ) {
+        let array = self.get_operand(indexable_expression);
+        let index = self.get_operand(index_expression);
+
+        let (array_type, name) = match indexable_expression {
+            AstNode::Identifier(ref name, _) => {
+                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                    if info.variable_type.is_array() {
+                        (info.variable_type.get_array_basic_type(), name.clone())
+                    } else {
+                        ice!("Non-array type '{}' variable '{}'", info.variable_type, name)
+                    }
+                } else {
+                    ice!("Invalid symbol '{:?}'", self.symbol_table.find_symbol(name));
+                }
+            },
+            _ => ice!("Invalid AST node '{:?}'", indexable_expression),
+        };
+
+        let dst = self.get_temporary(array_type);
+
+        let (var_info, id) = self.get_variable_info_and_id(&name);
+
+        self.current_function().statements.push(
+            Statement::Assignment(
+                None,
+                Some(dst.clone()),
+                None,
+                Some(Operand::ArrayIndex {
+                    index_operand: Box::new(index),
+                    variable_info: var_info,
+                    id
+                })
+            )
+        );
+
+
+
+        self.operands.push(dst);
     }
 
     fn handle_arithmetic_node(&mut self, node: &AstNode) {
