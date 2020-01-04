@@ -11,6 +11,9 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use crate::function_attributes::FunctionAttribute;
+use crate::obj_generator::Architecture::X64;
+use crate::code_generator::x64::AddressingMode::IndirectAddressingOneByteDisplacement;
+use crate::code_generator::x64::Scale::One;
 
 const INTEGER_SIZE: usize = 4;
 
@@ -131,10 +134,29 @@ struct ModRM {
 // scale, index, base, displacement
 #[derive(Debug, Clone, Copy)]
 struct Sib {
-    scale: Option<u8>,
+    scale: Option<Scale>,
     index: Option<X64Register>, // RSP-reg encoding used to denote this field is unused. RSP cannot be used as index reg as a result
-    base: Option<X64Register>,
+    base: Option<X64Register>, // RBP is used to encode that base is unused, if no displacement variant is used. Must use displacement variants if this reg is used as a base
     displacement: Option<Displacement>
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Scale {
+    One,
+    Two,
+    Four,
+    Eight
+}
+
+impl Scale {
+    fn sib_bits(&self) -> u8 {
+       match self {
+           Scale::One => 0,
+           Scale::Two => 0b0100_0000,
+           Scale::Four => 0b1000_0000,
+           Scale::Eight => 0b1100_0000,
+       }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -496,9 +518,34 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         UnaryOperation {
             dest: StackOffset {offset, size },
             src: ComparisonResult(comparison_type),
-
         } => {
             emit_mov_comp_result_into_stack(comparison_type, *offset, *size, asm);
+        },
+        UnaryOperation{
+            dest: DynamicStackOffset { index, offset, size: _, },
+            src: IntegerConstant(immediate)
+        } => {
+            match **index {
+                PhysicalRegister(reg) => emit_mov_integer_to_stack_reg_indexed_with_offset(
+                    reg,
+                    *offset,
+                    *immediate,
+                    asm),
+                _ => ice!("Invalid MOV operation:\n{:#?}", operand),
+            }
+        },
+        UnaryOperation{
+            dest: DynamicStackOffset { index, offset, size: _, },
+            src: PhysicalRegister(src)
+        } => {
+            match **index {
+                PhysicalRegister(reg) => emit_mov_register_to_stack_reg_indexed_with_offset(
+                    reg,
+                    *offset,
+                    *src,
+                    asm),
+                _ => ice!("Invalid MOV operation:\n{:#?}", operand),
+            }
         }
         _ => ice!("Invalid MOV operation:\n{:#?}", operand),
     }
@@ -529,7 +576,6 @@ fn emit_mov_integer_to_stack(offset: u32, immediate: i32, asm: &mut Vec<u8>) {
         rm_field: RmField::Register(X64Register::RBP)
     };
 
-
     let rex = create_rex_prefix(false, Some(modrm), sib);
 
     emit_instruction(
@@ -542,31 +588,75 @@ fn emit_mov_integer_to_stack(offset: u32, immediate: i32, asm: &mut Vec<u8>) {
     );
 }
 
-fn get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset: u32) -> (AddressingMode, Option<Sib>) {
-    let addressing_mode = if offset <= 128 {
-        AddressingMode::IndirectAddressingOneByteDisplacement
-    } else {
-        AddressingMode::IndirectAddressingFourByteDisplacement
+
+/*
+Rex prefix: If 64 bit regs used
+    opcode: 1 byte,
+    modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
+    sib: yes
+    immediate: the 32 bit immediate
+*/
+fn emit_mov_integer_to_stack_reg_indexed_with_offset(index: X64Register, displacement: u32, immediate: i32, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::Four),
+            Some(X64Register::RBP),
+            Some(index),
+            Some(displacement));
+
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(0),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
     };
-    let sib = if addressing_mode == AddressingMode::IndirectAddressingOneByteDisplacement {
-        Some(Sib {
-            base: None,
-            index: None,
-            scale: None,
-            // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
-            displacement: Some(Displacement::OneByte(u8::max_value().wrapping_sub(offset as u8).wrapping_add(1))),
-        })
-    } else {
-        Some(Sib {
-            base: None,
-            index: None,
-            scale: None,
-            // in this case the number is signed integer, but we use u32. Convert the u32 offset to twos complement form, so that it is negative
-            displacement: Some(Displacement::FourByte(u32::max_value().wrapping_sub(offset).wrapping_add(1))),
-        })
-    };
-    (addressing_mode, sib)
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_RM),
+        Some(modrm),
+        sib,
+        Some(Immediate::from(immediate)),
+    );
 }
+/*
+Rex prefix: If 64 bit regs used
+    opcode: 1 byte,
+    modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
+    sib: yes
+    immediate: the 32 bit immediate
+*/
+fn emit_mov_register_to_stack_reg_indexed_with_offset(index: X64Register, displacement: u32, src: X64Register, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::Four),
+            Some(X64Register::RBP),
+            Some(index),
+            Some(displacement));
+
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(src),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
+    };
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_REG_TO_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+
 
 /* MOV r32, imm32
     Rex prefix: No
@@ -1550,28 +1640,27 @@ fn emit_instruction(
     if let Some(sib_values) = sib {
         let mut sib_byte = 0u8;
 
-        let mut missing_fields = 0;
+        let mut used_fields = 0;
 
         if let Some(scale) = sib_values.scale {
-            sib_byte |= scale << 6;
-        } else {
-            missing_fields += 1;
+            sib_byte |= scale.sib_bits();
+            used_fields += 1;
         }
 
         if let Some(index) = sib_values.index {
             sib_byte |= index.encoding();
+            used_fields +=1;
         } else {
-            missing_fields +=1;
             sib_byte |= 0b100 << 3; // RSP-encoding used to indicate field is unused
         }
 
         if let Some(base) = sib_values.base {
             sib_byte |= base.encoding();
-        } else {
-            missing_fields +=1;
+            used_fields += 1;
         }
-        // if all of scale, index, base were not set, don't emit sib byte
-        if missing_fields < 3 {
+
+        // only emit the byte if at least of the fields is in use
+        if used_fields != 0 {
             asm.push(sib_byte);
         }
 
@@ -1587,7 +1676,6 @@ fn emit_instruction(
                         asm.push(buffer[i]);
                     }
                 },
-
             };
         }
     }
@@ -1851,3 +1939,72 @@ fn immediate_fits_in_8_bits(immediate: i32) -> bool {
     immediate <= 127 && immediate >= -128
 }
 
+fn get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset: u32) -> (AddressingMode, Option<Sib>) {
+    let addressing_mode = if offset <= 128 {
+        AddressingMode::IndirectAddressingOneByteDisplacement
+    } else {
+        AddressingMode::IndirectAddressingFourByteDisplacement
+    };
+    let sib = if addressing_mode == AddressingMode::IndirectAddressingOneByteDisplacement {
+        Some(Sib {
+            base: None,
+            index: None,
+            scale: None,
+            // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
+            displacement: Some(Displacement::OneByte(u8::max_value().wrapping_sub(offset as u8).wrapping_add(1))),
+        })
+    } else {
+        Some(Sib {
+            base: None,
+            index: None,
+            scale: None,
+            // in this case the number is signed integer, but we use u32. Convert the u32 offset to twos complement form, so that it is negative
+            displacement: Some(Displacement::FourByte(u32::max_value().wrapping_sub(offset).wrapping_add(1))),
+        })
+    };
+    (addressing_mode, sib)
+}
+
+
+fn get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+    scale: Option<Scale>,
+    base: Option<X64Register>,
+    index: Option<X64Register>,
+    displacement: Option<u32>) -> (AddressingMode, Option<Sib>) {
+
+    let index = if let Some(index_reg) = index {
+        ice_if!(index_reg == X64Register::RSP, "RSP cannot be used as an index register");
+        ice_if!(scale.is_none(), "Scale must be set if index register is used");
+        index_reg
+    } else {
+        X64Register::RSP // signifies unused register
+    };
+
+    let (addressing_mode, displacement) =
+        match (displacement, base) {
+            (None, Some(reg)) if reg != X64Register::RBP => {
+                (AddressingMode::IndirectAddressingNoDisplacement, None)
+            }
+            (None, Some(reg)) => { // encoding restriction, must encode using displacement
+                (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(0)))
+            }
+            (Some(val), _) if val < 128 => {
+                (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(val as u8)))
+            }
+            (Some(val), _) => {
+                (AddressingMode::IndirectAddressingFourByteDisplacement, Some(Displacement::FourByte(val)))
+            }
+            (None, None) => {
+                ice!("Not implemented")
+            }
+        };
+
+    let sib = Sib {
+            scale,
+            index: Some(index),
+            base,
+            displacement,
+        };
+
+    (addressing_mode, Some(sib))
+}

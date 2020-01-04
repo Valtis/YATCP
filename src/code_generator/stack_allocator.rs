@@ -1,5 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter};
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter, DynamicStackOffset};
 use crate::semcheck::Type;
 
 use super::x64::X64Register;
@@ -115,8 +115,11 @@ fn handle_comparison_op(comparison_op: &ComparisonOperation, stack_map: &mut Sta
 }
 
 fn add_if_register(value: &Value, stack_map: &mut StackMap) {
-    if let VirtualRegister(src) = value {
-        add_location(stack_map, src);
+
+    match value {
+        Value::VirtualRegister(src) => add_location(stack_map, src),
+        Value::DynamicStackOffset {index, offset: _, size: _ } => add_if_register(index, stack_map),
+        _ => (),
     }
 }
 
@@ -336,6 +339,98 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 _ => unimplemented!("Not implemented for non-integral function parameters, got type: {:?}", param_type),
             }
         },
+        UnaryOperation {
+            src: IntegerConstant(val),
+            dest: DynamicStackOffset {
+                size,
+                offset,
+                index,
+            }
+        } => {
+            if let VirtualRegister(ref vregdata) = **index {
+                let tmp_reg = get_register_for_size(*size);
+
+                let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: StackOffset {
+                                size: stack_slot.size,
+                                offset: stack_slot.offset,
+                            },
+                            dest: PhysicalRegister(tmp_reg.clone()),
+                        }
+                    ));
+
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: IntegerConstant(*val),
+                            dest: DynamicStackOffset {
+                                size: *size,
+                                offset: *offset,
+                                index: Box::new(PhysicalRegister(tmp_reg)),
+                            }
+                        }
+                    ));
+
+            } else {
+                ice!("Unexpected dynamic offset {:?} ", offset)
+            }
+        },
+        UnaryOperation {
+            src: VirtualRegister(src_vregdata),
+            dest: DynamicStackOffset {
+                size,
+                offset,
+                index,
+            }
+        } => {
+            if let VirtualRegister(ref vregdata) = **index {
+                let tmp_reg = get_register_for_size(*size);
+                let tmp2_reg = get_register_for_size2(*size);
+
+                let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: StackOffset {
+                                size: src_stack_slot.size,
+                                offset: src_stack_slot.offset,
+                            },
+                            dest: PhysicalRegister(tmp2_reg.clone()),
+                        }
+                    ));
+
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: StackOffset {
+                                size: stack_slot.size,
+                                offset: stack_slot.offset,
+                            },
+                            dest: PhysicalRegister(tmp_reg.clone()),
+                        }
+                    ));
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: PhysicalRegister(tmp2_reg),
+                            dest: DynamicStackOffset {
+                                size: *size,
+                                offset: *offset,
+                                index: Box::new(PhysicalRegister(tmp_reg)),
+                            }
+                        }
+                    ));
+
+            } else {
+                ice!("Unexpected dynamic offset {:?} ", offset)
+            }
+        }
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
 }
@@ -1537,6 +1632,13 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
 fn get_register_for_size(size: u32) -> X64Register {
     match size {
         4 => X64Register::EAX,
+        _ => ice!("Invalid register size {}", size),
+    }
+}
+
+fn get_register_for_size2(size: u32) -> X64Register {
+    match size {
+        4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
     }
 }

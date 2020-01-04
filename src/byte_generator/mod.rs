@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
 use crate::function_attributes::FunctionAttribute;
 
+const ARRAY_LENGTH_SLOT_SIZE: u32 = 4; // bytes for storing array length
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOperation {
@@ -54,6 +55,7 @@ pub enum Value {
     BooleanConstant(bool),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
+    DynamicStackOffset {index: Box<Value>, offset: u32, size: u32 },
     ReturnValue,
     FunctionParameter(Type, usize),
 }
@@ -348,6 +350,19 @@ impl ByteGenerator {
                 self.current_function().parameter_count += 1;
                 Value::FunctionParameter( *value_type, pos as usize)
             },
+            Operand::ArrayIndex {
+                index_operand,
+                id: _,
+                variable_info
+            } => {
+                // TODO: Dynamically allocated arrays
+                let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
+                Value::DynamicStackOffset {
+                    index: Box::new(self.get_source(index_operand)),
+                    offset: ARRAY_LENGTH_SLOT_SIZE,
+                    size,
+                }
+            }
             x => panic!("Not implemented yet for {}", x),
         }
     }

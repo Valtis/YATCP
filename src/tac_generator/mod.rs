@@ -1,7 +1,7 @@
 mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, NodeInfo as Span, ArithmeticInfo};
+use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, ExtraDeclarationInfo, NodeInfo as Span, ArithmeticInfo};
 use crate::semcheck::Type;
 use crate::function_attributes::FunctionAttribute;
 
@@ -51,6 +51,11 @@ impl Display for Operator {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operand {
     Variable(DeclarationInfo, u32),
+    ArrayIndex{
+        id: u32,
+        index_operand: Box<Operand>,
+        variable_info: DeclarationInfo,
+    },
     SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
     Float(f32),
@@ -64,6 +69,9 @@ pub enum Operand {
 impl Display for Operand {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
+            Operand::ArrayIndex { id, ref index_operand, ref variable_info} => {
+                format!("{}_{}[{}]", variable_info.name, id, index_operand)
+            }
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
             Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
@@ -380,8 +388,113 @@ impl TACGenerator {
         &mut self,
         child: &AstNode,
         info: &DeclarationInfo) {
-        self.declaration_assignment_common(child, &info.name);
+
+        if info.variable_type.is_array() {
+            self.handle_array_declaration(child, info);
+        } else {
+            self.declaration_assignment_common(child, &info.name);
+        }
     }
+
+    fn handle_array_declaration(
+        &mut self,
+        child: &AstNode,
+        info: &DeclarationInfo
+    ) {
+        self.generate_tac(child);
+        let (variable_info, id) = self.get_variable_info_and_id(&info.name);
+        let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
+
+        let size = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = variable_info.extra_info {
+            let mut size = 1 as u64;
+            for dim in dims.iter() {
+                match dim {
+                    AstInteger::Int(val) => size *= *val as u64,
+                    _ => ice!("Invalid array dimension {:?}", dim),
+                }
+            }
+
+            ice_if!(size > std::i32::MAX as u64,"Array size exceeds maximum size");
+            size as i32
+        } else {
+            ice!("Invalid extra declaration field {:?} for an array", variable_info.extra_info);
+        };
+
+        self.store_array_length(size);
+        self.emit_array_initialization(id, variable_info, size, operand);
+    }
+
+    fn store_array_length(&mut self, size: i32) {
+
+    }
+
+    fn emit_array_initialization(
+        &mut self,
+        id: u32,
+        variable_info: DeclarationInfo,
+        size: i32,
+        operand: Operand) {
+        // FIXME: Right now there is no runtime, so initialing the array is done like this. Replacing this with a call to memset would likely make more sense
+
+        /*
+            i = 0;
+            START:
+            i <= ARRAY_SIZE
+            JUMP_IF_FALSE END
+            array[i] = OPERAND
+            i = i + 1
+            JUMP START
+            END:
+
+
+        */
+
+        let start_label_id= self.get_label_id();
+        let end_label_id = self.get_label_id();
+        let index_var = self.get_temporary(Type::Integer);
+        let cmp_result = self.get_temporary(Type::Boolean);
+
+
+        self.current_function().statements.push(
+            Statement::Assignment(None, Some(index_var.clone()), None, Some(Operand::Integer(0))));
+
+        self.current_function().statements.push(
+            Statement::Label(start_label_id));
+        self.current_function().statements.push(
+            Statement::Assignment(
+                Some(Operator::Less),
+                Some(cmp_result.clone()),
+                Some(index_var.clone()),
+                Some(Operand::Integer(size))
+        ));
+
+        self.current_function().statements.push(
+            Statement::JumpIfFalse(cmp_result, end_label_id));
+
+        self.current_function().statements.push(
+            Statement::Assignment(
+                None,
+                Some(Operand::ArrayIndex {
+                    id,
+                    variable_info,
+                    index_operand: Box::new(index_var.clone()),
+                }),
+                None,
+                Some(operand)));
+
+        self.current_function().statements.push(
+            Statement::Assignment(
+                Some(Operator::Plus),
+                Some(index_var.clone()),
+                Some(index_var.clone()),
+                Some(Operand::Integer(1))));
+
+        self.current_function().statements.push(
+            Statement::Jump(start_label_id));
+        self.current_function().statements.push(
+            Statement::Label(end_label_id));
+    }
+
 
     fn handle_variable_assignment(
         &mut self,
@@ -656,6 +769,9 @@ impl TACGenerator {
             Operand::Double(_) => Type::Double,
             Operand::Boolean(_) => Type::Boolean,
             Operand::Initialized(ref t) => t.clone(),
+            Operand::ArrayIndex {index_operand: _, id: _, variable_info: ref var_info } => {
+                var_info.variable_type.get_array_basic_type()
+            },
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }

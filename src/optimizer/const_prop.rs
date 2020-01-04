@@ -158,5 +158,6 @@ fn is_constant(var: &Operand) -> bool {
         Operand::Double(_) => true,
         Operand::Boolean(_) => true,
         Operand::Initialized(_) => false,
+        Operand::ArrayIndex { index_operand: _, id: _, variable_info: _ } => false,
     }
 }
