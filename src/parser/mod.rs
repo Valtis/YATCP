@@ -581,7 +581,7 @@ impl Parser {
 
 
         Ok(AstNode::MemberAccess {
-            member_access_expression: Box::new(expression),
+            object: Box::new(expression),
             member: Box::new(AstNode::Identifier(name, Span::new(member.line, member.column, member.length))),
             span: Span::new(dot.line, dot.column, dot.length),
         })
@@ -4966,7 +4966,7 @@ mod tests {
                                     AstNode::VariableAssignment(
                                         Box::new(
                                             AstNode::MemberAccess {
-                                                member_access_expression: Box::new(
+                                                object: Box::new(
                                                     AstNode::Identifier(
                                                         Rc::new("a".to_owned()),
                                                         Span::new(8, 12, 2),
@@ -5052,9 +5052,9 @@ mod tests {
                                     AstNode::VariableAssignment(
                                         Box::new(
                                             AstNode::MemberAccess {
-                                                member_access_expression: Box::new(
+                                                object: Box::new(
                                                     AstNode::MemberAccess {
-                                                        member_access_expression: Box::new(
+                                                        object: Box::new(
                                                             AstNode::Identifier(
                                                                 Rc::new("a".to_owned()),
                                                                 Span::new(8, 12, 2),
@@ -5148,7 +5148,7 @@ mod tests {
                                     AstNode::VariableAssignment(
                                         Box::new(
                                             AstNode::MemberAccess {
-                                                member_access_expression: Box::new(
+                                                object: Box::new(
                                                     AstNode::FunctionCall(
                                                         vec![],
                                                         Rc::new("a".to_owned()),

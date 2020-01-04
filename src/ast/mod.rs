@@ -79,7 +79,7 @@ pub enum AstNode {
     VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo },
 
-    MemberAccess { member_access_expression: Box<AstNode>, member: Box<AstNode>, span: NodeInfo },
+    MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: NodeInfo },
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -175,7 +175,7 @@ impl Display for AstNode {
                 variable_name: name,
                 span: _
             } => format!("Array assignment '{}'", name),
-            AstNode::MemberAccess {member_access_expression: _, member, span: _} => format!("Member access"),
+            AstNode::MemberAccess { object: _, member: _, span: _} => format!("Member access"),
             AstNode::Integer(val, _) => format!("Integer: {}", val),
             AstNode::Float(val, _) => format!("Float: {}", val),
             AstNode::Double(val, _) => format!("Double: {}", val),
@@ -250,8 +250,8 @@ impl AstNode {
                 string = format!("{}{}", string, assign.print_impl(next_int));
             },
             AstNode::MemberAccess {
-                member_access_expression: ref member_access,
-                member: ref member,
+                object: ref member_access,
+                ref member,
                 span: _,
             } => {
                 string = format!("{}{}", string, member_access.print_impl(next_int));
@@ -329,7 +329,7 @@ impl AstNode {
                 span,
             } => *span,
             AstNode::MemberAccess {
-                member_access_expression: _,
+                object: _,
                 member: _,
                 span,
             } => *span,
@@ -396,8 +396,8 @@ impl PartialEq for AstNode {
                 => {
                 s_indx == o_indx && s_asgn == o_asgn && s_name == o_name && s_span == o_span
             },
-            (AstNode::MemberAccess { member_access_expression: s_expr, member: s_member, span: s_span},
-             AstNode::MemberAccess { member_access_expression: o_expr, member: o_member, span: o_span}) => {
+            (AstNode::MemberAccess { object: s_expr, member: s_member, span: s_span},
+             AstNode::MemberAccess { object: o_expr, member: o_member, span: o_span}) => {
                 s_expr == o_expr && s_member == o_member && s_span == o_span
             },
             (AstNode::Integer(s_num, s_ni),
