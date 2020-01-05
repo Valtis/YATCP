@@ -139,7 +139,6 @@ fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
 
 
         map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: slot_size} );
-        println!("Assingned reg {} into stack slot {:?}", data.id, map.reg_to_stack_slot[&data.id]);
         map.stack_size += slot_size;
     }
 }
@@ -153,7 +152,6 @@ fn add_array_location(map: &mut StackMap, id: u32, size_in_bytes: u32) {
         };
 
         map.array_to_stack_slot.insert(id, StackSlot { offset: map.stack_size, size: slot_size });
-        println!("Assigned array {} into stack slot {:?}", id, map.array_to_stack_slot[&id]);
         map.stack_size += slot_size;
     } else {
         ice!("Multiple array declarations for array id {}", id);

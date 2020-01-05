@@ -11,9 +11,6 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use crate::function_attributes::FunctionAttribute;
-use crate::obj_generator::Architecture::X64;
-use crate::code_generator::x64::AddressingMode::IndirectAddressingOneByteDisplacement;
-use crate::code_generator::x64::Scale::One;
 
 const INTEGER_SIZE: usize = 4;
 
@@ -415,7 +412,6 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
 
     emit_function_prologue(&mut asm, stack_size);
     for b in function.code.iter() {
-        println!("{:?}", b);
         match b {
             ByteCode::Nop => emit_nop(&mut asm),
             ByteCode::Mov(operands) => emit_mov(operands, &mut asm),
@@ -2032,7 +2028,7 @@ fn get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
             (None, Some(reg)) if reg != X64Register::RBP => {
                 (AddressingMode::IndirectAddressingNoDisplacement, None)
             }
-            (None, Some(reg)) => { // encoding restriction, must encode using displacement
+            (None, Some(_)) => { // encoding restriction, must encode using displacement
                 (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(0)))
             }
             (Some(val), _) if val < 128 => {

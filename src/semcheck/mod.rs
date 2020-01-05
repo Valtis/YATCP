@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 
 
-const ARRAY_LENGTH_PROPERTY: &'static str = "length";
+pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Type {

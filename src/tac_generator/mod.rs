@@ -2,7 +2,7 @@ mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
 use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, ExtraDeclarationInfo, NodeInfo as Span, ArithmeticInfo};
-use crate::semcheck::Type;
+use crate::semcheck::{Type, ARRAY_LENGTH_PROPERTY};
 use crate::function_attributes::FunctionAttribute;
 
 use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
@@ -58,6 +58,10 @@ pub enum Operand {
         index_operand: Box<Operand>,
         variable_info: DeclarationInfo,
     },
+    ArrayLength {
+        id: u32,
+        variable_info: DeclarationInfo,
+    },
     SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
     Float(f32),
@@ -73,7 +77,8 @@ impl Display for Operand {
         write!(formatter, "{}", match *self {
             Operand::ArrayIndex { id, ref index_operand, ref variable_info} => {
                 format!("{}_{}[{}]", variable_info.name, id, index_operand)
-            }
+            },
+            Operand::ArrayLength { id, ref variable_info } => format!("{}_{}.length", variable_info.name, id),
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
             Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
@@ -250,7 +255,14 @@ impl TACGenerator {
                 self.handle_variable_assignment(child, name),
             AstNode::ArrayAccess { index_expression, indexable_expression} => {
                 self.handle_array_access(indexable_expression, index_expression);
-            }
+            },
+            AstNode::ArrayAssignment { assignment_expression, index_expression, variable_name, span: _, } =>
+                self.handle_array_assignment(variable_name, index_expression, assignment_expression),
+            AstNode::MemberAccess {
+                object,
+                member,
+                span: _,
+            } => self.handle_member_access(object, member),
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
@@ -429,7 +441,7 @@ impl TACGenerator {
 
         self.store_array_length(id,
                                 length,
-                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
+                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes());
         self.emit_array_initialization(id, variable_info, length, operand);
     }
 
@@ -461,6 +473,11 @@ impl TACGenerator {
 
         */
 
+        /*
+            IMPORTANT NOTE:
+            We reuse the index var to store the array length; it is currently stored right before the
+            array itself (array[-1]). Do not change the layout, or things will explode)
+        */
         let start_label_id= self.get_label_id();
         let end_label_id = self.get_label_id();
         let index_var = self.get_temporary(Type::Integer);
@@ -507,7 +524,6 @@ impl TACGenerator {
             Statement::Label(end_label_id));
     }
 
-
     fn handle_variable_assignment(
         &mut self,
         child: &AstNode,
@@ -550,7 +566,7 @@ impl TACGenerator {
         indexable_expression: &AstNode,
         index_expression: &AstNode,
     ) {
-        let array = self.get_operand(indexable_expression);
+
         let index = self.get_operand(index_expression);
 
         let (array_type, name) = match indexable_expression {
@@ -585,9 +601,68 @@ impl TACGenerator {
             )
         );
 
-
-
         self.operands.push(dst);
+    }
+
+    fn handle_array_assignment(
+        &mut self,
+        variable_name: &str,
+        index_expression: &AstNode,
+        assignment_expression: &AstNode) {
+
+        let index_operand = self.get_operand(index_expression);
+        let assignment_operand = self.get_operand(assignment_expression);
+
+        let (var_info, id) = self.get_variable_info_and_id(variable_name);
+
+        self.current_function().statements.push(
+            Statement::Assignment(
+                None,
+                Some(Operand::ArrayIndex {
+                    index_operand: Box::new(index_operand),
+                    variable_info: var_info,
+                    id,
+                }),
+                None,
+                Some(assignment_operand),
+            )
+        );
+    }
+
+    fn handle_member_access(
+        &mut self,
+        object: &AstNode,
+        member: &AstNode) {
+
+        if let AstNode::Identifier(name, _) = object {
+            let (var_info, id) = self.get_variable_info_and_id(name);
+            ice_if!(!var_info.variable_type.is_array(), "Access not implemented for non-arrays");
+
+            if let AstNode::Identifier(name, _) = member {
+
+                ice_if!(**name != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
+
+                let tmp = self.get_temporary(var_info.variable_type.get_array_basic_type());
+
+                self.current_function().statements.push(
+                    Statement::Assignment(
+                        None,
+                        Some(tmp.clone()),
+                        None,
+                        Some(Operand::ArrayLength{ id, variable_info: var_info }),
+                    ));
+
+                self.operands.push(tmp);
+            } else {
+                ice!("Member access TAC generation not impelmented for member: {:?}", member)
+            }
+
+
+
+
+        } else {
+            todo!("Member access TAC generation not implemented for: {:?}", object)
+        }
     }
 
     fn handle_arithmetic_node(&mut self, node: &AstNode) {
@@ -828,6 +903,7 @@ impl TACGenerator {
             Operand::ArrayIndex {index_operand: _, id: _, variable_info: ref var_info } => {
                 var_info.variable_type.get_array_basic_type()
             },
+            Operand::ArrayLength { id: _, variable_info: _, } => Type::Integer,
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }
@@ -861,7 +937,7 @@ impl TACGenerator {
         ret
     }
 
-    fn get_variable_info_and_id(&self, name: &String) -> (DeclarationInfo, u32) {
+    fn get_variable_info_and_id(&self, name: &str) -> (DeclarationInfo, u32) {
         let symbol = self.symbol_table.find_symbol(name).unwrap_or_else(
                 || ice!("No symbol '{}' found during TAC construction", name));
 

@@ -1,13 +1,13 @@
 #![allow(dead_code)] // primarily for the unused variant lints
 
-use crate::tac_generator::{Statement, Operator, Operand, TACGenerator, ARRAY_LENGTH_SLOT_SIZE};
+use crate::tac_generator::{Statement, Operator, Operand, ARRAY_LENGTH_SLOT_SIZE};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::byte_generator::Value::{VirtualRegister, ComparisonResult, IntegerConstant};
+use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
 use crate::function_attributes::FunctionAttribute;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -189,7 +189,7 @@ impl ByteGenerator {
         self.current_function().code.push(ByteCode::Mov(data));
     }
 
-    fn emit_array_init(&mut self, id: u32, length: i32, size_in_bytes: u32) {
+    fn emit_array_init(&mut self, id: u32, _length: i32, size_in_bytes: u32) {
         self.current_function().code.push(ByteCode::PseudoArrayInit { size_in_bytes, id });
     }
 
@@ -365,6 +365,15 @@ impl ByteGenerator {
                 Value::DynamicStackOffset {
                     id: *id,
                     index: Box::new(self.get_source(index_operand)),
+                    offset: ARRAY_LENGTH_SLOT_SIZE,
+                    size,
+                }
+            },
+            Operand::ArrayLength{ id, variable_info }=> {
+                let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
+                Value::DynamicStackOffset {
+                    id: *id,
+                    index: Box::new(Value::IntegerConstant(-1)),  
                     offset: ARRAY_LENGTH_SLOT_SIZE,
                     size,
                 }
