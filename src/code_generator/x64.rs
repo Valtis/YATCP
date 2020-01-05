@@ -63,6 +63,13 @@ const JUMP_IF_NOT_EQ : u8 = 0x75;
 const JUMP_IF_GREATER_OR_EQ : u8= 0x7D;
 const JUMP_IF_GREATER : u8 = 0x7F;
 
+const JUMP_IF_LESS_32_BIT: u16 = 0x0F8C;
+const JUMP_IF_LESS_OR_EQ_32_BIT: u16 = 0x0F8E;
+const JUMP_IF_EQ_32_BIT : u16 = 0x0F84;
+const JUMP_IF_NOT_EQ_32_BIT : u16 = 0x0F85;
+const JUMP_IF_GREATER_OR_EQ_32_BIT : u16= 0x0F8D;
+const JUMP_IF_GREATER_32_BIT : u16 = 0x0F8F;
+
 const SET_BYTE_IF_LESS : u16 = 0x0F9C;
 const SET_BYTE_IF_LESS_OR_EQ : u16 = 0x0F9E;
 const SET_BYTE_IF_EQ : u16 = 0x0F94;
@@ -435,7 +442,16 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
         }
     }
 
-    update_jumps(&jumps_requiring_updates, &label_pos, &mut asm);
+    // codegen thus far was optimistic and used 8 bit offsets. Update to 32 bit offsets for jumps
+    // where this is not enough. Function patches also need to be adjusted, as ASM shifts around when
+    // placeholders and opcodes are replaced with larger ones (opcode 1 -> 2 byte, offset placeholder 1 byte -> 4 byte)
+    change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
+        &mut calls_requiring_updates,
+        &mut jumps_requiring_updates,
+        &mut label_pos,
+        &mut asm);
+
+    update_jumps(&mut jumps_requiring_updates, &mut label_pos,  &mut asm);
 
     (function.clone(), asm, calls_requiring_updates)
 }
@@ -1896,10 +1912,127 @@ fn handle_label(id: u32, asm_code_len: usize, label_pos: &mut HashMap<u32, usize
     label_pos.insert(id, asm_code_len);
 }
 
-fn update_jumps(
-    jumps_requiring_updates: &Vec<JumpPatch>,
-    label_pos: &HashMap<u32, usize>,
+
+// codegen optimistically uses the 1 byte offset variant for conditional jumps.
+//
+fn change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
+    calls_requiring_updates: &mut Vec<CallPatch>,
+    jumps_requiring_updates: &mut Vec<JumpPatch>,
+    label_pos: &mut HashMap<u32, usize>,
     asm: &mut Vec<u8>) {
+
+
+    let mut shifts = vec![];
+    shifts.push(0); // first instruction is never shifted
+
+    let mut shifted_bytes = 0;
+    for jump in jumps_requiring_updates.iter_mut() {
+        if let JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) = jump {
+            let target = label_pos[&label_id];
+            let op_size = 2i32; // size of the whole operation (opcode + operand)
+            let offset : i32 = target as i32 - *jump_opcode_location as i32 - op_size;
+
+            // cannot borrow jump vec again, so create a shift table storing the shifts required for each line to remain in sync
+            let cur_size = shifts.len();
+            for _ in cur_size..*jump_opcode_location+1 {
+                shifts.push(shifted_bytes);
+            }
+
+            ice_if!(shifts[*jump_opcode_location] != shifted_bytes, "Invalid shift table initialization");
+
+            if offset > 127 || offset < -128 {
+                update_conditional_jump_opcode_and_placeholder_to_32_bit_variant(*jump_opcode_location + shifted_bytes, asm);
+                // everything after JUMP_OPCODE_LOCATION has now shifted by 4 bytes. Anything referring to any values after these
+                // must be updated
+
+                // update jump labels
+                update_label_positions(label_pos, *jump_opcode_location + shifted_bytes);
+                // update calls
+                update_call_positions(calls_requiring_updates, *jump_opcode_location + shifted_bytes);
+
+                shifted_bytes += 4; // how many bytes have been added into the ASM vec,
+            }
+            shifts.push(shifted_bytes);
+            ice_if!(shifts[*jump_opcode_location+1] != shifted_bytes, "Invalid shift table initialization");
+        }
+    }
+
+    // shift all jumps based on the shift table
+    if shifted_bytes > 0 {
+        for jump in jumps_requiring_updates.iter_mut() {
+            match jump {
+                JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) => {
+                    *jump_opcode_location += shifts[*jump_opcode_location];
+                }
+                JumpPatch::Jump(label_id, jump_opcode_location) => {
+                    *jump_opcode_location += shifts[*jump_opcode_location];
+                }
+            }
+        }
+    }
+
+/*
+    eprintln!("Update opcode");
+    eprintln!("Use 4 byte offset");
+    eprintln!("Update jump labels after this one to account for shift in asm");
+    eprintln!("Update function call patches to account for this");
+*/
+}
+
+fn update_conditional_jump_opcode_and_placeholder_to_32_bit_variant(location: usize, asm: &mut Vec<u8>) {
+    // FIXME: Inserts are in general O(N^2) due to inserting into a middle of a vector.
+
+    // extend the jump offset placeholder
+    asm.insert(location+1, 0x0);
+    asm.insert(location+1, 0x0);
+    asm.insert(location+1, 0x0);
+
+    let updated_opcode = match asm[location] {
+        JUMP_IF_LESS => JUMP_IF_LESS_32_BIT,
+        JUMP_IF_LESS_OR_EQ => JUMP_IF_LESS_OR_EQ_32_BIT,
+        JUMP_IF_EQ => JUMP_IF_EQ_32_BIT,
+        JUMP_IF_NOT_EQ => JUMP_IF_NOT_EQ_32_BIT,
+        JUMP_IF_GREATER_OR_EQ => JUMP_IF_GREATER_OR_EQ_32_BIT,
+        JUMP_IF_GREATER => JUMP_IF_GREATER_32_BIT,
+        _ => ice!("Invalid opcode for 8bit->32bit conditional jump update: Opcode 0x{:x} is not a conditional jump opcode", asm[location])
+    };
+
+    let high_byte = (updated_opcode >> 8) as u8;
+    let low_byte = updated_opcode as u8;
+    asm[location] = high_byte;
+    asm.insert(location+1, low_byte);
+}
+
+fn update_label_positions(
+    label_pos: &mut HashMap<u32, usize>,
+    last_valid_position: usize,) {
+
+    for (label_id, position) in label_pos.iter_mut() {
+        if *position > last_valid_position {
+            *position +=4;
+        }
+    }
+}
+
+fn update_call_positions(
+    calls_requiring_updates: &mut Vec<CallPatch>,
+    last_valid_position: usize,) {
+
+    for call in calls_requiring_updates.iter_mut() {
+        if call.location > last_valid_position {
+            call.location +=4;
+        }
+    }
+}
+
+
+fn update_jumps(
+    jumps_requiring_updates: &mut Vec<JumpPatch>,
+    label_pos: &mut HashMap<u32, usize>,
+    asm: &mut Vec<u8>) {
+
+
+
     for jump in jumps_requiring_updates.iter() {
         match jump {
             JumpPatch::Jump(label_id, jump_opcode_location) => {
@@ -1927,11 +2060,22 @@ fn update_jumps(
                     let target = label_pos[&label_id];
                     let op_size = 2i32; // size of the whole operation (opcode + operand)
                     let offset : i32 = target as i32 - *jump_opcode_location as i32 - op_size;
+
                     if offset < -128 || offset > 127 {
-                        panic!("Not implemented for jumps larger than a byte");
+                        // the 2 byte jump (opcode + one byte offset) has been replaced with 6 byte jump
+                        // (2 byte opcode + 4 byte offset). Adjust the offset accordingly
+                        let additional_opcode_size = 4;
+                        let u32_offset = (offset - additional_opcode_size) as u32;
+
+                        // +2 so that the two-byte opcocde is skipped
+                        asm[jump_opcode_location + 2] = u32_offset  as u8;
+                        asm[jump_opcode_location + 3] = (u32_offset >> 8)  as u8;
+                        asm[jump_opcode_location + 4] = (u32_offset >> 16)  as u8;
+                        asm[jump_opcode_location + 5] = (u32_offset >> 24)  as u8;
+                    } else {
+                        // +1 so that the one-byte opcocde is skipped
+                        asm[jump_opcode_location + 1] = (offset as i8) as u8;
                     }
-                    // +1 so that the one-byte opcocde is skipped
-                    asm[jump_opcode_location + 1] = (offset as i8) as u8;
                 } else {
                     ice!("No jump target for conditional short jump stored: {:#?}", jump);
                 }
@@ -1939,6 +2083,7 @@ fn update_jumps(
         }
     }
 }
+
 
 fn update_calls(
     calls_requiring_updates: &Vec<CallPatch>,
