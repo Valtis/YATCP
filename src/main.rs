@@ -23,6 +23,7 @@ fn main() {
     let mut print_tac= false;
     let mut print_cfg = false;
     let mut print_bytecode = false;
+    let mut print_bytecode_after_register_alloc = false;
     let mut generate_code = true;
 
     {
@@ -50,7 +51,10 @@ fn main() {
             .add_option(&["--print-cfg"], StoreTrue, "Print out the function control flow graphs. Requires -O");
 
         argparse.refer(&mut print_bytecode)
-            .add_option(&["--print-bytecode"], StoreTrue, "Print out the byte code representation");
+            .add_option(&["--print-bytecode"], StoreTrue, "Print out the byte code representation before register allocation");
+
+        argparse.refer(&mut print_bytecode_after_register_alloc)
+            .add_option(&["--print-allocated-bytecode"], StoreTrue, "Print out the byte code representation after register allocation is done");
 
         argparse.refer(&mut generate_code)
             .add_option(&["--no-code-generation"], StoreFalse, "Skip code generation phase");
@@ -68,7 +72,7 @@ fn main() {
     if let Some(functions) = opt_functions {
         if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, error_reporter.clone()) {
             if generate_code {
-                run_backend(output, functions, print_bytecode);
+                run_backend(output, functions, print_bytecode, print_bytecode_after_register_alloc);
             }
         } else {
             std::process::exit(1);

@@ -35,9 +35,15 @@ impl CodeGenerator {
         }
     }
 
-    pub fn generate_code(self) -> Code {
+    pub fn generate_code(self, print_bytecode: bool) -> Code {
         // TODO - remove hard coded architecture
         let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions);
+
+        if print_bytecode {
+            for (f, _) in bytecode_with_allocations.iter() {
+                f.print_bytecode();
+            }
+        }
 
         x64::generate_code(bytecode_with_allocations)
     }

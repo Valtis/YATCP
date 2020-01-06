@@ -93,6 +93,16 @@ impl Function {
     pub fn has_attribute(&self, attribute: FunctionAttribute) -> bool {
         self.attributes.contains(&attribute)
     }
+
+    pub fn print_bytecode(&self) {
+        let mut counter = 1;
+        println!("Function '{}'", self.name);
+        for c in self.code.iter() {
+            println!("    {}: {:?}", counter, c);
+            counter += 1;
+        }
+        println!();
+    }
 }
 
 pub struct ByteGenerator {
@@ -110,6 +120,14 @@ impl ByteGenerator {
             next_register: 0,
             variable_id_to_register: HashMap::new(),
         }
+    }
+
+    pub fn print_bytecode(&self) {
+        println!();
+        for f in self.bytecode_functions.iter() {
+            f.print_bytecode();
+        }
+
     }
 
     pub fn generate_bytecode(&mut self) {
