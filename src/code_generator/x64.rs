@@ -1961,10 +1961,10 @@ fn change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
     if shifted_bytes > 0 {
         for jump in jumps_requiring_updates.iter_mut() {
             match jump {
-                JumpPatch::ConditionalShortJump(label_id, jump_opcode_location) => {
+                JumpPatch::ConditionalShortJump(_, jump_opcode_location) => {
                     *jump_opcode_location += shifts[*jump_opcode_location];
                 }
-                JumpPatch::Jump(label_id, jump_opcode_location) => {
+                JumpPatch::Jump(_, jump_opcode_location) => {
                     *jump_opcode_location += shifts[*jump_opcode_location];
                 }
             }
@@ -2007,7 +2007,7 @@ fn update_label_positions(
     label_pos: &mut HashMap<u32, usize>,
     last_valid_position: usize,) {
 
-    for (label_id, position) in label_pos.iter_mut() {
+    for (_, position) in label_pos.iter_mut() {
         if *position > last_valid_position {
             *position +=4;
         }
