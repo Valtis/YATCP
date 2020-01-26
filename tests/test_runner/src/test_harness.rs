@@ -12,7 +12,7 @@ use crate::compiler_helper::{compile_and_run, CompileData, FunctionKind};
 
 const TEST_FILE_EXTENSION: &'static str= "yaml";
 
-pub fn run_tests() {
+pub fn run_tests() -> i32  {
     let programs = find_all_test_programs();
     println!("Discovered {} test cases\n", programs.len());
 
@@ -43,6 +43,14 @@ pub fn run_tests() {
     }
 
     println!("\nRan {} test, {} passed, {} failed", programs.len(), passes, failures.len());
+
+    // Note: Unix uses 8 bit return codes. Technically we could just return the failure count,
+    // but 'failures MOD 256' is interpreted as zeros for multiples of 256
+    if failures.is_empty() {
+        return 0;
+    }
+
+    return 1;
 }
 
 fn find_all_test_programs() -> Vec<PathBuf> {
