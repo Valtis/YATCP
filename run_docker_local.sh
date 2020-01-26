@@ -2,6 +2,9 @@
 
 set -ueo pipefail
 
-docker run --env GITHUB_WORKSPACE="/code" -v $(pwd):/code  $1 test 
+
+WORKSPACE="/code"
+
+docker run --env CODE_DIR="$WORKSPACE" -v $(pwd):$WORKSPACE  $1 test-local
 
 
