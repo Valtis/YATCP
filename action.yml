@@ -1,0 +1,12 @@
+name: Run tests
+description: Run unit and e2e tests
+inputs:
+        job_type:
+                description: Test job
+                required: true
+                default: "test"
+runs:
+        using: 'docker'
+        image: 'Dockerfile'
+        args:
+                - ${{ inputs.job_type }}

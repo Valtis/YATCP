@@ -1,0 +1,13 @@
+name: YATCP testing pipeline
+on: [push]
+
+jobs:
+        test:
+                name: Tests
+                runs-on: ubuntu-latest
+                steps:
+                        - name: "Run tests" 
+                          uses:  Valtis/YATCP
+                          with:
+                                job_type: "test"
+              
