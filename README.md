@@ -1,9 +1,11 @@
 YATCP
 =====
 
+![YATCP testing pipeline](https://github.com/Valtis/YATCP/workflows/YATCP%20testing%20pipeline/badge.svg?branch=master)  
+
 Yet another toy compiler project, written in Rust.
 
-A compiler for a language with Rust-like syntax and C-like semantics. Currently generates object files in ELF format, using System V AMD 64 ABI. This makes it compatible with C compilers running under Linux and macOS. Windows support is not currently planned.
+A compiler for a language with Rust-like syntax and C-like semantics. Currently generates object files in ELF format, using System V AMD 64 ABI. This makes it compatible with C compilers running under Linux. Windows support is not currently planned.
 
 # Tooling dependencies
 
