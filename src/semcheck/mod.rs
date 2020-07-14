@@ -26,6 +26,7 @@ pub enum Type {
     Boolean,
     Void,
     IntegerArray,
+    BooleanArray,
     Uninitialized,
     Invalid, // type error occured
 }
@@ -40,6 +41,7 @@ impl Type {
             Type::Boolean => 1,
             Type::Void => ice!("Reguesting size of a void type"),
             Type::IntegerArray => unimplemented!(),
+            Type::BooleanArray=> unimplemented!(),
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
         }
@@ -54,6 +56,7 @@ impl Type {
             Type::Boolean => false,
             Type::Void => false,
             Type::IntegerArray => true,
+            Type::BooleanArray => true,
             Type::Uninitialized => false,
             Type::Invalid => false,
         }
@@ -62,6 +65,7 @@ impl Type {
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
             Type::IntegerArray => Type::Integer,
+            Type::BooleanArray => Type::Boolean,
             _ => ice!("{} is not an array type but requested basic type anyway", self),
         }
     }
@@ -77,6 +81,7 @@ impl Display for Type {
             Type::Boolean => "Boolean",
             Type::Void => "Void",
             Type::IntegerArray => "Integer array",
+            Type::BooleanArray=> "Boolean array",
             Type::Uninitialized => "Uninitialized",
             Type::Invalid => "Invalid",
       }, formatter)
@@ -527,8 +532,7 @@ impl SemanticsCheck {
 
 
         } else if variable_info.variable_type != child_type &&
-            child_type != Type::Invalid {
-
+            child_type != Type::Invalid && variable_info.variable_type != Type::Invalid {
             self.report_type_error(variable_info, child, child_type);
         }
     }
@@ -555,7 +559,6 @@ impl SemanticsCheck {
 
         // do type check only for a declared variable
         if let Symbol::Variable(ref sym_info, _) = symbol {
-            // if type is invalid, errors has already been reported
             if sym_info.variable_type.is_array() {
                 self.report_error(
                     ReportKind::TypeError,
@@ -568,8 +571,9 @@ impl SemanticsCheck {
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
+                // if type is invalid, errors has already been reported
             } else if sym_info.variable_type != child_type &&
-                child_type != Type::Invalid  {
+                child_type != Type::Invalid && sym_info.variable_type != Type::Invalid  {
 
             self.report_error(
                 ReportKind::TypeError,

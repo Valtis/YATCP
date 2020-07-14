@@ -228,7 +228,15 @@ impl Parser {
         if is_array {
             declaration_info.variable_type = match declaration_info.variable_type {
                 Type::Integer => Type::IntegerArray,
-                _ => todo!(),
+                Type::Boolean => Type::BooleanArray,
+                _ => {
+                    self.report_error(
+                        ReportKind::SyntaxError,
+                        declaration_info.node_info.clone(),
+                        format!("{} is not valid base type for an array", declaration_info.variable_type)
+                    );
+                    Type::Invalid
+                },
             }
         }
 
