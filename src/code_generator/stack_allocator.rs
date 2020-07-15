@@ -420,6 +420,62 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
         },
         UnaryOperation {
+            src: BooleanConstant(val),
+            dest: DynamicStackOffset {
+                id,
+                size,
+                offset,
+                index,
+            }
+        } => {
+
+            let array_stack = &stack_map.array_to_stack_slot[id];
+            match **index {
+                VirtualRegister(ref vregdata) => {
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                    let tmp_reg = get_register_for_size(*size);
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    size: stack_slot.size,
+                                    offset: stack_slot.offset,
+                                },
+                                dest: PhysicalRegister(tmp_reg.clone()),
+                            }
+                        ));
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: BooleanConstant(*val),
+                                dest: DynamicStackOffset {
+                                    id: *id,
+                                    size: *size,
+                                    offset: get_indexed_array_offset(*offset, array_stack),
+                                    index: Box::new(PhysicalRegister(tmp_reg)),
+                                }
+                            }
+                        ));
+
+                },
+                // TODO implement when needed
+          /*      IntegerConstant(index) => {
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: IntegerConstant(*val),
+                                dest: StackOffset {
+                                    size: *size,
+                                    offset: get_constant_array_offset(*offset, *size, index, &array_stack),
+                                }
+                            }
+                        ));
+                }*/
+                _ => ice!("Unexpected dynamic index {:?} ", index)
+            }
+        },
+        UnaryOperation {
             src: VirtualRegister(src_vregdata),
             dest: DynamicStackOffset {
                 id,
@@ -1744,8 +1800,10 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
     }
 }
 
+// TODO - Make this less stupid
 fn get_register_for_size(size: u32) -> X64Register {
     match size {
+        1 => X64Register::AL,
         4 => X64Register::EAX,
         _ => ice!("Invalid register size {}", size),
     }
@@ -1753,6 +1811,7 @@ fn get_register_for_size(size: u32) -> X64Register {
 
 fn get_register_for_size2(size: u32) -> X64Register {
     match size {
+        1 => X64Register::AL,
         4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
     }
@@ -1760,6 +1819,7 @@ fn get_register_for_size2(size: u32) -> X64Register {
 
 fn get_register_for_size_for_division(size: u32) -> X64Register {
     match size {
+        1 => X64Register::AL,
         4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
     }

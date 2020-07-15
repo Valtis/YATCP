@@ -19,6 +19,8 @@ const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
 const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
 const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 
+const MOV_IMMEDIATE_8_BIT_TO_RM: u8 = 0xC6;
+
 const ADD_IMMEDIATE_8_BIT_TO_RM: u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
 const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
@@ -172,6 +174,7 @@ enum Displacement {
 #[derive(Debug, Clone, Copy)]
 enum Immediate {
     Byte(u8),
+    ByteSigned(i8),
     FourByteSigned(i32),
     FourByte(u32),
     EightByteSigned(i64),
@@ -200,6 +203,8 @@ pub enum X64Register {
     EAX,
     EDX,
     EBX,
+    // 8 bit registers
+    AL,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -241,6 +246,12 @@ impl From<u8> for Immediate {
     }
 }
 
+impl From<i8> for Immediate {
+    fn from(val: i8) -> Immediate {
+        Immediate::ByteSigned(val)
+    }
+}
+
 impl From<u32> for Immediate {
     fn from(val: u32) -> Immediate {
         Immediate::FourByte(val)
@@ -264,7 +275,10 @@ impl Immediate {
         match self {
             Immediate::Byte(val) => {
                 write_buffer.push(*val);
-            }
+            },
+            Immediate::ByteSigned(val) => {
+                write_buffer.push(*val as u8);
+            },
             Immediate::FourByte(val) => {
                 let mut buffer = [0; 4];
                 LittleEndian::write_u32(&mut buffer, *val);
@@ -295,7 +309,7 @@ impl Immediate {
 impl X64Register {
     fn encoding(&self) -> u8 {
         match self {
-            X64Register::RAX | X64Register::R8 | X64Register::EAX => 0x00,
+            X64Register::RAX | X64Register::R8 | X64Register::EAX | X64Register::AL => 0x00,
             X64Register::RCX | X64Register::R9 => 0x01,
             X64Register::RDX | X64Register::R10 | X64Register::EDX=> 0x02,
             X64Register::RBX | X64Register::R11 | X64Register::EBX => 0x03,
@@ -346,6 +360,8 @@ impl X64Register {
             X64Register::EAX |
             X64Register::EDX |
             X64Register::EBX => 4,
+
+            X64Register::AL => 1,
         }
     }
 }
@@ -549,6 +565,19 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         },
         UnaryOperation{
             dest: DynamicStackOffset { id: _, index, offset, size: _, },
+            src: BooleanConstant(immediate)
+        } => {
+            match **index {
+                PhysicalRegister(reg) => emit_mov_byte_to_stack_reg_indexed_with_offset(
+                    reg,
+                    *offset,
+                    if *immediate { 1 } else { 0 },
+                    asm),
+                _ => ice!("Invalid MOV operation:\n{:#?}", operand),
+            }
+        },
+        UnaryOperation{
+            dest: DynamicStackOffset { id: _, index, offset, size: _, },
             src: PhysicalRegister(src)
         } => {
             match **index {
@@ -616,7 +645,7 @@ fn emit_mov_integer_to_stack(offset: u32, immediate: i32, asm: &mut Vec<u8>) {
 
 
 /*
-Rex prefix: If 64 bit regs used
+    Rex prefix: If 64 bit regs used
     opcode: 1 byte,
     modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
     sib: yes
@@ -648,6 +677,40 @@ fn emit_mov_integer_to_stack_reg_indexed_with_offset(index: X64Register, displac
         Some(Immediate::from(immediate)),
     );
 }
+
+/*
+    Rex prefix: Not used
+    opcode: 1 byte,
+    modrm: indirect addressing with one byte displacement, opcode extension in reg field, dst in r/m
+    sib: yes
+    immediate: the 32 bit immediate
+*/
+fn emit_mov_byte_to_stack_reg_indexed_with_offset(index: X64Register, displacement: u32, immediate: i8, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::Four),
+            Some(X64Register::RBP),
+            Some(index),
+            Some(displacement));
+
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(0),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
+    };
+
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(MOV_IMMEDIATE_8_BIT_TO_RM),
+        Some(modrm),
+        sib,
+        Some(Immediate::from(immediate)),
+    );
+}
+
 /*
 Rex prefix: If 64 bit regs used
     opcode: 1 byte,
