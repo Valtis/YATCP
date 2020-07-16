@@ -689,7 +689,7 @@ fn emit_mov_byte_to_stack_reg_indexed_with_offset(index: X64Register, displaceme
 
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(Scale::One),
             Some(X64Register::RBP),
             Some(index),
             Some(displacement));
