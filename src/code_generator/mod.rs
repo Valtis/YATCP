@@ -35,9 +35,9 @@ impl CodeGenerator {
         }
     }
 
-    pub fn generate_code(self, print_bytecode: bool) -> Code {
+    pub fn generate_code(self, print_bytecode: bool, print_stack_map: bool) -> Code {
         // TODO - remove hard coded architecture
-        let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions);
+        let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions, print_stack_map);
 
         if print_bytecode {
             for (f, _) in bytecode_with_allocations.iter() {

@@ -481,6 +481,7 @@ impl ByteGenerator {
                 variable_info
             } => {
                 // TODO: Dynamically allocated arrays
+                //
                 let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
                 Value::DynamicStackOffset {
                     id: *id,
@@ -490,7 +491,7 @@ impl ByteGenerator {
                 }
             },
             Operand::ArrayLength{ id, variable_info }=> {
-                let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
+                let size = ARRAY_LENGTH_SLOT_SIZE;
                 Value::DynamicStackOffset {
                     id: *id,
                     index: Box::new(Value::IntegerConstant(-1)),  

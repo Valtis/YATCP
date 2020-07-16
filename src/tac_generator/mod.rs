@@ -441,7 +441,7 @@ impl TACGenerator {
 
         self.store_array_length(id,
                                 length,
-                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes());
+                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
         self.emit_array_initialization(id, variable_info, length, operand);
     }
 

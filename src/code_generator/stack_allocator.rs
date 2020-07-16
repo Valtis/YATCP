@@ -9,8 +9,9 @@ const RETURN_VALUE_REGISTER: X64Register = X64Register::EAX; // TODO: Abstract c
 
 use rayon::prelude::*;
 use std::collections::HashMap;
+use crate::function_attributes::FunctionAttribute;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct StackSlot {
     offset: u32,
     size: u32,
@@ -39,15 +40,18 @@ impl StackMap {
 }
 
 
-pub fn allocate( bytecode_functions: Vec<Function>)  -> Vec<(Function, u32)> {
+pub fn allocate(bytecode_functions: Vec<Function>, print_stack_map: bool)  -> Vec<(Function, u32)> {
    bytecode_functions.par_iter()
-       .map(|function| allocate_function(function))
+       .map(|function| allocate_function(function, print_stack_map))
        .collect()
 }
 
-fn allocate_function(function: &Function) -> (Function, u32) {
-
+fn allocate_function(function: &Function, print_stack_allocation: bool) -> (Function, u32) {
     let mut stack_map = allocate_variables_to_stack(function);
+
+    if print_stack_allocation {
+        print_stack_map(function, &stack_map);
+    }
     (update_instructions(function, &mut stack_map), stack_map.stack_size)
 }
 
@@ -156,7 +160,37 @@ fn add_array_location(map: &mut StackMap, id: u32, size_in_bytes: u32) {
     } else {
         ice!("Multiple array declarations for array id {}", id);
     }
+}
 
+fn print_stack_map(function: &Function, stack_map: &StackMap) {
+
+    if function.has_attribute(FunctionAttribute::External) {
+        return;
+    }
+
+    println!("Function '{}'", function.name);
+    println!("    Stack size (unalinged) {}", stack_map.stack_space_used);
+    println!("    Stack size (16 byte aligned) {}", stack_map.stack_size);
+    println!();
+
+    let mut stack_slot_to_entity = vec![];
+
+    for (id, slot) in stack_map.reg_to_stack_slot.iter() {
+        let tuple = (slot.clone(), format!("VR{}", id));
+        stack_slot_to_entity.push(tuple);
+    }
+
+    for (id, slot) in stack_map.array_to_stack_slot.iter() {
+        let tuple = (slot.clone(), format!("Array {}", id));
+        stack_slot_to_entity.push(tuple);
+    }
+
+    stack_slot_to_entity.sort_by(|(slot, _), (slot2, _)| slot.offset.cmp(&slot2.offset));
+
+
+    for (slot, entity) in stack_slot_to_entity.iter() {
+        println!("    Stack slot {}, size {}, occupied by {}", slot.offset, slot.size, entity);
+    }
 }
 
 // update instructions to use the stack allocated variables (use stack where possible, otherwise
@@ -459,19 +493,18 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                         ));
 
                 },
-                // TODO implement when needed
-          /*      IntegerConstant(index) => {
+                IntegerConstant(index) => {
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: IntegerConstant(*val),
+                                src: BooleanConstant(*val),
                                 dest: StackOffset {
                                     size: *size,
                                     offset: get_constant_array_offset(*offset, *size, index, &array_stack),
                                 }
                             }
                         ));
-                }*/
+                }
                 _ => ice!("Unexpected dynamic index {:?} ", index)
             }
         },

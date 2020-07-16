@@ -20,6 +20,7 @@ const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
 const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 
 const MOV_IMMEDIATE_8_BIT_TO_RM: u8 = 0xC6;
+const MOV_RM_TO_REG_8_BIT: u8 = 0x8A;
 
 const ADD_IMMEDIATE_8_BIT_TO_RM: u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
@@ -577,9 +578,10 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             }
         },
         UnaryOperation{
-            dest: DynamicStackOffset { id: _, index, offset, size: _, },
+            dest: DynamicStackOffset { id: _, index, offset, size, },
             src: PhysicalRegister(src)
         } => {
+            ice_if!(*size != 4, "Not implemented for non-integers, FIXME!");
             match **index {
                 PhysicalRegister(reg) => emit_mov_register_to_stack_reg_indexed_with_offset(
                     reg,
@@ -591,11 +593,17 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         }
         UnaryOperation{
             dest: PhysicalRegister(dest),
-            src: DynamicStackOffset { id: _, index, offset, size: _, },
+            src: DynamicStackOffset { id: _, index, offset, size },
         } => {
-            match **index {
-                PhysicalRegister(reg) => emit_mov_stack_reg_indexed_with_offset_to_register(
-                    reg,
+            // freaking amazing addressing, need second start to get boxed content only to immediately reference it
+            match (&**index, *size) {
+                (PhysicalRegister(reg), 4) => emit_mov_integer_stack_reg_indexed_with_offset_to_register(
+                    reg.clone(),
+                    *offset,
+                    *dest,
+                    asm),
+                (PhysicalRegister(reg), 1) => emit_mov_byte_stack_reg_indexed_with_offset_to_register(
+                    reg.clone(),
                     *offset,
                     *dest,
                     asm),
@@ -747,11 +755,11 @@ fn emit_mov_register_to_stack_reg_indexed_with_offset(index: X64Register, displa
 /*
 Rex prefix: If 64 bit regs used
     opcode: 1 byte,
-    modrm: addressing mode depeneds on SIB byte, dest reg in reg field, RM field contains RSP encoding to signify SIB byte is used
+    modrm: addressing mode depends on SIB byte, dest reg in reg field, RM field contains RSP encoding to signify SIB byte is used
     sib: yes
     immediate: no
 */
-fn emit_mov_stack_reg_indexed_with_offset_to_register(index: X64Register, displacement: u32, dest: X64Register, asm: &mut Vec<u8>) {
+fn emit_mov_integer_stack_reg_indexed_with_offset_to_register(index: X64Register, displacement: u32, dest: X64Register, asm: &mut Vec<u8>) {
 
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
@@ -777,7 +785,38 @@ fn emit_mov_stack_reg_indexed_with_offset_to_register(index: X64Register, displa
         None,
     );
 }
+/*
+    Rex prefix: None
+    opcode: 1 byte,
+    modrm: addressing mode depends SIB byte, dest reg in reg field, RM field contains RSP encoding to signify SIB byte is used
+    sib: yes
+    immediate: no
+*/
+fn emit_mov_byte_stack_reg_indexed_with_offset_to_register(index: X64Register, displacement: u32, dest: X64Register, asm: &mut Vec<u8>) {
 
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::One),
+            Some(X64Register::RBP),
+            Some(index),
+            Some(displacement));
+
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
+    };
+
+    emit_instruction(
+        asm,
+        None,
+        SizedOpCode::from(MOV_RM_TO_REG_8_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
 
 
 /* MOV r32, imm32
