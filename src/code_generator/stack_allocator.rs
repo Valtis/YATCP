@@ -1922,7 +1922,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -1959,7 +1959,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2004,7 +2004,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
         let allocated_code = &allocations[0].0.code;
         assert_eq!(2, allocated_code.len());
 
@@ -2057,7 +2057,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2099,7 +2099,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2145,7 +2145,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2198,7 +2198,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2266,7 +2266,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2315,7 +2315,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2335,7 +2335,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2361,7 +2361,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2393,7 +2393,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
         let allocated_code = &allocations[0].0.code;
         assert_eq!(2, allocated_code.len());
 
@@ -2445,7 +2445,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
         let allocated_code = &allocations[0].0.code;
         assert_eq!(1, allocated_code.len());
 
@@ -2488,7 +2488,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
         let allocated_code = &allocations[0].0.code;
         assert_eq!(3, allocated_code.len());
 
@@ -2543,7 +2543,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2596,7 +2596,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2665,7 +2665,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2723,7 +2723,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2779,7 +2779,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2838,7 +2838,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2903,7 +2903,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -2961,7 +2961,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3035,7 +3035,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3111,7 +3111,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3183,7 +3183,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3244,7 +3244,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3284,7 +3284,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3318,7 +3318,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3364,7 +3364,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
@@ -3408,7 +3408,7 @@ mod tests {
             ]
         );
 
-        let allocations = allocate(functions);
+        let allocations = allocate(functions, false);
 
         assert_eq!(1, allocations.len());
         let allocated_code = &allocations[0].0.code;
