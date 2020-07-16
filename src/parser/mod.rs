@@ -4404,6 +4404,75 @@ mod tests {
             node);
     }
 
+
+    #[test]
+    fn one_dimensional_boolean_array_declaration_is_parsed_correctly() {
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 5, 15, 4),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 1, 2, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 0);
+        assert_eq!(
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(
+                            AstNode::Block(
+                                vec![
+                                    AstNode::VariableDeclaration(
+                                        Box::new(
+                                            AstNode::Integer(
+                                                AstInteger::from(4),
+                                                Span::new(1, 2, 3),
+                                            ),
+                                        ),
+                                        DeclarationInfo {
+                                            name: Rc::new("a".to_string()),
+                                            node_info: Span::new(8, 12, 2),
+                                            variable_type: Type::BooleanArray,
+                                            extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::from(6)])),
+                                        }
+                                    )
+                                ],
+                                None,
+                                Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            ),
+            node);
+    }
+
+
     #[test]
     fn array_declaration_with_non_integer_number_dimension_is_reported() {
         let (mut parser, reporter) = create_parser(vec![
