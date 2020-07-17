@@ -1844,7 +1844,7 @@ fn get_register_for_size(size: u32) -> X64Register {
 
 fn get_register_for_size2(size: u32) -> X64Register {
     match size {
-        1 => X64Register::AL,
+        1 => X64Register::BL,
         4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
     }
@@ -1852,7 +1852,7 @@ fn get_register_for_size2(size: u32) -> X64Register {
 
 fn get_register_for_size_for_division(size: u32) -> X64Register {
     match size {
-        1 => X64Register::AL,
+        1 => X64Register::BL,
         4 => X64Register::EBX,
         _ => ice!("Invalid register size {}", size),
     }
