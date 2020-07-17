@@ -147,8 +147,6 @@ impl SemanticsCheck {
         } else {
             ice!("Unexpected node type when Block was expected:\n{:#?}", node);
         }
-
-
     }
 
     fn do_check(&mut self, node: &mut AstNode) {
@@ -6317,7 +6315,7 @@ mod tests {
 
 
     #[test]
-    fn valid_array_assignment_is_accepted() {
+    fn valid_integer_array_assignment_is_accepted() {
         let (reporter, mut checker) = create_sem_checker();
 
         /*
@@ -6379,6 +6377,72 @@ mod tests {
 
         assert_eq!(borrowed.reports(), 0);
     }
+
+    #[test]
+    fn valid_boolean_array_assignment_is_accepted() {
+        let (reporter, mut checker) = create_sem_checker();
+
+        /*
+            fn foo() {
+                let a : int[4] = true;
+                a[0] = false;
+            }
+        */
+
+        let mut node =
+            AstNode::Block(
+                vec![
+                    AstNode::Function(
+                        Box::new(AstNode::Block(
+                            vec![
+                                AstNode::VariableDeclaration(
+                                    Box::new(
+                                        AstNode::Boolean(
+                                           true,
+                                            Span::new(8, 6, 3)
+                                        )
+                                    ),
+                                    DeclarationInfo {
+                                        name: Rc::new("a".to_string()),
+                                        variable_type: Type::BooleanArray,
+                                        node_info: Span::new(6, 5, 4),
+                                        extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
+                                    }
+                                ),
+                                AstNode::ArrayAssignment {
+                                    index_expression: Box::new(
+                                        AstNode::Integer(
+                                            AstInteger::Int(0),
+                                            Span::new(98, 87, 76),
+                                        )
+                                    ),
+                                    assignment_expression: Box::new(
+                                        AstNode::Boolean(
+                                            false,
+                                            Span::new(12, 23, 34)
+                                        )
+                                    ),
+                                    variable_name: Rc::new("a".to_owned()),
+                                    span: Span::new(9, 8, 7),
+                                },
+                            ],
+                            None,
+                            Span::new(0, 0, 0))),
+                        FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0)
+                    )
+                ],
+                None,
+                Span::new(0, 0, 0),
+            );
+
+        checker.check_semantics(&mut node);
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+
+        assert_eq!(borrowed.reports(), 0);
+    }
+
+
 
     #[test]
     fn array_assignment_with_undeclared_array_is_rejected() {
