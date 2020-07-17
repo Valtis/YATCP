@@ -29,6 +29,10 @@ void int_printer(int a) {
     printf("%d\n", a);
 }
 
+void boolean_printer(char a) {
+    printf("%s\n", a ? "true" : "false");
+}
+
 int returns_12345(void) {
     return 12345;
 }

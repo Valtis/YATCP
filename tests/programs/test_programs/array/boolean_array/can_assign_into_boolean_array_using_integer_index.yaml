@@ -1,0 +1,32 @@
+program: |
+  extern fn boolean_printer(val: bool) : void;
+
+  fn main() : int {
+    let init: bool = false;
+    let a: bool[5] = init;
+
+    a[0] = true;
+    a[1] = false;
+    a[2] = true;
+    a[3] = false;
+    a[4] = true;
+
+    let i: int = 0;
+    while i < 5 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  true
+  false
+  true
+  false
+  true
+
+
+

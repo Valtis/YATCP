@@ -1,0 +1,132 @@
+program: |
+  extern fn int_printer(val: int) : void;
+  extern fn boolean_printer(val: bool) : void;
+  // Test that we do not accidentally overwrite values in previous stack frames
+
+  fn main() : int {
+    // canary variable
+    let canary: int = 20;
+    func_1();
+    int_printer(canary);
+    return 0;
+  }
+
+  fn func_1() : void {
+    let canary2: int = 451;
+    let a: bool[30] = false;
+
+    let i: int = 0;
+    while i < 30 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+    
+    func_2();
+
+    // func_2 should not have overwritten anything here
+    i = 0;
+    while i < 30 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+    
+    int_printer(canary2);
+  }
+
+  fn func_2() : void {
+    let a: bool[20] = true;
+
+    let i: int = 0;
+    while i < 20 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  true
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  false
+  451
+  20
+
+

@@ -1,0 +1,26 @@
+program: |
+  extern fn int_printer(val: int) : void;
+
+  fn main() : int {
+    let init: int = 5;
+    let a: int[2] = init;
+    a[1] = 15;
+    let b: int = 0;
+
+    b = a[0];
+    int_printer(b);
+    b = a[1];
+    int_printer(b);
+
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  15
+
+
+

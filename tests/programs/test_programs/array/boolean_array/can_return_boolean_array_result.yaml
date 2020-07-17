@@ -1,0 +1,21 @@
+program: |
+  extern fn boolean_printer(val: bool) : void;
+
+  fn main() : int {
+    boolean_printer(returns_bool(true));    
+    boolean_printer(returns_bool(false));    
+    return 0;
+  }
+
+  fn returns_bool(arg: bool) : bool {
+    let arr: bool[1] = arg;
+    return arr[0];
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  true
+  false
+
+
+

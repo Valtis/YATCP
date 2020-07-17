@@ -1,0 +1,24 @@
+program: |
+  extern fn int_printer(val: int) : void;
+
+  fn main() : int {
+    let a: bool[5] = false;
+
+    a[2] = true;
+    a[4] = true;
+
+    let i: int = 0;
+    while i < 5 {
+      if a[i] {
+          int_printer(i);
+      }
+      i = i + 1;
+    }
+
+    return 0;
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  2
+  4

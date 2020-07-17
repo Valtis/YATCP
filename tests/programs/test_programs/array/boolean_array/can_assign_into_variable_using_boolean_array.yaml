@@ -1,0 +1,23 @@
+program: |
+  extern fn boolean_printer(val: bool) : void;
+
+  fn main() : int {
+    let a: bool[2] = false;
+    a[1] = true;
+    let b: bool = true;
+
+    b = a[0];
+    boolean_printer(b);
+    b = a[1];
+    boolean_printer(b);
+
+    return 0;
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  true
+
+
+
