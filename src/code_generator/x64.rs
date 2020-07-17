@@ -554,6 +554,12 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             emit_mov_integer_to_register(*value, *reg, asm);
         },
         UnaryOperation {
+            dest: PhysicalRegister(ref reg),
+            src: BooleanConstant(value),
+        } => {
+            emit_mov_integer_to_register(if *value { 1 } else { 0 }, *reg, asm);
+        }
+        UnaryOperation {
             dest: StackOffset {offset, size },
             src: ComparisonResult(comparison_type),
         } => {

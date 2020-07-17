@@ -1,0 +1,30 @@
+program: |
+  extern fn int_printer(value: int) : void;
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+
+          let arg: bool = true;
+          boolean_printer(func(arg));
+          boolean_printer(func(false));
+
+          return 0;
+  }
+
+
+  fn func(arg: bool) : bool {
+          if arg {
+                  int_printer(25);
+          } else {
+                  int_printer(6);
+          }
+
+          return arg;
+  }
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  25
+  true
+  6
+  false

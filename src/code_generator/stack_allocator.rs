@@ -168,6 +168,10 @@ fn print_stack_map(function: &Function, stack_map: &StackMap) {
         return;
     }
 
+    // acquire handle to stop interleaved prints
+    let stdout = std::io::stdout();
+    let stdout_handle = stdout.lock();
+
     println!("Function '{}'", function.name);
     println!("    Stack size (unalinged) {}", stack_map.stack_space_used);
     println!("    Stack size (16 byte aligned) {}", stack_map.stack_size);
@@ -191,6 +195,7 @@ fn print_stack_map(function: &Function, stack_map: &StackMap) {
     for (slot, entity) in stack_slot_to_entity.iter() {
         println!("    Stack slot {}, size {}, occupied by {}", slot.offset, slot.size, entity);
     }
+    println!()
 }
 
 // update instructions to use the stack allocated variables (use stack where possible, otherwise
@@ -348,7 +353,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             dest: VirtualRegister(vregdata),
         } => {
             match param_type {
-                Type::Integer => {
+                Type::Integer | Type::Boolean => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
                     if *pos < 6 {
                         updated_instructions.push(
@@ -1773,6 +1778,18 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
                         ByteCode::Mov(
                             UnaryOperation {
                                 src: IntegerConstant(*val),
+                                dest,
+                            }
+                        )
+                    )
+                },
+                BooleanConstant(val) => {
+                    let dest = get_destination_for_integer_and_pointer_argument(i);
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: BooleanConstant(*val),
                                 dest,
                             }
                         )
