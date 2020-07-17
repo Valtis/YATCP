@@ -1,0 +1,16 @@
+
+  extern fn boolean_printer(val: bool) : void;
+
+  fn main() : int {
+
+    return 0; // removing this line fixes the crash
+    let a: bool[10] = false;
+
+    let i: int = 0;
+    while i < 10 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+  }
