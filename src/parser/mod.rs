@@ -271,7 +271,11 @@ impl Parser {
         let token  = self.lexer.peek_token();
         match token.token_type {
             TokenType::Assign => self.parse_assignment(identifier),
-            TokenType::LParen => self.parse_function_call(identifier),
+            TokenType::LParen => {
+                let node = self.parse_function_call(identifier)?;
+                self.expect(TokenType::SemiColon)?;
+                return Ok(node);
+            }
             TokenType::LBracket => self.parse_array_assignment(identifier),
             _ => {
                 self.report_unexpected_token_mul(
@@ -2827,6 +2831,67 @@ mod tests {
             None,
             Span::new(0, 0, 0)),
         node);
+    }
+
+    #[test]
+    fn function_call_with_missing_semicolon_is_rejected() {
+        /*
+            fn foo() : int {
+                bar()
+                return 0;
+            }
+
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("bar".to_string())), 5, 6, 7),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 6, 7),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(0), 9, 8, 7),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 1, 2, 3),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+
+        let node = parser.parse();
+
+        let borrowed = reporter.borrow();
+        let messages = borrowed.get_messages();
+        assert_eq!(borrowed.errors(), 1);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::SyntaxError,
+                Span::new(5, 6, 7),
+                "".to_owned()),
+            messages[0]);
+
+
+
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(vec![
+                    ],
+                        None,
+                        Span::new(0, 0, 0),
+                    )),
+                    FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Void, 0, 0, 0))
+            ],
+                           None,
+                           Span::new(0, 0, 0)),
+            node);
     }
 
     #[test]
