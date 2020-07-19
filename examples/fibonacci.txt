@@ -1,7 +1,7 @@
 extern fn int_printer(x: int) : void;
 
 fn main() : int {
-    let val : int = fib(12);
+    let val : int = fib(40);
 
     int_printer(val);
     return 0;

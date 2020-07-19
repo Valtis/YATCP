@@ -1,0 +1,30 @@
+extern fn int_printer(x: int) : void;
+
+fn main() : int {
+    let cache: int[50] = -1;
+    let val : int = fib(40, cache);
+
+    int_printer(val);
+    return 0;
+}
+
+
+fn fib(n: int, cache: int[]) : int {
+    if n <= 1 {
+        return n;
+    }
+
+    let first: int = 0;
+    let second: int = 0;
+
+    if cache[n] != -1 {
+         return cache[n];
+    }
+
+    cache[n] = fib(n-1, cache) + fib(n-2, cache);
+    return cache[n];
+      
+}
+
+
+
