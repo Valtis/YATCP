@@ -23,6 +23,8 @@ const MOV_IMMEDIATE_8_BIT_TO_RM: u8 = 0xC6;
 const MOV_REG_TO_RM_8_BIT: u8 = 0x88;
 const MOV_RM_TO_REG_8_BIT: u8 = 0x8A;
 
+const LEA_ADDR_TO_REG_64_BIT: u8 = 0x8D;
+
 const ADD_IMMEDIATE_8_BIT_TO_RM: u8 = 0x83;
 const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
 const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
@@ -442,6 +444,7 @@ fn generate_code_for_function(function: &byte_generator::Function, stack_size: u
         match b {
             ByteCode::Nop => emit_nop(&mut asm),
             ByteCode::Mov(operands) => emit_mov(operands, &mut asm),
+            ByteCode::Lea(operands) => emit_lea(operands, &mut asm),
             ByteCode::Add(operands) => emit_add(operands, &mut asm),
             ByteCode::Sub(operands) => emit_sub(operands, &mut asm),
             ByteCode::Mul(operands) => emit_mul(operands, &mut asm),
@@ -537,7 +540,8 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
 
             match size {
                 1 => emit_mov_byte_from_stack_to_reg(*reg, *offset, asm),
-                4 => emit_mov_integer_from_stack_to_reg(*reg, *offset, asm),
+                4 => emit_mov_integer_from_stack_to_reg(*reg, *offset, false, asm),
+                8 => emit_mov_integer_from_stack_to_reg(*reg, *offset, true, asm),
                 _ => ice!("Unexpected stack slot size {}", size),
             }
         },
@@ -545,7 +549,11 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: StackOffset {offset, size},
             src: PhysicalRegister(ref reg)
         } => {
-            emit_mov_from_reg_to_stack(*reg, *offset, *size, asm);
+            match *size {
+                4 => emit_mov_from_reg_to_stack(*reg, *offset, false, asm),
+                8 => emit_mov_from_reg_to_stack(*reg, *offset, true, asm),
+                _ => ice!("Unexpected stack slot size {}", size),
+            }
         },
         UnaryOperation {
             dest: PhysicalRegister(ref reg),
@@ -631,6 +639,22 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         _ => ice!("Invalid MOV operation:\n{:#?}", operand),
     }
 }
+
+fn emit_lea(operand: &UnaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+        UnaryOperation {
+            dest: PhysicalRegister(dest),
+            src: StackOffset { offset, size, }
+        } => {
+            if *size != 8 {
+                ice!("LEA not implemented for non-pointer types");
+            }
+            emit_lea_stack_address_to_reg(*offset, dest.clone(), asm);
+        },
+        _ => ice!("Invalid LEA operation:\n{:#?}", operand),
+    }
+}
+
 /*
     MOV DWORD PTR [RBP - offset], imm32
 
@@ -954,7 +978,7 @@ fn emit_mov_reg_to_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
     sib: unused, sib struct used to pass displacement
     immediate: none
 */
-fn emit_mov_integer_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut Vec<u8>) {
+fn emit_mov_integer_from_stack_to_reg(dest: X64Register, offset: u32, dest_is_64_bit: bool, asm: &mut Vec<u8>) {
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -964,7 +988,7 @@ fn emit_mov_integer_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut 
         rm_field: RmField::Register(X64Register::RBP)
     };
 
-    let rex = create_rex_prefix(false, Some(modrm), sib);
+    let rex = create_rex_prefix(dest_is_64_bit, Some(modrm), sib);
 
     emit_instruction(
         asm,
@@ -975,6 +999,7 @@ fn emit_mov_integer_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut 
         None,
     );
 }
+
 
 /*
     MOV reg, <ptr_size> [RBP - offset]
@@ -1008,11 +1033,9 @@ fn emit_mov_byte_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut Vec
 }
 
 
-fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, dest_is_64_bit: bool, asm: &mut Vec<u8>) {
 
-    if size != 4 {
-        unimplemented!();
-    }
+
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -1022,7 +1045,7 @@ fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mu
         rm_field: RmField::Register(X64Register::RBP)
     };
 
-    let rex = create_rex_prefix(false, Some(modrm), sib);
+    let rex = create_rex_prefix(dest_is_64_bit, Some(modrm), sib);
 
     emit_instruction(
         asm,
@@ -1033,6 +1056,31 @@ fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, size: u32, asm: &mu
         None,
     );
 }
+
+
+fn emit_lea_stack_address_to_reg(offset: u32, dest: X64Register, asm: &mut Vec<u8>) {
+
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(true, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(LEA_ADDR_TO_REG_64_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
 
 fn emit_mov_comp_result_into_stack(comparison_type: &ComparisonType, offset: u32, _size: u32, asm: &mut Vec<u8>) {
 
@@ -1944,8 +1992,11 @@ fn emit_ret(value: &Option<Value>, stack_size: u32, args: u32, asm: &mut Vec<u8>
             emit_mov_integer_to_register(if *boolean { 1 } else { 0 }, X64Register::EAX, asm)
         }
         Some(StackOffset {offset, size}) => {
-            ice_if!(*size != 4, "Not implemented for sizes other than 4!");
-            emit_mov_integer_from_stack_to_reg(X64Register::RAX, *offset, asm)
+            match *size {
+                4 => emit_mov_integer_from_stack_to_reg(X64Register::RAX, *offset, false, asm),
+                8 => emit_mov_integer_from_stack_to_reg(X64Register::RAX, *offset, true, asm),
+                _ => ice!("Not implemented for size {} !", size),
+            }
         },
         Some(ComparisonResult(comp_type)) => {
             emit_mov_comp_result_into_reg(comp_type, X64Register::RAX, asm)

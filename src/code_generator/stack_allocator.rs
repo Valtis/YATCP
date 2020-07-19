@@ -1,11 +1,11 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter, DynamicStackOffset, IndirectAddress};
+use crate::byte_generator::Value::*;
 use crate::semcheck::Type;
 
 use super::x64::X64Register;
 
 const RETURN_VALUE_REGISTER: X64Register = X64Register::EAX; // TODO: Abstract calling convention
-
+const PTR_SIZE: u32 =  8;
 
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -76,6 +76,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
 
 
             ByteCode::Mov(unary_op) |
+            ByteCode::Lea(unary_op) |
             ByteCode::Negate(unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(binary_op) |
             ByteCode::Sub(binary_op) |
@@ -225,6 +226,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
     for instr in code.iter() {
         match instr {
             ByteCode::Mov(unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Lea(unary_op) => handle_lea_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Negate(unary_op) => handle_negate_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Add(binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Sub(binary_op) => handle_sub_allocation(binary_op, &mut updated_instructions, stack_map),
@@ -700,6 +702,50 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
+    }
+}
+
+fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &mut StackMap) {
+    match unary_op {
+
+        /*
+            Emit:
+            LEA tmp_reg, address_of_array
+            MOV dest_stack_slot, tmp_reg
+
+        */
+        UnaryOperation {
+            src: ArrayPtr { id },
+            dest: VirtualRegister(dest_vregdata)
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.array_to_stack_slot[&id];
+            let value_reg = get_register_for_size2(PTR_SIZE);
+
+
+            updated_instructions.push(
+                ByteCode::Lea(
+                    UnaryOperation {
+                        src: StackOffset {
+                            offset: src_stack_slot.offset,
+                            size: PTR_SIZE, // not really used in this context, we care about the offset only
+                        },
+                        dest: PhysicalRegister(value_reg.clone()),
+                    }
+                ));
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_reg.clone()),
+                        dest: StackOffset {
+                            offset: dest_stack_slot.offset,
+                            size: dest_stack_slot.size,
+                        }
+                    }
+                ));
+        },
+        _ => todo!("Not impemented for {:#?}", unary_op),
     }
 }
 
@@ -1914,6 +1960,7 @@ fn get_register_for_size(size: u32) -> X64Register {
     match size {
         1 => X64Register::AL,
         4 => X64Register::EAX,
+        8 => X64Register::RAX,
         _ => ice!("Invalid register size {}", size),
     }
 }
@@ -1922,6 +1969,7 @@ fn get_register_for_size2(size: u32) -> X64Register {
     match size {
         1 => X64Register::BL,
         4 => X64Register::EBX,
+        8 => X64Register::RBX,
         _ => ice!("Invalid register size {}", size),
     }
 }

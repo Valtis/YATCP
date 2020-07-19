@@ -7,7 +7,7 @@ use crate::code_generator::x64::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
+use crate::byte_generator::Value::{VirtualRegister, ComparisonResult, StackOffset};
 use crate::function_attributes::FunctionAttribute;
 
 use std::fmt::Display;
@@ -89,7 +89,7 @@ pub enum Value {
     StackOffset{offset: u32, size: u32},
     DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
     IndirectAddress { base: Box<Value>, index: Option<Box<Value>>, offset: Option<u32>, size: u32, id: u32 },
-    AddressOf { source_location: Box<Value>, },
+    ArrayPtr{ id: u32 },
     ReturnValue,
     FunctionParameter(Type, usize),
 }
@@ -120,9 +120,7 @@ impl Display for Value {
                          size,
                          if let Some(x) = offset { *x } else { 0 },
                          id),
-            Value::AddressOf {
-                source_location
-            } => format!("AddressOf {}", source_location),
+            Value::ArrayPtr { id } => format!("Ptr to array {}", id),
         })
     }
 }
@@ -138,6 +136,7 @@ pub enum ByteCode {
     Negate(UnaryOperation),
     Xor(BinaryOperation),
     Mov(UnaryOperation),
+    Lea(UnaryOperation),
     SignExtend(UnaryOperation),
     Compare(ComparisonOperation),
     Label(u32),
@@ -168,6 +167,7 @@ impl Display for ByteCode {
             ByteCode::Mul(ref binary_op) => format!("mul {}", binary_op),
             ByteCode::Div(ref binary_op) => format!("div {}", binary_op),
             ByteCode::Xor(ref binary_op) => format!("xor {}", binary_op),
+            ByteCode::Lea(ref binary_op) => format!("lea {}", binary_op),
             ByteCode::Compare(ref comp_op) => format!("cmp {}", comp_op),
             ByteCode::Jump(label_id) => format!("jmp LABEL {}", label_id),
             ByteCode::JumpConditional(label_id, ref comp_type) => format!("j{} LABEL {}", comp_type, label_id),
@@ -264,6 +264,12 @@ impl ByteGenerator {
 
             for s in f.statements {
                 match s {
+                    Statement::Assignment(
+                        None,
+                        Some(ref dest),
+                        None,
+                        Some(ref src @ Operand::AddressOf { variable_info: _, id: _ })) =>
+                        self.emit_lea(src, dest),
                     Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
                     Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
                     Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
@@ -320,6 +326,11 @@ impl ByteGenerator {
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {
         let data = self.form_unary_operation(op, dest);
         self.current_function().code.push(ByteCode::Mov(data));
+    }
+
+    fn emit_lea(&mut self, src: &Operand, dest: &Operand) {
+        let data = self.form_unary_operation(src, dest);
+        self.current_function().code.push(ByteCode::Lea(data));
     }
 
     fn emit_array_init(&mut self, id: u32, _length: i32, size_in_bytes: u32) {
@@ -481,11 +492,15 @@ impl ByteGenerator {
             Operand::Variable(declaration_info, id) => {
                 self.get_register_for(declaration_info, *id)
             },
-            Operand::AddressOf { variable_info, id} => {
-                Value::AddressOf {
-                    source_location: Box::new(self.get_register_for(variable_info, *id)),
+            Operand::AddressOf {variable_info, id} => {
+                if variable_info.variable_type.is_array() {
+                    Value::ArrayPtr {
+                        id: *id,
+                    }
+                } else {
+                    ice!("Not implemented for non-array-types, got {}: ", variable_info.variable_type);
                 }
-            },
+            }
             Operand::Integer(val) => Value::IntegerConstant(*val),
             Operand::Boolean(val) => Value::BooleanConstant(*val),
             Operand::Initialized(value_type) => {
