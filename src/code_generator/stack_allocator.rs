@@ -10,6 +10,7 @@ const PTR_SIZE: u32 =  8;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use crate::function_attributes::FunctionAttribute;
+use crate::tac_generator::ARRAY_LENGTH_SLOT_SIZE;
 
 #[derive(Debug, Clone)]
 struct StackSlot {
@@ -149,8 +150,8 @@ fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
         };
 
 
-        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: slot_size} );
         map.stack_size += slot_size;
+        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: slot_size} );
     }
 }
 
@@ -727,7 +728,7 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ByteCode::Lea(
                     UnaryOperation {
                         src: StackOffset {
-                            offset: src_stack_slot.offset,
+                            offset: src_stack_slot.offset + src_stack_slot.size - ARRAY_LENGTH_SLOT_SIZE,
                             size: PTR_SIZE, // not really used in this context, we care about the offset only
                         },
                         dest: PhysicalRegister(value_reg.clone()),

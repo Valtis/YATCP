@@ -503,14 +503,10 @@ impl TACGenerator {
 
         */
 
-        /*
-            IMPORTANT NOTE:
-            We reuse the index var to store the array length; it is currently stored right before the
-            array itself (array[-1]). Do not change the layout, or things will explode)
-        */
+
         let start_label_id= self.get_label_id();
         let end_label_id = self.get_label_id();
-        let index_var = self.get_temporary(Type::Integer);
+        let index_var = self.get_temporary(Type::Integer); // optimization opportunity - overlap this with array length field, would save 4 bytes of stack space
         let cmp_result = self.get_temporary(Type::Boolean);
 
 
@@ -535,7 +531,7 @@ impl TACGenerator {
                 None,
                 Some(Operand::ArrayIndex {
                     id,
-                    variable_info,
+                    variable_info: variable_info.clone(),
                     index_operand: Box::new(index_var.clone()),
                 }),
                 None,
@@ -552,6 +548,25 @@ impl TACGenerator {
             Statement::Jump(start_label_id));
         self.current_function().statements.push(
             Statement::Label(end_label_id));
+
+        // init array length
+        // Dirtyish hack: To ensure that the indexing operatino correctly indexes with 4 byte length,
+        // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
+        // would fail with arrays with non-integer base type (e.g. boolean arrays)
+        let mut init_length_into = variable_info.clone();
+        init_length_into.variable_type = Type::IntegerArray; //
+
+        self.current_function().statements.push(
+            Statement::Assignment(
+                None,
+                Some(Operand::ArrayIndex {
+                    id,
+                    variable_info: init_length_into,
+                    index_operand: Box::new(Operand::Integer(-1)),
+                }),
+                None,
+                Some(Operand::Integer(size))));
+
     }
 
     fn handle_variable_assignment(
