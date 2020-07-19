@@ -420,7 +420,6 @@ impl SemanticsCheck {
                             if let Type::Reference(ref x) = param.variable_type {
                                 if x.is_array() && arg_type.is_array() &&
                                     x.get_array_basic_type() == arg_type.get_array_basic_type() {
-                                    self.set_type(arg, Type::Reference(Box::new(arg_type)));
                                     return;
                                 }
                             }
@@ -1085,15 +1084,6 @@ impl SemanticsCheck {
         None
     }
 
-
-    fn set_type(&mut self, node: &mut AstNode, new_type: Type) {
-        match node {
-            AstNode::Identifier(ref name, _) => {
-                self.symbol_table.update_variable_type(name, new_type);
-            },
-            _ => ice!("Not impemented for type: {}", new_type),
-        }
-    }
 
     fn get_type(&self, node: &AstNode) -> Type {
         match *node {

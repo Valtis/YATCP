@@ -207,9 +207,11 @@ pub enum X64Register {
     EAX,
     EDX,
     EBX,
+    ECX,
     // 8 bit registers
     AL,
     BL,
+    CL,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -315,7 +317,7 @@ impl X64Register {
     fn encoding(&self) -> u8 {
         match self {
             X64Register::RAX | X64Register::R8 | X64Register::EAX | X64Register::AL => 0x00,
-            X64Register::RCX | X64Register::R9 => 0x01,
+            X64Register::RCX | X64Register::R9 | X64Register::ECX | X64Register::CL => 0x01,
             X64Register::RDX | X64Register::R10 | X64Register::EDX => 0x02,
             X64Register::RBX | X64Register::R11 | X64Register::EBX | X64Register::BL => 0x03,
             X64Register::RSP | X64Register::R12 => 0x04,
@@ -363,11 +365,13 @@ impl X64Register {
             X64Register::R15 => 8,
 
             X64Register::EAX |
+            X64Register::ECX |
             X64Register::EDX |
             X64Register::EBX => 4,
 
             X64Register::AL |
-            X64Register::BL => 1,
+            X64Register::BL |
+            X64Register::CL => 1,
         }
     }
 }
@@ -617,7 +621,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                 _ => ice!("Invalid MOV operation:\n{:#?}", operand),
             }
         }
-        UnaryOperation{
+        UnaryOperation {
             dest: PhysicalRegister(dest),
             src: DynamicStackOffset { id: _, index, offset, size },
         } => {
@@ -635,7 +639,91 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                     asm),
                 _ => ice!("Invalid MOV operation:\n{:#?}", operand),
             }
-        }
+        },
+        UnaryOperation {
+            dest: PhysicalRegister(dest),
+            src: IndirectAddress {
+                base, // FIXME replace with box pattern matching once it becomes available
+                index: None,
+                offset: Some(offset),
+                size,
+            }
+        } => {
+            let base_reg = if let PhysicalRegister(reg) = **base {
+                reg
+            } else {
+                ice!("Base pointer is not a register: {} ", base);
+            };
+
+            match *size {
+                4 => emit_mov_indirect_integer_to_register(base_reg, *offset, dest.clone(), false, asm),
+                8 => emit_mov_indirect_integer_to_register(base_reg, *offset, dest.clone(), true, asm),
+                _ => ice!("Unexpected stack slot size {}", size),
+            }
+        },
+        UnaryOperation {
+            dest: PhysicalRegister(dest),
+            src: IndirectAddress {
+                base, // FIXME replace with box pattern matching once it becomes available
+                index: Some(index),
+                offset: None,
+                size,
+            }
+        } => {
+            let base_reg = if let PhysicalRegister(reg) = **base {
+                reg
+            } else {
+                ice!("Base pointer is not a register: {} ", base);
+            };
+
+            match (&**index, *size) {
+                (PhysicalRegister(index), 4) =>
+                    emit_mov_indirect_integer_indexed_to_reg(base_reg, index.clone(), dest.clone(), asm),
+                _ => ice!("Invalid MOV operand {:#?}", operand),
+            }
+        },
+        UnaryOperation {
+            dest: IndirectAddress {
+                base, // FIXME replace with box pattern matching once it becomes available
+                index: Some(index),
+                offset: None,
+                size,
+            },
+            src: PhysicalRegister(dest),
+        } => {
+            let base_reg = if let PhysicalRegister(reg) = **base {
+                reg
+            } else {
+                ice!("Base pointer is not a register: {} ", base);
+            };
+
+            match (&**index, *size) {
+                (PhysicalRegister(index), 4) =>
+                    emit_mov_reg_to_indirect_integer_indexed(base_reg, index.clone(), dest.clone(), asm),
+                _ => ice!("Invalid MOV operand {:#?}", operand),
+            }
+        },
+        UnaryOperation {
+            dest: IndirectAddress {
+                base, // FIXME replace with box pattern matching once it becomes available
+                index: None,
+                offset: Some(offset),
+                size,
+            },
+            src: PhysicalRegister(src),
+        } => {
+            let base_reg = if let PhysicalRegister(reg) = **base {
+                reg
+            } else {
+                ice!("Base pointer is not a register: {} ", base);
+            };
+
+            match *size {
+                4 => emit_mov_reg_to_indirect_integer(base_reg, *offset, src.clone(), false, asm),
+                8 => emit_mov_reg_to_indirect_integer(base_reg, *offset, src.clone(), true, asm),
+                _ => ice!("Unexpected stack slot size {}", size),
+            }
+        },
         _ => ice!("Invalid MOV operation:\n{:#?}", operand),
     }
 }
@@ -1034,9 +1122,6 @@ fn emit_mov_byte_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut Vec
 
 
 fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, dest_is_64_bit: bool, asm: &mut Vec<u8>) {
-
-
-
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1056,6 +1141,106 @@ fn emit_mov_from_reg_to_stack(src: X64Register, offset: u32, dest_is_64_bit: boo
         None,
     );
 }
+
+fn emit_mov_indirect_integer_to_register(base_reg: X64Register, offset: u32, dest: X64Register, dest_is_64_bit: bool, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(base_reg)
+    };
+
+    let rex = create_rex_prefix(dest_is_64_bit, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_RM_TO_REG_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+
+}
+
+fn emit_mov_indirect_integer_indexed_to_reg(base: X64Register, index: X64Register, dest: X64Register, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::Four),
+            Some(base),
+            Some(index),
+            None);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
+    };
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_RM_TO_REG_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+
+fn emit_mov_reg_to_indirect_integer(base_reg: X64Register, offset: u32, src: X64Register, dest_is_64_bit: bool, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(src),
+        rm_field: RmField::Register(base_reg)
+    };
+
+    let rex = create_rex_prefix(dest_is_64_bit, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_REG_TO_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+
+}
+
+fn emit_mov_reg_to_indirect_integer_indexed(base: X64Register, index: X64Register, src: X64Register, asm: &mut Vec<u8>) {
+
+    let (addressing_mode, sib) =
+        get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
+            Some(Scale::Four),
+            Some(base),
+            Some(index),
+            None);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(src),
+        rm_field: RmField::Register(X64Register::RSP), // signifies SIB byte is present
+    };
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_REG_TO_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
 
 
 fn emit_lea_stack_address_to_reg(offset: u32, dest: X64Register, asm: &mut Vec<u8>) {
@@ -1944,7 +2129,7 @@ fn emit_instruction(
         }
 
         if let Some(index) = sib_values.index {
-            sib_byte |= index.encoding();
+            sib_byte |= index.encoding() << 3;
             used_fields +=1;
         } else {
             sib_byte |= 0b100 << 3; // RSP-encoding used to indicate field is unused

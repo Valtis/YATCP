@@ -43,18 +43,6 @@ impl TableEntry {
         }
         None
     }
-
-    pub fn update_symbol_type(&mut self, name: &str, new_type: Type) {
-        for s in self.symbols.iter_mut() {
-            if let Symbol::Variable(ref mut info, _) = s {
-                if *info.name == name {
-                    info.variable_type = new_type;
-                    return;
-                }
-            }
-        }
-        ice!("Variable {} not present", name);
-    }
 }
 
 #[derive(Debug)]
@@ -103,15 +91,5 @@ impl SymbolTable {
             }
         }
         None
-    }
-
-    pub fn update_variable_type(&mut self, name: &str, new_type: Type) {
-        for i in self.entries.iter_mut().rev() {
-            if let Some(_) = i.find_symbol(name) {
-                i.update_symbol_type(name, new_type);
-                return;
-            }
-        }
-        ice!("Symbol {} not present in the symbol table", name);
     }
 }

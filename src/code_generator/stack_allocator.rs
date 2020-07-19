@@ -129,7 +129,7 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
     match value {
         Value::VirtualRegister(src) => add_location(stack_map, src),
         Value::DynamicStackOffset {id: _,index, offset: _, size: _ } => add_if_register(index, stack_map),
-        Value::IndirectAddress {base, index, offset: _, size: _ , id: _} => {
+        Value::IndirectAddress {base, index, offset: _, size: _ } => {
             add_if_register(base, stack_map);
             if let Some(x) = index {
                 add_if_register(x, stack_map);
@@ -650,43 +650,92 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     }
                 ));
         },
+
+        /*
+            MOV tmp_reg, ptr_stack_location
+            MOV tmp_reg2, indirect_read_using_tmp_reg
+            MOV value_location, tmp_reg_2
+
+        */
         UnaryOperation {
             src: IndirectAddress {
                 base,
-                index: Some(index),
+                index,
                 offset,
                 size,
-                id,
             },
             dest: VirtualRegister(dest_vregdata),
         } => {
 
-            let base_stack_slot= &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
+                vregdata
+            } else {
+                ice!("Base register is not a virtual register: {}", base);
+            };
+
+            let base_stack_slot= &stack_map.reg_to_stack_slot[&base_vregdata.id];
             let base_register = get_register_for_size(base_stack_slot.size);
 
             let value_register = get_register_for_size2(*size);
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
 
-            match **index {
-                IntegerConstant(val) => {
-                    updated_instructions.push(
-                        ByteCode::Mov(
-                            UnaryOperation {
-                                src: IndirectAddress {
-                                    base: Box::new(Value::PhysicalRegister(base_register)),
-                                    index: None,
-                                    offset: Some(val as u32),
-                                    id: *id,
-                                    size: *size,
 
-                                } ,
-                                dest: PhysicalRegister(value_register),
-                            }
-                        ));
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: base_stack_slot.size,
+                            offset: base_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(base_register.clone()),
+                    }
+                ));
 
-                }
-                _=> ice!("Unexpected index {} for indirect memory access", index),
-            }
+                let (index, offset) = match index {
+                    // bit clunky as box can't be matched against directly
+                    Some(boxed) => {
+                        match &**boxed {
+                            VirtualRegister(vreg_data) => {
+                                let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
+                                let index_reg = get_register_for_size3(stack_slot.size);
+
+                                updated_instructions.push(
+                                    ByteCode::Mov(
+                                        UnaryOperation {
+                                            src: StackOffset {
+                                                size: stack_slot.size,
+                                                offset: stack_slot.offset,
+                                            },
+                                            dest: PhysicalRegister(index_reg.clone()),
+                                        }
+                                    ));
+
+                                (Some(Box::new(PhysicalRegister(index_reg.clone()))), *offset)
+                            },
+                            IntegerConstant(index) => {
+                                let index = (-(*index)*(dest_stack_slot.size as i32)) as u32;
+                                (None, Some(index))
+                            },
+                            _ => ice!("Unexpected index-operation {}", *boxed)
+                        }
+                    },
+                    None  => (None, *offset),
+                };
+
+                updated_instructions.push(
+                    ByteCode::Mov(
+                        UnaryOperation {
+                            src: IndirectAddress {
+                                base: Box::new(Value::PhysicalRegister(base_register)),
+                                index: index,
+                                offset: offset.clone(),
+                                size: *size,
+
+                            } ,
+                            dest: PhysicalRegister(value_register),
+                        }
+                    ));
+
 
 
             updated_instructions.push(
@@ -699,8 +748,179 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                         },
                     }
                 ));
+        },
+        UnaryOperation {
+            src: VirtualRegister(src_vregdata),
+            dest: IndirectAddress {
+                base,
+                index,
+                offset,
+                size,
+            },
+        } => {
+
+            let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
+                vregdata
+            } else {
+                ice!("Base register is not a virtual register: {}", base);
+            };
+
+            let base_stack_slot= &stack_map.reg_to_stack_slot[&base_vregdata.id];
+            let base_register = get_register_for_size(base_stack_slot.size);
+
+            let value_register = get_register_for_size2(*size);
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
 
 
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: base_stack_slot.size,
+                            offset: base_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(base_register.clone()),
+                    }
+                ));
+
+            let (index, offset) = match index {
+                // bit clunky as box can't be matched against directly
+                Some(boxed) => {
+                    match &**boxed {
+                        VirtualRegister(vreg_data) => {
+                            let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
+                            let index_reg = get_register_for_size3(stack_slot.size);
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: stack_slot.size,
+                                            offset: stack_slot.offset,
+                                        },
+                                        dest: PhysicalRegister(index_reg.clone()),
+                                    }
+                                ));
+
+                            (Some(Box::new(PhysicalRegister(index_reg.clone()))), *offset)
+                        },
+                        IntegerConstant(index) => {
+                            let index = (-(*index)*(src_stack_slot.size as i32)) as u32;
+                            (None, Some(index))
+                        },
+                        _ => ice!("Unexpected index-operation {}", *boxed)
+                    }
+                },
+                None  => (None, *offset),
+            };
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: src_stack_slot.size,
+                            offset: src_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(value_register.clone()),
+                    }
+                ));
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_register),
+                        dest: IndirectAddress {
+                            base: Box::new(Value::PhysicalRegister(base_register)),
+                            index: index,
+                            offset: offset.clone(),
+                            size: *size,
+                        } ,
+                    }
+                ));
+        },
+        UnaryOperation {
+            src: IntegerConstant(val),
+            dest: IndirectAddress {
+                base,
+                index,
+                offset,
+                size,
+            },
+        } => {
+
+            let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
+                vregdata
+            } else {
+                ice!("Base register is not a virtual register: {}", base);
+            };
+
+            let base_stack_slot= &stack_map.reg_to_stack_slot[&base_vregdata.id];
+            let base_register = get_register_for_size(base_stack_slot.size);
+
+            let value_register = get_register_for_size2(*size);
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: base_stack_slot.size,
+                            offset: base_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(base_register.clone()),
+                    }
+                ));
+
+            let (index, offset) = match index {
+                // bit clunky as box can't be matched against directly
+                Some(boxed) => {
+                    match &**boxed {
+                        VirtualRegister(vreg_data) => {
+                            let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
+                            let index_reg = get_register_for_size3(stack_slot.size);
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: stack_slot.size,
+                                            offset: stack_slot.offset,
+                                        },
+                                        dest: PhysicalRegister(index_reg.clone()),
+                                    }
+                                ));
+
+                            (Some(Box::new(PhysicalRegister(index_reg.clone()))), *offset)
+                        },
+                        IntegerConstant(index) => {
+                            let index = (-(*index)*(*size as i32)) as u32;
+                            (None, Some(index))
+                        },
+                        _ => ice!("Unexpected index-operation {}", *boxed)
+                    }
+                },
+                None  => (None, *offset),
+            };
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: IntegerConstant(*val),
+                        dest: PhysicalRegister(value_register.clone()),
+                    }
+                ));
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_register),
+                        dest: IndirectAddress {
+                            base: Box::new(Value::PhysicalRegister(base_register)),
+                            index: index,
+                            offset: offset.clone(),
+                            size: *size,
+                        } ,
+                    }
+                ));
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
@@ -1971,6 +2191,15 @@ fn get_register_for_size2(size: u32) -> X64Register {
         1 => X64Register::BL,
         4 => X64Register::EBX,
         8 => X64Register::RBX,
+        _ => ice!("Invalid register size {}", size),
+    }
+}
+
+fn get_register_for_size3(size: u32) -> X64Register {
+    match size {
+        1 => X64Register::CL,
+        4 => X64Register::ECX,
+        8 => X64Register::RCX,
         _ => ice!("Invalid register size {}", size),
     }
 }

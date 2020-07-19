@@ -88,7 +88,7 @@ pub enum Value {
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
     DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
-    IndirectAddress { base: Box<Value>, index: Option<Box<Value>>, offset: Option<u32>, size: u32, id: u32 },
+    IndirectAddress { base: Box<Value>, index: Option<Box<Value>>, offset: Option<u32>, size: u32, },
     ArrayPtr{ id: u32 },
     ReturnValue,
     FunctionParameter(Type, usize),
@@ -113,13 +113,12 @@ impl Display for Value {
                 index, offset, size, id
             } => format!("[stack + {}*{} - (0x{:x}+array_{}_offset)]", index, size, offset, id),
             Value::IndirectAddress {
-                base, index, offset, size, id
-            } => format!("[{} + {}*{} - (0x{:x}+array_{}_offset)]",
+                base, index, offset, size
+            } => format!("[{} + {}*{} - 0x{:x}]",
                          base,
                          if let Some(x) = index { x.clone() } else { Box::new(Value::IntegerConstant(0)) },
                          size,
-                         if let Some(x) = offset { *x } else { 0 },
-                         id),
+                         if let Some(x) = offset { *x } else { 0 }),
             Value::ArrayPtr { id } => format!("Ptr to array {}", id),
         })
     }
@@ -513,15 +512,31 @@ impl ByteGenerator {
                 id,
                 variable_info
             } => {
-                // TODO: Dynamically allocated arrays
-                //
-                let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
-                Value::DynamicStackOffset {
-                    id: *id,
-                    index: Box::new(self.get_source(index_operand)),
-                    offset: ARRAY_LENGTH_SLOT_SIZE,
-                    size,
+                match &variable_info.variable_type {
+                    Type::Reference(x) if x.is_array() => {
+                        let base_reg = self.get_register_for(variable_info, *id);
+
+                        let size = ARRAY_LENGTH_SLOT_SIZE;
+                        Value::IndirectAddress {
+                            base: Box::new(base_reg),
+                            index: Some(Box::new(self.get_source(index_operand))),
+                            offset: None,
+                            size: size,
+                        }
+                    },
+                    x if x.is_array() => {
+                        let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
+                        Value::DynamicStackOffset {
+                            id: *id,
+                            index: Box::new(self.get_source(index_operand)),
+                            offset: ARRAY_LENGTH_SLOT_SIZE,
+                            size,
+                        }
+                    }
+                    _ => ice!("Unexpected type for array indexing: {}", variable_info.variable_type),
+
                 }
+
             },
             Operand::ArrayLength{ id, variable_info }=> {
                 match &variable_info.variable_type {
@@ -531,10 +546,9 @@ impl ByteGenerator {
                         let size = ARRAY_LENGTH_SLOT_SIZE;
                         Value::IndirectAddress {
                             base: Box::new(base_reg),
-                            index: Some(Box::new(Value::IntegerConstant(-1))),
+                            index: None,
                             offset: Some(ARRAY_LENGTH_SLOT_SIZE),
                             size: size,
-                            id: *id,
                         }
                     }
                     x if x.is_array() => {
@@ -542,7 +556,7 @@ impl ByteGenerator {
                         Value::DynamicStackOffset {
                             id: *id,
                             index: Box::new(Value::IntegerConstant(-1)),
-                            offset: ARRAY_LENGTH_SLOT_SIZE,
+                            offset: 0,
                             size,
                         }
                     },
