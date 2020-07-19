@@ -1,0 +1,71 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let array: int[10] = 0;
+    array[0] = 9;
+    array[1] = 4;
+    array[3] = 1;
+    array[4] = 4;
+    array[5] = 2;
+    array[6] = 15;
+    array[7] = 8;
+    array[8] = 5;
+    array[9] = 74;
+
+    quicksort(array, 0, array.length-1);
+
+    let i: int = 0;
+    while i < array.length {
+      int_printer(array[i]);
+      i = i + 1;
+    }
+    return 0;
+  }
+
+  fn quicksort(arr: int[], low: int, high: int) : void {
+    if low < high { 
+      let p: int = partition(arr, low, high); 
+      quicksort(arr, low, p - 1);
+      quicksort(arr, p+1, high);
+    }
+  }
+
+  fn partition(arr: int[], low: int, high: int) : int {
+    let pivot: int = arr[high];
+    let i: int = low;
+    let j: int = low;
+    
+    while j < high {
+      if arr[j] < pivot {
+        let tmp: int = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+        i = i + 1;
+      }
+      
+      j = j+1;
+    }
+
+    let tmp: int = arr[i];
+    arr[i] = arr[high];
+    arr[high] = tmp;
+    return i;
+  }
+
+
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  0
+  1
+  2
+  4
+  4
+  5
+  8
+  9
+  15
+  74
+  
