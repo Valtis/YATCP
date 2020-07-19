@@ -2350,7 +2350,7 @@ fn change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
     asm: &mut Vec<u8>) {
 
 
-    let mut shifts = vec![];
+    let mut shifts = vec![]; // how many lines have been added before this line
     shifts.push(0); // first instruction is never shifted
 
     let mut shifted_bytes = 0;
@@ -2393,7 +2393,9 @@ fn change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
                     *jump_opcode_location += shifts[*jump_opcode_location];
                 }
                 JumpPatch::Jump(_, jump_opcode_location) => {
-                    *jump_opcode_location += shifts[*jump_opcode_location];
+                    let max_len = shifts.len() - 1;
+                    let index = std::cmp::min(*jump_opcode_location, max_len);
+                    *jump_opcode_location += shifts[index];
                 }
             }
         }

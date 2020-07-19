@@ -65,6 +65,13 @@ impl Type {
         }
     }
 
+    pub fn is_reference(&self) -> bool {
+        match *self {
+            Type::Reference(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
             Type::IntegerArray => Type::Integer,

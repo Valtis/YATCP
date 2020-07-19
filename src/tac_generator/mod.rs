@@ -402,7 +402,8 @@ impl TACGenerator {
 
             // handle auto referenced array args, generate mov address -> tmp reg and use reg as argument
             if let Operand::Variable(info, id ) = operand.clone() {
-                if info.variable_type.is_array()  {
+
+                if info.variable_type.is_array() && !info.variable_type.is_reference() {
                     if let Type::Reference(ref param) = params[i].variable_type {
                         if param.is_array() {
                             // arg is array, param is ref to array - generate address move code
