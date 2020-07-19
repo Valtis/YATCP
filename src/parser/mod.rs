@@ -121,6 +121,14 @@ impl Parser {
                 let var_type = self.expect(TokenType::VarType)?;
                 params.push(DeclarationInfo::new(&identifier, &var_type));
 
+                if let TokenType::LBracket = self.lexer.peek_token().token_type {
+                    self.expect(TokenType::LBracket)?;
+                    self.expect(TokenType::RBracket)?;
+
+                    // update type to array type
+                    params.last_mut().unwrap().variable_type = Type::Reference(Box::new(params.last().unwrap().variable_type.get_array_type_from_basic_type()));
+                }
+
                 if let TokenType::Comma = self.lexer.peek_token().token_type {
                     self.expect(TokenType::Comma)?;
                 } else {
@@ -3107,6 +3115,79 @@ mod tests {
                 ],
                 None,
                 Span::new(0, 0, 0)),
+            node);
+    }
+
+    #[test]
+    fn function_definition_with_array_produces_correct_ast() {
+        /*
+            fn foo(a : int[], b : string) : void {
+
+            }
+        */
+
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Comma, TokenSubType::NoSubType, 0, 0, 0),
+
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
+
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
+        let node = parser.parse();
+
+        assert_eq!(reporter.borrow().errors(), 0);
+
+        let mut function_info = FunctionInfo::new_alt(
+            Rc::new("foo".to_string()),
+            Type::Void,
+            0, 0, 0);
+
+        function_info.parameters.push(
+            DeclarationInfo::new_alt(
+                Rc::new("a".to_string()),
+                Type::IntegerArray,
+                0, 0, 0));
+
+        function_info.parameters.push(
+            DeclarationInfo::new_alt(
+                Rc::new("b".to_string()),
+                Type::String,
+                0, 0, 0));
+
+        assert_eq!(
+            AstNode::Block(vec![
+                AstNode::Function(
+                    Box::new(AstNode::Block(
+                        vec![],
+                        None,
+                        Span::new(0, 0, 0))),
+                    function_info)
+            ],
+                           None,
+                           Span::new(0, 0, 0)),
             node);
     }
 

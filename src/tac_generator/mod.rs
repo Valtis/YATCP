@@ -50,9 +50,12 @@ impl Display for Operator {
     }
 }
 
+
+// TODO replace tuples with structs for better readability
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operand {
     Variable(DeclarationInfo, u32),
+    AddressOf{ variable_info: DeclarationInfo, id: u32, },
     ArrayIndex{
         id: u32,
         index_operand: Box<Operand>,
@@ -80,6 +83,7 @@ impl Display for Operand {
             },
             Operand::ArrayLength { id, ref variable_info } => format!("{}_{}.length", variable_info.name, id),
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
+            Operand::AddressOf { ref variable_info, ref id } => format!("&{}_{}", variable_info.name, id),
             Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
             Operand::Integer(v) => format!("{}i", v),
@@ -350,7 +354,7 @@ impl TACGenerator {
                         param.clone(),
                         id)),
                     None,
-                    Some(Operand::Initialized(param.variable_type))));
+                    Some(Operand::Initialized(param.variable_type.clone()))));
         }
 
 
@@ -373,21 +377,16 @@ impl TACGenerator {
         args: &Vec<AstNode>,
         _info: &Span) {
 
-        let mut function_operands = vec![];
-        for arg in args.iter() {
-            function_operands.push(self.get_operand(arg));
-        }
 
-        let dest = if let Some(sym) = self.symbol_table.find_symbol(name) {
-            if let Symbol::Function(ref fi) = sym {
+        let (dest, params) = if let Some(sym) = self.symbol_table.find_symbol(name) {
+            if let Symbol::Function(fi) = sym {
                 if fi.return_type == Type::Void {
-                    None
+                    (None, fi.parameters)
                 } else {
-                    let tmp = self.get_temporary(fi.return_type);
+                    let tmp = self.get_temporary(fi.return_type.clone());
                     self.operands.push(tmp.clone());
-                    Some(tmp)
+                    (Some(tmp), fi.parameters)
                 }
-
             } else {
                 ice!(
                     "Invalid symbol {:?} in symbol table when function expected", sym)
@@ -395,6 +394,37 @@ impl TACGenerator {
         } else {
             ice!("Failed to find function '{}' from symbol table", name);
         };
+
+        let mut function_operands = vec![];
+        for (i, arg) in args.iter().enumerate() {
+
+            let mut operand = self.get_operand(arg);
+
+            // handle auto referenced array args, generate mov address -> tmp reg and use reg as argument
+            if let Operand::Variable(info, id ) = operand.clone() {
+                if info.variable_type.is_array()  {
+                    if let Type::Reference(ref param) = params[i].variable_type {
+                        if param.is_array() {
+                            // arg is array, param is ref to array - generate address move code
+                            operand = self.get_temporary(params[i].variable_type.clone());
+                            self.current_function().statements.push(
+                                Statement::Assignment(
+                                    None,
+                                    Some(operand.clone()),
+                                    None,
+                                    Some(Operand::AddressOf { variable_info: info, id  })
+                            ));
+                        }
+                    }
+
+                }
+            }
+
+            function_operands.push(operand);
+        }
+
+
+
 
         self.current_function().statements.push(
             Statement::Call(
@@ -818,7 +848,7 @@ impl TACGenerator {
     fn handle_negate(&mut self, child_node: &AstNode, arith_info: &ArithmeticInfo) {
         let op = self.get_operand(child_node);
 
-        let temp = self.get_temporary(arith_info.node_type);
+        let temp = self.get_temporary(arith_info.node_type.clone());
         self.current_function().statements.push(Statement::Assignment(
             Some(Operator::Minus),
             Some(temp.clone()),
@@ -894,7 +924,10 @@ impl TACGenerator {
 
     fn get_type(&self, operand: &Operand) -> Type {
         match *operand {
-            Operand::Variable(ref info, _) => info.variable_type,
+            Operand::Variable(ref info, _) => info.variable_type.clone(),
+            Operand::AddressOf { ref variable_info, id: _ } => {
+              Type::Reference(Box::new(variable_info.variable_type.clone()))
+            },
             Operand::Integer(_) => Type::Integer,
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,

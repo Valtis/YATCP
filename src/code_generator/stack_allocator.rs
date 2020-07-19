@@ -1,5 +1,5 @@
 use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter, DynamicStackOffset};
+use crate::byte_generator::Value::{VirtualRegister, IntegerConstant, StackOffset, PhysicalRegister, BooleanConstant, ComparisonResult, FunctionParameter, DynamicStackOffset, IndirectAddress};
 use crate::semcheck::Type;
 
 use super::x64::X64Register;
@@ -127,6 +127,12 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
     match value {
         Value::VirtualRegister(src) => add_location(stack_map, src),
         Value::DynamicStackOffset {id: _,index, offset: _, size: _ } => add_if_register(index, stack_map),
+        Value::IndirectAddress {base, index, offset: _, size: _ , id: _} => {
+            add_if_register(base, stack_map);
+            if let Some(x) = index {
+                add_if_register(x, stack_map);
+            }
+        }
         _ => (),
     }
 }
@@ -353,7 +359,8 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             dest: VirtualRegister(vregdata),
         } => {
             match param_type {
-                Type::Integer | Type::Boolean => {
+                // integers, and integer-like values like pointers
+                Type::Integer | Type::Boolean | Type::Reference(_) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
                     if *pos < 6 {
                         updated_instructions.push(
@@ -639,7 +646,59 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                         },
                     }
                 ));
-        }
+        },
+        UnaryOperation {
+            src: IndirectAddress {
+                base,
+                index: Some(index),
+                offset,
+                size,
+                id,
+            },
+            dest: VirtualRegister(dest_vregdata),
+        } => {
+
+            let base_stack_slot= &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let base_register = get_register_for_size(base_stack_slot.size);
+
+            let value_register = get_register_for_size2(*size);
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            match **index {
+                IntegerConstant(val) => {
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: IndirectAddress {
+                                    base: Box::new(Value::PhysicalRegister(base_register)),
+                                    index: None,
+                                    offset: Some(val as u32),
+                                    id: *id,
+                                    size: *size,
+
+                                } ,
+                                dest: PhysicalRegister(value_register),
+                            }
+                        ));
+
+                }
+                _=> ice!("Unexpected index {} for indirect memory access", index),
+            }
+
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_register.clone()),
+                        dest: StackOffset {
+                            size: dest_stack_slot.size,
+                            offset: dest_stack_slot.offset,
+                        },
+                    }
+                ));
+
+
+        },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
 }

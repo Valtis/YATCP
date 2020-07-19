@@ -88,6 +88,8 @@ pub enum Value {
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
     DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
+    IndirectAddress { base: Box<Value>, index: Option<Box<Value>>, offset: Option<u32>, size: u32, id: u32 },
+    AddressOf { source_location: Box<Value>, },
     ReturnValue,
     FunctionParameter(Type, usize),
 }
@@ -110,6 +112,17 @@ impl Display for Value {
             Value::DynamicStackOffset {
                 index, offset, size, id
             } => format!("[stack + {}*{} - (0x{:x}+array_{}_offset)]", index, size, offset, id),
+            Value::IndirectAddress {
+                base, index, offset, size, id
+            } => format!("[{} + {}*{} - (0x{:x}+array_{}_offset)]",
+                         base,
+                         if let Some(x) = index { x.clone() } else { Box::new(Value::IntegerConstant(0)) },
+                         size,
+                         if let Some(x) = offset { *x } else { 0 },
+                         id),
+            Value::AddressOf {
+                source_location
+            } => format!("AddressOf {}", source_location),
         })
     }
 }
@@ -468,12 +481,17 @@ impl ByteGenerator {
             Operand::Variable(declaration_info, id) => {
                 self.get_register_for(declaration_info, *id)
             },
+            Operand::AddressOf { variable_info, id} => {
+                Value::AddressOf {
+                    source_location: Box::new(self.get_register_for(variable_info, *id)),
+                }
+            },
             Operand::Integer(val) => Value::IntegerConstant(*val),
             Operand::Boolean(val) => Value::BooleanConstant(*val),
             Operand::Initialized(value_type) => {
                 let pos = self.current_function().parameter_count;
                 self.current_function().parameter_count += 1;
-                Value::FunctionParameter( *value_type, pos as usize)
+                Value::FunctionParameter( value_type.clone(), pos as usize)
             },
             Operand::ArrayIndex {
                 index_operand,
@@ -491,12 +509,29 @@ impl ByteGenerator {
                 }
             },
             Operand::ArrayLength{ id, variable_info }=> {
-                let size = ARRAY_LENGTH_SLOT_SIZE;
-                Value::DynamicStackOffset {
-                    id: *id,
-                    index: Box::new(Value::IntegerConstant(-1)),  
-                    offset: ARRAY_LENGTH_SLOT_SIZE,
-                    size,
+                match &variable_info.variable_type {
+                    Type::Reference(ref x) if x.is_array() => {
+                        let base_reg = self.get_register_for(variable_info, *id);
+
+                        let size = ARRAY_LENGTH_SLOT_SIZE;
+                        Value::IndirectAddress {
+                            base: Box::new(base_reg),
+                            index: Some(Box::new(Value::IntegerConstant(-1))),
+                            offset: Some(ARRAY_LENGTH_SLOT_SIZE),
+                            size: size,
+                            id: *id,
+                        }
+                    }
+                    x if x.is_array() => {
+                        let size = ARRAY_LENGTH_SLOT_SIZE;
+                        Value::DynamicStackOffset {
+                            id: *id,
+                            index: Box::new(Value::IntegerConstant(-1)),
+                            offset: ARRAY_LENGTH_SLOT_SIZE,
+                            size,
+                        }
+                    },
+                    _ => ice!("Unexpected variable type {} for array length", variable_info.variable_type),
                 }
             }
             x => panic!("Not implemented yet for {}", x),

@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
     Integer,
     Double,
@@ -28,7 +28,8 @@ pub enum Type {
     IntegerArray,
     BooleanArray,
     Uninitialized,
-    Invalid, // type error occured
+    Reference(Box<Type>),
+    Invalid, // type error occurred
 }
 
 impl Type {
@@ -37,11 +38,12 @@ impl Type {
             Type::Integer => 4,
             Type::Double => 8,
             Type::Float => 4,
-            Type::String => 8, // ptr
+            Type::String => unimplemented!(),
             Type::Boolean => 1,
             Type::Void => ice!("Reguesting size of a void type"),
-            Type::IntegerArray => unimplemented!(),
-            Type::BooleanArray=> unimplemented!(),
+            Type::IntegerArray => unimplemented!(), // TODO define semantics
+            Type::BooleanArray=> unimplemented!(), // TODO define semantics
+            Type::Reference(_) => 8,
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
         }
@@ -58,6 +60,7 @@ impl Type {
             Type::IntegerArray => true,
             Type::BooleanArray => true,
             Type::Uninitialized => false,
+            Type::Reference(ref x) => x.is_array(),
             Type::Invalid => false,
         }
     }
@@ -66,24 +69,34 @@ impl Type {
         match *self {
             Type::IntegerArray => Type::Integer,
             Type::BooleanArray => Type::Boolean,
+            Type::Reference(ref x) if x.is_array() => x.get_array_basic_type(),
             _ => ice!("{} is not an array type but requested basic type anyway", self),
+        }
+    }
+
+    pub fn get_array_type_from_basic_type(&self) -> Type {
+        match *self {
+            Type::Integer => Type::IntegerArray,
+            Type::Boolean => Type::BooleanArray,
+            _ => ice!("{} is not valid basic type for arrays, but requested array type anyway", self),
         }
     }
 }
 
 impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
-        Display::fmt( match *self {
-            Type::Integer => "Integer",
-            Type::Double => "Double",
-            Type::Float => "Float",
-            Type::String=> "String",
-            Type::Boolean => "Boolean",
-            Type::Void => "Void",
-            Type::IntegerArray => "Integer array",
-            Type::BooleanArray=> "Boolean array",
-            Type::Uninitialized => "Uninitialized",
-            Type::Invalid => "Invalid",
+        Display::fmt( &match *self {
+            Type::Integer => "Integer".to_owned(),
+            Type::Double => "Double".to_owned(),
+            Type::Float => "Float".to_owned(),
+            Type::String=> "String".to_owned(),
+            Type::Boolean => "Boolean".to_owned(),
+            Type::Void => "Void".to_owned(),
+            Type::IntegerArray => "Integer array".to_owned(),
+            Type::BooleanArray=> "Boolean array".to_owned(),
+            Type::Reference(ref x) => format!("Reference to {}", x),
+            Type::Uninitialized => "Uninitialized".to_owned(),
+            Type::Invalid => "Invalid".to_owned(),
       }, formatter)
   }
 }
@@ -400,11 +413,21 @@ impl SemanticsCheck {
                     } else {
                         for (param, arg) in function_info.parameters
                         .iter()
-                        .zip(args.iter()) {
+                        .zip(args.iter_mut()) {
                             let arg_type = self.get_type(arg);
+
+                            // automatically use ref to array, if array is used as a param to function expecting array ref
+                            if let Type::Reference(ref x) = param.variable_type {
+                                if x.is_array() && arg_type.is_array() &&
+                                    x.get_array_basic_type() == arg_type.get_array_basic_type() {
+                                    self.set_type(arg, Type::Reference(Box::new(arg_type)));
+                                    return;
+                                }
+                            }
+
                             if arg_type != param.variable_type &&
                                 arg_type != Type::Invalid &&
-                                param.variable_type != Type::Void {
+                                param.variable_type != Type::Invalid {
                                 self.report_error(
                                     ReportKind::TypeError,
                                     arg.span(),
@@ -766,7 +789,7 @@ impl SemanticsCheck {
         let child_type = self.get_type(child);
 
 
-        arith_info.node_type = child_type;
+        arith_info.node_type = child_type.clone();
         // if type is invalid, errors has already been reported
         if (function_info.return_type == Type::Void || function_info.return_type != child_type) && child_type != Type::Invalid {
 
@@ -1062,6 +1085,16 @@ impl SemanticsCheck {
         None
     }
 
+
+    fn set_type(&mut self, node: &mut AstNode, new_type: Type) {
+        match node {
+            AstNode::Identifier(ref name, _) => {
+                self.symbol_table.update_variable_type(name, new_type);
+            },
+            _ => ice!("Not impemented for type: {}", new_type),
+        }
+    }
+
     fn get_type(&self, node: &AstNode) -> Type {
         match *node {
             AstNode::Integer(_, _) => Type::Integer,
@@ -1077,18 +1110,18 @@ impl SemanticsCheck {
             AstNode::Plus(_, _, ref info) |
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _,  ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_type,
-            AstNode::Negate(_, ref info) => info.node_type,
+            AstNode::Divide(_, _, ref info) => info.node_type.clone(),
+            AstNode::Negate(_, ref info) => info.node_type.clone(),
             AstNode::Identifier(ref name, _) => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
-                    info.variable_type
+                    info.variable_type.clone()
                 } else {
                     Type::Invalid
                 }
             },
             AstNode::FunctionCall(_, ref name, _) => {
                 if let Some(Symbol::Function(ref info)) = self.symbol_table.find_symbol(name) {
-                    info.return_type
+                    info.return_type.clone()
                 } else {
                     Type::Invalid
                 }

@@ -1,4 +1,5 @@
 use crate::ast::{FunctionInfo, DeclarationInfo};
+use crate::semcheck::Type;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Symbol {
@@ -24,6 +25,7 @@ impl TableEntry {
         self.symbols.push(symbol);
     }
 
+    // FIXME Use hashmap to avoid constant re-iterations of the symbol Vec.
     pub fn find_symbol(&self, name: &str) -> Option<Symbol> {
         for s in self.symbols.iter() {
             match *s {
@@ -40,6 +42,18 @@ impl TableEntry {
             }
         }
         None
+    }
+
+    pub fn update_symbol_type(&mut self, name: &str, new_type: Type) {
+        for s in self.symbols.iter_mut() {
+            if let Symbol::Variable(ref mut info, _) = s {
+                if *info.name == name {
+                    info.variable_type = new_type;
+                    return;
+                }
+            }
+        }
+        ice!("Variable {} not present", name);
     }
 }
 
@@ -89,5 +103,15 @@ impl SymbolTable {
             }
         }
         None
+    }
+
+    pub fn update_variable_type(&mut self, name: &str, new_type: Type) {
+        for i in self.entries.iter_mut().rev() {
+            if let Some(_) = i.find_symbol(name) {
+                i.update_symbol_type(name, new_type);
+                return;
+            }
+        }
+        ice!("Symbol {} not present in the symbol table", name);
     }
 }
