@@ -16,3 +16,16 @@ int int_reader() {
     scanf("%d", &value);
     return value;
 }
+
+
+void fizz() {
+        printf("Fizz\n");
+}
+
+void buzz() {
+        printf("Buzz\n");
+}
+
+void fizzbuzz() {
+        printf("FizzBuzz\n");
+}
