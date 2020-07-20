@@ -2246,7 +2246,7 @@ mod tests {
 
     use super::*;
 
-    const STACK_OFFSET: u32 = 4;
+    const STACK_OFFSET: u32 = 8;
     const TMP_REGISTER: X64Register = X64Register::EAX;
     const DIV_TMP_REGISTER: X64Register = X64Register::EBX;
 

@@ -3168,7 +3168,7 @@ mod tests {
         function_info.parameters.push(
             DeclarationInfo::new_alt(
                 Rc::new("a".to_string()),
-                Type::IntegerArray,
+                Type::Reference(Box::new(Type::IntegerArray)),
                 0, 0, 0));
 
         function_info.parameters.push(
