@@ -1231,7 +1231,7 @@ mod tests {
                 ],
                 Some(Operand::Variable(
                     DeclarationInfo::new_alt(
-                        Rc::new("%tmp".to_string()),
+                        Rc::new(TMP_NAME.to_string()),
                         Type::Integer,
                         0, 0, 0),
                     2))),
@@ -1246,7 +1246,7 @@ mod tests {
                 Some(
                     Operand::Variable(
                         DeclarationInfo::new_alt(
-                            Rc::new("%tmp".to_string()),
+                            Rc::new(TMP_NAME.to_string()),
                             Type::Integer,
                             0, 0, 0),
                         2))),
