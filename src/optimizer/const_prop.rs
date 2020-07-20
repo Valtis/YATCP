@@ -39,6 +39,7 @@ fn do_constant_folding(
                 Operator::Minus => Operand::Integer(val - val2),
                 Operator::Multiply => Operand::Integer(val * val2),
                 Operator::Divide => Operand::Integer(val / val2),
+                Operator::Modulo => Operand::Integer(val % val2),
                 Operator::Less => Operand::Boolean(val < val2),
                 Operator::LessOrEq => Operand::Boolean(val <= val2),
                 Operator::Equals => Operand::Boolean(val == val2),

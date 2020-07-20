@@ -1,0 +1,24 @@
+extern fn int_printer(val: int) : void;
+extern fn fizz() : void;
+extern fn buzz() : void;
+extern fn fizzbuzz() : void;
+
+fn main() : void {
+
+	
+    let i : int = 1;
+    while i < 100 {
+
+        if i % 3 == 0 && i % 5 == 0 {
+	    fizzbuzz();
+        } else if i % 3 == 0 {
+            fizz();
+        } else if i % 5 == 0 {
+            buzz();
+        } else {
+            int_printer(i);
+        }
+
+        i = i + 1;
+    }
+}

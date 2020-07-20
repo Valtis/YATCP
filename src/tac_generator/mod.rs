@@ -21,6 +21,7 @@ pub enum Operator {
     Minus,
     Multiply,
     Divide,
+    Modulo,
     Less,
     LessOrEq,
     Equals,
@@ -30,7 +31,7 @@ pub enum Operator {
     Xor,
 }
 
-pub const TMP_NAME : &'static str = "%tmp";
+pub const TMP_NAME : &'static str = ".tmp";
 
 impl Display for Operator {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
@@ -39,6 +40,7 @@ impl Display for Operator {
             Operator::Minus => "-".to_string(),
             Operator::Multiply => "*".to_string(),
             Operator::Divide => "/".to_string(),
+            Operator::Modulo=> "%".to_string(),
             Operator::Less => "<".to_string(),
             Operator::LessOrEq => "<=".to_string(),
             Operator::Equals => "==".to_string(),
@@ -270,7 +272,8 @@ impl TACGenerator {
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
-            AstNode::Divide(_, _, _) =>
+            AstNode::Divide(_, _, _) |
+            AstNode::Modulo(_, _, _) =>
                 self.handle_arithmetic_node(node),
             AstNode::Integer(_, _) |
             AstNode::Boolean(_, _) => self.handle_constant(node),
@@ -722,7 +725,9 @@ impl TACGenerator {
                 (Operator::Multiply, left, right),
             AstNode::Divide(ref left, ref right, _) =>
                 (Operator::Divide, left, right),
-            _ => ice!("Invalid node '{}' passed when arithmetic node expected", node),
+           AstNode::Modulo(ref left, ref right, _) =>
+               (Operator::Modulo, left, right),
+           _ => ice!("Invalid node '{}' passed when arithmetic node expected", node),
         };
 
         let left_op = self.get_operand(left_child);

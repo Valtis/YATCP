@@ -132,6 +132,7 @@ pub enum ByteCode {
     Sub(BinaryOperation),
     Mul(BinaryOperation),
     Div(BinaryOperation),
+    Mod(BinaryOperation),
     Negate(UnaryOperation),
     Xor(BinaryOperation),
     Mov(UnaryOperation),
@@ -165,6 +166,7 @@ impl Display for ByteCode {
             ByteCode::Sub(ref binary_op) => format!("sub {}", binary_op),
             ByteCode::Mul(ref binary_op) => format!("mul {}", binary_op),
             ByteCode::Div(ref binary_op) => format!("div {}", binary_op),
+            ByteCode::Mod(ref binary_op) => format!("mod {}", binary_op),
             ByteCode::Xor(ref binary_op) => format!("xor {}", binary_op),
             ByteCode::Lea(ref binary_op) => format!("lea {}", binary_op),
             ByteCode::Compare(ref comp_op) => format!("cmp {}", comp_op),
@@ -273,6 +275,7 @@ impl ByteGenerator {
                     Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
                     Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
                     Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
+                    Statement::Assignment(Some(Operator::Modulo), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Modulo, op1, op2, dest),
                     Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
                     Statement::Assignment(Some(Operator::Minus), Some(ref dest), None, Some(ref src)) => self.emit_negate(dest, src),
                     Statement::Assignment(Some(Operator::Xor), Some(ref dest), Some(ref src1), Some(ref src2)) => self.emit_xor(dest, src1, src2),
@@ -590,6 +593,7 @@ impl ByteGenerator {
             Operator::Minus => ByteCode::Sub(data),
             Operator::Multiply => ByteCode::Mul(data),
             Operator::Divide => ByteCode::Div(data),
+            Operator::Modulo => ByteCode::Mod(data),
             _ => ice!("Invalid operator '{}'", operator),
         }
     }

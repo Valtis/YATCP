@@ -533,8 +533,8 @@ impl Parser {
         loop {
             let next_token = self.lexer.peek_token();
             match next_token.token_type {
-                TokenType::Multiply | TokenType::Divide =>
-                    node = self.parse_mult_divide_expression(node)?,
+                TokenType::Multiply | TokenType::Divide | TokenType::Percentage =>
+                    node = self.parse_mult_divide_modulo_expression(node)?,
                 _ => break,
             }
         }
@@ -867,7 +867,7 @@ impl Parser {
         }
     }
 
-    fn parse_mult_divide_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
+    fn parse_mult_divide_modulo_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
 
         let next_token = self.lexer.peek_token();
         match next_token.token_type {
@@ -883,12 +883,21 @@ impl Parser {
             },
             TokenType::Divide => {
                 self.lexer.next_token();
-                let n_node = self.parse_factor()?;
+                let n_node = self.parse_boolean_not()?;
                 let div_node = AstNode::Divide(
                     Box::new(node),
                     Box::new(n_node),
                     ArithmeticInfo::new(&next_token));
                 Ok(div_node)
+            },
+            TokenType::Percentage => {
+                self.lexer.next_token();
+                let n_node = self.parse_boolean_not()?;
+                let modulo_node = AstNode::Modulo(
+                    Box::new(node),
+                    Box::new(n_node),
+                    ArithmeticInfo::new(&next_token));
+                Ok(modulo_node)
             },
             _ => Ok(node),
         }

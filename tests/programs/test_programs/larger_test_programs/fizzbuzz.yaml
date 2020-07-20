@@ -1,0 +1,46 @@
+program: |
+  extern fn int_printer(val: int) : void;
+  extern fn fizz() : void;
+  extern fn buzz() : void;
+  extern fn fizzbuzz() : void;
+
+  fn main() : int {
+      let i : int = 1;
+      while i < 16 {
+
+          if i % 3 == 0 && i % 5 == 0 {
+              fizzbuzz();
+          } else if i % 3 == 0 {
+              fizz();
+          } else if i % 5 == 0 {
+              buzz();
+          } else {
+              int_printer(i);
+          }
+
+          i = i + 1;
+      }
+      return 0;
+  }
+
+
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  1
+  2
+  Fizz
+  4
+  Buzz
+  Fizz
+  7
+  8
+  Fizz
+  Buzz
+  11
+  Fizz
+  13
+  14
+  FizzBuzz
+  

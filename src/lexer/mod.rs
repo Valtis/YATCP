@@ -77,7 +77,7 @@ impl ReadLexer {
 
   fn starts_symbol(&mut self, ch: char) -> bool {
       match ch {
-          '+' | '-' | '*' | '/' | '[' | ']' | '{' | '}' | '(' | ')' | '<' | '>' | '=' | ';' | ',' | ':' | '!' | '&' | '|' | '~' | '^' => true,
+          '+' | '-' | '*' | '/' | '%' | '[' | ']' | '{' | '}' | '(' | ')' | '<' | '>' | '=' | ';' | ',' | ':' | '!' | '&' | '|' | '~' | '^' => true,
           '.' => self.does_not_start_desimal_number(),
           _ => false,
       }
@@ -89,6 +89,7 @@ impl ReadLexer {
           '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
           '*' => self.create_token(TokenType::Multiply, TokenSubType::NoSubType),
           '/' => self.create_token(TokenType::Divide, TokenSubType::NoSubType),
+          '%' => self.create_token(TokenType::Percentage, TokenSubType::NoSubType),
           '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
           ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
           '{' => self.create_token(TokenType::LBrace, TokenSubType::NoSubType),
@@ -953,7 +954,7 @@ mod tests {
 
     #[test]
     fn operators_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~");
+        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ %");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1047,8 +1048,14 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
+            TokenType::Percentage,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
             TokenType::Eof,
             TokenSubType::NoSubType);
+
 
         assert_eq!(reporter.borrow().errors(), 0);
     }

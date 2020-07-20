@@ -36,3 +36,15 @@ void boolean_printer(char a) {
 int returns_12345(void) {
     return 12345;
 }
+
+void fizz() {
+        printf("Fizz\n");
+}
+
+void buzz() {
+        printf("Buzz\n");
+}
+
+void fizzbuzz() {
+        printf("FizzBuzz\n");
+}

@@ -83,7 +83,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Sub(binary_op) |
             ByteCode::Mul(binary_op) |
             ByteCode::Div(binary_op) |
-            ByteCode::Xor(binary_op) => handle_binary_op(binary_op, &mut stack_map),
+            ByteCode::Xor(binary_op) |
+            ByteCode::Mod(binary_op) => handle_binary_op(binary_op, &mut stack_map),
 
             ByteCode::Compare(comparsion_op) => handle_comparison_op(comparsion_op, &mut stack_map),
 
@@ -234,6 +235,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
             ByteCode::Mul(binary_op) => handle_mul_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Div(binary_op) => handle_div_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Xor(binary_op) => handle_xor_allocation(binary_op, &mut updated_instructions, stack_map),
+            ByteCode::Mod(binary_op) => handle_mod_allocation(binary_op, &mut updated_instructions, stack_map),
             ByteCode::Ret(value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
             ByteCode::Compare(comparison_op) => handle_comparison(comparison_op, &mut updated_instructions, stack_map),
 
@@ -1799,6 +1801,244 @@ fn handle_div_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
                     src: PhysicalRegister(X64Register::EAX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        _ => unimplemented!("Not implemented for {:#?}", binary_op),
+    }
+}
+
+fn handle_mod_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
+    match binary_op {
+
+        /*
+            A = constant / constant
+
+            emit:
+
+            MOV EAX, dividend
+            MOV TMP_REGISTER, divisor
+            SIGN_EXTEND EAX
+            IDIV TMP_REGISTER
+            MOV A, EDX
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(dividend),
+            src2: IntegerConstant(divisor),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size_for_division(stack_slot.size);
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*dividend),
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*divisor),
+                    dest: PhysicalRegister(reg)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation{
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation{
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: PhysicalRegister(reg),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EDX),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+
+        },
+        /*
+            A = B / constant
+
+            emit:
+            MOV EAX, B
+            MOV TMP_REGISTER, divisor
+            SIGN_EXTEND EAX
+            IDIV TMP_REGISTER
+            MOV A, EDX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: IntegerConstant(divisor),
+        } => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let reg = get_register_for_size_for_division(dest_stack_slot.size);
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: StackOffset{
+                        offset: dividend_stack_slot.offset,
+                        size: dividend_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*divisor),
+                    dest: PhysicalRegister(reg)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation{
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation{
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: PhysicalRegister(reg),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EDX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+
+        },
+
+        /*
+            A = constant / B
+
+            emit:
+
+            MOV EAX, constant
+            SIGN_EXTEND EAX
+            IDIV B
+            MOV A, EDX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: IntegerConstant(dividend),
+            src2: VirtualRegister(ref divisor_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&divisor_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*dividend),
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: StackOffset {
+                        offset: divisor_stack_slot.offset,
+                        size: divisor_stack_slot.size,
+                    },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EDX),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        /*
+            A = B / C (or A = A / B)
+
+            emit:
+
+            MOV EAX, B
+            SIGN_EXTEND EAX
+            IDIV C
+            MOV A, EAX
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: VirtualRegister(ref divisor_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&divisor_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: StackOffset {
+                        offset: dividend_stack_slot.offset,
+                        size: dividend_stack_slot.size,
+                    },
+                    dest: PhysicalRegister(X64Register::EAX)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EAX),
+                    dest: PhysicalRegister(X64Register::EDX),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src1: PhysicalRegister(X64Register::EAX), // Not really used, instruction hardcodes
+                    src2: StackOffset {
+                        offset: divisor_stack_slot.offset,
+                        size: divisor_stack_slot.size,
+                    },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(X64Register::EDX),
                     dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
                 })
             );

@@ -187,6 +187,38 @@ condition_answer_tuples = [
         "500/a/b/c/d",
        2),
 
+
+    # modulo 
+    ("constant_constant_modulo_works_when_result_is_positive",
+       "",
+       "7 % 2",
+       1),
+    ("constant_constant_modulo_works_when_lhs_operand_is_negative",
+       "",
+       "-12%5",
+       -2),
+
+    ("constant_constant_modulo_works_when_rhs_operand_is_negated",
+       "",
+       "5%(-2)",
+       1),
+
+    ("variable_constant_modulo_works",
+        "let a: int = 20;",
+        "a%3",
+        2),
+
+    ("constant_variable_modulo_works",
+        "let a: int = 9;",
+        "24 % a",
+        6),
+    ("variable_variable_modulo_works",
+        "let a: int = 13; let b: int = 5;",
+        "a%b",
+        3),
+
+    # negation 
+
     ("can_negate_variable",
         """
         let a: int = 4;
@@ -229,6 +261,10 @@ condition_answer_tuples = [
         """,
         "b",
         INT_MIN),
+
+
+
+
 ]
 
 for t in condition_answer_tuples:

@@ -196,7 +196,8 @@ impl SemanticsCheck {
             AstNode::Plus(_, _, _) |
             AstNode::Minus(_, _, _) |
             AstNode::Multiply(_, _, _) |
-            AstNode::Divide(_, _, _) =>
+            AstNode::Divide(_, _, _) |
+            AstNode::Modulo(_, _, _) =>
                 self.handle_arithmetic_operation_with_operator_type_check(node),
             AstNode::Negate(ref mut child, ref mut ai) =>
                 self.handle_negation(child, ai),
@@ -911,6 +912,24 @@ impl SemanticsCheck {
                     Type::Invalid],
                     ai)
             },
+            AstNode::Modulo(ref mut left, ref mut right, ref mut ai) => {
+
+                self.handle_arithmetic_node(left, right, ai);
+
+                if let AstNode::Integer(ref value, _) = **right {
+                    if let AstInteger::Int(0) = value  {
+                        self.report_error(
+                            ReportKind::Warning,
+                            ai.node_info.clone(),
+                            "Division by zero".to_owned(),
+                        )
+                    }
+                };
+                (vec![
+                    Type::Integer,
+                    Type::Invalid],
+                 ai)
+            },
             _ => ice!(
                 "Incorrect node passed to arithmetic node type checking: {}",
                 node)
@@ -1107,7 +1126,8 @@ impl SemanticsCheck {
             AstNode::Plus(_, _, ref info) |
             AstNode::Minus(_, _, ref info) |
             AstNode::Multiply(_, _,  ref info) |
-            AstNode::Divide(_, _, ref info) => info.node_type.clone(),
+            AstNode::Divide(_, _, ref info) |
+            AstNode::Modulo(_, _, ref info)=> info.node_type.clone(),
             AstNode::Negate(_, ref info) => info.node_type.clone(),
             AstNode::Identifier(ref name, _) => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {

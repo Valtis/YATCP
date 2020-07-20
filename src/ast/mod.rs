@@ -84,6 +84,7 @@ pub enum AstNode {
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Divide(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
+    Modulo(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Negate(Box<AstNode>, ArithmeticInfo),
 
     BooleanAnd(Box<AstNode>, Box<AstNode>, NodeInfo),
@@ -187,6 +188,7 @@ impl Display for AstNode {
             AstNode::Minus(_, _, _) => "Minus".to_string(),
             AstNode::Multiply(_, _, _) => "Multiply".to_string(),
             AstNode::Divide(_, _, _) => "Divide".to_string(),
+            AstNode::Modulo(_, _, _) => "Modulo".to_string(),
             AstNode::BooleanAnd(_, _, _) => "And".to_string(),
             AstNode::BooleanOr(_, _, _) => "Or".to_string(),
             AstNode::Negate(_, _) => "Negate".to_string(),
@@ -272,7 +274,8 @@ impl AstNode {
             AstNode::Plus(ref left, ref right, _) |
             AstNode::Minus(ref left, ref right, _) |
             AstNode::Multiply(ref left, ref right, _ ) |
-            AstNode::Divide(ref left, ref right, _) => {
+            AstNode::Divide(ref left, ref right, _) |
+            AstNode::Modulo(ref left, ref right, _) => {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
             },
@@ -338,7 +341,8 @@ impl AstNode {
             AstNode::Plus(_, _, info) |
             AstNode::Minus(_, _, info) |
             AstNode::Multiply(_, _, info) |
-            AstNode::Divide(_, _, info) => info.node_info,
+            AstNode::Divide(_, _, info) |
+            AstNode::Modulo(_, _, info)=> info.node_info,
             AstNode::Negate(_,  info) => info.node_info,
             AstNode::Return(_, info) => info.node_info,
             AstNode::While(_, _, span) => *span,
