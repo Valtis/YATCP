@@ -74,8 +74,19 @@ impl Parser {
         self.expect(TokenType::LParen)?;
         let params = self.parse_parameter_list()?;
         self.expect(TokenType::RParen)?;
-        self.expect(TokenType::Colon)?;
-        let type_token = self.expect(TokenType::VarType)?;
+
+        let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
+            self.expect(TokenType::Colon)?;
+            self.expect(TokenType::VarType)?
+        } else {
+            Token {
+                token_type: TokenType::VarType,
+                token_subtype: TokenSubType::VoidType,
+                line: 0,
+                column: 0,
+                length: 0
+            }
+        };
 
         let node = self.parse_block()?;
         let mut func_info = FunctionInfo::new(
@@ -98,8 +109,20 @@ impl Parser {
         self.expect(TokenType::LParen)?;
         let params = self.parse_parameter_list()?;
         self.expect(TokenType::RParen)?;
-        self.expect(TokenType::Colon)?;
-        let type_token = self.expect(TokenType::VarType)?;
+
+        let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
+            self.expect(TokenType::Colon)?;
+            self.expect(TokenType::VarType)?
+        } else {
+            Token {
+                token_type: TokenType::VarType,
+                token_subtype: TokenSubType::VoidType,
+                line: 0,
+                column: 0,
+                length: 0
+            }
+        };
+
         self.expect(TokenType::SemiColon)?;
 
 
@@ -163,8 +186,11 @@ impl Parser {
                     self.lexer.next_token();
                     continue;
                 },
-                TokenType::Let =>
-                    self.parse_variable_declaration(),
+                TokenType::Let => {
+                    let res = self.parse_variable_declaration();
+                    self.expect(TokenType::SemiColon)?;
+                    res
+                }
                 TokenType::LBrace =>
                     self.parse_block(),
                 TokenType::Identifier =>
@@ -173,6 +199,8 @@ impl Parser {
                     self.parse_return_statement(),
                 TokenType::While =>
                     self.parse_while_statement(),
+                TokenType::For =>
+                    self.parse_for_statement(),
                 TokenType::If =>
                     self.parse_if_statement(),
                 _ => return Ok(nodes)
@@ -249,7 +277,6 @@ impl Parser {
         }
 
         let node = self.parse_expression()?;
-        self.expect(TokenType::SemiColon)?;
         let declaration = AstNode::VariableDeclaration(
                 Box::new(node),
                 declaration_info);
@@ -278,7 +305,11 @@ impl Parser {
         let identifier = self.expect(TokenType::Identifier)?;
         let token  = self.lexer.peek_token();
         match token.token_type {
-            TokenType::Assign => self.parse_assignment(identifier),
+            TokenType::Assign => {
+                let ret = self.parse_assignment(identifier)?;
+                self.expect(TokenType::SemiColon)?;
+                return Ok(ret);
+            },
             TokenType::LParen => {
                 let node = self.parse_function_call(identifier)?;
                 self.expect(TokenType::SemiColon)?;
@@ -297,7 +328,6 @@ impl Parser {
     fn parse_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
         self.expect(TokenType::Assign)?;
         let expression_node = self.parse_expression()?;
-        self.expect(TokenType::SemiColon)?;
 
         let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
             ident.clone()
@@ -398,6 +428,101 @@ impl Parser {
                 while_node.line,
                 while_node.column,
                 while_node.length)))
+    }
+
+
+    // syntactic sugar around while statement
+    //
+    //  for (init_statement,init_statement; condition; post-expression, post-expression) {
+    //      body
+    //  }
+    //
+    //  generates
+    //
+    //  {
+    //      init_statements;
+    //      while condition {
+    //          body
+    //          post-expressions;
+    //      }
+    //   }
+    //
+    //  Init statement may be variable declaration, or expression. Other statements are not allowed
+    //  Post expression must be variable assignment or expression
+
+    fn parse_for_statement(&mut self) -> Result<AstNode, ()> {
+
+        let for_node = self.expect(TokenType::For)?;
+
+        let mut statements = vec![];
+        let mut post_statements = vec![];
+
+        loop {
+            let t_type = self.lexer.peek_token().token_type;
+            if t_type == TokenType::SemiColon {
+                break;
+            } else if t_type  == TokenType::Let {
+                statements.push(self.parse_variable_declaration()?)
+            } else {
+                statements.push(self.parse_expression()?);
+            };
+
+
+            if self.lexer.peek_token().token_type == TokenType::Comma {
+               self.lexer.next_token();
+            } else {
+                break;
+            }
+        }
+
+        self.expect(TokenType::SemiColon)?;
+
+        let cond_expression =  if self.lexer.peek_token().token_type == TokenType::SemiColon {
+            AstNode::Boolean(true, Span::new(0, 0, 0))
+        } else {
+            self.parse_expression()?
+        };
+
+        self.expect(TokenType::SemiColon)?;
+
+        loop {
+
+            if self.lexer.peek_token().token_type == TokenType::LBrace {
+               break;
+            }
+
+            let identifier = self.expect(TokenType::Identifier)?;
+            let statement =  self.parse_assignment(identifier)?;
+            post_statements.push(statement);
+
+            if self.lexer.peek_token().token_type == TokenType::Comma {
+                self.lexer.next_token();
+            } else {
+                break;
+            }
+        }
+
+        let mut while_block = self.parse_block()?;
+
+        if let AstNode::Block(ref mut block_statements, _, _) = while_block {
+            for s in post_statements {
+                block_statements.push(s);
+            }
+        } else {
+            ice!("Non-block statement {} when block statement expected", while_block);
+        }
+
+        statements.push(
+            AstNode::While(
+                Box::new(cond_expression),
+                Box::new(while_block),
+                Span::new(
+                    for_node.line,
+                    for_node.column,
+                    for_node.length)));
+
+        let block = AstNode::Block(statements, None, Span::new(0,0,0));
+        Ok(block)
     }
 
     fn parse_if_statement(&mut self) -> Result<AstNode, ()> {
