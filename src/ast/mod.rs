@@ -520,6 +520,17 @@ impl From<Token> for NodeInfo {
     }
 }
 
+impl From<&Token> for NodeInfo {
+    fn from(val: &Token) -> NodeInfo {
+        NodeInfo{
+            line: val.line,
+            column: val.column,
+            length: val.length,
+        }
+    }
+}
+
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionInfo {
     pub name: Rc<String>,

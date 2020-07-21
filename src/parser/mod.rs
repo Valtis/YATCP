@@ -10,6 +10,7 @@ use crate::semcheck::Type;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::ast::AstNode::ArrayAccess;
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -305,51 +306,115 @@ impl Parser {
         let identifier = self.expect(TokenType::Identifier)?;
         let token  = self.lexer.peek_token();
         match token.token_type {
-            TokenType::Assign => {
-                let ret = self.parse_assignment(identifier)?;
+
+            TokenType::LBracket |
+            TokenType::Assign |
+            TokenType::Plus |
+            TokenType::Minus |
+            TokenType::Multiply |
+            TokenType::Divide |
+            TokenType::Percentage => {
+                let node = self.parse_assignment_expression(identifier)?;
                 self.expect(TokenType::SemiColon)?;
-                return Ok(ret);
-            },
+                return Ok(node);
+
+            }
             TokenType::LParen => {
                 let node = self.parse_function_call(identifier)?;
                 self.expect(TokenType::SemiColon)?;
                 return Ok(node);
             }
-            TokenType::LBracket => self.parse_array_assignment(identifier),
+
             _ => {
                 self.report_unexpected_token_mul(
-                    &vec![TokenType::Assign, TokenType::LParen, TokenType::LBracket],
+                    &vec![
+                        TokenType::Assign,
+                        TokenType::Plus,
+                        TokenType::Minus,
+                        TokenType::Multiply,
+                        TokenType::Divide,
+                        TokenType::Percentage,
+                        TokenType::LParen,
+                        TokenType::LBracket],
                     &token);
                 Err(())
             },
         }
     }
 
-    fn parse_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
-        self.expect(TokenType::Assign)?;
+    fn parse_assignment_expression(&mut self, identifier: Token) -> Result<AstNode, ()> {
+        match self.lexer.peek_token().token_type {
+            token_type @ TokenType::Assign |
+            token_type @ TokenType::Plus |
+            token_type @ TokenType::Minus |
+            token_type @ TokenType::Multiply |
+            token_type @ TokenType::Divide |
+            token_type @ TokenType::Percentage => {
+                self.parse_assignment(identifier, token_type)
+            },
+            TokenType::LBracket => {
+                self.parse_array_assignment(identifier)
+            },
+            bad_token => ice!("Unexpected token {}", bad_token),
+        }
+    }
+
+    fn parse_assignment(&mut self, identifier: Token, token_type: TokenType) -> Result<AstNode, ()> {
+        let op = self.expect(token_type)?;
+
+        if token_type != TokenType::Assign {
+            self.expect(TokenType::Assign)?;
+        }
         let expression_node = self.parse_expression()?;
 
-        let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
+        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_assignment",
                 identifier);
         };
 
+        let expression_node = match token_type {
+            TokenType::Plus => AstNode::Plus(
+                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                Box::new(expression_node),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Minus=> AstNode::Minus(
+                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                Box::new(expression_node),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Multiply=> AstNode::Multiply(
+                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                Box::new(expression_node),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Divide=> AstNode::Divide(
+                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                Box::new(expression_node),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Percentage=> AstNode::Modulo(
+                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                Box::new(expression_node),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Assign => expression_node,
+            bad => ice!("Bad expression type {}", bad),
+        };
+
         Ok(AstNode::VariableAssignment(
             Box::new(expression_node),
             name,
-            Span::new(
-                identifier.line,
-                identifier.column,
-                identifier.length)))
+            Span::from(&identifier)))
     }
 
     fn parse_function_call(
         &mut self,
         identifier: Token) -> Result<AstNode, ()>  {
 
-        let name = if let TokenSubType::Identifier(ident) = identifier.token_subtype {
+        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_function_call",
@@ -373,29 +438,80 @@ impl Parser {
         Ok(AstNode::FunctionCall(
             args,
             name,
-            Span::new(identifier.line, identifier.column, identifier.length)
+            Span::from(identifier)
             ))
     }
 
     fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
-        self.expect(TokenType::LBracket)?;
-        let index_expression = self.parse_expression()?;
-        self.expect(TokenType::RBracket)?;
-        self.expect(TokenType::Assign)?;
-        let assignment_expression = self.parse_expression()?;
+        self.expect(TokenType::LBracket);
 
         let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
-            ice!("Non-identifier token '{}' passed to parse_assignment",
+            ice!("Non-identifier token '{}' passed to parse_function_call",
                 identifier);
         };
+
+        let index_expression = self.parse_expression()?;
+        self.expect(TokenType::RBracket)?;
+
+        let op = self.expect_one_of(vec![
+            TokenType::Assign,
+            TokenType::Plus,
+            TokenType::Minus,
+            TokenType::Multiply,
+            TokenType::Divide,
+            TokenType::Percentage,
+        ])?;
+
+        if op.token_type != TokenType::Assign {
+            self.expect(TokenType::Assign)?;
+        }
+
+        let assignment_expression = self.parse_expression()?;
+
+        let get_access = || {
+            AstNode::ArrayAccess {
+                index_expression: Box::new(index_expression.clone()),
+                indexable_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+            }
+        };
+        let assignment_expression  = match op.token_type {
+            TokenType::Plus => AstNode::Plus(
+                Box::new(get_access()),
+                Box::new(assignment_expression),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Minus=> AstNode::Minus(
+                Box::new(get_access()),
+                Box::new(assignment_expression),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Multiply=> AstNode::Multiply(
+                Box::new(get_access()),
+                Box::new(assignment_expression),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Divide=> AstNode::Divide(
+                Box::new(get_access()),
+                Box::new(assignment_expression),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Percentage=> AstNode::Modulo(
+                Box::new(get_access()),
+                Box::new(assignment_expression),
+                ArithmeticInfo::new(&op),
+            ),
+            TokenType::Assign => assignment_expression,
+            bad => ice!("Bad expression type {}", bad),
+        };
+
 
         Ok(AstNode::ArrayAssignment{
             index_expression: Box::new(index_expression),
             assignment_expression: Box::new(assignment_expression),
             variable_name: name,
-            span: Span::from(identifier) })
+            span: Span::from(&identifier) })
     }
 
     fn parse_return_statement(&mut self) -> Result<AstNode, ()> {
@@ -492,7 +608,7 @@ impl Parser {
             }
 
             let identifier = self.expect(TokenType::Identifier)?;
-            let statement =  self.parse_assignment(identifier)?;
+            let statement =  self.parse_assignment_expression(identifier)?;
             post_statements.push(statement);
 
             if self.lexer.peek_token().token_type == TokenType::Comma {
@@ -516,10 +632,7 @@ impl Parser {
             AstNode::While(
                 Box::new(cond_expression),
                 Box::new(while_block),
-                Span::new(
-                    for_node.line,
-                    for_node.column,
-                    for_node.length)));
+                Span::from(for_node)));
 
         let block = AstNode::Block(statements, None, Span::new(0,0,0));
         Ok(block)

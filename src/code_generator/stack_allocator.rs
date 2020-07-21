@@ -534,50 +534,62 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 index,
             }
         } => {
-            if let VirtualRegister(ref vregdata) = **index {
-                let array_stack = &stack_map.array_to_stack_slot[id];
-                let tmp_reg = get_register_for_size(*size);
-                let tmp2_reg = get_register_for_size2(*size);
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let tmp2_reg = get_register_for_size2(*size);
+            let array_stack = &stack_map.array_to_stack_slot[id];
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: src_stack_slot.size,
+                            offset: src_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(tmp2_reg.clone()),
+                    }
+                ));
 
-                let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-                let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            match **index {
+                VirtualRegister(ref vregdata) => {
+                    let tmp_reg = get_register_for_size(*size);
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
 
-                updated_instructions.push(
-                    ByteCode::Mov(
-                        UnaryOperation {
-                            src: StackOffset {
-                                size: src_stack_slot.size,
-                                offset: src_stack_slot.offset,
-                            },
-                            dest: PhysicalRegister(tmp2_reg.clone()),
-                        }
-                    ));
 
-                updated_instructions.push(
-                    ByteCode::Mov(
-                        UnaryOperation {
-                            src: StackOffset {
-                                size: stack_slot.size,
-                                offset: stack_slot.offset,
-                            },
-                            dest: PhysicalRegister(tmp_reg.clone()),
-                        }
-                    ));
-                updated_instructions.push(
-                    ByteCode::Mov(
-                        UnaryOperation {
-                            src: PhysicalRegister(tmp2_reg),
-                            dest: DynamicStackOffset {
-                                id: *id,
-                                size: *size,
-                                offset: get_indexed_array_offset(*offset, array_stack),
-                                index: Box::new(PhysicalRegister(tmp_reg)),
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    size: stack_slot.size,
+                                    offset: stack_slot.offset,
+                                },
+                                dest: PhysicalRegister(tmp_reg.clone()),
                             }
-                        }
-                    ));
-
-            } else {
-                ice!("Unexpected dynamic index  {:?} ", index)
+                        ));
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: PhysicalRegister(tmp2_reg),
+                                dest: DynamicStackOffset {
+                                    id: *id,
+                                    size: *size,
+                                    offset: get_indexed_array_offset(*offset, array_stack),
+                                    index: Box::new(PhysicalRegister(tmp_reg)),
+                                }
+                            }
+                        ));
+                },
+                IntegerConstant(val) => {
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: PhysicalRegister(tmp2_reg),
+                                dest: StackOffset {
+                                    size: *size,
+                                    offset: get_constant_array_offset(*offset, src_stack_slot.size, val,  array_stack),
+                                }
+                            }
+                        ));
+                },
+                _=> ice!("Unexpected dynamic index  {:?} ", index),
             }
         },
         UnaryOperation {
