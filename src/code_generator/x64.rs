@@ -2232,10 +2232,17 @@ fn emit_function_prologue(asm: &mut Vec<u8>, stack_size: u32) {
     if stack_size != 0 {
         emit_sub_immediate_from_register(X64Register::RSP, stack_size as i32, asm);
     }
+
+
+    // FIXME - preserve all non-scratch registers, based on calling convention, and if function uses them
+    // (Probably this should be emitted by previous stage - this file should handle bytecode -> asm conversion only
+    push_register(X64Register::RBX, asm);
+    // FIXME: R12-R15 not preserved - not really used as as scratch regs so should not matter
 }
 
 // TODO: Clarify the function prologue/epilogue handling
 fn emit_function_epilogue(asm: &mut Vec<u8>, _stack_size: u32, _args: u32) {
+    pop_register(X64Register::RBX, asm);
     asm.push(LEAVE);
   /*  if stack_size != 0 {
         emit_add_immediate_to_register(X64Register::RSP, stack_size as i32, asm);
