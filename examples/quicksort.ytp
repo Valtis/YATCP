@@ -15,10 +15,8 @@ fn main() : int {
 
 	quicksort(array, 0, array.length-1);
 
-	let i: int = 0;
-	while i < array.length {
+	for let i: int = 0; i < array.length; i += 1 {
 		int_printer(array[i]);
-		i = i + 1;
 	}
 	return 0;
 }
@@ -34,17 +32,14 @@ fn quicksort(arr: int[], low: int, high: int) : void {
 fn partition(arr: int[], low: int, high: int) : int {
 	let pivot: int = arr[high];
 	let i: int = low;
-	let j: int = low;
 	
-	while j < high {
+	for let j: int = low; j < high; j +=  1 {
 		if arr[j] < pivot {
 			let tmp: int = arr[i];
 			arr[i] = arr[j];
 			arr[j] = tmp;
 			i = i + 1;
 		}
-		
-		j = j+1;
 	}
 
 	let tmp: int = arr[i];

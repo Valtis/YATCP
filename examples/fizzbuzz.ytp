@@ -6,8 +6,7 @@ extern fn fizzbuzz() : void;
 fn main() : void {
 
 	
-    let i : int = 1;
-    while i < 100 {
+    for let i: int = 0; i < 100; i +=1  {
 
         if i % 3 == 0 && i % 5 == 0 {
 	    fizzbuzz();
@@ -18,7 +17,5 @@ fn main() : void {
         } else {
             int_printer(i);
         }
-
-        i = i + 1;
     }
 }
