@@ -8,7 +8,7 @@ INT_MIN = -INT_MAX-1
         * Expression for return statement
         * Expected answer
         """
-condition_answer_tuples = [
+test_tuples = [
 
     # constant
     ("positive_constant_expression_works",
@@ -263,11 +263,59 @@ condition_answer_tuples = [
         INT_MIN),
 
 
+    # +=
+    ("self_addition_shorthand_works",
+        f"""
+        let a: int = 4;
+        a += 6;
+        """,
+        "a",
+        10),
 
+    # -=
+    ("self_subtraction_shorthand_works",
+        f"""
+        let a: int = 4;
+        a -= 6;
+        """,
+        "a",
+        -2),
+
+
+
+    # *=
+    ("self_multiplication_shorthand_works",
+        f"""
+        let a: int = 4;
+        a *= 6;
+        """,
+        "a",
+        24),
+
+
+
+    # /=
+    ("self_division_shorthand_works",
+        f"""
+        let a: int = 9;
+        a /= 2;
+        """,
+        "a",
+        4),
+
+
+    # %=
+    ("self_modulo_shorthand_works",
+        f"""
+        let a: int = 14;
+        a %= 5;
+        """,
+        "a",
+        4),
 
 ]
 
-for t in condition_answer_tuples:
+for t in test_tuples:
 
     out = f'''
 program: |

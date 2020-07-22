@@ -11,6 +11,7 @@ use crate::semcheck::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::ast::AstNode::ArrayAccess;
+use crate::token::TokenType::{RBrace, LBrace, SemiColon};
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -563,8 +564,8 @@ impl Parser {
     //      }
     //   }
     //
-    //  Init statement may be variable declaration, or expression. Other statements are not allowed
-    //  Post expression must be variable assignment or expression
+    //  Init statement may be variable declaration, or assignment expression. Other statements are not allowed
+    //  Post expression must be variable assignment
 
     fn parse_for_statement(&mut self) -> Result<AstNode, ()> {
 
@@ -575,14 +576,39 @@ impl Parser {
 
         loop {
             let t_type = self.lexer.peek_token().token_type;
-            if t_type == TokenType::SemiColon {
+            let node = if t_type == TokenType::SemiColon {
                 break;
             } else if t_type  == TokenType::Let {
-                statements.push(self.parse_variable_declaration()?)
+                self.parse_variable_declaration()
+            } else if t_type == TokenType::Identifier {
+                let identifier = self.lexer.next_token();
+                self.parse_assignment_expression(identifier)
             } else {
-                statements.push(self.parse_expression()?);
+                let span = Span::from(self.lexer.peek_token());
+                self.report_error(
+                    ReportKind::SyntaxError,
+                    span,
+                    "Expected variable initialization or assignment".to_owned()
+                );
+                Err(())
             };
 
+            // custom error handling, try skipping and parsing rest of the statements
+            let s = match node {
+                Err(_) | Ok(AstNode::ErrorNode) => {
+                    self.skip_to_first_of(
+                    vec![
+                        LBrace,
+                        RBrace,
+                        SemiColon,
+                        ]
+                    );
+                    AstNode::ErrorNode
+                }
+                Ok(x) => x,
+            };
+
+            statements.push(s);
 
             if self.lexer.peek_token().token_type == TokenType::Comma {
                self.lexer.next_token();
@@ -596,7 +622,20 @@ impl Parser {
         let cond_expression =  if self.lexer.peek_token().token_type == TokenType::SemiColon {
             AstNode::Boolean(true, Span::new(0, 0, 0))
         } else {
-            self.parse_expression()?
+            match self.parse_expression() {
+                Err(_) | Ok(AstNode::ErrorNode) => {
+                    self.skip_to_first_of(
+                        vec![
+                            LBrace,
+                            RBrace,
+                            SemiColon,
+                        ]
+                    );
+
+                    AstNode::ErrorNode
+                }
+                Ok(x) => x
+            }
         };
 
         self.expect(TokenType::SemiColon)?;
@@ -607,8 +646,35 @@ impl Parser {
                break;
             }
 
-            let identifier = self.expect(TokenType::Identifier)?;
-            let statement =  self.parse_assignment_expression(identifier)?;
+            let statement = match self.expect(TokenType::Identifier) {
+                Ok(identifier) if identifier.token_type == TokenType::Identifier => {
+                    match self.parse_assignment_expression(identifier) {
+                        Err(_) | Ok(AstNode::ErrorNode) => {
+                            self.skip_to_first_of(
+                                vec![
+                                    LBrace,
+                                    RBrace,
+                                    SemiColon,
+                                ]
+                            );
+                            AstNode::ErrorNode
+                        },
+                        Ok(x) => x,
+                    }
+                },
+                _ =>  {
+                    self.skip_to_first_of(
+                        vec![
+                            LBrace,
+                            RBrace,
+                            SemiColon,
+                        ]
+                    );
+                    AstNode::ErrorNode
+                }
+            };
+
+
             post_statements.push(statement);
 
             if self.lexer.peek_token().token_type == TokenType::Comma {

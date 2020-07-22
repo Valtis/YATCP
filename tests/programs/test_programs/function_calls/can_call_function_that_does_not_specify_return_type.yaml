@@ -1,0 +1,15 @@
+program: |
+  extern fn int_printer(val: int); // should be void
+  fn main() : int {
+    bar();
+    return 0;
+  }
+
+  fn bar() { // should be void
+    int_printer(243);
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  243
+  

@@ -1,0 +1,28 @@
+program: |
+  extern fn int_printer(val: int);
+  fn main() : int {
+
+      let i: int = 0;
+      for ; i < 10; i = i + 1 {
+        int_printer(i);
+      }
+
+      return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  0
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+
+
+
