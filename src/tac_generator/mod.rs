@@ -247,8 +247,8 @@ impl TACGenerator {
 
     fn generate_tac(&mut self, node: &AstNode) {
         match node {
-            AstNode::Block(ref children, ref sym_tab, ref span) =>
-                self.handle_block(children, sym_tab, span),
+            AstNode::Block{ref statements, ref block_symbol_table_entry, ref span} =>
+                self.handle_block(statements, block_symbol_table_entry, span),
             AstNode::Function(ref child, ref info) =>
                 self.handle_function(child, info),
            AstNode::ExternFunction(ref function_info) =>
@@ -333,7 +333,7 @@ impl TACGenerator {
         // add mock initializations for function parameters, as later stages
         // always assume that variables are first assigned into before usage
 
-        let level = if let AstNode::Block(_, Some(ref entry), _) = *child {
+        let level = if let AstNode::Block{ block_symbol_table_entry: Some(ref entry), ..} = *child {
             entry
         } else {
             ice!("Failed to find symbol table entry for function {}",

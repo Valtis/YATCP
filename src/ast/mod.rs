@@ -67,11 +67,11 @@ impl Display for AstInteger {
     }
 }
 
-// NOTE: When adding nodes, rememver to update the eq method to include the new node.
+// NOTE: When adding nodes, remember to update the eq method to include the new node.
 // TODO update rest of the nodes from tuples to structs for better readability
 #[derive(Clone)]
 pub enum AstNode {
-    Block(Vec<AstNode>, Option<symbol_table::TableEntry>, Span),
+    Block{ statements: Vec<AstNode>, block_symbol_table_entry: Option<symbol_table::TableEntry>, span: Span },
     Function(Box<AstNode>, FunctionInfo),
     ExternFunction(FunctionInfo),
     FunctionCall(Vec<AstNode>, Rc<String>, Span),
@@ -118,7 +118,7 @@ pub enum AstNode {
 impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match self {
-            AstNode::Block(_, _, _) => "Block".to_string(),
+            AstNode::Block{ .. } => "Block".to_string(),
             AstNode::Function(_, ref i) => {
 
                 let param_str = i.parameters.iter().fold(
@@ -176,13 +176,13 @@ impl Display for AstNode {
                 variable_name: name,
                 span: _
             } => format!("Array assignment '{}'", name),
-            AstNode::MemberAccess { object: _, member: _, span: _} => format!("Member access"),
+            AstNode::MemberAccess { .. } => format!("Member access"),
             AstNode::Integer(val, _) => format!("Integer: {}", val),
             AstNode::Float(val, _) => format!("Float: {}", val),
             AstNode::Double(val, _) => format!("Double: {}", val),
             AstNode::Text(ref text, _) => format!("Text: {}", text),
             AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
-            AstNode::ArrayAccess{index_expression: _, indexable_expression: _}=> format!("Array access"),
+            AstNode::ArrayAccess{ .. }=> format!("Array access"),
             AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
             AstNode::Plus(_, _, _) => "Plus".to_string(),
             AstNode::Minus(_, _, _) => "Minus".to_string(),
@@ -226,8 +226,8 @@ impl AstNode {
 
         let next_int = intendation + 2;
         match *self {
-            AstNode::Block(ref children, _, _) => {
-                for c in children {
+            AstNode::Block{ ref statements, ..} => {
+                for c in statements {
                     string = format!("{}{}", string, c.print_impl(next_int));
                 }
             },
@@ -319,23 +319,14 @@ impl AstNode {
     pub fn span(&self) -> Span {
         let empty = Span::new(0, 0, 0);
         let x = match self {
-            AstNode::Block(_, _, span) => *span,
+            AstNode::Block{ span, ..} => *span,
             AstNode::Function(_, info) => info.span,
             AstNode::ExternFunction(info) => info.span,
             AstNode::FunctionCall(_, _, info) => *info,
             AstNode::VariableDeclaration(_, info) => info.span,
             AstNode::VariableAssignment(_, _, span) => *span,
-            AstNode::ArrayAssignment{
-                index_expression: _,
-                assignment_expression: _,
-                variable_name: _,
-                span,
-            } => *span,
-            AstNode::MemberAccess {
-                object: _,
-                member: _,
-                span,
-            } => *span,
+            AstNode::ArrayAssignment{ span, .. } => *span,
+            AstNode::MemberAccess { span, .. } => *span,
             AstNode::BooleanAnd(_, _, span) |
             AstNode::BooleanOr(_, _, span) => *span,
             AstNode::Plus(_, _, info) |
@@ -358,7 +349,7 @@ impl AstNode {
             AstNode::Double(_, span) => *span,
             AstNode::Text(_, span) => *span,
             AstNode::Identifier(_, span) => *span,
-            AstNode::ArrayAccess { index_expression: _, indexable_expression} => indexable_expression.span(),
+            AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
             AstNode::Boolean(_, span) => *span,
             AstNode::Not(_, span) => *span,
             AstNode::ErrorNode => empty,
@@ -370,8 +361,8 @@ impl AstNode {
 impl PartialEq for AstNode {
     fn eq(&self, other: &AstNode) -> bool {
         match (self, other) {
-            (AstNode::Block(s_chld, _s_entry, s_info),
-             AstNode::Block(o_chld, _o_entry, o_info)) => {
+            (AstNode::Block{statements: s_chld, block_symbol_table_entry: _s_entry, span: s_info },
+             AstNode::Block{ statements: o_chld, block_symbol_table_entry: _o_entry, span: o_info}) => {
                 // disregard symbol table contents for now
                 *s_chld == *o_chld && *s_info == *o_info
             }
@@ -435,7 +426,9 @@ impl PartialEq for AstNode {
             (AstNode::Multiply(s_lchld, s_rchld, s_ai),
              AstNode::Multiply(o_lchld, o_rchld, o_ai)) |
             (AstNode::Divide(s_lchld, s_rchld, s_ai),
-             AstNode::Divide(o_lchld, o_rchld, o_ai))
+             AstNode::Divide(o_lchld, o_rchld, o_ai)) |
+            (AstNode::Modulo(s_lchld, s_rchld, s_ai),
+             AstNode::Modulo(o_lchld, o_rchld, o_ai))
               => {
                 s_lchld == o_lchld && s_rchld == o_rchld && s_ai == o_ai
             },

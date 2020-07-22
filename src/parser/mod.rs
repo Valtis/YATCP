@@ -47,11 +47,11 @@ impl Parser {
                     }
                 },
                 TokenType::Eof =>
-                    return AstNode::Block(
-                            nodes,
-                            None,
-                            Span::new(0, 0, 0),
-                        ),
+                    return AstNode::Block{
+                        statements: nodes,
+                        block_symbol_table_entry: None,
+                        span: Span::new(0, 0, 0),
+                    },
                 _ => {
                     self.report_unexpected_token_mul(
                         &top_level_tokens, &token);
@@ -161,11 +161,11 @@ impl Parser {
         let nodes = self.parse_statements()?;
         self.expect(TokenType::RBrace)?;
 
-        let block = AstNode::Block(
-            nodes,
-            None,
-            Span::new(0, 0, 0),
-        );
+        let block = AstNode::Block {
+            statements: nodes,
+            block_symbol_table_entry: None,
+            span: Span::new(0, 0, 0),
+        };
 
         Ok(block)
     }
@@ -696,9 +696,9 @@ impl Parser {
 
         let mut while_block = self.parse_block()?;
 
-        if let AstNode::Block(ref mut block_statements, _, _) = while_block {
+        if let AstNode::Block{ref mut statements, .. } = while_block {
             for s in post_statements {
-                block_statements.push(s);
+                statements.push(s);
             }
         } else {
             ice!("Non-block statement {} when block statement expected", while_block);
@@ -710,7 +710,12 @@ impl Parser {
                 Box::new(while_block),
                 Span::from(for_node)));
 
-        let block = AstNode::Block(statements, None, Span::new(0,0,0));
+        let block = AstNode::Block{
+            statements: statements,
+            block_symbol_table_entry: None,
+            span: Span::new(0,0,0)
+        };
+
         Ok(block)
     }
 

@@ -150,10 +150,10 @@ impl SemanticsCheck {
     // only process function declarations initially, so that we can call functions that appear later
     fn check_and_gather_functions(&mut self, node: &mut AstNode) {
         self.symbol_table.push_empty();
-        if let AstNode::Block(ref mut children, ref mut table_entry, _) = node {
+        if let AstNode::Block{ref mut statements, ref mut block_symbol_table_entry , ..} = node {
 
-            for child in children.iter_mut() {
-                match child {
+            for statement in statements.iter_mut() {
+                match statement {
                     AstNode::Function(_, ref fi) |
                     AstNode::ExternFunction(ref fi) => {
 
@@ -163,7 +163,7 @@ impl SemanticsCheck {
                     _ => (), // don't care right now
                 }
             }
-            *table_entry = self.symbol_table.top();
+            *block_symbol_table_entry = self.symbol_table.top();
         } else {
             ice!("Unexpected node type when Block was expected:\n{:#?}", node);
         }
@@ -171,8 +171,8 @@ impl SemanticsCheck {
 
     fn do_check(&mut self, node: &mut AstNode) {
         match node {
-            AstNode::Block(ref mut children, ref mut tab_ent, ref span) =>
-                self.handle_block(children, tab_ent, span),
+            AstNode::Block{ref mut statements, ref mut block_symbol_table_entry, ref span} =>
+                self.handle_block(statements, block_symbol_table_entry, span),
             AstNode::Function(ref mut child,  ref fi) =>
                 self.handle_function(child, fi),
             AstNode::ExternFunction(_) => (), // do nothing, handled in the initial function definition pass
@@ -290,7 +290,7 @@ impl SemanticsCheck {
         self.enclosing_function_stack.pop();
         let outer_symtab_level = self.symbol_table.pop().unwrap();
 
-        if let AstNode::Block(_, Some(ref mut inner_symtab_level), _) = *child {
+        if let AstNode::Block{ block_symbol_table_entry: Some(ref mut inner_symtab_level), ..} = *child {
             for param in function_info.parameters.iter() {
                 inner_symtab_level.add_symbol(
                     outer_symtab_level.find_symbol(&param.name).unwrap());
