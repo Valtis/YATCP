@@ -1,14 +1,12 @@
 program: |
-  fn test_function() : int {
+  fn main() : int {
       return 4;
   }
 link_with:
   - tests/files/support/support.c 
-callable: test_function
-returns: int
 expect_compile_failure: false
 expect_stdout: |
-  4
+  this will fail as no stdout will be produced
 expect_stderr: |
-  this will fail the test, because no stderr will be produced
+  this will also fail the test, because no stderr will be produced
 

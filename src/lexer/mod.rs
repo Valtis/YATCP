@@ -23,6 +23,8 @@ pub trait Lexer {
     fn next_token(&mut self) -> Token;
     fn peek_token(&mut self) -> Token;
     fn current_token(&self) -> Option<Token>;
+    fn previous_token(&self) -> Option<Token>;
+
 }
 
 pub struct ReadLexer {
@@ -33,6 +35,7 @@ pub struct ReadLexer {
     iter: Peekable<Bytes<BufReader<Box<dyn Read>>>>, // FIXME! Change to Chars once api stabilizes. Using Bytes when multi-code point characters are present causes bugs
     next_token: Option<Token>, // used for storing token after peeking
     current_token: Option<Token>, // token that was returned by next_token.
+    previous_token: Option<Token>,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     string_table: StringTable,
 }
@@ -50,6 +53,7 @@ impl ReadLexer {
           iter: BufReader::new(input).bytes().peekable(),
           next_token: None,
           current_token: None,
+          previous_token: None,
           error_reporter: error_reporter,
           string_table: StringTable::new(),
         }
@@ -576,63 +580,69 @@ impl ReadLexer {
 }
 
 impl Lexer for ReadLexer {
-  fn next_token(&mut self) -> Token {
-    if self.next_token != None {
-        let token = self.next_token.clone().unwrap();
-        self.next_token = None;
-        return token;
+    fn next_token(&mut self) -> Token {
+
+        self.previous_token = self.current_token.clone();
+
+        if self.next_token != None {
+            let token = self.next_token.clone().unwrap();
+            self.next_token = None;
+            return token;
+        }
+
+        self.skip_whitespace();
+
+        self.token_start_line = self.line;
+        self.token_start_column = self.column;
+
+        let token = match self.next_char() {
+            Some(ch) => {
+                if self.starts_comment(ch) {
+                    self.skip_comment();
+                    self.next_token()
+                } else if self.starts_symbol(ch) {
+                    self.handle_symbols(ch)
+                } else if ReadLexer::starts_identifier(ch) {
+                    self.handle_identifier(ch)
+                } else if self.starts_number(ch) {
+                    self.handle_number(ch)
+                } else if ReadLexer::starts_string(ch) {
+                    self.handle_string()
+                } else {
+                    let (line, column) = (self.token_start_line, self.token_start_column);
+                    self.report_error(
+                        ReportKind::TokenError,
+                        line,
+                        column,
+                        1,
+                        format!(
+                            "Symbol '{}' does not start a valid token", ch));
+                    self.next_token()
+                }
+            }
+            None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
+        };
+        self.current_token = Some(token.clone());
+        token
     }
 
-    self.skip_whitespace();
-
-    self.token_start_line = self.line;
-    self.token_start_column = self.column;
-
-    let token = match self.next_char() {
-      Some(ch) => {
-        if self.starts_comment(ch) {
-          self.skip_comment();
-          self.next_token()
-        } else if self.starts_symbol(ch) {
-          self.handle_symbols(ch)
-        } else if ReadLexer::starts_identifier(ch) {
-          self.handle_identifier(ch)
-        } else if self.starts_number(ch) {
-          self.handle_number(ch)
-        } else if ReadLexer::starts_string(ch) {
-          self.handle_string()
-        } else {
-            let (line, column) = (self.token_start_line, self.token_start_column);
-            self.report_error(
-                ReportKind::TokenError,
-                line,
-                column,
-                1,
-                format!(
-                    "Symbol '{}' does not start a valid token", ch));
-            self.next_token()
+    fn peek_token(&mut self) -> Token {
+        if let Some(ref token) = self.next_token  {
+            return token.clone();
         }
-      }
-      None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
-    };
-    self.current_token = Some(token.clone());
-    token
-  }
 
-  fn peek_token(&mut self) -> Token {
-      if let Some(ref token) = self.next_token  {
-          return token.clone();
-      }
+        let res = self.next_token();
+        self.next_token = Some(res.clone());
+        res
+    }
 
-      let res = self.next_token();
-      self.next_token = Some(res.clone());
-      res
-  }
+    fn current_token(&self) -> Option<Token> {
+        self.current_token.clone()
+    }
 
-  fn current_token(&self) -> Option<Token> {
-    self.current_token.clone()
-  }
-
+    fn previous_token(&self) -> Option<Token> {
+        self.previous_token.clone()
+    }
 }
 
 #[cfg(test)]
