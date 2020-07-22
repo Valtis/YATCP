@@ -214,7 +214,7 @@ fn search(
     // add variables to the phi-functions in child blocks
     for child in cfg.adjacency_list[block].iter() {
         if let Adj::Block(block) = *child {
-            'outer: for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
+            for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
                 match function.statements[i] {
                     Statement::PhiFunction(Operand::Variable(_, var_id), ref mut operands) |
                     Statement::PhiFunction(Operand::SSAVariable(_, var_id, _), ref mut operands) => {

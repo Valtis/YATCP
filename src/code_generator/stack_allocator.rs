@@ -179,7 +179,7 @@ fn print_stack_map(function: &Function, stack_map: &StackMap) {
 
     // acquire handle to stop interleaved prints
     let stdout = std::io::stdout();
-    let stdout_handle = stdout.lock();
+    let _stdout_handle = stdout.lock();
 
     println!("Function '{}'", function.name);
     println!("    Stack size (unalinged) {}", stack_map.stack_space_used);

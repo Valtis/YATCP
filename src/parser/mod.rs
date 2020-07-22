@@ -9,7 +9,6 @@ use crate::semcheck::Type;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::ast::AstNode::ArrayAccess;
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -455,7 +454,7 @@ impl Parser {
     }
 
     fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
-        self.expect(TokenType::LBracket);
+        self.expect(TokenType::LBracket)?;
 
         let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
             ident.clone()

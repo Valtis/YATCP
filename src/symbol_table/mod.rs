@@ -1,5 +1,4 @@
 use crate::ast::{FunctionInfo, DeclarationInfo};
-use crate::semcheck::Type;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Symbol {

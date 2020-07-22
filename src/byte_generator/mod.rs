@@ -7,7 +7,7 @@ use crate::code_generator::x64::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::byte_generator::Value::{VirtualRegister, ComparisonResult, StackOffset};
+use crate::byte_generator::Value::{VirtualRegister, ComparisonResult};
 use crate::function_attributes::FunctionAttribute;
 
 use std::fmt::Display;

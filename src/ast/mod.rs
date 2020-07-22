@@ -60,7 +60,7 @@ impl Display for AstInteger {
      fn fmt(&self, formatter: &mut Formatter) -> Result {
          write!(formatter, "{}",
                 match self {
-                    AstInteger::Invalid(val) => format!("(Integer overflow {}", val),
+                    AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in i32)", val),
                     AstInteger::Int(val) => format!("{}", val),
                     AstInteger::IntMaxPlusOne => "Int max plus one (2147483648".to_owned(),
             })

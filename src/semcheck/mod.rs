@@ -1070,7 +1070,7 @@ impl SemanticsCheck {
                 self.report_error(
                   ReportKind::TokenError,
                     span.clone(),
-                    "Integer overflow".to_owned(),
+                    "Number does not fit inside 32 bit signed integer".to_owned(),
                 );
             },
 

@@ -16,8 +16,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 /* Unstable API - use this once stabilized */
 //use std::num::IntErrorKind::*;
-use std::error::Error;
-
 
 pub const SPACES_PER_TAB: i32 = 4;
 
@@ -307,13 +305,13 @@ impl ReadLexer {
           }*/
 
           // workaround, as the kind() is not stable.
-          if e.description().contains("too large to fit") {
+          if e.to_string().contains("too large to fit") {
               self.report_error(
                   ReportKind::TokenError,
                   self.line,
                   self.token_start_column,
                   (self.column - self.token_start_column) as usize,
-                  format!("Integer overflow"),
+                  format!("Number does not fit inside 32 bit signed integer"),
               );
 
               return self.create_token(TokenType::Number, TokenSubType::ErrorToken);
