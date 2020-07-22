@@ -1,5 +1,3 @@
-use ansi_term::Colour;
-
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::env;
 use std::fs::File;
@@ -8,8 +6,8 @@ use std::process::Command;
 use std::os::unix::prelude::ExitStatusExt;
 
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::cell::RefCell;
+
+use crate::helper::indent;
 
 static FILE_COUNTER: AtomicI32 = AtomicI32::new(0);
 
@@ -29,6 +27,7 @@ pub struct CompileData {
     pub callable: Option<FunctionKind>,
     pub expected_stdout: String,
     pub expected_stderr: String,
+    pub expect_compile_failure: bool,
     pub link_with: Vec<PathBuf>,
 }
 
@@ -49,68 +48,39 @@ impl FunctionKind {
 }
 
 
-fn indent(input: &str) -> String {
-    let indent = " ".repeat(8);
 
-    format!("{}{}", indent,  input.replace("\n", &format!("\n{}", indent)))
-}
 
-pub fn compile_and_run(compile_data: CompileData, optimize: bool) -> Result<(), String> {
+pub fn compile_and_run(compile_data: &CompileData, optimize: bool) -> Result<(String, String, String), String> {
 
     let ctr = FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
 
     let input_file_str = write_program_into_tmp_file(&compile_data.program, ctr);
-    let output_file_str = create_obj_file(ctr, &input_file_str, optimize)?;
+    let output_file_str = match create_obj_file(ctr, &input_file_str, optimize) {
+        Ok(file) => {
+            if !compile_data.expect_compile_failure {
+                file
+            } else {
+                return Err(indent("Unexpected passing build when failure was expected"));
+            }
+        }
+        Err((message, stdout , stderr)) => {
+          if compile_data.expect_compile_failure {
+              return Ok((stdout, stderr, "<Compile failure>".to_owned()));
+          } else {
+              return Err(message);
+          }
+        }
+    };
 
     let mut binary_out = env::temp_dir();
     binary_out.push(format!("yatcp_test_binary_{}", ctr));
     let binary_out_str = binary_out.to_str().unwrap().to_string();
 
     compile_test_binary(&compile_data, output_file_str.clone(), &binary_out_str)?;
-    let (stdout, stderr) = run_test_binary(&output_file_str, &binary_out_str)?;
 
 
 
-    fn format_message(name: &str, expected: &str, actual: &str) -> String {
-        let mut err_str = format!("{}: \nExpected:\n{}\nActual:\n{}",
-                          Colour::Yellow.bold().paint(format!("{0} does not match the expected {0}", name)),
-                          indent(expected),
-                          indent(actual));
-
-        if expected.trim() == actual.trim() {
-
-            err_str += &format!("\n{}: \nExpected:\n{}\nActual:\n{}",
-                                Colour::Blue.bold().paint("Note: Whitespace differs"),
-                                indent(&expected
-                                    .replace(" ", ".")
-                                    .replace("\t", "⇄")
-                                    .replace("\n", "↵")
-                                ),
-                                indent(&actual
-                                    .replace(" ", ".")
-                                    .replace("\t", "--->")
-                                    .replace("\n", "↵")
-                                ));
-        }
-
-        err_str
-    }
-
-    let mut err_str = String::new();
-    if stdout != compile_data.expected_stdout {
-        err_str = format_message("stdout", &compile_data.expected_stdout, &stdout);
-    }
-
-    if stderr != compile_data.expected_stderr {
-        err_str += &format_message("stderr", &compile_data.expected_stderr, &stderr);
-    }
-
-    if err_str.is_empty() {
-        Ok(())
-    } else {
-        err_str += &format!("\nExecutable: {}\n", binary_out_str);
-        Err(err_str)
-    }
+    run_test_binary(&output_file_str, &binary_out_str)
 }
 
 fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
@@ -124,7 +94,7 @@ fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
     input_file_str.to_owned()
 }
 
-fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<String, String> {
+fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<String, (String, String, String)> {
 
 
     let mut output_file = env::temp_dir();
@@ -142,7 +112,7 @@ fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<
 
     args.push(input_file_str.to_owned());
 
-    let mut output = Command::new(COMPILER_BINARY)
+    let output = Command::new(COMPILER_BINARY)
         .args(args)
         .output()
         .unwrap_or_else(|err| {
@@ -154,9 +124,9 @@ fn create_obj_file(ctr: i32, input_file_str: &String, optimize: bool) -> Result<
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        Err(format!("Failed to create the object file:\n\nStdout:\n{}\nStderr:\n{}",
+        Err((format!("Failed to create the object file:\n\nStdout:\n{}\nStderr:\n{}",
                     indent(&stdout),
-                    indent(&stderr)))
+                    indent(&stderr)), stdout, stderr))
     }
 }
 
@@ -190,7 +160,7 @@ fn compile_test_binary(compile_data: &CompileData, output_file_str: String, bina
     }
 }
 
-fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String), String> {
+fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String, String), String> {
 
     let output = Command::new(binary_out_str)
         .output()
@@ -251,9 +221,8 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String
     let stdout_cow = String::from_utf8_lossy(&output.stdout);
     let stderr_cow = String::from_utf8_lossy(&output.stderr);
 
-    let res: (String, String) = (stdout_cow.into_owned(), stderr_cow.into_owned());
+    Ok((stdout_cow.into_owned(), stderr_cow.into_owned(), binary_out_str.to_owned()))
 
-    Ok(res)
 }
 
 fn objdump_binary(binary: &str) -> Result<String, String> {
