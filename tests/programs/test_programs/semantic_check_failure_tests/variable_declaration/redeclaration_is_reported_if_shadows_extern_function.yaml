@@ -1,0 +1,16 @@
+program: |
+    extern fn a();
+    fn main() : int {
+      let a: int = 42;
+    }
+
+
+expect_compile_failure: true
+expect_stderr: |
+  3:7 Name error: Variable 'a' shadows a function
+    let a: int = 42;
+        ^
+  1:11 Note: Previously declared here
+  extern fn a();
+            ^
+  Terminating compilation due to 1 error

@@ -1,0 +1,11 @@
+program: |
+    fn main() : int {
+      let a: float = c;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:18 Name error: Undeclared identifier 'c'
+    let a: float = c;
+                   ^
+  Terminating compilation due to 1 error

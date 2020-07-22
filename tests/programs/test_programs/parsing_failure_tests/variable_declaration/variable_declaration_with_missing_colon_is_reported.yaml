@@ -1,0 +1,12 @@
+program: |
+    fn main() : int {
+      let variable int = 24;
+      let canary: int = 81;      
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:16 Syntax error: Unexpected token 'type' when ':' was expected
+    let variable int = 24;
+                 ^^^
+  Terminating compilation due to 1 error

@@ -1,0 +1,19 @@
+program: |
+  extern fn int_printer(val: int);
+  fn main() : int {
+    {
+        let a: int = 4;
+        int_printer(a);
+    } 
+
+    {
+        let a: int = 8;
+        int_printer(a);
+    } 
+    return 0; 
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  4
+  8

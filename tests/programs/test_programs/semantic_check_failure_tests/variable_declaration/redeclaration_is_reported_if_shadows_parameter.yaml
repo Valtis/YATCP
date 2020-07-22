@@ -1,0 +1,14 @@
+program: |
+    fn main(a: int) : int {
+      let a: int = 42;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:7 Name error: Redefinition of variable 'a'
+    let a: int = 42;
+        ^
+  1:9 Note: Previously declared here
+  fn main(a: int) : int {
+          ^
+  Terminating compilation due to 1 error
