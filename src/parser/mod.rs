@@ -32,13 +32,7 @@ impl Parser {
 
         let top_level_tokens = vec![TokenType::Fn, TokenType::Extern];
         let mut nodes = vec![];
-        let mut debug_safeguard = 10000;
         loop {
-            // some minor protection against infinite loops
-            debug_safeguard -= 1;
-            if debug_safeguard == 0 {
-                panic!("Debug safeguard triggered");
-            }
             let token = self.lexer.peek_token();
             match token.token_type {
                 TokenType::Extern => {
@@ -62,8 +56,8 @@ impl Parser {
                             Span::new(0, 0, 0),
                         ),
                 _ => {
-                    self.report_unexpected_token(
-                        TokenType::Fn, &token);
+                    self.report_unexpected_token_mul(
+                        &top_level_tokens, &token);
                     self.skip_to_first_of(top_level_tokens.clone());
                 },
             }
@@ -190,6 +184,9 @@ impl Parser {
                 },
                 TokenType::Let => {
                     let res = self.parse_variable_declaration();
+                    if let Err(_) = res {
+                        self.skip_to_first_of(vec![TokenType::SemiColon]);
+                    }
                     self.expect(TokenType::SemiColon)?;
                     res
                 }
@@ -225,10 +222,21 @@ impl Parser {
         let var_type = self.expect(TokenType::VarType)?;
 
         // Array parse & custom error handling for missing initialization
-        let mut next_token = self.lexer.next_token();
+        let mut next_token = self.lexer.peek_token();
         let extra_info = match next_token.token_type {
             TokenType::LBracket => {
-                let dimension = self.parse_array_declaration()?;
+                self.lexer.next_token();
+                let dimension = match self.parse_array_declaration() {
+                    Ok(x) => x,
+                    Err(_) => {
+                        self.skip_to_first_of(
+                            vec![
+                                TokenType::SemiColon
+                            ]
+                        );
+                        return Err(());
+                    }
+                };
                 next_token = self.lexer.next_token();
 
                 Some(ExtraDeclarationInfo::ArrayDimension(dimension))
@@ -245,7 +253,11 @@ impl Parser {
 
         // Custom error handling for case where expression is missing
         match next_token.token_type {
-            TokenType::Assign => {}, // ok
+            TokenType::Assign => {
+                if !is_array {
+                    self.lexer.next_token(); // pop the token we peeked before array handling
+                }
+            }, // ok
             TokenType::SemiColon => {
                 self.report_error(
                     ReportKind::SyntaxError,
@@ -260,6 +272,7 @@ impl Parser {
                 return Err(());
             },
         }
+
 
         let mut declaration_info = DeclarationInfo::new_with_extra_info(&identifier, &var_type, extra_info);
 
@@ -818,6 +831,8 @@ impl Parser {
                         "Unexpected token '{}'. Missing operator?",
                         next_token));
 
+                // consume the token
+                self.lexer.next_token();
                 return Err(());
             }
 
@@ -1208,20 +1223,22 @@ impl Parser {
     }
 
     fn expect(&mut self, token_type: TokenType) -> Result<Token, ()> {
-        let next_token = self.lexer.next_token();
+        let next_token = self.lexer.peek_token();
 
         if next_token.token_type != token_type {
             self.report_unexpected_token(token_type, &next_token);
             Err(())
         } else {
+            self.lexer.next_token();
             Ok(next_token)
         }
     }
 
     fn expect_one_of(&mut self, types: Vec<TokenType>) -> Result<Token, ()> {
-        let next_token = self.lexer.next_token();
+        let next_token = self.lexer.peek_token();
 
         if types.iter().any(|t| *t == next_token.token_type) {
+            self.lexer.next_token();
             Ok(next_token)
         } else {
             let mut type_string: String = "".to_string();
@@ -1327,32 +1344,44 @@ mod tests {
 
     struct TestLexer {
         tokens: Vec<Token>,
+        current_token: Option<Token>,
+        next_token: Option<Token>,
         pos: usize,
     }
 
     impl Lexer for TestLexer {
         fn next_token(&mut self) -> Token {
-            let token = self.peek_token();
+
+            if self.next_token != None {
+                let t = self.next_token.clone().unwrap();
+                self.next_token = None;
+                return t;
+            }
+
+            let token = if self.pos < self.tokens.len() {
+                self.tokens[self.pos].clone()
+            } else {
+                Token::new(TokenType::Eof, TokenSubType::NoSubType, 0, 0, 0)
+            };
+
             self.pos += 1;
+
+            self.current_token = Some(token.clone());
             token
         }
 
         fn peek_token(&mut self) -> Token {
-            if self.pos < self.tokens.len() {
-                self.tokens[self.pos].clone()
+            if let Some(ref t) = self.next_token {
+                t.clone()
             } else {
-                Token::new(TokenType::Eof, TokenSubType::NoSubType, 0, 0, 0)
+                let t = self.next_token();
+                self.next_token = Some(t.clone());
+                t
             }
         }
 
         fn current_token(&self) -> Option<Token> {
-            if self.pos == 0 {
-                None
-            } else if self.pos < self.tokens.len() {
-                Some(self.tokens[self.pos - 1].clone())
-            } else {
-                Some(Token::new(TokenType::Eof, TokenSubType::NoSubType, 0, 0, 0))
-            }
+            self.current_token.clone()
         }
     }
 
@@ -1361,6 +1390,8 @@ mod tests {
             TestLexer {
                 tokens,
                 pos: 0,
+                current_token: None,
+                next_token: None,
             }
         }
     }
@@ -3571,6 +3602,9 @@ mod tests {
 
     #[test]
     fn missing_name_is_reported_in_function_definition() {
+        /*
+            fn () : int {}
+        */
         let (mut parser, reporter) = create_parser(vec![
                 Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::LParen, TokenSubType::NoSubType, 2, 3, 1),
@@ -3879,6 +3913,13 @@ mod tests {
 
     #[test]
     fn variable_declaration_after_variable_with_missing_declaration_is_handled_correctly() {
+        /*
+            fn foo() : int {
+                let aaaaa: int;
+            }
+
+
+        */
         let (mut parser, reporter) = create_parser(vec![
                 Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(
@@ -3958,6 +3999,12 @@ mod tests {
 
     #[test]
     fn variable_declaration_after_bad_declaration_is_handled_correctly() {
+        /*
+
+            fn foo () : int {
+                let aaaaa int = 16l
+            }
+        */
         let (mut parser, reporter) = create_parser(vec![
                 Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(
@@ -4038,31 +4085,36 @@ mod tests {
 
     #[test]
     fn missing_operand_in_arithmetic_operation_is_reported() {
-            let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
-                    TokenType::Identifier,
-                    TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+        /*
+            fn foo () : int {
+                let a: int = 4 +;
+            }
+        */
+        let (mut parser, reporter) = create_parser(vec![
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
-                    TokenType::Identifier,
-                    TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 9, 8, 7),
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
+                TokenType::Identifier,
+                TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 9, 8, 7),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
-            ]);
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+        ]);
 
         let node = parser.parse();
 
@@ -4934,6 +4986,12 @@ mod tests {
 
     #[test]
     fn array_declaration_with_non_integer_number_dimension_is_reported() {
+        /*
+            fn foo() : int {
+                let a: [32.2] = 4;
+            }
+
+        */
         let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
@@ -4978,9 +5036,11 @@ mod tests {
             AstNode::Block(vec![
                 AstNode::Function(
                     Box::new(
-                        AstNode::Block(vec![],
-                                       None,
-                                       Span::new(0, 0, 0)
+                        AstNode::Block(
+                            vec![
+                            ],
+                            None,
+                            Span::new(0, 0, 0)
                         )),
                     FunctionInfo::new_alt(Rc::new("foo".to_string()), Type::Integer, 0, 0, 0)
                 )],
@@ -4991,6 +5051,12 @@ mod tests {
     }
     #[test]
     fn array_declaration_with_non_numeric_dimension_is_reported() {
+        /*
+
+            fn foo() : int {
+                let a : int[*] = 4;
+            }
+        */
         let (mut parser, reporter) = create_parser(vec![
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
