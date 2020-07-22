@@ -88,7 +88,9 @@ fn find_files_recursively(path: &Path) -> Vec<PathBuf> {
 }
 
 fn run_test(path: &Path, name_contains: &str) -> TestResult {
-    let testcase = path.file_stem().unwrap().to_str().unwrap();
+    let testcase = format!("{}/{}",
+                           path.components().rev().skip(1).take(1).collect::<Vec<_>>()[0].as_os_str().to_str().unwrap(),
+                           path.file_stem().unwrap().to_str().unwrap());
     if !testcase.contains(name_contains) {
         return TestResult::Skipped;
     }
@@ -220,7 +222,7 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
     let expected_stderr = doc["expect_stderr"].as_str().unwrap_or("").to_owned();
     let callable_function = doc["callable"].as_str().unwrap_or("").to_owned();
     let return_type = doc["returns"].as_str().unwrap_or("").to_owned();
-    let expect_compile_failure = doc["expect_failure"].as_bool().unwrap_or(false).to_owned();
+    let expect_compile_failure = doc["expect_compile_failure"].as_bool().unwrap_or(false).to_owned();
 
     let link_with: Vec<PathBuf> = doc["link_with"].as_vec()
         .map(|vec|
