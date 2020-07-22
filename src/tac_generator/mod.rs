@@ -1,7 +1,7 @@
 mod peephole_optimizations;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, ExtraDeclarationInfo, NodeInfo as Span, ArithmeticInfo};
+use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, ExtraDeclarationInfo, Span as Span, ArithmeticInfo};
 use crate::semcheck::{Type, ARRAY_LENGTH_PROPERTY};
 use crate::function_attributes::FunctionAttribute;
 
@@ -247,14 +247,14 @@ impl TACGenerator {
 
     fn generate_tac(&mut self, node: &AstNode) {
         match node {
-            AstNode::Block(ref children, ref sym_tab, ref node_info) =>
-                self.handle_block(children, sym_tab, node_info),
+            AstNode::Block(ref children, ref sym_tab, ref span) =>
+                self.handle_block(children, sym_tab, span),
             AstNode::Function(ref child, ref info) =>
                 self.handle_function(child, info),
            AstNode::ExternFunction(ref function_info) =>
                 self.handle_extern_function(function_info),
-            AstNode::FunctionCall(ref args, ref name, ref node_info) =>
-                self.handle_function_call(name, args, node_info),
+            AstNode::FunctionCall(ref args, ref name, ref span) =>
+                self.handle_function_call(name, args, span),
             AstNode::VariableDeclaration(ref child, ref info) =>
                 self.handle_variable_declaration(child, info),
             AstNode::VariableAssignment(ref child, ref name, _) =>
@@ -309,7 +309,7 @@ impl TACGenerator {
         &mut self,
         children: &Vec<AstNode>,
         table_entry: &Option<TableEntry>,
-        _node_info: &Span) {
+        _span: &Span) {
 
         if let Some(ref entry) = *table_entry {
            self.symbol_table.push(entry.clone());

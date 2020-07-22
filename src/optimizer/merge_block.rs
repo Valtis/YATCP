@@ -338,7 +338,7 @@ mod tests {
 
     use crate::tac_generator::{Operand};
     use crate::cfg::basic_block::BasicBlock;
-    use crate::ast::{FunctionInfo, NodeInfo};
+    use crate::ast::{FunctionInfo, Span};
     use crate::semcheck::Type;
 
     use std::rc::Rc;
@@ -349,7 +349,7 @@ mod tests {
                 name: Rc::new("foo".to_string()),
                 parameters: vec![],
                 return_type: Type::Void,
-                node_info: NodeInfo {
+                span: Span {
                     line: 1,
                     column: 1,
                     length: 3

@@ -4,7 +4,7 @@ use crate::lexer::Lexer;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo, ExtraDeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
 
 use crate::semcheck::Type;
 
@@ -283,7 +283,7 @@ impl Parser {
                 _ => {
                     self.report_error(
                         ReportKind::SyntaxError,
-                        declaration_info.node_info.clone(),
+                        declaration_info.span.clone(),
                         format!("{} is not valid base type for an array", declaration_info.variable_type)
                     );
                     Type::Invalid
@@ -1331,7 +1331,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
 
-    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, DeclarationInfo, NodeInfo as Span, ExtraDeclarationInfo};
+    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, DeclarationInfo, Span as Span, ExtraDeclarationInfo};
     use crate::error_reporter::{ReportKind, ErrorReporter, Message};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
@@ -4650,11 +4650,11 @@ mod tests {
                                                 ),
                                                 ArithmeticInfo {
                                                     node_type: Type::Uninitialized,
-                                                    node_info: Span::new(0, 0, 0),
+                                                    span: Span::new(0, 0, 0),
                                                 })),
                                         ArithmeticInfo {
                                             node_type: Type::Uninitialized,
-                                            node_info: Span::new(0, 0, 0)
+                                            span: Span::new(0, 0, 0)
                                         })),
                                 Box::new(
                                     AstNode::Block(vec![], None, Span::new(0,0,0))),
@@ -4898,7 +4898,7 @@ mod tests {
                                         ),
                                         DeclarationInfo {
                                             name: Rc::new("a".to_string()),
-                                            node_info: Span::new(8, 12, 2),
+                                            span: Span::new(8, 12, 2),
                                             variable_type: Type::IntegerArray,
                                             extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::from(6)])),
                                         }
@@ -4966,7 +4966,7 @@ mod tests {
                                         ),
                                         DeclarationInfo {
                                             name: Rc::new("a".to_string()),
-                                            node_info: Span::new(8, 12, 2),
+                                            span: Span::new(8, 12, 2),
                                             variable_type: Type::BooleanArray,
                                             extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::from(6)])),
                                         }

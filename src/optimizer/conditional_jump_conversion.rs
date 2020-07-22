@@ -208,7 +208,7 @@ mod tests {
     use super::*;
 
     use crate::cfg::basic_block::BasicBlock;
-    use crate::ast::{DeclarationInfo, NodeInfo, FunctionInfo};
+    use crate::ast::{DeclarationInfo, Span, FunctionInfo};
     use crate::semcheck::Type;
 
     use crate::tac_generator::{Operand, Operator};
@@ -221,7 +221,7 @@ mod tests {
                 name: Rc::new("foo".to_string()),
                 parameters: vec![],
                 return_type: Type::Void,
-                node_info: NodeInfo {
+                span: Span {
                     line: 1,
                     column: 1,
                     length: 3

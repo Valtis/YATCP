@@ -1,6 +1,6 @@
 use super::{ErrorReporter, Message, ReportKind};
 
-use crate::ast::NodeInfo as Span;
+use crate::ast::Span as Span;
 
 pub struct NullReporter {
     messages: Vec<Message>

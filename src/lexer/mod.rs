@@ -1,5 +1,5 @@
 use crate::token::{Token, TokenType, TokenSubType};
-use crate::ast::NodeInfo as Span;
+use crate::ast::Span as Span;
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::string_table::StringTable;

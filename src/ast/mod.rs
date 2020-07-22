@@ -71,15 +71,15 @@ impl Display for AstInteger {
 // TODO update rest of the nodes from tuples to structs for better readability
 #[derive(Clone)]
 pub enum AstNode {
-    Block(Vec<AstNode>, Option<symbol_table::TableEntry>, NodeInfo),
+    Block(Vec<AstNode>, Option<symbol_table::TableEntry>, Span),
     Function(Box<AstNode>, FunctionInfo),
     ExternFunction(FunctionInfo),
-    FunctionCall(Vec<AstNode>, Rc<String>, NodeInfo),
+    FunctionCall(Vec<AstNode>, Rc<String>, Span),
     VariableDeclaration(Box<AstNode>, DeclarationInfo),
-    VariableAssignment(Box<AstNode>, Rc<String>, NodeInfo),
-    ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: NodeInfo },
+    VariableAssignment(Box<AstNode>, Rc<String>, Span),
+    ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: Span },
 
-    MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: NodeInfo },
+    MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: Span },
     Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
@@ -87,29 +87,29 @@ pub enum AstNode {
     Modulo(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
     Negate(Box<AstNode>, ArithmeticInfo),
 
-    BooleanAnd(Box<AstNode>, Box<AstNode>, NodeInfo),
-    BooleanOr(Box<AstNode>, Box<AstNode>, NodeInfo),
+    BooleanAnd(Box<AstNode>, Box<AstNode>, Span),
+    BooleanOr(Box<AstNode>, Box<AstNode>, Span),
 
     Return(Option<Box<AstNode>>, ArithmeticInfo),
 
-    While(Box<AstNode>, Box<AstNode>, NodeInfo),
-    If(Box<AstNode>, Box<AstNode>, Option<Box<AstNode>>, NodeInfo),
+    While(Box<AstNode>, Box<AstNode>, Span),
+    If(Box<AstNode>, Box<AstNode>, Option<Box<AstNode>>, Span),
 
-    Less(Box<AstNode>, Box<AstNode>, NodeInfo),
-    LessOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
-    Equals(Box<AstNode>, Box<AstNode>, NodeInfo),
-    NotEquals(Box<AstNode>, Box<AstNode>, NodeInfo),
-    GreaterOrEq(Box<AstNode>, Box<AstNode>, NodeInfo),
-    Greater(Box<AstNode>, Box<AstNode>, NodeInfo),
-    Not(Box<AstNode>, NodeInfo),
+    Less(Box<AstNode>, Box<AstNode>, Span),
+    LessOrEq(Box<AstNode>, Box<AstNode>, Span),
+    Equals(Box<AstNode>, Box<AstNode>, Span),
+    NotEquals(Box<AstNode>, Box<AstNode>, Span),
+    GreaterOrEq(Box<AstNode>, Box<AstNode>, Span),
+    Greater(Box<AstNode>, Box<AstNode>, Span),
+    Not(Box<AstNode>, Span),
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
-    Integer(AstInteger, NodeInfo),
-    Float(f32, NodeInfo),
-    Double(f64, NodeInfo),
-    Text(Rc<String>, NodeInfo),
-    Boolean(bool, NodeInfo),
-    Identifier(Rc<String>, NodeInfo),
+    Integer(AstInteger, Span),
+    Float(f32, Span),
+    Double(f64, Span),
+    Text(Rc<String>, Span),
+    Boolean(bool, Span),
+    Identifier(Rc<String>, Span),
     ArrayAccess{index_expression: Box<AstNode>, indexable_expression: Box<AstNode>},
 
     ErrorNode,
@@ -316,14 +316,14 @@ impl AstNode {
         string
     }
 
-    pub fn span(&self) -> NodeInfo {
-        let empty = NodeInfo::new(0, 0, 0);
+    pub fn span(&self) -> Span {
+        let empty = Span::new(0, 0, 0);
         let x = match self {
             AstNode::Block(_, _, span) => *span,
-            AstNode::Function(_, info) => info.node_info,
-            AstNode::ExternFunction(info) => info.node_info,
+            AstNode::Function(_, info) => info.span,
+            AstNode::ExternFunction(info) => info.span,
             AstNode::FunctionCall(_, _, info) => *info,
-            AstNode::VariableDeclaration(_, info) => info.node_info,
+            AstNode::VariableDeclaration(_, info) => info.span,
             AstNode::VariableAssignment(_, _, span) => *span,
             AstNode::ArrayAssignment{
                 index_expression: _,
@@ -342,9 +342,9 @@ impl AstNode {
             AstNode::Minus(_, _, info) |
             AstNode::Multiply(_, _, info) |
             AstNode::Divide(_, _, info) |
-            AstNode::Modulo(_, _, info)=> info.node_info,
-            AstNode::Negate(_,  info) => info.node_info,
-            AstNode::Return(_, info) => info.node_info,
+            AstNode::Modulo(_, _, info)=> info.span,
+            AstNode::Negate(_,  info) => info.span,
+            AstNode::Return(_, info) => info.span,
             AstNode::While(_, _, span) => *span,
             AstNode::If(_, _, _, span) => *span,
             AstNode::Less(_, _, span) |
@@ -494,15 +494,15 @@ impl PartialEq for AstNode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct NodeInfo {
+pub struct Span {
     pub line: i32,
     pub column: i32,
     pub length: i32,
 }
 
-impl NodeInfo {
-    pub fn new(line: i32, column: i32, length: i32) -> NodeInfo {
-        NodeInfo {
+impl Span {
+    pub fn new(line: i32, column: i32, length: i32) -> Span {
+        Span {
             line,
             column,
             length,
@@ -510,9 +510,9 @@ impl NodeInfo {
     }
 }
 
-impl From<Token> for NodeInfo {
-    fn from(val: Token) -> NodeInfo {
-        NodeInfo{
+impl From<Token> for Span {
+    fn from(val: Token) -> Span {
+        Span {
             line: val.line,
             column: val.column,
             length: val.length,
@@ -520,9 +520,9 @@ impl From<Token> for NodeInfo {
     }
 }
 
-impl From<&Token> for NodeInfo {
-    fn from(val: &Token) -> NodeInfo {
-        NodeInfo{
+impl From<&Token> for Span {
+    fn from(val: &Token) -> Span {
+        Span {
             line: val.line,
             column: val.column,
             length: val.length,
@@ -536,7 +536,7 @@ pub struct FunctionInfo {
     pub name: Rc<String>,
     pub parameters: Vec<DeclarationInfo>,
     pub return_type: Type,
-    pub node_info: NodeInfo,
+    pub span: Span,
 }
 
 impl FunctionInfo {
@@ -563,7 +563,7 @@ impl FunctionInfo {
             name: name,
             parameters: vec![],
             return_type: return_type,
-            node_info: NodeInfo::new(
+            span: Span::new(
                 line, column, length),
         }
 
@@ -574,7 +574,7 @@ impl FunctionInfo {
 pub struct DeclarationInfo {
     pub name: Rc<String>,
     pub variable_type: Type,
-    pub node_info: NodeInfo,
+    pub span: Span,
     pub extra_info: Option<ExtraDeclarationInfo>,
 }
 
@@ -598,7 +598,7 @@ impl DeclarationInfo {
         DeclarationInfo {
             name: name,
             variable_type: var_type,
-            node_info: NodeInfo::new(line, column, length),
+            span: Span::new(line, column, length),
             extra_info: None,
         }
     }
@@ -610,7 +610,7 @@ impl DeclarationInfo {
         DeclarationInfo {
             name: get_text_from_identifier(identifier),
             variable_type: get_type_from_type_token(variable_type),
-            node_info: NodeInfo::new(identifier.line, identifier.column, identifier.length),
+            span: Span::new(identifier.line, identifier.column, identifier.length),
             extra_info,
         }
     }
@@ -626,7 +626,7 @@ pub enum ExtraDeclarationInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArithmeticInfo {
     pub node_type: Type,
-    pub node_info: NodeInfo
+    pub span: Span
 }
 
 impl ArithmeticInfo {
@@ -641,7 +641,7 @@ impl ArithmeticInfo {
 
         ArithmeticInfo {
             node_type: Type::Uninitialized,
-            node_info: NodeInfo::new(line, column, length)
+            span: Span::new(line, column, length)
         }
     }
 }

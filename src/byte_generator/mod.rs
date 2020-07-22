@@ -610,7 +610,7 @@ mod test {
     use super::Value::*;
 
     use crate::tac_generator::{Operand, Function};
-    use crate::ast::{FunctionInfo, NodeInfo};
+    use crate::ast::{FunctionInfo, Span};
     use crate::semcheck::Type;
 
     use std::rc::Rc;
@@ -621,7 +621,7 @@ mod test {
                 name: Rc::new("foo".to_string()),
                 parameters: vec![],
                 return_type: Type::Void,
-                node_info: NodeInfo {
+                span: Span {
                     line: 1,
                     column: 1,
                     length: 3
@@ -680,7 +680,7 @@ mod test {
                     DeclarationInfo {
                         name: Rc::new("Foo".to_owned()),
                         variable_type: Type::Boolean,
-                        node_info: NodeInfo {
+                        span: Span {
                             line: 1,
                             column: 1,
                             length: 1,
@@ -723,7 +723,7 @@ mod test {
                     DeclarationInfo {
                         name: Rc::new("Foo".to_owned()),
                         variable_type: Type::Boolean,
-                        node_info: NodeInfo {
+                        span: Span {
                             line: 1,
                             column: 1,
                             length: 1,
@@ -764,7 +764,7 @@ mod test {
                 Operand::Variable(DeclarationInfo {
                         name: Rc::new("foo".to_owned()),
                         variable_type: Type::Boolean,
-                        node_info: NodeInfo {
+                        span: Span {
                             line: 1,
                             column: 1,
                             length: 1,

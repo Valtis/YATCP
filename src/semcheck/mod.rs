@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, NodeInfo as Span, DeclarationInfo, ExtraDeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
 
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
@@ -240,7 +240,7 @@ impl SemanticsCheck {
         &mut self,
         children: &mut Vec<AstNode>,
         tab_ent: &mut Option<TableEntry>,
-        _node_info: &Span) {
+        _span: &Span) {
 
         self.symbol_table.push_empty();
         for ref mut child in children {
@@ -312,13 +312,13 @@ impl SemanticsCheck {
             if let Symbol::Function(ref fi) = symbol {
                 self.report_error(
                     ReportKind::NameError,
-                    function_info.node_info.clone(),
+                    function_info.span.clone(),
                     format!("Redefinition of function '{}'",
                         function_info.name));
 
                 self.report_error(
                     ReportKind::Note,
-                    fi.node_info.clone(),
+                    fi.span.clone(),
                     "Previously declared here".to_string());
 
             } else {
@@ -338,13 +338,13 @@ impl SemanticsCheck {
                 if let Symbol::Function(ref fi) = symbol {
                     self.report_error(
                         ReportKind::NameError,
-                        param.node_info.clone(),
+                        param.span.clone(),
                         format!("Function parameter '{}' shadows function",
                             param.name));
 
                     self.report_error(
                         ReportKind::Note,
-                        fi.node_info.clone(),
+                        fi.span.clone(),
                         "Function declared here".to_string());
                 } else {
                     unimplemented!();
@@ -355,18 +355,18 @@ impl SemanticsCheck {
             if param.variable_type == Type::Void {
                 self.report_error(
                     ReportKind::TypeError,
-                    param.node_info.clone(),
+                    param.span.clone(),
                     "Parameter may not have type 'Void'".to_string());
             }
             // report parameter name collisions
             if !seen_param.contains_key(&param.name) {
                 seen_param.insert(
                     param.name.clone(),
-                    param.node_info.clone());
+                    param.span.clone());
             } else {
                 self.report_error(
                     ReportKind::NameError,
-                    param.node_info.clone(),
+                    param.span.clone(),
                     format!("Parameter '{}' shadows earlier parameter",
                         param.name)
                     );
@@ -402,7 +402,7 @@ impl SemanticsCheck {
 
                 self.report_error(
                     ReportKind::Note,
-                    declaration_info.node_info.clone(),
+                    declaration_info.span.clone(),
                     "Variable declared here".to_string());
                 }
                 Symbol::Function(ref function_info) => {
@@ -416,7 +416,7 @@ impl SemanticsCheck {
 
                         self.report_error(
                             ReportKind::Note,
-                            function_info.node_info.clone(),
+                            function_info.span.clone(),
                             "Function declared here".to_string());
                     } else {
                         for (param, arg) in function_info.parameters
@@ -445,7 +445,7 @@ impl SemanticsCheck {
 
                                 self.report_error(
                                     ReportKind::Note,
-                                    param.node_info.clone(),
+                                    param.span.clone(),
                                     "Corresponding parameter declared here"
                                         .to_string());
                             }
@@ -478,22 +478,22 @@ impl SemanticsCheck {
                         (format!(
                             "Variable '{}' previously declared as a function",
                             fi.name),
-                         fi.node_info.line,
-                         fi.node_info.column,
-                         fi.node_info.length,
+                         fi.span.line,
+                         fi.span.column,
+                         fi.span.length,
                         ),
                     Symbol::Variable(vi, _) =>
                         (format!("Redefinition of variable '{}'",
                             vi.name),
-                         vi.node_info.line,
-                         vi.node_info.column,
-                         vi.node_info.length
+                         vi.span.line,
+                         vi.span.column,
+                         vi.span.length
                         ),
                 };
 
                 self.report_error(
                     ReportKind::NameError,
-                    variable_info.node_info.clone(),
+                    variable_info.span.clone(),
                     err_text);
 
                 self.report_error(
@@ -514,7 +514,7 @@ impl SemanticsCheck {
         if variable_info.variable_type == Type::Void {
             self.report_error(
                 ReportKind::TypeError,
-                variable_info.node_info.clone(),
+                variable_info.span.clone(),
                 "Variable may not have type 'Void'".to_string());
         } else if variable_info.variable_type.is_array() {
 
@@ -537,7 +537,7 @@ impl SemanticsCheck {
             let mut report_dimension_error = || {
                 self.report_error(
                     ReportKind::TypeError,
-                    variable_info.node_info.clone(),
+                    variable_info.span.clone(),
                     "Array has invalid dimensions".to_owned(),
                 )
             };
@@ -595,7 +595,7 @@ impl SemanticsCheck {
 
                 self.report_error(
                     ReportKind::Note,
-                    sym_info.node_info.clone(),
+                    sym_info.span.clone(),
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
@@ -612,7 +612,7 @@ impl SemanticsCheck {
 
             self.report_error(
                 ReportKind::Note,
-                sym_info.node_info.clone(),
+                sym_info.span.clone(),
                 format!("Variable '{}', declared here, has type '{}'",
                     name,
                     sym_info.variable_type));
@@ -657,7 +657,7 @@ impl SemanticsCheck {
 
                 self.report_error(
                     ReportKind::Note,
-                    sym_info.node_info.clone(),
+                    sym_info.span.clone(),
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
@@ -686,7 +686,7 @@ impl SemanticsCheck {
 
                 self.report_error(
                     ReportKind::Note,
-                    sym_info.node_info.clone(),
+                    sym_info.span.clone(),
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
@@ -777,13 +777,13 @@ impl SemanticsCheck {
             if function_info.return_type != Type::Void {
                 self.report_error(
                     ReportKind::TypeError,
-                    arith_info.node_info.clone(),
+                    arith_info.span.clone(),
                     "Return statement without expression in non-void function".
                         to_string());
 
                 self.report_error(
                     ReportKind::Note,
-                    function_info.node_info.clone(),
+                    function_info.span.clone(),
                     format!("Function '{}', declared here, is expected to return '{}'",
                         function_info.name,
                         function_info.return_type));
@@ -822,7 +822,7 @@ impl SemanticsCheck {
 
             self.report_error(
                 ReportKind::Note,
-                function_info.node_info.clone(),
+                function_info.span.clone(),
                 note_str);
 
             arith_info.node_type = Type::Invalid;
@@ -899,7 +899,7 @@ impl SemanticsCheck {
                    if let AstInteger::Int(0) = value  {
                        self.report_error(
                            ReportKind::Warning,
-                           ai.node_info.clone(),
+                           ai.span.clone(),
                            "Division by zero".to_owned(),
                        )
                    }
@@ -920,7 +920,7 @@ impl SemanticsCheck {
                     if let AstInteger::Int(0) = value  {
                         self.report_error(
                             ReportKind::Warning,
-                            ai.node_info.clone(),
+                            ai.span.clone(),
                             "Division by zero".to_owned(),
                         )
                     }
@@ -938,7 +938,7 @@ impl SemanticsCheck {
         if !valid_types.iter().any(|t| *t == ai.node_type) {
             self.report_error(
                 ReportKind::TypeError,
-                ai.node_info.clone(),
+                ai.span.clone(),
                 format!("Operands of type '{}' are not valid for this operator",
                     ai.node_type));
             ai.node_type = Type::Invalid;
@@ -966,7 +966,7 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.clone(),
+                arith_info.span.clone(),
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
         } else {
@@ -995,7 +995,7 @@ impl SemanticsCheck {
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
-                arith_info.node_info.clone(),
+                arith_info.span.clone(),
                 format!(
                     "Cannot negate operand with type '{}'", child_type));
         } else {
@@ -1092,7 +1092,7 @@ impl SemanticsCheck {
 
                         self.report_error(
                             ReportKind::Note,
-                            function_info.node_info.clone(),
+                            function_info.span.clone(),
                             "Function declared here:".to_string());
                     }
                     Symbol::Variable(_, _) => { return Some(symbol.clone()); }
@@ -1209,9 +1209,9 @@ impl SemanticsCheck {
             format!("Expected '{}' but got '{}'",
                     variable_info.variable_type, actual_type));
         self.report_error(
-                ReportKind::Note,
-                variable_info.node_info.clone(),
-                format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
+            ReportKind::Note,
+            variable_info.span.clone(),
+            format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
     }
 }
 
@@ -1219,7 +1219,7 @@ impl SemanticsCheck {
 mod tests {
     use super::*;
 
-    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, NodeInfo as Span, FunctionInfo, DeclarationInfo };
+    use crate::ast::{AstNode, AstInteger, ArithmeticInfo, Span as Span, FunctionInfo, DeclarationInfo };
     use crate::error_reporter::{ReportKind, Message };
     use crate::error_reporter::null_reporter::NullReporter;
 
@@ -6114,7 +6114,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 )
@@ -6161,7 +6161,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 )
@@ -6214,7 +6214,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(-1)]))
                                     }
                                 )
@@ -6266,7 +6266,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(0)]))
                                     }
                                 )
@@ -6319,7 +6319,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(2)]))
                                     }
                                 ),
@@ -6391,7 +6391,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -6455,7 +6455,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::BooleanArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -6638,7 +6638,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: None,
                                     }
                                 ),
@@ -6715,7 +6715,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -6796,7 +6796,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -6877,7 +6877,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -6947,7 +6947,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7025,7 +7025,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7039,7 +7039,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7108,7 +7108,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7122,7 +7122,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7198,7 +7198,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7212,7 +7212,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7294,7 +7294,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7308,7 +7308,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7383,7 +7383,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7397,7 +7397,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7472,7 +7472,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7486,7 +7486,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Float,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7566,7 +7566,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7580,7 +7580,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7649,7 +7649,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7663,7 +7663,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7738,7 +7738,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7752,7 +7752,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7834,7 +7834,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7848,7 +7848,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),
@@ -7923,7 +7923,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("a".to_string()),
                                         variable_type: Type::IntegerArray,
-                                        node_info: Span::new(6, 5, 4),
+                                        span: Span::new(6, 5, 4),
                                         extra_info: Some(ExtraDeclarationInfo::ArrayDimension(vec![AstInteger::Int(4)]))
                                     }
                                 ),
@@ -7937,7 +7937,7 @@ mod tests {
                                     DeclarationInfo {
                                         name: Rc::new("b".to_owned()),
                                         variable_type: Type::Integer,
-                                        node_info: Span::new(1, 5, 9),
+                                        span: Span::new(1, 5, 9),
                                         extra_info: None
                                     }
                                 ),

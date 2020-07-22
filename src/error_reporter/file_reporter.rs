@@ -1,6 +1,6 @@
 use super::{ErrorReporter, ReportKind, Message };
 
-use crate::ast::NodeInfo as Span;
+use crate::ast::Span as Span;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
