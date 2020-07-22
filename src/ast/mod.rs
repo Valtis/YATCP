@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenSubType};
+use crate::lexer::token::{Token, TokenSubType};
 use crate::semcheck::Type;
 use crate::symbol_table;
 

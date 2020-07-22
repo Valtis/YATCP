@@ -1,6 +1,5 @@
-use crate::token::{Token, TokenType, TokenSubType};
-
 use crate::lexer::Lexer;
+use crate::lexer::token::{Token, TokenType, TokenSubType};
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
@@ -11,7 +10,6 @@ use crate::semcheck::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::ast::AstNode::ArrayAccess;
-use crate::token::TokenType::{RBrace, LBrace, SemiColon};
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -611,9 +609,9 @@ impl Parser {
                 Err(_) | Ok(AstNode::ErrorNode) => {
                     self.skip_to_first_of(
                     vec![
-                        LBrace,
-                        RBrace,
-                        SemiColon,
+                        TokenType::LBrace,
+                        TokenType::RBrace,
+                        TokenType::SemiColon,
                         ]
                     );
                     AstNode::ErrorNode
@@ -639,9 +637,9 @@ impl Parser {
                 Err(_) | Ok(AstNode::ErrorNode) => {
                     self.skip_to_first_of(
                         vec![
-                            LBrace,
-                            RBrace,
-                            SemiColon,
+                            TokenType::LBrace,
+                            TokenType::RBrace,
+                            TokenType::SemiColon,
                         ]
                     );
 
@@ -665,9 +663,9 @@ impl Parser {
                         Err(_) | Ok(AstNode::ErrorNode) => {
                             self.skip_to_first_of(
                                 vec![
-                                    LBrace,
-                                    RBrace,
-                                    SemiColon,
+                                    TokenType::LBrace,
+                                    TokenType::RBrace,
+                                    TokenType::SemiColon,
                                 ]
                             );
                             AstNode::ErrorNode
@@ -678,9 +676,9 @@ impl Parser {
                 _ =>  {
                     self.skip_to_first_of(
                         vec![
-                            LBrace,
-                            RBrace,
-                            SemiColon,
+                            TokenType::LBrace,
+                            TokenType::RBrace,
+                            TokenType::SemiColon,
                         ]
                     );
                     AstNode::ErrorNode
@@ -1336,7 +1334,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
     use crate::semcheck::Type;
-    use crate::token::{Token, TokenType, TokenSubType};
+    use crate::lexer::token::{Token, TokenType, TokenSubType};
     use crate::error_reporter::null_reporter::NullReporter;
 
     use std::rc::Rc;

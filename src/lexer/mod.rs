@@ -1,8 +1,11 @@
-use crate::token::{Token, TokenType, TokenSubType};
+pub mod token;
+
+use token::*;
 use crate::ast::Span as Span;
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::string_table::StringTable;
+
 
 use std::io::BufReader;
 use std::io::Read;

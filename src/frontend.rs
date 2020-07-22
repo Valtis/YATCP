@@ -1,5 +1,5 @@
 use crate::lexer::{ReadLexer, Lexer};
-use crate::token::{TokenType};
+use crate::lexer::token::{TokenType};
 use crate::parser::Parser;
 use crate::ast::AstNode;
 use crate::semcheck::SemanticsCheck;
