@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
-  Assign,
-  Comparison,
-  Not,
+  Equals,
+  DoubleEquals,
+  Exclamation,
   Number,
   Text,
   Identifier,
@@ -39,8 +39,8 @@ pub enum TokenType {
   VarType,
   Plus,
   Minus,
-  Multiply,
-  Divide,
+  Star,
+  ForwardSlash,
   Percentage,
   Ampersand,
   DoubleAmpersand,
@@ -55,9 +55,9 @@ impl Display for TokenType {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
     Display::fmt(
       match *self {
-        TokenType::Assign => "=",
-        TokenType::Comparison => "comparison",
-        TokenType::Not => "!",
+        TokenType::Equals => "=",
+        TokenType::DoubleEquals => "comparison",
+        TokenType::Exclamation => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
         TokenType::Identifier => "identifier",
@@ -88,9 +88,9 @@ impl Display for TokenType {
         TokenType::VarType => "type",
         TokenType::Plus => "+" ,
         TokenType::Minus => "-",
-        TokenType::Multiply => "*",
+        TokenType::Star => "*",
         TokenType::Percentage => "%",
-        TokenType::Divide => "/",
+        TokenType::ForwardSlash => "/",
         TokenType::Ampersand => "&",
         TokenType::DoubleAmpersand => "&&",
         TokenType::Pipe=> "|",

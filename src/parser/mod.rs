@@ -251,7 +251,7 @@ impl Parser {
 
         // Custom error handling for case where expression is missing
         match next_token.token_type {
-            TokenType::Assign => {
+            TokenType::Equals => {
                 if !is_array {
                     self.lexer.next_token(); // pop the token we peeked before array handling
                 }
@@ -265,7 +265,7 @@ impl Parser {
             },
             _ => {
                 self.report_unexpected_token(
-                    TokenType::Assign,
+                    TokenType::Equals,
                     &next_token);
                 return Err(());
             },
@@ -320,11 +320,11 @@ impl Parser {
         match token.token_type {
 
             TokenType::LBracket |
-            TokenType::Assign |
+            TokenType::Equals |
             TokenType::Plus |
             TokenType::Minus |
-            TokenType::Multiply |
-            TokenType::Divide |
+            TokenType::Star |
+            TokenType::ForwardSlash |
             TokenType::Percentage => {
                 let node = self.parse_assignment_expression(identifier)?;
                 self.expect(TokenType::SemiColon)?;
@@ -340,11 +340,11 @@ impl Parser {
             _ => {
                 self.report_unexpected_token_mul(
                     &vec![
-                        TokenType::Assign,
+                        TokenType::Equals,
                         TokenType::Plus,
                         TokenType::Minus,
-                        TokenType::Multiply,
-                        TokenType::Divide,
+                        TokenType::Star,
+                        TokenType::ForwardSlash,
                         TokenType::Percentage,
                         TokenType::LParen,
                         TokenType::LBracket],
@@ -356,11 +356,11 @@ impl Parser {
 
     fn parse_assignment_expression(&mut self, identifier: Token) -> Result<AstNode, ()> {
         match self.lexer.peek_token().token_type {
-            token_type @ TokenType::Assign |
+            token_type @ TokenType::Equals |
             token_type @ TokenType::Plus |
             token_type @ TokenType::Minus |
-            token_type @ TokenType::Multiply |
-            token_type @ TokenType::Divide |
+            token_type @ TokenType::Star |
+            token_type @ TokenType::ForwardSlash |
             token_type @ TokenType::Percentage => {
                 self.parse_assignment(identifier, token_type)
             },
@@ -374,8 +374,8 @@ impl Parser {
     fn parse_assignment(&mut self, identifier: Token, token_type: TokenType) -> Result<AstNode, ()> {
         let op = self.expect(token_type)?;
 
-        if token_type != TokenType::Assign {
-            self.expect(TokenType::Assign)?;
+        if token_type != TokenType::Equals {
+            self.expect(TokenType::Equals)?;
         }
         let expression_node = self.parse_expression()?;
 
@@ -397,12 +397,12 @@ impl Parser {
                 Box::new(expression_node),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Multiply=> AstNode::Multiply(
+            TokenType::Star => AstNode::Multiply(
                 Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
                 Box::new(expression_node),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Divide=> AstNode::Divide(
+            TokenType::ForwardSlash => AstNode::Divide(
                 Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
                 Box::new(expression_node),
                 ArithmeticInfo::new(&op),
@@ -412,7 +412,7 @@ impl Parser {
                 Box::new(expression_node),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Assign => expression_node,
+            TokenType::Equals => expression_node,
             bad => ice!("Bad expression type {}", bad),
         };
 
@@ -468,16 +468,16 @@ impl Parser {
         self.expect(TokenType::RBracket)?;
 
         let op = self.expect_one_of(vec![
-            TokenType::Assign,
+            TokenType::Equals,
             TokenType::Plus,
             TokenType::Minus,
-            TokenType::Multiply,
-            TokenType::Divide,
+            TokenType::Star,
+            TokenType::ForwardSlash,
             TokenType::Percentage,
         ])?;
 
-        if op.token_type != TokenType::Assign {
-            self.expect(TokenType::Assign)?;
+        if op.token_type != TokenType::Equals {
+            self.expect(TokenType::Equals)?;
         }
 
         let assignment_expression = self.parse_expression()?;
@@ -499,12 +499,12 @@ impl Parser {
                 Box::new(assignment_expression),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Multiply=> AstNode::Multiply(
+            TokenType::Star => AstNode::Multiply(
                 Box::new(get_access()),
                 Box::new(assignment_expression),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Divide=> AstNode::Divide(
+            TokenType::ForwardSlash => AstNode::Divide(
                 Box::new(get_access()),
                 Box::new(assignment_expression),
                 ArithmeticInfo::new(&op),
@@ -514,7 +514,7 @@ impl Parser {
                 Box::new(assignment_expression),
                 ArithmeticInfo::new(&op),
             ),
-            TokenType::Assign => assignment_expression,
+            TokenType::Equals => assignment_expression,
             bad => ice!("Bad expression type {}", bad),
         };
 
@@ -786,7 +786,7 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::Comparison &&
+            if next_token.token_type == TokenType::DoubleEquals &&
                 (next_token.token_subtype == TokenSubType::Equals ||
                 next_token.token_subtype == TokenSubType::NotEquals) {
                 node = self.parse_equals_not_equals_comparison_expression(node)?;
@@ -803,7 +803,7 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::Comparison &&
+            if next_token.token_type == TokenType::DoubleEquals &&
                 !(next_token.token_subtype == TokenSubType::Equals ||
                     next_token.token_subtype == TokenSubType::NotEquals) {
                     node = self.parse_greater_less_comparison_expression(node)?;
@@ -850,7 +850,7 @@ impl Parser {
         loop {
             let next_token = self.lexer.peek_token();
             match next_token.token_type {
-                TokenType::Multiply | TokenType::Divide | TokenType::Percentage =>
+                TokenType::Star | TokenType::ForwardSlash | TokenType::Percentage =>
                     node = self.parse_mult_divide_modulo_expression(node)?,
                 _ => break,
             }
@@ -862,7 +862,7 @@ impl Parser {
 
         let next_token = self.lexer.peek_token();
         match next_token.token_type {
-            TokenType::Not => {
+            TokenType::Exclamation => {
                 return self.parse_boolean_not_expression();
             },
             _ => (),
@@ -1027,7 +1027,7 @@ impl Parser {
     fn parse_equals_not_equals_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::Comparison)?;
+        let next_token = self.expect(TokenType::DoubleEquals)?;
         let n_node = self.parse_arithmetic_expression_with_greater_less_comparisons()?;
 
         match next_token.token_subtype {
@@ -1058,7 +1058,7 @@ impl Parser {
     fn parse_greater_less_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::Comparison)?;
+        let next_token = self.expect(TokenType::DoubleEquals)?;
         let n_node = self.parse_arithmetic_expression()?;
 
         match next_token.token_subtype {
@@ -1138,11 +1138,11 @@ impl Parser {
 
     fn parse_boolean_not_expression(&mut self) -> Result<AstNode, ()> {
 
-        let token = self.expect(TokenType::Not)?;
+        let token = self.expect(TokenType::Exclamation)?;
 
         let next_token = self.lexer.peek_token();
 
-        let node = if next_token.token_type == TokenType::Not {
+        let node = if next_token.token_type == TokenType::Exclamation {
             self.parse_boolean_not_expression()?
         } else {
             self.parse_factor_with_member_or_array_access()?
@@ -1188,7 +1188,7 @@ impl Parser {
 
         let next_token = self.lexer.peek_token();
         match next_token.token_type {
-            TokenType::Multiply => {
+            TokenType::Star => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
                 let mult_node = AstNode::Multiply(
@@ -1198,7 +1198,7 @@ impl Parser {
 
                 Ok(mult_node)
             },
-            TokenType::Divide => {
+            TokenType::ForwardSlash => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
                 let div_node = AstNode::Divide(
@@ -1446,28 +1446,28 @@ mod tests {
     #[test]
     fn single_variable_declaration_with_integer_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -1509,28 +1509,28 @@ mod tests {
     #[test]
     fn single_variable_declaration_with_float_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::FloatType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::FloatNumber(4.2), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::FloatType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::FloatNumber(4.2), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -1572,28 +1572,28 @@ mod tests {
     #[test]
     fn single_variable_declaration_with_double_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::DoubleNumber(4.2), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::DoubleNumber(4.2), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -1635,28 +1635,28 @@ mod tests {
     #[test]
     fn single_variable_declaration_with_string_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Text, TokenSubType::Text(Rc::new("hello, world".to_string())), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Text, TokenSubType::Text(Rc::new("hello, world".to_string())), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -1698,28 +1698,28 @@ mod tests {
     #[test]
     fn single_variable_declaration_with_boolean_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -1777,12 +1777,12 @@ mod tests {
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
                 Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+                Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::Number, TokenSubType::IntegerNumber(85), 0, 0, 0),
                 Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
+                Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
                 Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
                 Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
@@ -1856,12 +1856,12 @@ mod tests {
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483648), 0, 0, 0),
             Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
@@ -1935,7 +1935,7 @@ mod tests {
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483648), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
@@ -1998,7 +1998,7 @@ mod tests {
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2147483649), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
@@ -2045,30 +2045,30 @@ mod tests {
     #[test]
     fn variable_in_expression_produces_correct_ast() {
                let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+                   Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+                   Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+                   Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+                   Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+                   Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("ident".to_string())),
                     0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+                   Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2106,30 +2106,30 @@ mod tests {
     #[test]
     fn function_with_single_variable_declaration_with_addition_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2182,32 +2182,32 @@ mod tests {
     #[test]
     fn function_with_single_variable_declaration_with_subtraction_and_addition_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(85), 0, 0, 0),
-                Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(85), 0, 0, 0),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2260,46 +2260,46 @@ mod tests {
     #[test]
     fn function_with_single_variable_declaration_with_complex_initialization_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
-                Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Divide, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(5), 0, 0, 0),
-                Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 0, 0, 0),
-                Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(7), 0, 0, 0),
-                Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(9), 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+            Token::new(TokenType::ForwardSlash, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(5), 0, 0, 0),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 0, 0, 0),
+            Token::new(TokenType::Minus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(7), 0, 0, 0),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(9), 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2477,26 +2477,26 @@ mod tests {
     #[test]
     fn function_with_return_with_expression_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 4, 1),
-                Token::new(
+            Token::new(TokenType::Return, TokenSubType::NoSubType, 5, 4, 1),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 3, 4, 5),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 8, 7, 6),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 55, 44, 33),
-                Token::new(TokenType::Multiply, TokenSubType::NoSubType, 1, 15, 53),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 88, 77, 66),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Plus, TokenSubType::NoSubType, 8, 7, 6),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 55, 44, 33),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 1, 15, 53),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 88, 77, 66),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2542,29 +2542,29 @@ mod tests {
     #[test]
     fn simple_less_expression_produces_correct_ast() {
        let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+           Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+           Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+           Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 7, 6, 5),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::Comparison, TokenSubType::Less, 5, 6, 7),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 8, 9, 2),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::VarType, TokenSubType::BooleanType, 0, 0, 0),
+           Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+           Token::new(TokenType::DoubleEquals, TokenSubType::Less, 5, 6, 7),
+           Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 8, 9, 2),
+           Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2606,33 +2606,33 @@ mod tests {
     #[test]
     fn while_loop_produces_correct_ast() {
            let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+               Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+               Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
-                Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 8, 6, 7),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
+               Token::new(TokenType::Boolean, TokenSubType::BooleanValue(true), 8, 6, 7),
+               Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+               Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+               Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+               Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2678,39 +2678,39 @@ mod tests {
     #[test]
     fn while_loop_with_complex_expression_produces_correct_ast() {
            let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+               Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+               Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
-                Token::new(
+               Token::new(TokenType::While, TokenSubType::NoSubType, 5, 6, 7),
+               Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
-                Token::new(TokenType::Comparison, TokenSubType::Equals, 12, 23, 34),
-                Token::new(
+               Token::new(TokenType::DoubleEquals, TokenSubType::Equals, 12, 23, 34),
+               Token::new(
                     TokenType::Number,
                     TokenSubType::IntegerNumber(23), 13, 14, 15),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+               Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+               Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+               Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+               Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2762,39 +2762,39 @@ mod tests {
     #[test]
     fn if_statement_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
-                Token::new(
+            Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
-                Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 12, 23, 34),
-                Token::new(
+            Token::new(TokenType::DoubleEquals, TokenSubType::LessOrEq, 12, 23, 34),
+            Token::new(
                     TokenType::Number,
                     TokenSubType::IntegerNumber(23), 13, 14, 15),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2847,54 +2847,54 @@ mod tests {
     #[test]
     fn if_statement_with_else_produces_correct_ast() {
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
-                Token::new(
+            Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
-                Token::new(TokenType::Comparison, TokenSubType::GreaterOrEq, 12, 23, 34),
-                Token::new(
+            Token::new(TokenType::DoubleEquals, TokenSubType::GreaterOrEq, 12, 23, 34),
+            Token::new(
                     TokenType::Number,
                     TokenSubType::IntegerNumber(23), 13, 14, 15),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("b".to_string())), 41, 51, 61),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::DoubleNumber(1.23   ), 7, 6, 5),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::DoubleNumber(1.23   ), 7, 6, 5),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -2973,76 +2973,76 @@ mod tests {
         */
 
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
-                Token::new(
+            Token::new(TokenType::If, TokenSubType::NoSubType, 5, 6, 7),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
-                Token::new(TokenType::Comparison, TokenSubType::GreaterOrEq, 12, 23, 34),
-                Token::new(
+            Token::new(TokenType::DoubleEquals, TokenSubType::GreaterOrEq, 12, 23, 34),
+            Token::new(
                     TokenType::Number,
                     TokenSubType::IntegerNumber(23), 13, 14, 15),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 4, 5, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(1), 1, 2, 3),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::If, TokenSubType::NoSubType, 55, 66, 77),
-                Token::new(
+            Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::If, TokenSubType::NoSubType, 55, 66, 77),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aab".to_string())), 11, 22, 33),
-                Token::new(TokenType::Comparison, TokenSubType::Greater, 12, 23, 34),
-                Token::new(
+            Token::new(TokenType::DoubleEquals, TokenSubType::Greater, 12, 23, 34),
+            Token::new(
                     TokenType::Number,
                     TokenSubType::IntegerNumber(53), 13, 14, 15),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("b".to_string())), 41, 51, 61),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::DoubleNumber(1.23), 7, 6, 5),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::DoubleType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::DoubleNumber(1.23), 7, 6, 5),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Else, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("c".to_string())), 42, 52, 62),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Text, TokenSubType::Text(Rc::new("foo".to_string())), 71, 61, 51),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::StringType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Text, TokenSubType::Text(Rc::new("foo".to_string())), 71, 61, 51),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -3323,32 +3323,32 @@ mod tests {
         */
 
          let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::VarType, TokenSubType::VoidType, 0, 0, 0),
+             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+             Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+             Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("bar".to_string())), 5, 6, 7),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
+             Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
                 ]);
 
         let node = parser.parse();
@@ -3919,35 +3919,35 @@ mod tests {
 
         */
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aaaaa".to_string())), 5, 6, 6),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("bbb".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(14), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(14), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0)
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0)
             ]);
 
         let node = parser.parse();
@@ -4004,36 +4004,36 @@ mod tests {
             }
         */
         let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("aaaaa".to_string())), 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 6, 7, 8),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(16), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 6, 7, 8),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(16), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+            Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("bbb".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(14), 0, 0, 0),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Number, TokenSubType::IntegerNumber(14), 0, 0, 0),
+            Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0)
+            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0)
             ]);
 
         let node = parser.parse();
@@ -4105,7 +4105,7 @@ mod tests {
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
             Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 9, 8, 7),
@@ -4146,29 +4146,29 @@ mod tests {
     #[test]
     fn missing_operator_in_arithmetic_operation_is_reported() {
                 let (mut parser, reporter) = create_parser(vec![
-                Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+                    Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-                Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+                    Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-                Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(
+                    Token::new(TokenType::Let, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(
                     TokenType::Identifier,
                     TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-                Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-                Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
-                Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 8, 7, 6),
-                Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+                    Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
+                    Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 8, 7, 6),
+                    Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
 
 
-                Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+                    Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
             ]);
 
         let node = parser.parse();
@@ -4371,9 +4371,9 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("d".to_string())), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::Greater, 1, 2, 3),
+            Token::new(TokenType::DoubleEquals, TokenSubType::Greater, 1, 2, 3),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::Equals, 11, 22, 33),
+            Token::new(TokenType::DoubleEquals, TokenSubType::Equals, 11, 22, 33),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("e".to_string())), 0, 0, 0),
@@ -4452,27 +4452,27 @@ mod tests {
     #[test]
     fn boolean_not_is_parsed_correctly() {
        let (mut parser, reporter) = create_parser(vec![
-            // fn foo() : int {
+           // fn foo() : int {
             Token::new(TokenType::Fn, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(
+           Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("foo".to_string())), 0, 0, 0),
-            Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
-            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::RParen, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
+           Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-            // if !a { }
+           // if !a { }
             Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Not, TokenSubType::NoSubType, 8, 9, 10),
-            Token::new(
+           Token::new(TokenType::Exclamation, TokenSubType::NoSubType, 8, 9, 10),
+           Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
+           Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
 
-            // }
+           // }
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
 
@@ -4527,8 +4527,8 @@ mod tests {
 
             // if !!a { }
             Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Not, TokenSubType::NoSubType, 8, 9, 10),
-            Token::new(TokenType::Not, TokenSubType::NoSubType, 9, 10, 11),
+            Token::new(TokenType::Exclamation, TokenSubType::NoSubType, 8, 9, 10),
+            Token::new(TokenType::Exclamation, TokenSubType::NoSubType, 9, 10, 11),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
@@ -4595,11 +4595,11 @@ mod tests {
             Token::new(TokenType::If, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 0, 0, 0),
             Token::new(TokenType::Plus, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Not, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Exclamation, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::LParen, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
             Token::new(TokenType::DoublePipe, TokenSubType::NoSubType, 0, 0, 0),
@@ -4691,13 +4691,13 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::Greater, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::Greater, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::Equals, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::Equals, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::LessOrEq, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -4778,13 +4778,13 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::Greater, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::Greater, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::NotEquals, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::NotEquals, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 0, 0, 0),
-            Token::new(TokenType::Comparison, TokenSubType::LessOrEq, 0, 0, 0),
+            Token::new(TokenType::DoubleEquals, TokenSubType::LessOrEq, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(8), 0, 0, 0),
             Token::new(TokenType::LBrace, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -4869,7 +4869,7 @@ mod tests {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 5, 15, 4),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 1, 2, 3),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -4937,7 +4937,7 @@ mod tests {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(6), 5, 15, 4),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 1, 2, 3),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -5011,7 +5011,7 @@ mod tests {
             Token::new(TokenType::Number, TokenSubType::FloatNumber(32.2), 5, 15, 4),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -5073,10 +5073,10 @@ mod tests {
             Token::new(TokenType::Colon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::VarType, TokenSubType::IntegerType, 0, 0, 0),
             Token::new(TokenType::LBracket, TokenSubType::NoSubType, 0, 0, 0),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 15, 4),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 5, 15, 4),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(4), 0, 0, 0),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -5141,9 +5141,9 @@ mod tests {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 5, 3, 9),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 1, 2, 4),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -5239,9 +5239,9 @@ mod tests {
             Token::new(TokenType::Minus, TokenSubType::NoSubType, 9, 13, 12),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 2, 1, 40),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 5, 3, 9),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(3), 1, 2, 4),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
@@ -5288,9 +5288,9 @@ mod tests {
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 5, 15, 6),
             Token::new(TokenType::RBracket, TokenSubType::NoSubType, 0, 0, 0),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(TokenType::Number, TokenSubType::IntegerNumber(2), 1, 2, 3),
-            Token::new(TokenType::Multiply, TokenSubType::NoSubType, 5, 3, 9),
+            Token::new(TokenType::Star, TokenSubType::NoSubType, 5, 3, 9),
             Token::new(TokenType::SemiColon, TokenSubType::NoSubType, 4, 30, 1),
             Token::new(TokenType::RBrace, TokenSubType::NoSubType, 0, 0, 0),
         ]);
@@ -5331,7 +5331,7 @@ mod tests {
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
@@ -5409,7 +5409,7 @@ mod tests {
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
@@ -5489,7 +5489,7 @@ mod tests {
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 8, 12, 2),
 
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 0, 0, 0),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 0, 0, 0),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 18, 4, 2),
@@ -5536,7 +5536,7 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 5, 1, 2),
 
             Token::new(
                 TokenType::Identifier,
@@ -5618,7 +5618,7 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 5, 1, 2),
 
             Token::new(
                 TokenType::Identifier,
@@ -5717,7 +5717,7 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 5, 1, 2),
 
             Token::new(
                 TokenType::Identifier,
@@ -5800,14 +5800,14 @@ mod tests {
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("c".to_string())), 8, 12, 2),
-            Token::new(TokenType::Assign, TokenSubType::NoSubType, 5, 1, 2),
+            Token::new(TokenType::Equals, TokenSubType::NoSubType, 5, 1, 2),
 
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("a".to_string())), 8, 12, 2),
 
             Token::new(TokenType::Dot, TokenSubType::NoSubType, 1, 6, 31),
-            Token::new(TokenType::Not, TokenSubType::NoSubType, 1, 3, 9),
+            Token::new(TokenType::Exclamation, TokenSubType::NoSubType, 1, 3, 9),
             Token::new(
                 TokenType::Identifier,
                 TokenSubType::Identifier(Rc::new("b".to_string())), 18, 4, 2),

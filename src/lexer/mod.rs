@@ -90,8 +90,8 @@ impl ReadLexer {
       match ch {
               '-' => self.create_token(TokenType::Minus, TokenSubType::NoSubType),
           '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
-          '*' => self.create_token(TokenType::Multiply, TokenSubType::NoSubType),
-          '/' => self.create_token(TokenType::Divide, TokenSubType::NoSubType),
+          '*' => self.create_token(TokenType::Star, TokenSubType::NoSubType),
+          '/' => self.create_token(TokenType::ForwardSlash, TokenSubType::NoSubType),
           '%' => self.create_token(TokenType::Percentage, TokenSubType::NoSubType),
           '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
           ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
@@ -106,21 +106,21 @@ impl ReadLexer {
           '^' => self.create_token(TokenType::Caret, TokenSubType::NoSubType),
           '~' => self.create_token(TokenType::Tilde, TokenSubType::NoSubType),
           '=' => self.multi_char_operator_helper(
-        '=',
-        (TokenType::Comparison, TokenSubType::Equals),
-        (TokenType::Assign, TokenSubType::NoSubType)),
+              '=',
+              (TokenType::DoubleEquals, TokenSubType::Equals),
+              (TokenType::Equals, TokenSubType::NoSubType)),
           '>' => self.multi_char_operator_helper(
-        '=',
-        (TokenType::Comparison, TokenSubType::GreaterOrEq),
-        (TokenType::Comparison, TokenSubType::Greater)),
+              '=',
+              (TokenType::DoubleEquals, TokenSubType::GreaterOrEq),
+              (TokenType::DoubleEquals, TokenSubType::Greater)),
           '<' => self.multi_char_operator_helper(
-        '=',
-        (TokenType::Comparison, TokenSubType::LessOrEq),
-        (TokenType::Comparison, TokenSubType::Less)),
+              '=',
+              (TokenType::DoubleEquals, TokenSubType::LessOrEq),
+              (TokenType::DoubleEquals, TokenSubType::Less)),
           '!' => self.multi_char_operator_helper(
-        '=',
-        (TokenType::Comparison, TokenSubType::NotEquals),
-        (TokenType::Not, TokenSubType::NoSubType)),
+              '=',
+              (TokenType::DoubleEquals, TokenSubType::NotEquals),
+              (TokenType::Exclamation, TokenSubType::NoSubType)),
           '&' => self.multi_char_operator_helper(
               '&',
               (TokenType::DoubleAmpersand, TokenSubType::NoSubType),
@@ -961,42 +961,42 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::Less);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::LessOrEq);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::Equals);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::GreaterOrEq);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::Greater);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Not,
+            TokenType::Exclamation,
             TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
+            TokenType::DoubleEquals,
             TokenSubType::NotEquals);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Assign,
+            TokenType::Equals,
             TokenSubType::NoSubType);
 
         assert_eq_token!(
@@ -1011,12 +1011,12 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Multiply,
+            TokenType::Star,
             TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Divide,
+            TokenType::ForwardSlash,
             TokenSubType::NoSubType);
 
         assert_eq_token!(
