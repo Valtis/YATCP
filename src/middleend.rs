@@ -10,6 +10,8 @@ use crate::error_reporter::ErrorReporter;
 
 use crate::optimizer::optimize;
 
+use took::Timer;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -19,11 +21,21 @@ pub fn run_middleend(
     run_optimizer: bool,
     print_tac: bool,
     print_cfg: bool,
+    print_timings: bool,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> Option<Vec<Function>> {
 
-    let mut cfg = generate_cfg(&mut functions);
 
+    let timer = Timer::new();
+    let mut cfg = generate_cfg(&mut functions);
+    if print_timings {
+        println!("CFG generation took {}", timer.took());
+    }
+
+    let timer = Timer::new();
     let mut functions = check_cfg(functions, &mut cfg, error_reporter.clone());
+    if print_timings {
+        println!("CFG analysis took {}", timer.took());
+    }
 
     if error_reporter.borrow().has_reports() {
         error_reporter.borrow().print_errors();
@@ -39,6 +51,7 @@ pub fn run_middleend(
     }
 
     if run_optimizer {
+        let timer = Timer::new();
         convert_to_ssa(&mut functions, &mut cfg);
         optimize(&mut functions, &mut cfg);
         destroy_ssa(&mut functions, &mut cfg);
@@ -56,6 +69,8 @@ pub fn run_middleend(
                 f.print();
             }
         }
+
+        println!("Optimization passes took {}", timer.took());
     }
     Some(functions)
 }

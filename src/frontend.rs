@@ -11,23 +11,36 @@ use std::io::Write;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use took::Timer;
 
 pub fn run_frontend(
     file_name: String,
     print_token: bool,
     print_ast: bool,
     print_tac: bool,
+    print_timings: bool,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     ) -> Option<Vec<Function>> {
 
+    let timer = Timer::new();
     let mut node = parse_code(&file_name,error_reporter.clone(), print_token);
+    if print_timings {
+        println!("Parsing took {}", timer.took())
+    }
 
     if print_ast {
         node.print();
         println!();
     }
 
+    let timer = Timer::new();
+
     let current_id = check_semantics(&mut node, error_reporter.clone());
+
+    if print_timings {
+        println!("Semantic check phase took {}", timer.took());
+    }
+
 
     let mut reporter = error_reporter.borrow_mut();
     if reporter.has_reports() {
@@ -49,7 +62,14 @@ pub fn run_frontend(
         reporter.clear_reports();
     }
 
-    generate_three_address_code(&mut node, current_id, print_tac)
+    let timer = Timer::new();
+    let code = generate_three_address_code(&mut node, current_id, print_tac);
+
+    if print_timings {
+        println!("Three-address code generation took {}", timer.took());
+    }
+
+    code
 }
 
 

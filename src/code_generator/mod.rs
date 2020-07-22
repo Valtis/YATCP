@@ -4,6 +4,8 @@ mod stack_allocator;
 use crate::byte_generator;
 use crate::function_attributes::FunctionAttribute;
 
+use took::Timer;
+
 pub struct CodeGenerator {
     bytecode_functions: Vec<byte_generator::Function>
 }
@@ -35,9 +37,14 @@ impl CodeGenerator {
         }
     }
 
-    pub fn generate_code(self, print_bytecode: bool, print_stack_map: bool) -> Code {
+    pub fn generate_code(self, print_bytecode: bool, print_stack_map: bool, print_timings: bool) -> Code {
+
         // TODO - remove hard coded architecture
+        let timer = Timer::new();
         let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions, print_stack_map);
+        if print_timings {
+            println!("Bytecode register allocation took {}", timer.took());
+        }
 
         if print_bytecode {
             for (f, _) in bytecode_with_allocations.iter() {
@@ -45,7 +52,12 @@ impl CodeGenerator {
             }
         }
 
-        x64::generate_code(bytecode_with_allocations)
+        let timer = Timer::new();
+        let code = x64::generate_code(bytecode_with_allocations);
+        if print_timings {
+            println!("Machine code generation took {}", timer.took());
+        }
+        code
     }
 }
 

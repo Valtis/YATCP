@@ -8,6 +8,8 @@ use compiler::error_reporter::file_reporter::FileErrorReporter;
 
 use argparse::{ArgumentParser, StoreTrue, Store, StoreFalse};
 
+use took::Timer;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -26,6 +28,7 @@ fn main() {
     let mut print_bytecode_after_register_alloc = false;
     let mut print_stack_map = false;
     let mut generate_code = true;
+    let mut print_timings = false;
 
     {
         let mut argparse = ArgumentParser::new();
@@ -60,6 +63,9 @@ fn main() {
         argparse.refer(&mut print_stack_map)
             .add_option(&["--print-stack-map"], StoreTrue, "Print out the stack layout for functions");
 
+        argparse.refer(&mut print_timings)
+            .add_option(&["--print-timings"], StoreTrue, "Print out how much time each component spent");
+
         argparse.refer(&mut generate_code)
             .add_option(&["--no-code-generation"], StoreFalse, "Skip code generation phase");
         argparse.parse_args_or_exit();
@@ -71,18 +77,24 @@ fn main() {
     }
 
     let error_reporter = Rc::new(RefCell::new(FileErrorReporter::new(&input)));
-    let opt_functions = run_frontend(input, print_token, print_ast, print_tac, error_reporter.clone());
+
+    let timer = Timer::new();
+    let opt_functions = run_frontend(input, print_token, print_ast, print_tac, print_timings, error_reporter.clone());
 
     if let Some(functions) = opt_functions {
-        if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, error_reporter.clone()) {
+        if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, print_timings, error_reporter.clone()) {
             if generate_code {
-                run_backend(output, functions, print_bytecode, print_bytecode_after_register_alloc, print_stack_map);
+                run_backend(output, functions, print_bytecode, print_bytecode_after_register_alloc, print_stack_map, print_timings);
             }
         } else {
             std::process::exit(1);
         }
     } else {
         std::process::exit(1);
+    }
+
+    if print_timings {
+        println!("===============================================\nCompilation took {}", timer.took());
     }
 }
 
