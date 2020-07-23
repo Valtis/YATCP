@@ -212,39 +212,35 @@ impl SemanticsCheck {
                 self.handle_arithmetic_operation_with_operator_type_check(node),
             AstNode::Negate{ expression, arithmetic_info } =>
                 self.handle_negation(expression, arithmetic_info),
-            AstNode::Return(ref mut child, ref mut ai) =>
-                self.handle_return(child, ai),
-            AstNode::While(ref mut expr, ref mut child, ref span) =>
-                self.handle_while(expr, child, span),
-            AstNode::If(
-                ref mut expr,
-                ref mut block,
-                ref mut opt_else_blk,
-                ref span) =>
-                self.handle_if(expr, block, opt_else_blk, span),
-            AstNode::Less(left, right, span) |
-            AstNode::LessOrEq(left, right, span) |
-            AstNode::Equals(left, right, span) |
-            AstNode::NotEquals(left, right, span) |
-            AstNode::GreaterOrEq(left, right, span) |
-            AstNode::Greater(left, right, span) =>
-                self.handle_comparison_operation(left, right, span),
+            AstNode::Return{ return_value, arithmetic_info } =>
+                self.handle_return(return_value, arithmetic_info),
+            AstNode::While{ condition_expression, block, span} =>
+                self.handle_while(condition_expression, block, span),
+            AstNode::If{ condition_expression, main_block, else_block, span } =>
+                self.handle_if(condition_expression, main_block, else_block, span),
+            AstNode::Less{ left_expression, right_expression, span} |
+            AstNode::LessOrEq{ left_expression, right_expression, span} |
+            AstNode::Equals{ left_expression, right_expression, span} |
+            AstNode::NotEquals{ left_expression, right_expression, span} |
+            AstNode::GreaterOrEq{ left_expression, right_expression, span} |
+            AstNode::Greater{ left_expression, right_expression, span} =>
+                self.handle_comparison_operation(left_expression, right_expression, span),
             AstNode::BooleanAnd{ left_expression, right_expression, span} |
             AstNode::BooleanOr{left_expression, right_expression, span} =>
                 self.check_boolean_and_or(left_expression, right_expression, span),
             AstNode::BooleanNot{expression, span} =>
                 self.check_boolean_not(expression, span),
-            AstNode::Integer(value, info) => self.check_for_overflow(value, info),
-            AstNode::Float(_, _) => {},
-            AstNode::Double(_, _) => {},
-            AstNode::Text(_, _) => {},
-            AstNode::Identifier(ref name, ref info) => {
-                self.check_identifier_is_declared(name, info);
+            AstNode::Integer{ value, span } => self.check_for_overflow(value, span),
+            AstNode::Float{ .. } => (),
+            AstNode::Double{ .. }  => (),
+            AstNode::Text{ .. } => (),
+            AstNode::Boolean{ .. } => (),
+            AstNode::Identifier{ name, span } => {
+                self.check_identifier_is_declared(name,  span);
             }
             AstNode::ArrayAccess{ index_expression, indexable_expression } => {
                  self.handle_array_access(index_expression, indexable_expression);
             },
-            AstNode::Boolean(_, _) => {},
             AstNode::ErrorNode => {},
         }
     }
@@ -749,14 +745,14 @@ impl SemanticsCheck {
     ) {
         self.do_check(object);
 
-        let name = if let AstNode::Identifier(ref name, _) = member {
+        let name = if let AstNode::Identifier{ref name, ..} = member {
             name.clone()
         } else {
             ice!("Unexpected AST node '{:?}' for property", member)
         };
 
         match member {
-            AstNode::Identifier(ref name, _) if self.get_type(object).is_array() => {
+            AstNode::Identifier{ref name, ..} if self.get_type(object).is_array() => {
                 if **name != ARRAY_LENGTH_PROPERTY {
                     self.report_error(
                         ReportKind::TypeError,
@@ -907,14 +903,12 @@ impl SemanticsCheck {
             AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
             AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
-                if let AstNode::Integer(ref value, _) = **right_expression {
-                   if let AstInteger::Int(0) = value  {
+                if let AstNode::Integer{value: AstInteger::Int(0), ..} = **right_expression {
                        self.report_error(
                            ReportKind::Warning,
                            arithmetic_info.span.clone(),
                            "Division by zero".to_owned(),
                        )
-                   }
                 };
 
                 (vec![
@@ -928,14 +922,12 @@ impl SemanticsCheck {
 
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
-                if let AstNode::Integer(ref value, _) = **right_expression {
-                    if let AstInteger::Int(0) = value  {
+                if let AstNode::Integer{ value: AstInteger::Int(0), .. } = **right_expression {
                         self.report_error(
                             ReportKind::Warning,
                             arithmetic_info.span.clone(),
                             "Division by zero".to_owned(),
                         )
-                    }
                 };
                 (vec![
                     Type::Integer,
@@ -1134,23 +1126,24 @@ impl SemanticsCheck {
 
     fn get_type(&self, node: &AstNode) -> Type {
         match node {
-            AstNode::Integer(_, _) => Type::Integer,
-            AstNode::Float(_, _) => Type::Float,
-            AstNode::Double(_, _) => Type::Double,
-            AstNode::Boolean(_, _) => Type::Boolean,
-            AstNode::Less(_, _, _) |
-            AstNode::LessOrEq(_, _, _) |
-            AstNode::Equals(_, _, _) |
-            AstNode::NotEquals(_, _, _) |
-            AstNode::GreaterOrEq(_, _, _) |
-            AstNode::Greater(_, _, _) => Type::Boolean,
+            AstNode::Integer{ .. } => Type::Integer,
+            AstNode::Float{ .. } => Type::Float,
+            AstNode::Double{ .. } => Type::Double,
+            AstNode::Boolean{ .. } => Type::Boolean,
+            AstNode::Text{ .. } => Type::String,
+            AstNode::Less{ .. } |
+            AstNode::LessOrEq{ .. } |
+            AstNode::Equals{ .. } |
+            AstNode::NotEquals{ .. } |
+            AstNode::GreaterOrEq{ .. } |
+            AstNode::Greater{ .. } => Type::Boolean,
             AstNode::Plus{ arithmetic_info, .. } |
             AstNode::Minus{  arithmetic_info, .. } |
             AstNode::Multiply{  arithmetic_info, .. } |
             AstNode::Divide{  arithmetic_info, .. } |
             AstNode::Modulo{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
             AstNode::Negate{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
-            AstNode::Identifier(name, _) => {
+            AstNode::Identifier{ name, ..} => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
                     info.variable_type.clone()
                 } else {
@@ -1167,13 +1160,12 @@ impl SemanticsCheck {
             AstNode::BooleanAnd { .. } |
             AstNode::BooleanOr { .. } |
             AstNode::BooleanNot { .. } => Type::Boolean,
-            AstNode::Text(_, _) => Type::String,
             AstNode::ArrayAccess {
                 index_expression: _,
                 ref indexable_expression,
             } => {
                 match **indexable_expression {
-                    AstNode::Identifier(ref name, _) => {
+                    AstNode::Identifier{ref name, ..} => {
                         if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
                             if info.variable_type.is_array() {
                                 info.variable_type.get_array_basic_type()
@@ -1190,7 +1182,7 @@ impl SemanticsCheck {
             },
             AstNode::MemberAccess{ object, member, span: _ } => {
                 if self.get_type(object).is_array() {
-                    if let AstNode::Identifier(ref name, _) = **member {
+                    if let AstNode::Identifier{ref name, ..} = **member {
                         if **name == ARRAY_LENGTH_PROPERTY {
                             return Type::Integer;
                         }

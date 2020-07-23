@@ -52,7 +52,7 @@ fn main() {
             .add_option(&["--print-tac"], StoreTrue, "Print out the three address code representation");
 
         argparse.refer(&mut print_cfg)
-            .add_option(&["--print-cfg"], StoreTrue, "Print out the function control flow graphs. Requires -O");
+            .add_option(&["--print-cfg"], StoreTrue, "Print out the function control flow graphs.");
 
         argparse.refer(&mut print_bytecode)
             .add_option(&["--print-bytecode"], StoreTrue, "Print out the byte code representation before register allocation");

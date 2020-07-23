@@ -89,26 +89,26 @@ pub enum AstNode {
     BooleanOr{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     BooleanNot{ expression: Box<AstNode>, span: Span },
 
-    Return(Option<Box<AstNode>>, ArithmeticInfo),
+    Return{ return_value: Option<Box<AstNode>>, arithmetic_info: ArithmeticInfo },
 
-    While(Box<AstNode>, Box<AstNode>, Span),
-    If(Box<AstNode>, Box<AstNode>, Option<Box<AstNode>>, Span),
+    While{ condition_expression: Box<AstNode>, block: Box<AstNode>, span: Span },
+    If { condition_expression: Box<AstNode>, main_block: Box<AstNode>, else_block: Option<Box<AstNode>>, span: Span },
 
-    Less(Box<AstNode>, Box<AstNode>, Span),
-    LessOrEq(Box<AstNode>, Box<AstNode>, Span),
-    Equals(Box<AstNode>, Box<AstNode>, Span),
-    NotEquals(Box<AstNode>, Box<AstNode>, Span),
-    GreaterOrEq(Box<AstNode>, Box<AstNode>, Span),
-    Greater(Box<AstNode>, Box<AstNode>, Span),
+    Less { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span } ,
+    LessOrEq { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span} ,
+    Equals { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+    NotEquals { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+    GreaterOrEq{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+    Greater { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
-    Integer(AstInteger, Span),
-    Float(f32, Span),
-    Double(f64, Span),
-    Text(Rc<String>, Span),
-    Boolean(bool, Span),
-    Identifier(Rc<String>, Span),
-    ArrayAccess{index_expression: Box<AstNode>, indexable_expression: Box<AstNode>},
+    Integer{ value: AstInteger, span: Span },
+    Float { value: f32, span: Span },
+    Double{ value: f64, span: Span },
+    Text { value: Rc<String>, span: Span } ,
+    Boolean { value: bool, span: Span},
+    Identifier{ name: Rc<String>, span: Span },
+    ArrayAccess{ index_expression: Box<AstNode>, indexable_expression: Box<AstNode> },
 
     ErrorNode,
 }
@@ -174,13 +174,13 @@ impl Display for AstNode {
                 span: _
             } => format!("Array assignment '{}'", name),
             AstNode::MemberAccess { .. } => format!("Member access"),
-            AstNode::Integer(val, _) => format!("Integer: {}", val),
-            AstNode::Float(val, _) => format!("Float: {}", val),
-            AstNode::Double(val, _) => format!("Double: {}", val),
-            AstNode::Text(ref text, _) => format!("Text: {}", text),
-            AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
+            AstNode::Integer{ value, .. } => format!("Integer: {}", value),
+            AstNode::Float{value , .. } => format!("Float: {}", value),
+            AstNode::Double{ value, .. } => format!("Double: {}", value),
+            AstNode::Boolean{value, .. } => format!("Boolean: {}", value),
+            AstNode::Text{ value, .. } => format!("Text: {}", value ),
+            AstNode::Identifier{ name, .. } => format!("Identifier: {}", name),
             AstNode::ArrayAccess{ .. }=> format!("Array access"),
-            AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
             AstNode::Plus{ .. } => "Plus".to_string(),
             AstNode::Minus{ .. } => "Minus".to_string(),
             AstNode::Multiply {.. } => "Multiply".to_string(),
@@ -189,15 +189,15 @@ impl Display for AstNode {
             AstNode::BooleanAnd { .. } => "And".to_string(),
             AstNode::BooleanOr { .. } => "Or".to_string(),
             AstNode::Negate { .. }  => "Negate".to_string(),
-            AstNode::Return(_, _) => "Return".to_string(),
-            AstNode::While(_, _, _) => "While".to_string(),
-            AstNode::If(_, _, _, _) => "If".to_string(),
-            AstNode::Less(_, _, _) => "Less".to_string(),
-            AstNode::LessOrEq(_, _, _) => "LessOrEq".to_string(),
-            AstNode::Equals(_, _, _) => "Equals".to_string(),
-            AstNode::NotEquals(_, _, _) => "NotEquals".to_string(),
-            AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
-            AstNode::Greater(_, _, _) => "Greater".to_string(),
+            AstNode::Return{ .. } => "Return".to_string(),
+            AstNode::While { .. }=> "While".to_string(),
+            AstNode::If { .. }=> "If".to_string(),
+            AstNode::Less { .. }=> "Less".to_string(),
+            AstNode::LessOrEq { .. } => "LessOrEq".to_string(),
+            AstNode::Equals { ..}  => "Equals".to_string(),
+            AstNode::NotEquals { ..} => "NotEquals".to_string(),
+            AstNode::GreaterOrEq { .. } => "GreaterOrEq".to_string(),
+            AstNode::Greater { .. } => "Greater".to_string(),
             AstNode::BooleanNot{ .. } => "Not".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
       })
@@ -256,16 +256,16 @@ impl AstNode {
                 string = format!("{}{}", string, member_access.print_impl(next_int));
                 string = format!("{}{}", string, member.print_impl(next_int));
             }
-            AstNode::Integer(_, _) |
-            AstNode::Float(_, _) |
-            AstNode::Double(_, _) => {},
-            AstNode::Text(_, _) => {},
-            AstNode::Identifier(_, _) => {},
+            AstNode::Integer{ .. } |
+            AstNode::Float{ .. }  |
+            AstNode::Double{ .. }  => {},
+            AstNode::Text{ .. } => {},
+            AstNode::Boolean{ .. }  => {},
+            AstNode::Identifier{ .. }  => (), // no child elements
             AstNode::ArrayAccess{ref index_expression,  ref indexable_expression} => {
                 string = format!("{}{}", string, indexable_expression.print_impl(next_int));
                 string = format!("{}{}", string, index_expression.print_impl(next_int));
             },
-            AstNode::Boolean(_, _) => {},
             AstNode::BooleanAnd{ ref left_expression, ref right_expression, .. } |
             AstNode::BooleanOr{ ref left_expression, ref right_expression, .. } |
             AstNode::Plus{ ref left_expression, ref right_expression, .. } |
@@ -279,30 +279,30 @@ impl AstNode {
             AstNode::Negate{ref expression, .. } => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
-            AstNode::Return(ref opt_child, _) => {
-                if let Some(ref child) = *opt_child {
+            AstNode::Return{ ref return_value, .. } => {
+                if let Some(ref child) = *return_value {
                     string = format!("{}{}", string, child.print_impl(next_int))
                 }
             },
-            AstNode::While(ref expr, ref child, _) => {
-                string = format!("{}{}", string, expr.print_impl(next_int));
-                string = format!("{}{}", string, child.print_impl(next_int));
+            AstNode::While{ ref condition_expression, ref block, .. } => {
+                string = format!("{}{}", string, condition_expression.print_impl(next_int));
+                string = format!("{}{}", string, block.print_impl(next_int));
             },
-            AstNode::If(ref expr, ref child, ref opt_else_blk, _) => {
-                string = format!("{}{}", string, expr.print_impl(next_int));
-                string = format!("{}{}", string, child.print_impl(next_int));
-                if let Some(ref else_blk) = *opt_else_blk {
+            AstNode::If{ ref condition_expression, ref main_block, ref else_block, .. } => {
+                string = format!("{}{}", string, condition_expression.print_impl(next_int));
+                string = format!("{}{}", string, main_block.print_impl(next_int));
+                if let Some(ref else_blk) = *else_block {
                     string = format!("{}{}", string, else_blk.print_impl(next_int));
                 }
             },
-            AstNode::Less(ref left, ref right, _) |
-            AstNode::LessOrEq(ref left, ref right, _) |
-            AstNode::Equals(ref left, ref right, _) |
-            AstNode::NotEquals(ref left, ref right, _) |
-            AstNode::GreaterOrEq(ref left, ref right, _) |
-            AstNode::Greater(ref left, ref right, _) => {
-                string = format!("{}{}", string, left.print_impl(next_int));
-                string = format!("{}{}", string, right.print_impl(next_int));
+            AstNode::Less{ ref left_expression, ref right_expression, .. } |
+            AstNode::LessOrEq{ ref left_expression, ref right_expression, .. } |
+            AstNode::Equals{ ref left_expression, ref right_expression, .. } |
+            AstNode::NotEquals{ ref left_expression, ref right_expression, .. } |
+            AstNode::GreaterOrEq{ ref left_expression, ref right_expression, .. } |
+            AstNode::Greater{ ref left_expression, ref right_expression, .. } => {
+                string = format!("{}{}", string, left_expression.print_impl(next_int));
+                string = format!("{}{}", string, right_expression.print_impl(next_int));
             }
             AstNode::BooleanNot{ ref expression, .. } => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
@@ -332,22 +332,22 @@ impl AstNode {
             AstNode::Divide { arithmetic_info, .. } |
             AstNode::Modulo { arithmetic_info, .. } => arithmetic_info.span,
             AstNode::Negate{ arithmetic_info, ..} => arithmetic_info.span,
-            AstNode::Return(_, info) => info.span,
-            AstNode::While(_, _, span) => *span,
-            AstNode::If(_, _, _, span) => *span,
-            AstNode::Less(_, _, span) |
-            AstNode::LessOrEq(_, _, span) |
-            AstNode::Equals(_, _, span) |
-            AstNode::NotEquals(_, _, span) |
-            AstNode::GreaterOrEq(_, _, span) |
-            AstNode::Greater(_, _, span) => *span,
-            AstNode::Integer(_, span) => *span,
-            AstNode::Float(_, span) => *span,
-            AstNode::Double(_, span) => *span,
-            AstNode::Text(_, span) => *span,
-            AstNode::Identifier(_, span) => *span,
+            AstNode::Return{ arithmetic_info, ..} => arithmetic_info.span,
+            AstNode::While{ span, .. } => *span,
+            AstNode::If{ span, .. } => *span,
+            AstNode::Less { span, .. } |
+            AstNode::LessOrEq { span, .. } |
+            AstNode::Equals { span, .. } |
+            AstNode::NotEquals { span, .. } |
+            AstNode::GreaterOrEq { span, .. } |
+            AstNode::Greater { span, .. } => *span,
+            AstNode::Integer{ span, .. } => *span,
+            AstNode::Float{ span, .. } => *span,
+            AstNode::Double{  span, .. } => *span,
+            AstNode::Boolean{ span, .. } => *span,
+            AstNode::Text{ span, .. } => *span,
+            AstNode::Identifier{ span, ..} => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
-            AstNode::Boolean(_, span) => *span,
             AstNode::BooleanNot{ span, .. } => *span,
             AstNode::ErrorNode => empty,
         };

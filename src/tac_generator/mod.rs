@@ -275,21 +275,21 @@ impl TACGenerator {
             AstNode::Divide { .. } |
             AstNode::Modulo { .. } =>
                 self.handle_arithmetic_node(node),
-            AstNode::Integer(_, _) |
-            AstNode::Boolean(_, _) => self.handle_constant(node),
-            AstNode::Identifier(ref name, _) =>
+            AstNode::Integer{ .. } |
+            AstNode::Boolean{ .. } => self.handle_constant(node),
+            AstNode::Identifier { name, ..} =>
                 self.handle_identifier(name),
-            AstNode::Return(ref child, _) => self.handle_return(child),
-            AstNode::While(ref expr, ref block, _) =>
-                self.handle_while(expr, block),
-            AstNode::If(ref expr, ref if_blk, ref opt_else_blk, _) =>
-                self.handle_if(expr, if_blk, opt_else_blk),
-            AstNode::Less(_, _, _) |
-            AstNode::LessOrEq(_, _, _) |
-            AstNode::Equals(_, _, _) |
-            AstNode::NotEquals(_, _, _) |
-            AstNode::GreaterOrEq(_, _, _) |
-            AstNode::Greater(_, _, _) =>
+            AstNode::Return { return_value, .. } => self.handle_return(return_value),
+            AstNode::While{condition_expression, block, ..} =>
+                self.handle_while(condition_expression, block),
+            AstNode::If { condition_expression, main_block, else_block, ..} =>
+                self.handle_if(condition_expression, main_block, else_block),
+            AstNode::Less{ .. } |
+            AstNode::LessOrEq{ .. } |
+            AstNode::Equals{ .. } |
+            AstNode::NotEquals{ .. } |
+            AstNode::GreaterOrEq{ .. } |
+            AstNode::Greater{ .. } =>
                 self.handle_comparison(node),
             AstNode::Negate{ expression, arithmetic_info } => self.handle_negate(expression, arithmetic_info),
             AstNode::BooleanAnd{ left_expression, right_expression, span} => {
@@ -619,7 +619,7 @@ impl TACGenerator {
         let index = self.get_operand(index_expression);
 
         let (array_type, name) = match indexable_expression {
-            AstNode::Identifier(ref name, _) => {
+            AstNode::Identifier{ name, ..} => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
                     if info.variable_type.is_array() {
                         (info.variable_type.get_array_basic_type(), name.clone())
@@ -683,11 +683,11 @@ impl TACGenerator {
         object: &AstNode,
         member: &AstNode) {
 
-        if let AstNode::Identifier(name, _) = object {
+        if let AstNode::Identifier{name, ..} = object {
             let (var_info, id) = self.get_variable_info_and_id(name);
             ice_if!(!var_info.variable_type.is_array(), "Access not implemented for non-arrays");
 
-            if let AstNode::Identifier(name, _) = member {
+            if let AstNode::Identifier{ name, ..} = member {
 
                 ice_if!(**name != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
 
@@ -759,13 +759,13 @@ impl TACGenerator {
 
     fn handle_constant(&mut self, node : &AstNode) {
         let operand = match node {
-            AstNode::Integer(ast_integer, _) => {
-                match ast_integer {
+            AstNode::Integer{ value, ..} => {
+                match value {
                     AstInteger::Int(val) => Operand::Integer(*val),
-                    _ => ice!("Invalid integer type in three-address code generation: {}", ast_integer),
+                    _ => ice!("Invalid integer type in three-address code generation: {}", value),
                 }
             }
-            AstNode::Boolean(val, _) => Operand::Boolean(*val),
+            AstNode::Boolean{ value, ..} => Operand::Boolean(*value),
             _ => ice!("Unexpected node '{:?}' encountered when constant was expected during TAC generation", node),
         };
 
@@ -838,19 +838,19 @@ impl TACGenerator {
         }
     }
     fn handle_comparison(&mut self, node: &AstNode) {
-        let (operator, left, right) = match *node {
-            AstNode::Less(ref left, ref right, _) =>
-                (Operator::Less, left, right),
-            AstNode::LessOrEq(ref left, ref right, _) =>
-                (Operator::LessOrEq, left, right),
-            AstNode::Equals(ref left, ref right, _) =>
-                (Operator::Equals, left, right),
-            AstNode::NotEquals(ref left, ref right, _) =>
-                (Operator::NotEquals, left, right),
-            AstNode::GreaterOrEq(ref left, ref right, _) =>
-                (Operator::GreaterOrEq, left, right),
-            AstNode::Greater(ref left, ref right, _) =>
-                (Operator::Greater, left, right),
+        let (operator, left, right) = match node {
+            AstNode::Less{ left_expression, right_expression, ..} =>
+                (Operator::Less, left_expression, right_expression),
+            AstNode::LessOrEq{ left_expression, right_expression, ..} =>
+                (Operator::LessOrEq, left_expression, right_expression),
+            AstNode::Equals{ left_expression, right_expression, ..} =>
+                (Operator::Equals, left_expression, right_expression),
+            AstNode::NotEquals{ left_expression, right_expression, ..} =>
+                (Operator::NotEquals, left_expression, right_expression),
+            AstNode::GreaterOrEq{ left_expression, right_expression, ..} =>
+                (Operator::GreaterOrEq, left_expression, right_expression),
+            AstNode::Greater{ left_expression, right_expression, ..} =>
+                (Operator::Greater, left_expression, right_expression),
             _ => ice!("Invalid AstNode '{}' passed for comparison handling", node)
         };
 

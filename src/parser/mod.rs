@@ -302,8 +302,8 @@ impl Parser {
         let size = self.parse_expression()?;
         self.expect(TokenType::RBracket)?;
 
-        if let AstNode::Integer(dim, _) = size {
-            Ok(vec![AstInteger::from(dim)])
+        if let AstNode::Integer{ value, ..} = size {
+            Ok(vec![AstInteger::from(value)])
         } else {
             self.report_error(
                 ReportKind::TypeError,
@@ -388,27 +388,27 @@ impl Parser {
 
         let expression_node = match token_type {
             TokenType::Plus => AstNode::Plus {
-                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::Minus=> AstNode::Minus {
-                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::Star => AstNode::Multiply {
-                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::ForwardSlash => AstNode::Divide {
-                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::Percentage=> AstNode::Modulo {
-                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
@@ -486,7 +486,7 @@ impl Parser {
         let get_access = || {
             AstNode::ArrayAccess {
                 index_expression: Box::new(index_expression.clone()),
-                indexable_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                indexable_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)}),
             }
         };
         let assignment_expression  = match op.token_type {
@@ -540,9 +540,9 @@ impl Parser {
         self.expect(TokenType::SemiColon)?;
 
 
-        Ok(AstNode::Return(
-            node,
-            ArithmeticInfo::new(&return_node)))
+        Ok(AstNode::Return{
+            return_value: node,
+            arithmetic_info: ArithmeticInfo::new(&return_node)})
     }
 
     fn parse_while_statement(&mut self) -> Result<AstNode, ()> {
@@ -550,15 +550,11 @@ impl Parser {
         let expr = self.parse_expression()?;
         let block = self.parse_block()?;
 
-        Ok(AstNode::While(
-            Box::new(expr),
-            Box::new(block),
-            Span::new(
-                while_node.line,
-                while_node.column,
-                while_node.length)))
+        Ok(AstNode::While{
+            condition_expression: Box::new(expr),
+            block: Box::new(block),
+            span: Span::from(while_node)})
     }
-
 
     // syntactic sugar around while statement
     //
@@ -632,7 +628,7 @@ impl Parser {
         self.expect(TokenType::SemiColon)?;
 
         let cond_expression =  if self.lexer.peek_token().token_type == TokenType::SemiColon {
-            AstNode::Boolean(true, Span::new(0, 0, 0))
+            AstNode::Boolean{ value: true, span: Span::new(0, 0, 0) }
         } else {
             match self.parse_expression() {
                 Err(_) | Ok(AstNode::ErrorNode) => {
@@ -707,10 +703,10 @@ impl Parser {
         }
 
         statements.push(
-            AstNode::While(
-                Box::new(cond_expression),
-                Box::new(while_block),
-                Span::from(for_node)));
+            AstNode::While{
+                condition_expression: Box::new(cond_expression),
+                block: Box::new(while_block),
+                span: Span::from(for_node)});
 
         let block = AstNode::Block{
             statements: statements,
@@ -735,14 +731,11 @@ impl Parser {
             None
         };
 
-        Ok(AstNode::If(
-            Box::new(expr),
-            Box::new(block),
-            opt_else_blk,
-            Span::new(
-                if_node.line,
-                if_node.column,
-                if_node.length)))
+        Ok(AstNode::If{
+            condition_expression: Box::new(expr),
+            main_block: Box::new(block),
+            else_block: opt_else_blk,
+            span: Span::from(if_node)})
     }
 
     fn parse_else_block(&mut self) -> Result<AstNode, ()> {
@@ -915,8 +908,8 @@ impl Parser {
         let dot = self.expect(TokenType::Dot)?;
         let member = self.expect(TokenType::Identifier)?;
 
-        let name = if let TokenSubType::Identifier(id) = member.token_subtype {
-            id
+        let name = if let TokenSubType::Identifier(ref id) = member.token_subtype {
+            id.clone()
         } else {
             ice!("Invalid token '{:#?'} received when identifier was expected");
         };
@@ -925,7 +918,7 @@ impl Parser {
 
         Ok(AstNode::MemberAccess {
             object: Box::new(expression),
-            member: Box::new(AstNode::Identifier(name, Span::new(member.line, member.column, member.length))),
+            member: Box::new(AstNode::Identifier{ name, span: Span::from(member) }),
             span: Span::new(dot.line, dot.column, dot.length),
         })
     }
@@ -939,13 +932,13 @@ impl Parser {
             TokenType::Minus => {
                 let node = self.parse_factor()?;
                 match node {
-                    AstNode::Integer(AstInteger::Int(val), info) => {
-                        Ok(AstNode::Integer(AstInteger::Int(-val), info.clone()))
+                    AstNode::Integer{ value: AstInteger::Int(val), span } => {
+                        Ok(AstNode::Integer{value: AstInteger::Int(-val), span: span.clone() })
                     },
-                    AstNode::Integer(AstInteger::IntMaxPlusOne, info) => {
-                        Ok(AstNode::Integer(
-                            AstInteger::Int(i32::min_value()),
-                            info.clone()))
+                    AstNode::Integer{ value: AstInteger::IntMaxPlusOne, span } => {
+                        Ok(AstNode::Integer{
+                            value: AstInteger::Int(i32::min_value()),
+                            span: span.clone()})
                     },
                     _ => {
                         Ok(AstNode::Negate{
@@ -961,9 +954,9 @@ impl Parser {
                 } else {
                     match token.token_subtype {
                         TokenSubType::Identifier(ref name) =>
-                            Ok(AstNode::Identifier(
-                                name.clone(),
-                                Span::new(token.line, token.column, token.length))),
+                            Ok(AstNode::Identifier{
+                                name: name.clone(),
+                                span: Span::from(token)}),
                         TokenSubType::ErrorToken =>
                                 Ok(AstNode::ErrorNode),
                         _ => ice!(
@@ -974,16 +967,19 @@ impl Parser {
             TokenType::Number => {
                 match token.token_subtype {
                     TokenSubType::IntegerNumber(i) => {
-                        Ok(AstNode::Integer(AstInteger::from(i), Span::new(
-                            token.line, token.column, token.length)))
+                        Ok(AstNode::Integer{
+                            value: AstInteger::from(i),
+                            span: Span::from(token)})
                     },
                     TokenSubType::DoubleNumber(i) => {
-                        Ok(AstNode::Double(i, Span::new(
-                            token.line, token.column, token.length)))
+                        Ok(AstNode::Double{
+                            value: i,
+                            span: Span::from(token)})
                     },
                     TokenSubType::FloatNumber(i) => {
-                        Ok(AstNode::Float(i, Span::new(
-                            token.line, token.column, token.length)))
+                        Ok(AstNode::Float{
+                            value: i,
+                            span: Span::from(token)})
                     },
                     TokenSubType::ErrorToken => {
                         Ok(AstNode::ErrorNode)
@@ -994,8 +990,9 @@ impl Parser {
             TokenType::Boolean => {
                 match token.token_subtype {
                     TokenSubType::BooleanValue(v) => {
-                        Ok(AstNode::Boolean(v, Span::new(
-                            token.line, token.column, token.length)))
+                        Ok(AstNode::Boolean{
+                            value: v,
+                            span: Span::from(token)})
                     },
                     _ => ice!("Invalid token '{}' passed when boolean value expected", token)
                 }
@@ -1008,10 +1005,9 @@ impl Parser {
             TokenType::Text => {
                 match token.token_subtype {
                     TokenSubType::Text(ref text) =>
-                        Ok(AstNode::Text(
-                            text.clone(),
-                            Span::new(
-                                token.line, token.column, token.length))),
+                        Ok(AstNode::Text{
+                            value: text.clone(),
+                            span: Span::from(token)}),
                     TokenSubType::ErrorToken =>
                         Ok(AstNode::ErrorNode),
                     _ => ice!("Invalid token '{}' passed when text expected", token),
@@ -1038,23 +1034,19 @@ impl Parser {
 
         match next_token.token_subtype {
             TokenSubType::Equals => {
-                let equals_node = AstNode::Equals(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let equals_node = AstNode::Equals {
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(equals_node)
             },
             TokenSubType::NotEquals => {
-                let not_equals_node = AstNode::NotEquals(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let not_equals_node = AstNode::NotEquals{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(not_equals_node)
             },
             _ => ice!("Got token {} when equals/not equals token was expected", next_token),
@@ -1069,43 +1061,35 @@ impl Parser {
 
         match next_token.token_subtype {
             TokenSubType::Less => {
-                let less_node = AstNode::Less(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let less_node = AstNode::Less {
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(less_node)
             },
             TokenSubType::LessOrEq => {
-                let less_or_eq_node = AstNode::LessOrEq(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let less_or_eq_node = AstNode::LessOrEq {
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(less_or_eq_node)
             },
             TokenSubType::GreaterOrEq => {
-                let greater_or_eq_node = AstNode::GreaterOrEq(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let greater_or_eq_node = AstNode::GreaterOrEq {
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(greater_or_eq_node)
             },
             TokenSubType::Greater => {
-                let greater_node = AstNode::Greater(
-                    Box::new(node),
-                    Box::new(n_node),
-                    Span::new(
-                        next_token.line,
-                        next_token.column,
-                        next_token.length));
+                let greater_node = AstNode::Greater {
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    span: Span::from(next_token)
+                };
                 Ok(greater_node)
             },
             _ => ice!("Got token {} when less/less or eq/greater or eq/greater token was expected", next_token),
