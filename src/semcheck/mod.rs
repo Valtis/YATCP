@@ -154,9 +154,9 @@ impl SemanticsCheck {
 
             for statement in statements.iter_mut() {
                 match statement {
-                    AstNode::Function(_, ref fi) |
-                    AstNode::ExternFunction(ref fi) => {
-                        self.check_function_declaration(fi);
+                    AstNode::Function{ ref function_info, ..} |
+                    AstNode::ExternFunction{ ref function_info } => {
+                        self.check_function_declaration(function_info);
 
                     }
                     _ => (), // don't care right now
@@ -166,9 +166,9 @@ impl SemanticsCheck {
             // are reported correctly
             for statement in statements.iter_mut() {
                 match statement {
-                    AstNode::Function(_, ref fi) |
-                    AstNode::ExternFunction(ref fi) =>
-                        self.check_function_parameter_list(fi),
+                    AstNode::Function{ ref function_info, .. }|
+                    AstNode::ExternFunction{ ref function_info}=>
+                        self.check_function_parameter_list(function_info),
                     _ => (),
                 }
             }
@@ -182,17 +182,17 @@ impl SemanticsCheck {
 
     fn do_check(&mut self, node: &mut AstNode) {
         match node {
-            AstNode::Block{ref mut statements, ref mut block_symbol_table_entry, ref span} =>
+            AstNode::Block{ statements, block_symbol_table_entry, span} =>
                 self.handle_block(statements, block_symbol_table_entry, span),
-            AstNode::Function(ref mut child,  ref fi) =>
-                self.handle_function(child, fi),
-            AstNode::ExternFunction(_) => (), // do nothing, handled in the initial function definition pass
-            AstNode::FunctionCall(ref mut args, ref name, ref span) =>
-                self.handle_function_call(args, name, span),
-            AstNode::VariableDeclaration(ref mut child, ref vi) =>
-                self.handle_variable_declaration(child, vi),
-            AstNode::VariableAssignment(ref mut child, ref name, ref span) =>
-                self.handle_variable_assignment(child, name, span),
+            AstNode::Function{block,  function_info } =>
+                self.handle_function(block, function_info),
+            AstNode::ExternFunction{..} => (), // do nothing, handled in the initial function definition pass
+            AstNode::FunctionCall{arguments, function_name, span} =>
+                self.handle_function_call(arguments, function_name, span),
+            AstNode::VariableDeclaration{initialization_expression, declaration_info} =>
+                self.handle_variable_declaration(initialization_expression, declaration_info),
+            AstNode::VariableAssignment{expression, name, span} =>
+                self.handle_variable_assignment(expression, name, span),
             AstNode::ArrayAssignment {
                 index_expression,
                 assignment_expression,
@@ -204,14 +204,14 @@ impl SemanticsCheck {
                 member,
                 span,
             } => self.handle_member_access(object, member, span),
-            AstNode::Plus(_, _, _) |
-            AstNode::Minus(_, _, _) |
-            AstNode::Multiply(_, _, _) |
-            AstNode::Divide(_, _, _) |
-            AstNode::Modulo(_, _, _) =>
+            AstNode::Plus{ .. } |
+            AstNode::Minus { .. } |
+            AstNode::Multiply { .. } |
+            AstNode::Divide { .. } |
+            AstNode::Modulo { .. } =>
                 self.handle_arithmetic_operation_with_operator_type_check(node),
-            AstNode::Negate(ref mut child, ref mut ai) =>
-                self.handle_negation(child, ai),
+            AstNode::Negate{ expression, arithmetic_info } =>
+                self.handle_negation(expression, arithmetic_info),
             AstNode::Return(ref mut child, ref mut ai) =>
                 self.handle_return(child, ai),
             AstNode::While(ref mut expr, ref mut child, ref span) =>
@@ -229,9 +229,11 @@ impl SemanticsCheck {
             AstNode::GreaterOrEq(left, right, span) |
             AstNode::Greater(left, right, span) =>
                 self.handle_comparison_operation(left, right, span),
-            AstNode::BooleanAnd(left, right, span) |
-            AstNode::BooleanOr(left, right, span) => self.check_boolean_and_or(left, right, span),
-            AstNode::Not(child, span) => self.check_boolean_not(child, span),
+            AstNode::BooleanAnd{ left_expression, right_expression, span} |
+            AstNode::BooleanOr{left_expression, right_expression, span} =>
+                self.check_boolean_and_or(left_expression, right_expression, span),
+            AstNode::BooleanNot{expression, span} =>
+                self.check_boolean_not(expression, span),
             AstNode::Integer(value, info) => self.check_for_overflow(value, info),
             AstNode::Float(_, _) => {},
             AstNode::Double(_, _) => {},
@@ -890,27 +892,26 @@ impl SemanticsCheck {
         &mut self,
         node: &mut AstNode) {
 
-        let (ref valid_types, ref mut ai) = match *node {
-            AstNode::Plus(ref mut left, ref mut right, ref mut ai) => {
-                self.handle_arithmetic_node(left, right, ai);
+    let (ref valid_types, ref mut arithmetic_info) = match *node {
+            AstNode::Plus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
+                self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
                 (vec![
                     Type::Integer,
                     Type::Float,
                     Type::Double,
                     Type::String,
                     Type::Invalid],
-                 ai)
+                 arithmetic_info)
             },
-            AstNode::Minus(ref mut left, ref mut right, ref mut ai) |
-            AstNode::Multiply(ref mut left, ref mut right, ref mut ai) |
-            AstNode::Divide(ref mut left, ref mut right, ref mut ai) => {
-                self.handle_arithmetic_node(left, right, ai);
-
-                if let AstNode::Integer(ref value, _) = **right {
+            AstNode::Minus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
+            AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
+            AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
+                self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
+                if let AstNode::Integer(ref value, _) = **right_expression {
                    if let AstInteger::Int(0) = value  {
                        self.report_error(
                            ReportKind::Warning,
-                           ai.span.clone(),
+                           arithmetic_info.span.clone(),
                            "Division by zero".to_owned(),
                        )
                    }
@@ -921,17 +922,17 @@ impl SemanticsCheck {
                     Type::Float,
                     Type::Double,
                     Type::Invalid],
-                    ai)
+                    arithmetic_info)
             },
-            AstNode::Modulo(ref mut left, ref mut right, ref mut ai) => {
+            AstNode::Modulo{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
 
-                self.handle_arithmetic_node(left, right, ai);
+                self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
-                if let AstNode::Integer(ref value, _) = **right {
+                if let AstNode::Integer(ref value, _) = **right_expression {
                     if let AstInteger::Int(0) = value  {
                         self.report_error(
                             ReportKind::Warning,
-                            ai.span.clone(),
+                            arithmetic_info.span.clone(),
                             "Division by zero".to_owned(),
                         )
                     }
@@ -939,20 +940,20 @@ impl SemanticsCheck {
                 (vec![
                     Type::Integer,
                     Type::Invalid],
-                 ai)
+                 arithmetic_info)
             },
             _ => ice!(
                 "Incorrect node passed to arithmetic node type checking: {}",
                 node)
         };
 
-        if !valid_types.iter().any(|t| *t == ai.node_type) {
+        if !valid_types.iter().any(|t| *t == arithmetic_info.node_type) {
             self.report_error(
                 ReportKind::TypeError,
-                ai.span.clone(),
+                arithmetic_info.span.clone(),
                 format!("Operands of type '{}' are not valid for this operator",
-                    ai.node_type));
-            ai.node_type = Type::Invalid;
+                        arithmetic_info.node_type));
+            arithmetic_info.node_type = Type::Invalid;
         }
     }
 
@@ -1132,7 +1133,7 @@ impl SemanticsCheck {
 
 
     fn get_type(&self, node: &AstNode) -> Type {
-        match *node {
+        match node {
             AstNode::Integer(_, _) => Type::Integer,
             AstNode::Float(_, _) => Type::Float,
             AstNode::Double(_, _) => Type::Double,
@@ -1143,29 +1144,29 @@ impl SemanticsCheck {
             AstNode::NotEquals(_, _, _) |
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) => Type::Boolean,
-            AstNode::Plus(_, _, ref info) |
-            AstNode::Minus(_, _, ref info) |
-            AstNode::Multiply(_, _,  ref info) |
-            AstNode::Divide(_, _, ref info) |
-            AstNode::Modulo(_, _, ref info)=> info.node_type.clone(),
-            AstNode::Negate(_, ref info) => info.node_type.clone(),
-            AstNode::Identifier(ref name, _) => {
+            AstNode::Plus{ arithmetic_info, .. } |
+            AstNode::Minus{  arithmetic_info, .. } |
+            AstNode::Multiply{  arithmetic_info, .. } |
+            AstNode::Divide{  arithmetic_info, .. } |
+            AstNode::Modulo{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
+            AstNode::Negate{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
+            AstNode::Identifier(name, _) => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
                     info.variable_type.clone()
                 } else {
                     Type::Invalid
                 }
             },
-            AstNode::FunctionCall(_, ref name, _) => {
-                if let Some(Symbol::Function(ref info)) = self.symbol_table.find_symbol(name) {
+            AstNode::FunctionCall{ function_name, ..} => {
+                if let Some(Symbol::Function(ref info)) = self.symbol_table.find_symbol(function_name) {
                     info.return_type.clone()
                 } else {
                     Type::Invalid
                 }
             },
-            AstNode::BooleanAnd(_, _, _) |
-            AstNode::BooleanOr(_, _, _) |
-            AstNode::Not(_, _) => Type::Boolean,
+            AstNode::BooleanAnd { .. } |
+            AstNode::BooleanOr { .. } |
+            AstNode::BooleanNot { .. } => Type::Boolean,
             AstNode::Text(_, _) => Type::String,
             AstNode::ArrayAccess {
                 index_expression: _,
@@ -1183,11 +1184,11 @@ impl SemanticsCheck {
                             Type::Invalid
                         }
                     },
-                    AstNode::FunctionCall(_, _, _) => todo!(),
+                    AstNode::FunctionCall{ .. } => todo!("Indexing function return value is not yet implemented"),
                     _ => Type::Invalid,
                 }
             },
-            AstNode::MemberAccess{ ref object, ref member, span: _ } => {
+            AstNode::MemberAccess{ object, member, span: _ } => {
                 if self.get_type(object).is_array() {
                     if let AstNode::Identifier(ref name, _) = **member {
                         if **name == ARRAY_LENGTH_PROPERTY {

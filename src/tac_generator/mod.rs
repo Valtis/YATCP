@@ -249,16 +249,16 @@ impl TACGenerator {
         match node {
             AstNode::Block{ref statements, ref block_symbol_table_entry, ref span} =>
                 self.handle_block(statements, block_symbol_table_entry, span),
-            AstNode::Function(ref child, ref info) =>
-                self.handle_function(child, info),
-           AstNode::ExternFunction(ref function_info) =>
+            AstNode::Function{ref block, ref function_info } =>
+                self.handle_function(block, function_info),
+           AstNode::ExternFunction{ref function_info} =>
                 self.handle_extern_function(function_info),
-            AstNode::FunctionCall(ref args, ref name, ref span) =>
-                self.handle_function_call(name, args, span),
-            AstNode::VariableDeclaration(ref child, ref info) =>
-                self.handle_variable_declaration(child, info),
-            AstNode::VariableAssignment(ref child, ref name, _) =>
-                self.handle_variable_assignment(child, name),
+            AstNode::FunctionCall{ ref arguments, ref function_name, ref span} =>
+                self.handle_function_call(function_name, arguments, span),
+            AstNode::VariableDeclaration{ref initialization_expression, ref declaration_info} =>
+                self.handle_variable_declaration(initialization_expression, declaration_info),
+            AstNode::VariableAssignment{ref expression, ref name, ..} =>
+                self.handle_variable_assignment(expression, name),
             AstNode::ArrayAccess { index_expression, indexable_expression} => {
                 self.handle_array_access(indexable_expression, index_expression);
             },
@@ -269,11 +269,11 @@ impl TACGenerator {
                 member,
                 span: _,
             } => self.handle_member_access(object, member),
-            AstNode::Plus(_, _, _) |
-            AstNode::Minus(_, _, _) |
-            AstNode::Multiply(_, _, _) |
-            AstNode::Divide(_, _, _) |
-            AstNode::Modulo(_, _, _) =>
+            AstNode::Plus { .. } |
+            AstNode::Minus { .. } |
+            AstNode::Multiply { .. } |
+            AstNode::Divide { .. } |
+            AstNode::Modulo { .. } =>
                 self.handle_arithmetic_node(node),
             AstNode::Integer(_, _) |
             AstNode::Boolean(_, _) => self.handle_constant(node),
@@ -291,15 +291,15 @@ impl TACGenerator {
             AstNode::GreaterOrEq(_, _, _) |
             AstNode::Greater(_, _, _) =>
                 self.handle_comparison(node),
-            AstNode::Negate(child, arith_info) => self.handle_negate(child, arith_info),
-            AstNode::BooleanAnd(left, right, span) => {
-                self.handle_boolean_and(left, right, span);
+            AstNode::Negate{ expression, arithmetic_info } => self.handle_negate(expression, arithmetic_info),
+            AstNode::BooleanAnd{ left_expression, right_expression, span} => {
+                self.handle_boolean_and(left_expression, right_expression, span);
             },
-            AstNode::BooleanOr(left, right, span) => {
-                self.handle_boolean_or(left, right, span);
+            AstNode::BooleanOr{ left_expression, right_expression, span} => {
+                self.handle_boolean_or(left_expression, right_expression, span);
             },
-            AstNode::Not(expr, span) => {
-                self.handle_not(expr, span);
+            AstNode::BooleanNot{ expression, span} => {
+                self.handle_not(expression, span);
             }
             x => panic!("Three-address code generation not implemented for '{}'", x),
         }
@@ -717,16 +717,16 @@ impl TACGenerator {
     fn handle_arithmetic_node(&mut self, node: &AstNode) {
 
        let (operator, left_child, right_child) = match *node {
-            AstNode::Plus(ref left, ref right, _) =>
-                (Operator::Plus, left, right),
-            AstNode::Minus(ref left, ref right, _) =>
-                (Operator::Minus, left, right),
-            AstNode::Multiply(ref left, ref right, _) =>
-                (Operator::Multiply, left, right),
-            AstNode::Divide(ref left, ref right, _) =>
-                (Operator::Divide, left, right),
-           AstNode::Modulo(ref left, ref right, _) =>
-               (Operator::Modulo, left, right),
+            AstNode::Plus{ref left_expression, ref right_expression, ..} =>
+                (Operator::Plus, left_expression, right_expression),
+            AstNode::Minus{ref left_expression, ref right_expression, ..} =>
+                (Operator::Minus, left_expression, right_expression),
+            AstNode::Multiply{ref left_expression, ref right_expression, ..} =>
+                (Operator::Multiply, left_expression, right_expression),
+            AstNode::Divide{ref left_expression, ref right_expression, ..} =>
+                (Operator::Divide, left_expression, right_expression),
+           AstNode::Modulo{ref left_expression, ref right_expression, ..} =>
+               (Operator::Modulo, left_expression, right_expression),
            _ => ice!("Invalid node '{}' passed when arithmetic node expected", node),
         };
 

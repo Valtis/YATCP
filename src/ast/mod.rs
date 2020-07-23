@@ -67,28 +67,27 @@ impl Display for AstInteger {
     }
 }
 
-// NOTE: When adding nodes, remember to update the eq method to include the new node.
-// TODO update rest of the nodes from tuples to structs for better readability
 #[derive(Clone)]
 pub enum AstNode {
     Block{ statements: Vec<AstNode>, block_symbol_table_entry: Option<symbol_table::TableEntry>, span: Span },
-    Function(Box<AstNode>, FunctionInfo),
-    ExternFunction(FunctionInfo),
-    FunctionCall(Vec<AstNode>, Rc<String>, Span),
-    VariableDeclaration(Box<AstNode>, DeclarationInfo),
-    VariableAssignment(Box<AstNode>, Rc<String>, Span),
+    Function{ block: Box<AstNode>, function_info: FunctionInfo },
+    ExternFunction{ function_info: FunctionInfo },
+    FunctionCall{ arguments: Vec<AstNode>, function_name: Rc<String>, span: Span },
+    VariableDeclaration{ initialization_expression: Box<AstNode>, declaration_info: DeclarationInfo },
+    VariableAssignment{ expression: Box<AstNode>, name: Rc<String>, span: Span },
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: Span },
 
     MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: Span },
-    Plus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
-    Minus(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
-    Multiply(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
-    Divide(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
-    Modulo(Box<AstNode>, Box<AstNode>, ArithmeticInfo),
-    Negate(Box<AstNode>, ArithmeticInfo),
+    Plus{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    Minus{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    Multiply{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    Divide{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    Modulo{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    Negate{ expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
 
-    BooleanAnd(Box<AstNode>, Box<AstNode>, Span),
-    BooleanOr(Box<AstNode>, Box<AstNode>, Span),
+    BooleanAnd{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+    BooleanOr{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+    BooleanNot{ expression: Box<AstNode>, span: Span },
 
     Return(Option<Box<AstNode>>, ArithmeticInfo),
 
@@ -101,7 +100,6 @@ pub enum AstNode {
     NotEquals(Box<AstNode>, Box<AstNode>, Span),
     GreaterOrEq(Box<AstNode>, Box<AstNode>, Span),
     Greater(Box<AstNode>, Box<AstNode>, Span),
-    Not(Box<AstNode>, Span),
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
     Integer(AstInteger, Span),
@@ -119,39 +117,38 @@ impl Display for AstNode {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match self {
             AstNode::Block{ .. } => "Block".to_string(),
-            AstNode::Function(_, ref i) => {
-
-                let param_str = i.parameters.iter().fold(
+            AstNode::Function{ function_info, .. } => {
+                let param_str = function_info.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
                 .chars()
                 .skip(2).collect::<String>();
 
                 format!("Function {}({}) -> {}",
-                    i.name,
+                    function_info.name,
                     param_str,
-                    i.return_type)
+                    function_info.return_type)
             },
-            AstNode::ExternFunction(ref i) => {
-                let param_str = i.parameters.iter().fold(
+            AstNode::ExternFunction{ function_info} => {
+                let param_str = function_info.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
                 .chars()
                 .skip(2).collect::<String>();
 
                 format!("Extern Function {}({}) -> {}",
-                    i.name,
+                    function_info.name,
                     param_str,
-                    i.return_type)
+                    function_info.return_type)
             },
-            AstNode::FunctionCall(_, ref name, _) =>
-                format!("Call function {}", name),
-            AstNode::VariableDeclaration(_, ref i) => {
-                match i.variable_type {
-                    _ if i.variable_type.is_array() => {
+            AstNode::FunctionCall{ref function_name, ..} =>
+                format!("Call function {}", function_name),
+            AstNode::VariableDeclaration{ref declaration_info, ..} => {
+                match declaration_info.variable_type {
+                    _ if declaration_info.variable_type.is_array() => {
                         let mut dim_str = "".to_owned();
 
-                        if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = i.extra_info {
+                        if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = declaration_info.extra_info {
                             for dim in dims.iter() {
                                 match dim {
                                     AstInteger::Int(val) => dim_str = format!("{}[{}]", dim_str, val),
@@ -163,12 +160,12 @@ impl Display for AstNode {
                             ice!("Non-array dimension information on array declaration");
                         }
 
-                        format!("Variable declaration '{}' : {}{}", i.name, i.variable_type, dim_str)
+                        format!("Variable declaration '{}' : {}{}", declaration_info.name, declaration_info.variable_type, dim_str)
                     },
-                    _ => format!("Variable declaration '{}' : {}", i.name, i.variable_type),
+                    _ => format!("Variable declaration '{}' : {}", declaration_info.name, declaration_info.variable_type),
                 }
             }
-            AstNode::VariableAssignment(_, ref name, _ ) =>
+            AstNode::VariableAssignment{ ref name, .. } =>
                 format!("Variable assignment '{}'", name),
             AstNode::ArrayAssignment {
                 index_expression: _,
@@ -184,14 +181,14 @@ impl Display for AstNode {
             AstNode::Identifier(ref name, _) => format!("Identifier: {}", name),
             AstNode::ArrayAccess{ .. }=> format!("Array access"),
             AstNode::Boolean(ref value, _) => format!("Boolean: {}", value),
-            AstNode::Plus(_, _, _) => "Plus".to_string(),
-            AstNode::Minus(_, _, _) => "Minus".to_string(),
-            AstNode::Multiply(_, _, _) => "Multiply".to_string(),
-            AstNode::Divide(_, _, _) => "Divide".to_string(),
-            AstNode::Modulo(_, _, _) => "Modulo".to_string(),
-            AstNode::BooleanAnd(_, _, _) => "And".to_string(),
-            AstNode::BooleanOr(_, _, _) => "Or".to_string(),
-            AstNode::Negate(_, _) => "Negate".to_string(),
+            AstNode::Plus{ .. } => "Plus".to_string(),
+            AstNode::Minus{ .. } => "Minus".to_string(),
+            AstNode::Multiply {.. } => "Multiply".to_string(),
+            AstNode::Divide { .. } => "Divide".to_string(),
+            AstNode::Modulo { .. }  => "Modulo".to_string(),
+            AstNode::BooleanAnd { .. } => "And".to_string(),
+            AstNode::BooleanOr { .. } => "Or".to_string(),
+            AstNode::Negate { .. }  => "Negate".to_string(),
             AstNode::Return(_, _) => "Return".to_string(),
             AstNode::While(_, _, _) => "While".to_string(),
             AstNode::If(_, _, _, _) => "If".to_string(),
@@ -201,7 +198,7 @@ impl Display for AstNode {
             AstNode::NotEquals(_, _, _) => "NotEquals".to_string(),
             AstNode::GreaterOrEq(_, _, _) => "GreaterOrEq".to_string(),
             AstNode::Greater(_, _, _) => "Greater".to_string(),
-            AstNode::Not(_, _) => "Not".to_string(),
+            AstNode::BooleanNot{ .. } => "Not".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
       })
   }
@@ -231,17 +228,17 @@ impl AstNode {
                     string = format!("{}{}", string, c.print_impl(next_int));
                 }
             },
-            AstNode::Function(ref child, _) => string = format!("{}{}", string, child.print_impl(next_int)),
-            AstNode::ExternFunction(_) => { /* do nothing, no children */},
-            AstNode::FunctionCall(ref args, _, _) => {
-                for arg in args {
+            AstNode::Function{ ref block, .. } => string = format!("{}{}", string, block.print_impl(next_int)),
+            AstNode::ExternFunction{ .. } => { /* do nothing, no children */},
+            AstNode::FunctionCall{ ref arguments, .. } => {
+                for arg in  arguments {
                     string = format!("{}{}", string, arg.print_impl(next_int));
                 }
             },
-            AstNode::VariableDeclaration(ref child, _) =>
-                string = format!("{}{}", string, child.print_impl(next_int)),
-            AstNode::VariableAssignment(ref child, _, _) =>
-                string = format!("{}{}", string, child.print_impl(next_int)),
+            AstNode::VariableDeclaration{ref initialization_expression, ..} =>
+                string = format!("{}{}", string, initialization_expression.print_impl(next_int)),
+            AstNode::VariableAssignment{ref expression, ..} =>
+                string = format!("{}{}", string, expression.print_impl(next_int)),
             AstNode::ArrayAssignment {
                 index_expression: ref index,
                 assignment_expression: ref assign,
@@ -269,18 +266,18 @@ impl AstNode {
                 string = format!("{}{}", string, index_expression.print_impl(next_int));
             },
             AstNode::Boolean(_, _) => {},
-            AstNode::BooleanAnd(ref left, ref right, _) |
-            AstNode::BooleanOr(ref left, ref right, _) |
-            AstNode::Plus(ref left, ref right, _) |
-            AstNode::Minus(ref left, ref right, _) |
-            AstNode::Multiply(ref left, ref right, _ ) |
-            AstNode::Divide(ref left, ref right, _) |
-            AstNode::Modulo(ref left, ref right, _) => {
-                string = format!("{}{}", string, left.print_impl(next_int));
-                string = format!("{}{}", string, right.print_impl(next_int));
+            AstNode::BooleanAnd{ ref left_expression, ref right_expression, .. } |
+            AstNode::BooleanOr{ ref left_expression, ref right_expression, .. } |
+            AstNode::Plus{ ref left_expression, ref right_expression, .. } |
+            AstNode::Minus{ ref left_expression, ref right_expression, .. } |
+            AstNode::Multiply{ ref left_expression, ref right_expression, .. } |
+            AstNode::Divide{ ref left_expression, ref right_expression, .. } |
+            AstNode::Modulo{ ref left_expression, ref right_expression, .. } => {
+                string = format!("{}{}", string, left_expression.print_impl(next_int));
+                string = format!("{}{}", string, right_expression.print_impl(next_int));
             },
-            AstNode::Negate(ref child, _) => {
-                string = format!("{}{}", string, child.print_impl(next_int));
+            AstNode::Negate{ref expression, .. } => {
+                string = format!("{}{}", string, expression.print_impl(next_int));
             },
             AstNode::Return(ref opt_child, _) => {
                 if let Some(ref child) = *opt_child {
@@ -307,8 +304,8 @@ impl AstNode {
                 string = format!("{}{}", string, left.print_impl(next_int));
                 string = format!("{}{}", string, right.print_impl(next_int));
             }
-            AstNode::Not(ref child, _) => {
-                string = format!("{}{}", string, child.print_impl(next_int));
+            AstNode::BooleanNot{ ref expression, .. } => {
+                string = format!("{}{}", string, expression.print_impl(next_int));
             },
             AstNode::ErrorNode => {}
         }
@@ -320,21 +317,21 @@ impl AstNode {
         let empty = Span::new(0, 0, 0);
         let x = match self {
             AstNode::Block{ span, ..} => *span,
-            AstNode::Function(_, info) => info.span,
-            AstNode::ExternFunction(info) => info.span,
-            AstNode::FunctionCall(_, _, info) => *info,
-            AstNode::VariableDeclaration(_, info) => info.span,
-            AstNode::VariableAssignment(_, _, span) => *span,
+            AstNode::Function{ function_info, .. } => function_info.span,
+            AstNode::ExternFunction{ function_info} => function_info.span,
+            AstNode::FunctionCall{span, ..} => *span,
+            AstNode::VariableDeclaration{declaration_info, .. } => declaration_info.span,
+            AstNode::VariableAssignment{ span, .. } => *span,
             AstNode::ArrayAssignment{ span, .. } => *span,
             AstNode::MemberAccess { span, .. } => *span,
-            AstNode::BooleanAnd(_, _, span) |
-            AstNode::BooleanOr(_, _, span) => *span,
-            AstNode::Plus(_, _, info) |
-            AstNode::Minus(_, _, info) |
-            AstNode::Multiply(_, _, info) |
-            AstNode::Divide(_, _, info) |
-            AstNode::Modulo(_, _, info)=> info.span,
-            AstNode::Negate(_,  info) => info.span,
+            AstNode::BooleanAnd{ span, ..} |
+            AstNode::BooleanOr{ span, ..} => *span,
+            AstNode::Plus { arithmetic_info, .. } |
+            AstNode::Minus { arithmetic_info, .. } |
+            AstNode::Multiply { arithmetic_info, .. } |
+            AstNode::Divide { arithmetic_info, .. } |
+            AstNode::Modulo { arithmetic_info, .. } => arithmetic_info.span,
+            AstNode::Negate{ arithmetic_info, ..} => arithmetic_info.span,
             AstNode::Return(_, info) => info.span,
             AstNode::While(_, _, span) => *span,
             AstNode::If(_, _, _, span) => *span,
@@ -351,7 +348,7 @@ impl AstNode {
             AstNode::Identifier(_, span) => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
             AstNode::Boolean(_, span) => *span,
-            AstNode::Not(_, span) => *span,
+            AstNode::BooleanNot{ span, .. } => *span,
             AstNode::ErrorNode => empty,
         };
         x

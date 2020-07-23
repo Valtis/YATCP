@@ -88,9 +88,9 @@ impl Parser {
 
         func_info.parameters = params;
 
-        let func_node = AstNode::Function(
-            Box::new(node),
-            func_info);
+        let func_node = AstNode::Function{
+            block: Box::new(node),
+            function_info: func_info };
 
         Ok(func_node)
     }
@@ -125,7 +125,7 @@ impl Parser {
 
         func_info.parameters = params;
 
-        Ok(AstNode::ExternFunction(func_info))
+        Ok(AstNode::ExternFunction{ function_info: func_info})
     }
 
     fn parse_parameter_list(&mut self) -> Result<Vec<DeclarationInfo>, ()> {
@@ -288,9 +288,10 @@ impl Parser {
 
 
 
-        let declaration = AstNode::VariableDeclaration(
-                Box::new(expression_node),
-                declaration_info);
+        let declaration = AstNode::VariableDeclaration{
+            initialization_expression: Box::new(expression_node),
+            declaration_info: declaration_info
+        };
 
         Ok(declaration)
     }
@@ -386,39 +387,40 @@ impl Parser {
         };
 
         let expression_node = match token_type {
-            TokenType::Plus => AstNode::Plus(
-                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
-                Box::new(expression_node),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Minus=> AstNode::Minus(
-                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
-                Box::new(expression_node),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Star => AstNode::Multiply(
-                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
-                Box::new(expression_node),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::ForwardSlash => AstNode::Divide(
-                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
-                Box::new(expression_node),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Percentage=> AstNode::Modulo(
-                Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
-                Box::new(expression_node),
-                ArithmeticInfo::new(&op),
-            ),
+            TokenType::Plus => AstNode::Plus {
+                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Minus=> AstNode::Minus {
+                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Star => AstNode::Multiply {
+                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::ForwardSlash => AstNode::Divide {
+                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Percentage=> AstNode::Modulo {
+                left_expression: Box::new(AstNode::Identifier(name.clone(), Span::from(&identifier))),
+                right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
             TokenType::Equals => expression_node,
             bad => ice!("Bad expression type {}", bad),
         };
 
-        Ok(AstNode::VariableAssignment(
-            Box::new(expression_node),
-            name,
-            Span::from(&identifier)))
+        Ok(AstNode::VariableAssignment{
+            expression: Box::new(expression_node),
+            name: name,
+            span: Span::from(&identifier)
+        })
     }
 
     fn parse_function_call(
@@ -446,11 +448,11 @@ impl Parser {
         }
 
         self.expect(TokenType::RParen)?;
-        Ok(AstNode::FunctionCall(
-            args,
-            name,
-            Span::from(identifier)
-            ))
+        Ok(AstNode::FunctionCall {
+            arguments: args,
+            function_name: name,
+            span: Span::from(identifier)
+        })
     }
 
     fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
@@ -488,31 +490,31 @@ impl Parser {
             }
         };
         let assignment_expression  = match op.token_type {
-            TokenType::Plus => AstNode::Plus(
-                Box::new(get_access()),
-                Box::new(assignment_expression),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Minus=> AstNode::Minus(
-                Box::new(get_access()),
-                Box::new(assignment_expression),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Star => AstNode::Multiply(
-                Box::new(get_access()),
-                Box::new(assignment_expression),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::ForwardSlash => AstNode::Divide(
-                Box::new(get_access()),
-                Box::new(assignment_expression),
-                ArithmeticInfo::new(&op),
-            ),
-            TokenType::Percentage=> AstNode::Modulo(
-                Box::new(get_access()),
-                Box::new(assignment_expression),
-                ArithmeticInfo::new(&op),
-            ),
+            TokenType::Plus => AstNode::Plus {
+                left_expression: Box::new(get_access()),
+                right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Minus=> AstNode::Minus {
+                left_expression: Box::new(get_access()),
+                right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Star => AstNode::Multiply {
+                left_expression: Box::new(get_access()),
+                right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::ForwardSlash => AstNode::Divide {
+                left_expression: Box::new(get_access()),
+                right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Percentage=> AstNode::Modulo{
+                left_expression: Box::new(get_access()),
+                right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
             TokenType::Equals => assignment_expression,
             bad => ice!("Bad expression type {}", bad),
         };
@@ -946,9 +948,9 @@ impl Parser {
                             info.clone()))
                     },
                     _ => {
-                        Ok(AstNode::Negate(
-                            Box::new(node),
-                            ArithmeticInfo::new(&token)))
+                        Ok(AstNode::Negate{
+                            expression: Box::new(node),
+                            arithmetic_info: ArithmeticInfo::new(&token)})
                     }
                 }
 
@@ -1113,14 +1115,14 @@ impl Parser {
     fn parse_boolean_or_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::DoublePipe)?;
         let n_node = self.parse_arithmetic_expression_with_boolean_and()?;
-        let boolean_or_node = AstNode::BooleanOr(
-            Box::new(node),
-            Box::new(n_node),
-            Span::new(
+        let boolean_or_node = AstNode::BooleanOr{
+            left_expression: Box::new(node),
+            right_expression: Box::new(n_node),
+            span: Span::new(
                 token.line,
                 token.column,
                 token.length,
-            ));
+            )};
 
         Ok(boolean_or_node)
     }
@@ -1128,14 +1130,14 @@ impl Parser {
     fn parse_boolean_and_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::DoubleAmpersand)?;
         let n_node = self.parse_arithmetic_expression_with_equals_not_equals_comparisons()?;
-        let boolean_or_node = AstNode::BooleanAnd(
-            Box::new(node),
-            Box::new(n_node),
-            Span::new(
+        let boolean_or_node = AstNode::BooleanAnd{
+            left_expression: Box::new(node),
+            right_expression: Box::new(n_node),
+            span: Span::new(
                 token.line,
                 token.column,
                 token.length,
-            ));
+            )};
 
         Ok(boolean_or_node)
     }
@@ -1152,10 +1154,10 @@ impl Parser {
             self.parse_factor_with_member_or_array_access()?
         };
 
-        let not_node = AstNode::Not(
-            Box::new(node),
-            Span::new(token.line, token.column, token.length),
-        );
+        let not_node = AstNode::BooleanNot {
+            expression: Box::new(node),
+            span: Span::new(token.line, token.column, token.length),
+        };
 
         Ok(not_node)
     }
@@ -1167,20 +1169,20 @@ impl Parser {
             TokenType::Plus => {
                 self.lexer.next_token();
                 let n_node = self.parse_term()?;
-                let plus_node = AstNode::Plus(
-                    Box::new(node),
-                    Box::new(n_node),
-                    ArithmeticInfo::new(&next_token));
+                let plus_node = AstNode::Plus{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    arithmetic_info: ArithmeticInfo::new(&next_token)};
 
                 Ok(plus_node)
             },
             TokenType::Minus => {
                 self.lexer.next_token();
                 let n_node = self.parse_term()?;
-                let minus_node = AstNode::Minus(
-                    Box::new(node),
-                    Box::new(n_node),
-                    ArithmeticInfo::new(&next_token));
+                let minus_node = AstNode::Minus{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    arithmetic_info: ArithmeticInfo::new(&next_token)};
 
                 Ok(minus_node)
             },
@@ -1195,29 +1197,29 @@ impl Parser {
             TokenType::Star => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
-                let mult_node = AstNode::Multiply(
-                    Box::new(node),
-                    Box::new(n_node),
-                    ArithmeticInfo::new(&next_token));
+                let mult_node = AstNode::Multiply{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    arithmetic_info: ArithmeticInfo::new(&next_token)};
 
                 Ok(mult_node)
             },
             TokenType::ForwardSlash => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
-                let div_node = AstNode::Divide(
-                    Box::new(node),
-                    Box::new(n_node),
-                    ArithmeticInfo::new(&next_token));
+                let div_node = AstNode::Divide{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    arithmetic_info: ArithmeticInfo::new(&next_token)};
                 Ok(div_node)
             },
             TokenType::Percentage => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
-                let modulo_node = AstNode::Modulo(
-                    Box::new(node),
-                    Box::new(n_node),
-                    ArithmeticInfo::new(&next_token));
+                let modulo_node = AstNode::Modulo{
+                    left_expression: Box::new(node),
+                    right_expression: Box::new(n_node),
+                    arithmetic_info: ArithmeticInfo::new(&next_token)};
                 Ok(modulo_node)
             },
             _ => Ok(node),
