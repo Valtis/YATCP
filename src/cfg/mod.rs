@@ -465,13 +465,38 @@ mod tests {
 
         let statements = vec![
             Statement::Label(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: None,
+                left_operand: None,
+                right_operand: None
+            },
+            Statement::Assignment{
+                operator: Some(Operator::Plus),
+                destination: None,
+                left_operand: None,
+                right_operand: None
+            },
+            Statement::Assignment{
+                operator: None,
+                destination: None,
+                left_operand: None,
+                right_operand: None
+            },
             Statement::Label(4),
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: None,
+                left_operand: None,
+                right_operand: None
+            },
+            Statement::Assignment{
+                operator: None,
+                destination: None,
+                left_operand: None,
+                right_operand: None
+            },
         ];
 
         let function = create_function(statements);
@@ -489,15 +514,15 @@ mod tests {
         assert_eq!(7, functions[0].statements.len());
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[0]);
 
         assert_eq!(
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None },
             functions[0].statements[1]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[2]);
 
         assert_eq!(
@@ -509,11 +534,11 @@ mod tests {
             functions[0].statements[4]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[5]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[6]);
 
         assert_eq!(3, cfg.basic_blocks.len());
@@ -534,13 +559,13 @@ mod tests {
 
         let statements = vec![
             Statement::Label(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None},
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let function = create_function(statements);
@@ -559,11 +584,11 @@ mod tests {
             functions[0].statements[0]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[1]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[2]);
 
         assert_eq!(
@@ -571,7 +596,7 @@ mod tests {
             functions[0].statements[3]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[4]);
 
 
@@ -592,13 +617,13 @@ mod tests {
 
         let statements = vec![
             Statement::Label(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let function = create_function(statements);
@@ -617,11 +642,11 @@ mod tests {
             functions[0].statements[0]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[1]);
 
         assert_eq!(
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None },
             functions[0].statements[2]);
 
         assert_eq!(
@@ -629,7 +654,7 @@ mod tests {
             functions[0].statements[3]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[4]);
 
         assert_eq!(3, cfg.basic_blocks.len());
@@ -649,13 +674,13 @@ mod tests {
         let statements = vec![
             Statement::Label(1),
             Statement::Label(2),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None } ,
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let function = create_function(statements);
@@ -674,15 +699,15 @@ mod tests {
             functions[0].statements[0]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[1]);
 
         assert_eq!(
-            Statement::Assignment(Some(Operator::Plus), None, None, None),
+            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None },
             functions[0].statements[2]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[3]);
 
         assert_eq!(
@@ -694,11 +719,11 @@ mod tests {
             functions[0].statements[5]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[6]);
 
         assert_eq!(
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[7]);
 
         assert_eq!(4, cfg.basic_blocks.len());
@@ -965,19 +990,19 @@ mod tests {
     fn inserting_statement_into_nonzero_block_updates_bb_info_correctly_and_inserts_the_statement() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None },
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None },
             Statement::Jump(2),
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None },
             Statement::JumpIfTrue(Operand::Boolean(true), 1),
             // block 4:
             Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None },
         ];
 
         let mut f = create_function(statements);
@@ -1015,17 +1040,17 @@ mod tests {
 
         assert_eq!(11, f.statements.len());
 
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(1)), None, None), f.statements[0]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None }, f.statements[0]);
         assert_eq!(Statement::Jump(0), f.statements[1]);
         assert_eq!(Statement::Label(1), f.statements[2]);
         assert_eq!(Statement::Label(25), f.statements[3]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(2)), None, None), f.statements[4]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None }, f.statements[4]);
         assert_eq!(Statement::Jump(2), f.statements[5]);
         assert_eq!(Statement::Label(0), f.statements[6]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(3)), None, None), f.statements[7]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None }, f.statements[7]);
         assert_eq!(Statement::JumpIfTrue(Operand::Boolean(true), 1), f.statements[8]);
         assert_eq!(Statement::Label(2), f.statements[9]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(4)), None, None), f.statements[10]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None}, f.statements[10]);
 
 
 
@@ -1056,19 +1081,19 @@ mod tests {
     fn inserting_statement_into_start_of_nonzero_block_updates_bb_info_correctly_and_inserts_the_statement() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None},
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None},
             Statement::Jump(2),
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None},
             Statement::JumpIfTrue(Operand::Boolean(true), 1),
             // block 4:
             Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None},
         ];
 
         let mut f = create_function(statements);
@@ -1106,17 +1131,17 @@ mod tests {
 
         assert_eq!(11, f.statements.len());
 
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(1)), None, None), f.statements[0]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None}, f.statements[0]);
         assert_eq!(Statement::Jump(0), f.statements[1]);
         assert_eq!(Statement::Label(25), f.statements[2]);
         assert_eq!(Statement::Label(1), f.statements[3]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(2)), None, None), f.statements[4]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None}, f.statements[4]);
         assert_eq!(Statement::Jump(2), f.statements[5]);
         assert_eq!(Statement::Label(0), f.statements[6]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(3)), None, None), f.statements[7]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None}, f.statements[7]);
         assert_eq!(Statement::JumpIfTrue(Operand::Boolean(true), 1), f.statements[8]);
         assert_eq!(Statement::Label(2), f.statements[9]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(4)), None, None), f.statements[10]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None}, f.statements[10]);
 
 
 
@@ -1147,19 +1172,19 @@ mod tests {
     fn inserting_statement_into_end_of_nonzero_block_updates_bb_info_correctly_and_inserts_the_statement() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None},
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None},
             Statement::Jump(2),
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None},
             Statement::JumpIfTrue(Operand::Boolean(true), 1),
             // block 4:
             Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None},
         ];
 
         let mut f = create_function(statements);
@@ -1197,17 +1222,17 @@ mod tests {
 
         assert_eq!(11, f.statements.len());
 
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(1)), None, None), f.statements[0]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None}, f.statements[0]);
         assert_eq!(Statement::Jump(0), f.statements[1]);
         assert_eq!(Statement::Label(1), f.statements[2]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(2)), None, None), f.statements[3]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None}, f.statements[3]);
         assert_eq!(Statement::Label(25), f.statements[4]);
         assert_eq!(Statement::Jump(2), f.statements[5]);
         assert_eq!(Statement::Label(0), f.statements[6]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(3)), None, None), f.statements[7]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None}, f.statements[7]);
         assert_eq!(Statement::JumpIfTrue(Operand::Boolean(true), 1), f.statements[8]);
         assert_eq!(Statement::Label(2), f.statements[9]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(4)), None, None), f.statements[10]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None}, f.statements[10]);
 
 
 
@@ -1239,19 +1264,19 @@ mod tests {
     fn inserting_statement_into_empty_block_updates_bb_info_correctly_and_inserts_the_statement() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None},
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None},
             Statement::Jump(2),
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None},
             Statement::JumpIfTrue(Operand::Boolean(true), 1),
             // block 4:
             Statement::Label(2),
-            Statement::Assignment(None, Some(Operand::Integer(4)), None, None),
+            Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None},
         ];
 
         let mut f = create_function(statements);
@@ -1291,17 +1316,17 @@ mod tests {
 
         assert_eq!(11, f.statements.len());
 
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(1)), None, None), f.statements[0]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(1)), left_operand: None, right_operand: None}, f.statements[0]);
         assert_eq!(Statement::Jump(0), f.statements[1]);
         assert_eq!(Statement::Label(1), f.statements[2]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(2)), None, None), f.statements[3]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(2)), left_operand: None, right_operand: None}, f.statements[3]);
         assert_eq!(Statement::Jump(2), f.statements[4]);
         assert_eq!(Statement::Label(25), f.statements[5]);
         assert_eq!(Statement::Label(0), f.statements[6]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(3)), None, None), f.statements[7]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(3)), left_operand: None, right_operand: None}, f.statements[7]);
         assert_eq!(Statement::JumpIfTrue(Operand::Boolean(true), 1), f.statements[8]);
         assert_eq!(Statement::Label(2), f.statements[9]);
-        assert_eq!(Statement::Assignment(None, Some(Operand::Integer(4)), None, None), f.statements[10]);
+        assert_eq!(Statement::Assignment{ operator: None, destination: Some(Operand::Integer(4)), left_operand: None, right_operand: None}, f.statements[10]);
 
 
 

@@ -1,4 +1,5 @@
-use crate::tac_generator::{Function, Statement, Operand, Operator, TMP_NAME};
+use crate::tac_generator::tac_code::{Function, Statement, Operand, Operator };
+use crate::tac_generator::TMP_NAME;
 
 use std::collections::HashMap;
 // removes some inefficiencies in the generated three-address code
@@ -24,18 +25,17 @@ fn replace_boolean_not_on_constant_value(function: &mut Function) -> bool{
 
         match statement {
             // !true or !false
-            Statement::Assignment(
-                Some(Operator::Xor),
-                Some(ref var @ Operand::Variable(_, _)),
-                Some(Operand::Boolean(bool_var)),
-                Some(Operand::Integer(1))
-            ) => {
-                *statement = Statement::Assignment(
-                    None,
-                    Some(var.clone()),
-                    None,
-                    Some(Operand::Boolean(!*bool_var))
-                );
+            Statement::Assignment {
+                operator: Some(Operator::Xor),
+                destination: Some(ref var @ Operand::Variable(_, _)),
+                left_operand: Some(Operand::Boolean(bool_var)),
+                right_operand: Some(Operand::Integer(1)) } => {
+                *statement = Statement::Assignment {
+                    operator: None,
+                    destination: Some(var.clone()),
+                    left_operand: None,
+                    right_operand: Some(Operand::Boolean(!*bool_var))
+                };
                 changes = true;
             }
 
@@ -130,11 +130,12 @@ fn remove_unnecessary_temporaries(function: &mut Function) {
 
     for i  in 0..function.statements.len() {
         match function.statements[i].clone() {
-            Statement::Assignment(
-                None,
-                Some(Operand::Variable(ref var_info, ref var_id)),
-                None,
-                Some(Operand::Variable(ref tmp_info, ref tmp_id))) => {
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Variable(ref var_info, ref var_id)),
+                left_operand: None,
+                right_operand: Some(Operand::Variable(ref tmp_info, ref tmp_id))
+            } => {
 
                 // TODO: Figure a more elegant way to detect temporarires
                 if !(**tmp_info.name == *TMP_NAME && **var_info.name != *TMP_NAME) {
@@ -147,11 +148,8 @@ fn remove_unnecessary_temporaries(function: &mut Function) {
 
                 // check the previous instruction
                 match function.statements[i-1] {
-                    Statement::Assignment(
-                        _,
-                        Some(Operand::Variable(ref mut prev_info, ref mut prev_id)),
-                        _,
-                        _) => {
+                    Statement::Assignment{
+                        destination: Some(Operand::Variable(ref mut prev_info, ref mut prev_id)), ..} => {
                             // if this is the same temporary than in the previous,
                             // update the var info & prev id and add the
                             // current instruction to the deletion list

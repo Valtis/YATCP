@@ -28,11 +28,11 @@ fn do_constant_folding(
 
     match s.clone() {
         // integer assignment
-        Statement::Assignment(
-            Some(operator),
-            Some(var @ Operand::SSAVariable(_, _, _)),
-            Some(Operand::Integer(val)) ,
-            Some(Operand::Integer(val2))) => {
+        Statement::Assignment{
+            operator: Some(operator),
+            destination: Some(var @ Operand::SSAVariable(_, _, _)),
+            left_operand: Some(Operand::Integer(val)) ,
+            right_operand: Some(Operand::Integer(val2))} => {
 
             let new_val = match operator {
                 Operator::Plus => Operand::Integer(val + val2),
@@ -48,8 +48,12 @@ fn do_constant_folding(
                 Operator::Greater => Operand::Boolean(val > val2),
                 Operator::Xor => Operand::Integer(val ^ val2),
             };
-            *s = Statement::Assignment(None,
-                Some(var), None, Some(new_val));
+            *s = Statement::Assignment{
+                operator: None,
+                destination: Some(var),
+                left_operand: None,
+                right_operand: Some(new_val)
+            };
 
             return true;
         }
@@ -65,11 +69,11 @@ fn do_constant_propagation(
 
     match s.clone() {
         //
-        Statement::Assignment(
-            None,
-            Some(Operand::SSAVariable(_, var_id, ssa_id)),
-            None,
-            Some(ref val)) => {
+        Statement::Assignment{
+            operator: None,
+            destination: Some(Operand::SSAVariable(_, var_id, ssa_id)),
+            left_operand: None,
+            right_operand: Some(ref val)} => {
 
             if is_constant(val) &&
                 !known_constants.contains_key(&(var_id, ssa_id)) {
@@ -78,18 +82,17 @@ fn do_constant_propagation(
             }
             return false;
         },
-        Statement::Assignment(
-            _,
-            _,
-            Some(ref val1),
-            Some(ref val2)) => {
+        Statement::Assignment{
+            left_operand: Some(ref val1),
+            right_operand: Some(ref val2),
+            ..} => {
             let mut changes = false;
 
             match *val1 {
                 Operand::SSAVariable(_, var_id, ssa_id) => {
                     if known_constants.contains_key(&(var_id, ssa_id)) {
 
-                        if let Statement::Assignment(_, _, ref mut op, _) = *s {
+                        if let Statement::Assignment{left_operand: ref mut op, .. } = *s {
                             *op = Some(known_constants[&(var_id, ssa_id)].clone());
                             changes = true;
                         }
@@ -101,7 +104,7 @@ fn do_constant_propagation(
             match *val2 {
                 Operand::SSAVariable(_, var_id, ssa_id) => {
                     if known_constants.contains_key(&(var_id, ssa_id)) {
-                        if let Statement::Assignment(_, _, _, ref mut op) = *s {
+                        if let Statement::Assignment{ right_operand: ref mut op, .. } = *s {
                             *op = Some(known_constants[&(var_id, ssa_id)].clone());
                             changes = true;
                         }

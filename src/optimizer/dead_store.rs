@@ -18,11 +18,8 @@ pub fn remove_dead_stores(
 
             // writes to variables and where they occur
             match *s {
-                Statement::Assignment(
-                    _,
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),
-                    _,
-                    _) => { writes.insert((*var_id, *ssa_id), i); },
+                Statement::Assignment{
+                    destination: Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),  ..} => { writes.insert((*var_id, *ssa_id), i); },
                 Statement::PhiFunction(
                      Operand::SSAVariable(_, ref var_id, ref ssa_id),
                     _) => { writes.insert((*var_id, *ssa_id), i); },
@@ -37,11 +34,9 @@ pub fn remove_dead_stores(
 
             // reads
             match *s {
-                 Statement::Assignment(
-                    _,
-                    _,
-                    Some(ref val),
-                    Some(ref val2)) => {
+                 Statement::Assignment{
+                    left_operand: Some(ref val),
+                    right_operand: Some(ref val2), ..} => {
 
                     match *val {
                         Operand::SSAVariable(_, ref var_id, ref ssa_id) => {
@@ -190,15 +185,17 @@ mod tests {
 
         let statements = vec![
             // block 1
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
-                                  None,
-                                  Some(Operand::Integer(2))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(2))},
 
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info.clone(), 0, 1)),
-                                  None,
-                                  Some(Operand::Integer(6))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info.clone(), 0, 1)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(6))},
 
             Statement::Return(Some(Operand::SSAVariable(decl_info.clone(), 0, 1))),
         ];
@@ -229,10 +226,12 @@ mod tests {
 
 
         assert_eq!(
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info.clone(), 0, 1)),
-                                  None,
-                                  Some(Operand::Integer(6))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info.clone(), 0, 1)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(6))
+            },
             f.statements[0]);
         assert_eq!(
             Statement::Return(Some(Operand::SSAVariable(decl_info.clone(), 0, 1))),
@@ -257,10 +256,12 @@ mod tests {
 
         let statements = vec![
             // block 1
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
-                                  None,
-                                  Some(Operand::Integer(2))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(2))
+            },
 
             Statement::Call(
                 Rc::new("foo".to_string()),
@@ -296,10 +297,12 @@ mod tests {
 
 
         assert_eq!(
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
-                                  None,
-                                  Some(Operand::Integer(2))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info.clone(), 0, 0)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(2))
+            },
             f.statements[0]);
         assert_eq!(
             Statement::Call(
@@ -334,10 +337,12 @@ mod tests {
 
 
         let statements = vec![
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info_a.clone(), 0, 0)),
-                                  None,
-                                  Some(Operand::Integer(2))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info_a.clone(), 0, 0)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(2))
+            },
 
             Statement::Call(
                 Rc::new("foo".to_string()),
@@ -375,10 +380,12 @@ mod tests {
 
 
         assert_eq!(
-            Statement::Assignment(None,
-                                  Some(Operand::SSAVariable(decl_info_a.clone(), 0, 0)),
-                                  None,
-                                  Some(Operand::Integer(2))),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(decl_info_a.clone(), 0, 0)),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(2))
+            },
             f.statements[0]);
         assert_eq!(
             Statement::Call(

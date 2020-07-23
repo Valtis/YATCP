@@ -65,11 +65,9 @@ fn remove_dead_blocks(
         let mut writes = HashSet::new();
         for i in cfg.basic_blocks[id].start..cfg.basic_blocks[id].end {
            match function.statements[i] {
-                Statement::Assignment(
-                    _,
-                    Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)),
-                    _,
-                    _) => { writes.insert((*var_id, *ssa_id)); },
+                Statement::Assignment{
+                    destination: Some(Operand::SSAVariable(_, ref var_id, ref ssa_id)), .. }
+                    => { writes.insert((*var_id, *ssa_id)); },
                 Statement::PhiFunction(
                      Operand::SSAVariable(_, ref var_id, ref ssa_id),
                     _) => { writes.insert((*var_id, *ssa_id)); },
@@ -151,11 +149,9 @@ fn remove_trivial_phi_functions(
 
     for s in function.statements.iter_mut() {
         match *s {
-            Statement::Assignment(
-                _,
-                _,
-                Some(ref mut val),
-                Some(ref mut val2)) => {
+            Statement::Assignment{
+                left_operand: Some(ref mut val),
+                right_operand: Some(ref mut val2), .. } => {
 
                 match *val {
                     Operand::SSAVariable(_, ref mut var_id, ref mut ssa_id) => {

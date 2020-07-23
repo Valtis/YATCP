@@ -125,11 +125,7 @@ fn calculate_definitions(
               Statement::PhiFunction(
                 Operand::SSAVariable(_, id, ssa_id),
                 _) |
-            Statement::Assignment(
-                _,
-                Some(Operand::SSAVariable(_, id, ssa_id)),
-                _,
-                _) => {
+            Statement::Assignment{ destination: Some(Operand::SSAVariable(_, id, ssa_id)), .. } => {
                 println!("Found local definition {}:{} from {}", id, ssa_id, function.statements[i]);
                 cur_hashmap.insert(id, ssa_id);
             },
@@ -236,13 +232,26 @@ mod tests {
     fn false_edge_is_removed_and_jump_converted_to_unconditional_if_jump_operand_is_true() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(1)),
+                left_operand: None,
+                right_operand: None
+            },
             Statement::JumpIfTrue(Operand::Boolean(true), 0),
             // block 2
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(2)),
+                left_operand: None,
+                right_operand: None},
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(3)),
+                left_operand: None,
+                right_operand: None},
         ];
 
         let mut f = create_function(statements);
@@ -276,19 +285,31 @@ mod tests {
         assert_eq!(5, f.statements.len());
 
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(1)),
+                left_operand: None,
+                right_operand: None},
             f.statements[0]);
         assert_eq!(
             Statement::Jump(0),
             f.statements[1]);
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(2)),
+                left_operand: None,
+                right_operand: None},
             f.statements[2]);
         assert_eq!(
             Statement::Label(0),
             f.statements[3]);
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(3)),
+                left_operand: None,
+                right_operand: None } ,
             f.statements[4]);
 
         assert_eq!(3, cfg.adjacency_list.len());
@@ -302,13 +323,25 @@ mod tests {
     fn true_edge_is_removed_and_jump_removed_if_jump_operand_is_true() {
         let statements = vec![
             // block 1
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(1)),
+                left_operand: None,
+                right_operand: None },
             Statement::JumpIfTrue(Operand::Boolean(false), 0),
             // block 2
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(2)),
+                left_operand: None,
+                right_operand: None },
             // block 3
             Statement::Label(0),
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(3)),
+                left_operand: None,
+                right_operand: None},
         ];
 
         let mut f = create_function(statements);
@@ -342,16 +375,28 @@ mod tests {
         assert_eq!(4, f.statements.len());
 
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(1)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(1)),
+                left_operand: None,
+                right_operand: None},
             f.statements[0]);
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(2)), None, None),
+            Statement::Assignment {
+                operator: None,
+                destination: Some(Operand::Integer(2)),
+                left_operand: None,
+                right_operand: None },
             f.statements[1]);
         assert_eq!(
             Statement::Label(0),
             f.statements[2]);
         assert_eq!(
-            Statement::Assignment(None, Some(Operand::Integer(3)), None, None),
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Integer(3)),
+                left_operand: None,
+                right_operand: None},
             f.statements[3]);
 
         assert_eq!(3, cfg.adjacency_list.len());
@@ -366,37 +411,40 @@ mod tests {
 
         let statements = vec![
             // block 1
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(
                     DeclarationInfo::new_alt(
                         Rc::new("a".to_string()),
                         Type::Integer,
                         0, 0, 0),
                     0, 0)),
-                None,
-                Some(Operand::Integer(5))),
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: None,
+                right_operand: Some(Operand::Integer(5))
+            },
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("b".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 0)),
-                None,
-                Some(Operand::Integer(6))),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(6))
+            },
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("b".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 1)),
-                None,
-                Some(Operand::Integer(8))),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(8))
+            },
             Statement::Jump(3),
             // block 3
             Statement::Label(0),
@@ -495,37 +543,39 @@ mod tests {
 
         let statements = vec![
             // block 1
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(
                     DeclarationInfo::new_alt(
                         Rc::new("a".to_string()),
                         Type::Integer,
                         0, 0, 0),
                     0, 0)),
-                None,
-                Some(Operand::Integer(5))),
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: None,
+                right_operand: Some(Operand::Integer(5))} ,
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("b".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 0)),
-                None,
-                Some(Operand::Integer(6))),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(6))
+            },
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("b".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 1)),
-                None,
-                Some(Operand::Integer(8))),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(8))
+            },
             Statement::Jump(3),
             // block 3
             Statement::Label(0),
@@ -668,90 +718,96 @@ mod tests {
 
         let statements = vec![
             // block 1
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::SSAVariable(
                     DeclarationInfo::new_alt(
                         Rc::new("i".to_string()),
                         Type::Integer,
                         0, 0, 0),
                     0, 0)),
-                None,
-                Some(Operand::Integer(0))),
-            Statement::Assignment(
-                None,
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: None,
+                right_operand: Some(Operand::Integer(0))
+            },
+            Statement::Assignment{
+                operator:  None,
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("j".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 0)),
-                None,
-                Some(Operand::Integer(0))),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(0))
+            },
             Statement::Jump(0),
             // block 2
             Statement::Label(1),
-            Statement::Assignment(
-                Some(Operator::Plus),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: Some(Operator::Plus),
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("j".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 2)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("j".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 1)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                right_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("i".to_string()),
                     Type::Integer,
                     0, 0, 0),
-                                          0, 1))),
-            Statement::Assignment(
-                Some(Operator::Plus),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                                          0, 1))
+            },
+            Statement::Assignment{
+                operator: Some(Operator::Plus),
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("i".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           0, 2)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("i".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           0, 1)),
-                Some(Operand::Integer(1))),
+                right_operand: Some(Operand::Integer(1))
+            },
             Statement::Jump(2),
             // block 3
             Statement::Label(3),
-            Statement::Assignment(
-                Some(Operator::Multiply),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: Some(Operator::Multiply),
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("j".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 3)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("j".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           1, 2)),
-                Some(Operand::Integer(2))),
+                right_operand: Some(Operand::Integer(2))
+            },
             Statement::Jump(5),
             // block 4
             Statement::Label(2),
-            Statement::Assignment(
-                Some(Operator::Greater),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: Some(Operator::Greater),
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("tmp".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           5, 0)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("i".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           0, 2)),
-                Some(Operand::Integer(10))),
+                right_operand: Some(Operand::Integer(10))
+            },
             Statement::JumpIfTrue(
                 Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("tmp".to_string()),
@@ -817,19 +873,20 @@ mod tests {
                         0, 0, 0),
                                          0, 0)
                 ]),
-            Statement::Assignment(
-                Some(Operator::Less),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+            Statement::Assignment{
+                operator: Some(Operator::Less),
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("tmp".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           6, 0)),
-                Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("i".to_string()),
                     Type::Integer,
                     0, 0, 0),
                                           0, 1)),
-                Some(Operand::Integer(20))),
+                right_operand: Some(Operand::Integer(20))
+            },
             Statement::JumpIfTrue(
                 Operand::SSAVariable(DeclarationInfo::new_alt(
                     Rc::new("tmp".to_string()),

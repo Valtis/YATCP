@@ -8,7 +8,6 @@ use crate::ast::DeclarationInfo;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::byte_generator::Value::VirtualRegister;
 use crate::function_attributes::FunctionAttribute;
 
 pub struct ByteGenerator {
@@ -55,25 +54,56 @@ impl ByteGenerator {
 
             for s in f.statements {
                 match s {
-                    Statement::Assignment(
-                        None,
-                        Some(ref dest),
-                        None,
-                        Some(ref src @ Operand::AddressOf { variable_info: _, id: _ })) =>
-                        self.emit_lea(src, dest),
-                    Statement::Assignment(Some(Operator::Plus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Plus, op1, op2, dest),
-                    Statement::Assignment(Some(Operator::Minus), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Minus, op1, op2, dest),
-                    Statement::Assignment(Some(Operator::Multiply), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
-                    Statement::Assignment(Some(Operator::Divide), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Divide, op1, op2, dest),
-                    Statement::Assignment(Some(Operator::Modulo), Some(ref dest), Some(ref op1), Some(ref op2)) => self.emit_binary_op(Operator::Modulo, op1, op2, dest),
-                    Statement::Assignment(None, Some(ref dest), None, Some(ref op)) => self.emit_move(op, dest),
-                    Statement::Assignment(Some(Operator::Minus), Some(ref dest), None, Some(ref src)) => self.emit_negate(dest, src),
-                    Statement::Assignment(Some(Operator::Xor), Some(ref dest), Some(ref src1), Some(ref src2)) => self.emit_xor(dest, src1, src2),
-                    Statement::Assignment(
-                        Some(ref x),
-                        Some(ref dest),
-                        Some(ref op1),
-                        Some(ref op2)) if cmp.contains(x) =>
+                    Statement::Assignment{
+                        operator: None,
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref src @ Operand::AddressOf { variable_info: _, id: _ })} => self.emit_lea(src, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Plus),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Plus, op1, op2, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Minus),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Minus, op1, op2, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Multiply),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Divide),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Divide, op1, op2, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Modulo),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Modulo, op1, op2, dest),
+                    Statement::Assignment{
+                        operator: None,
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref op)} => self.emit_move(op, dest),
+                    Statement::Assignment{
+                        operator: Some(Operator::Minus),
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref src)}=> self.emit_negate(dest, src),
+                    Statement::Assignment{
+                        operator: Some(Operator::Xor),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref src1),
+                        right_operand: Some(ref src2)} => self.emit_xor(dest, src1, src2),
+                    Statement::Assignment{
+                        operator: Some(ref x),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)} if cmp.contains(x) =>
                         self.emit_comparison(x, op1, op2, dest),
                     Statement::Array{id, length, size_in_bytes} => {
                         self.emit_array_init(id, length, size_in_bytes);
@@ -199,7 +229,7 @@ impl ByteGenerator {
 
                 self.current_function().code.push(
                     ByteCode::Compare(ComparisonOperation {
-                        src1: VirtualRegister(vregdata.clone()),
+                        src1: Value::VirtualRegister(vregdata.clone()),
                         src2: Value::BooleanConstant(true),
                     })
                 );
@@ -453,9 +483,9 @@ mod test {
     #[test]
     fn should_generate_byte_code_for_boolean_true_constant() {
         let statements = vec![
-            Statement::Assignment(
-                None,
-                Some(Operand::Variable(
+            Statement::Assignment {
+                operator: None,
+                destination: Some(Operand::Variable(
                     DeclarationInfo {
                         name: Rc::new("Foo".to_owned()),
                         variable_type: Type::Boolean,
@@ -468,9 +498,9 @@ mod test {
                     },
                     3)
                 ),
-                None,
-                Some(Operand::Boolean(true)),
-            )
+                left_operand: None,
+                right_operand: Some(Operand::Boolean(true)),
+            }
         ];
 
         let mut generator = create_byte_generator(statements);
@@ -496,9 +526,9 @@ mod test {
     #[test]
     fn should_generate_byte_code_for_boolean_false_constant() {
         let statements = vec![
-            Statement::Assignment(
-                None,
-                Some(Operand::Variable(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::Variable(
                     DeclarationInfo {
                         name: Rc::new("Foo".to_owned()),
                         variable_type: Type::Boolean,
@@ -512,9 +542,9 @@ mod test {
                     },
                     3)
                 ),
-                None,
-                Some(Operand::Boolean(false)),
-            )
+                left_operand: None,
+                right_operand: Some(Operand::Boolean(false))
+            },
         ];
 
         let mut generator = create_byte_generator(statements);

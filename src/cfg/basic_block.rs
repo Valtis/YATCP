@@ -82,11 +82,11 @@ mod tests {
     #[test]
     fn no_branching_constructs_single_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -102,12 +102,12 @@ mod tests {
     #[test]
     fn labels_start_a_new_block() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -128,12 +128,12 @@ mod tests {
     #[test]
     fn jumps_end_the_block() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Jump(4),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -153,12 +153,12 @@ mod tests {
     #[test]
     fn return_statement_end_the_block() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Return(None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -178,13 +178,13 @@ mod tests {
     #[test]
     fn labels_followed_by_jumps_generate_correct_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
             Statement::Jump(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -207,13 +207,13 @@ mod tests {
     #[test]
     fn jumps_followed_by_labels_generate_correct_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Jump(1),
             Statement::Label(4),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -233,13 +233,13 @@ mod tests {
     #[test]
     fn return_followed_by_label_generate_correct_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Return(None),
             Statement::Label(4),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -259,13 +259,13 @@ mod tests {
     #[test]
     fn label_followed_by_return_generate_correct_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Label(4),
             Statement::Jump(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();
@@ -288,13 +288,13 @@ mod tests {
     #[test]
     fn return_followed_by_jump_generate_correct_bb() {
         let statements = vec![
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Return(None),
             Statement::Jump(1),
-            Statement::Assignment(None, None, None, None),
-            Statement::Assignment(None, None, None, None),
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
         ];
 
         let statements_len = statements.len();

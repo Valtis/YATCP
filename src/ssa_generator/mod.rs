@@ -126,7 +126,7 @@ fn get_variable_definitions(
         for statement in bb.start..bb.end {
             match function.statements[statement] {
                 Statement::Call(_, _, Some(Operand::Variable(ref info, id))) |
-                Statement::Assignment(_, Some(Operand::Variable(ref info, id)), _, _) => {
+                Statement::Assignment{ destination: Some(Operand::Variable(ref info, id)), ..} => {
                     if !decl_info.contains_key(&id) {
                         decl_info.insert(id, info.clone());
                     }
@@ -176,11 +176,10 @@ fn search(
 
     for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
         match function.statements[i] {
-            Statement::Assignment(
-                _,
-                ref mut dest,
-                ref mut src1,
-                ref mut src2) => {
+            Statement::Assignment{
+                destination: ref mut dest,
+                left_operand: ref mut src1,
+                right_operand: ref mut src2, .. } => {
 
                 update_rhs_operand(src1, variable_definition_stack);
                 update_rhs_operand(src2, variable_definition_stack);
@@ -245,11 +244,7 @@ fn search(
 
     for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
         match function.statements[i] {
-            Statement::Assignment(
-                _,
-                ref dest,
-                _,
-                _) => {
+            Statement::Assignment{ destination: ref dest, .. }=> {
                 if let Some(Operand::SSAVariable(_, id, _)) = *dest {
                     variable_definition_stack.get_mut(&id).unwrap().pop();
                 }
@@ -337,10 +332,10 @@ pub fn destroy_ssa(
         let mut i = 0;
         loop {
             match f.statements[i] {
-                Statement::Assignment(_,
-                    ref mut op1,
-                    ref mut op2,
-                    ref mut op3) => {
+                Statement::Assignment{
+                    destination: ref mut op1,
+                    left_operand: ref mut op2,
+                    right_operand: ref mut op3 , .. } => {
                     change_to_regular_variable_opt(op1);
                     change_to_regular_variable_opt(op2);
                     change_to_regular_variable_opt(op3);

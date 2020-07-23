@@ -157,13 +157,14 @@ impl TACGenerator {
             };
 
             self.current_function().statements.push(
-                Statement::Assignment(
-                    None,
-                    Some(Operand::Variable(
+                Statement::Assignment{
+                    operator: None,
+                    destination: Some(Operand::Variable(
                         param.clone(),
                         id)),
-                    None,
-                    Some(Operand::Initialized(param.variable_type.clone()))));
+                    left_operand: None,
+                    right_operand: Some(Operand::Initialized(param.variable_type.clone()))
+                });
         }
 
 
@@ -218,12 +219,12 @@ impl TACGenerator {
                             // arg is array, param is ref to array - generate address move code
                             operand = self.get_temporary(params[i].variable_type.clone());
                             self.current_function().statements.push(
-                                Statement::Assignment(
-                                    None,
-                                    Some(operand.clone()),
-                                    None,
-                                    Some(Operand::AddressOf { variable_info: info, id  })
-                            ));
+                                Statement::Assignment {
+                                    operator: None,
+                                    destination: Some(operand.clone()),
+                                    left_operand: None,
+                                    right_operand: Some(Operand::AddressOf { variable_info: info, id })
+                                });
                         }
                     }
 
@@ -321,38 +322,45 @@ impl TACGenerator {
 
 
         self.current_function().statements.push(
-            Statement::Assignment(None, Some(index_var.clone()), None, Some(Operand::Integer(0))));
+            Statement::Assignment{
+                operator: None,
+                destination: Some(index_var.clone()),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(0))
+            });
 
         self.current_function().statements.push(
             Statement::Label(start_label_id));
         self.current_function().statements.push(
-            Statement::Assignment(
-                Some(Operator::Less),
-                Some(cmp_result.clone()),
-                Some(index_var.clone()),
-                Some(Operand::Integer(size))
-        ));
+            Statement::Assignment{
+                operator: Some(Operator::Less),
+                destination: Some(cmp_result.clone()),
+                left_operand: Some(index_var.clone()),
+                right_operand: Some(Operand::Integer(size))
+            });
 
         self.current_function().statements.push(
             Statement::JumpIfFalse(cmp_result, end_label_id));
 
         self.current_function().statements.push(
-            Statement::Assignment(
-                None,
-                Some(Operand::ArrayIndex {
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::ArrayIndex {
                     id,
                     variable_info: variable_info.clone(),
                     index_operand: Box::new(index_var.clone()),
                 }),
-                None,
-                Some(operand)));
+                left_operand: None,
+                right_operand: Some(operand)
+            });
 
         self.current_function().statements.push(
-            Statement::Assignment(
-                Some(Operator::Plus),
-                Some(index_var.clone()),
-                Some(index_var.clone()),
-                Some(Operand::Integer(1))));
+            Statement::Assignment{
+                operator: Some(Operator::Plus),
+                destination: Some(index_var.clone()),
+                left_operand: Some(index_var.clone()),
+                right_operand: Some(Operand::Integer(1))
+            });
 
         self.current_function().statements.push(
             Statement::Jump(start_label_id));
@@ -367,15 +375,16 @@ impl TACGenerator {
         init_length_into.variable_type = Type::IntegerArray; //
 
         self.current_function().statements.push(
-            Statement::Assignment(
-                None,
-                Some(Operand::ArrayIndex {
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::ArrayIndex {
                     id,
                     variable_info: init_length_into,
                     index_operand: Box::new(Operand::Integer(-1)),
                 }),
-                None,
-                Some(Operand::Integer(size))));
+                left_operand: None,
+                right_operand: Some(Operand::Integer(size))
+            });
 
     }
 
@@ -408,13 +417,14 @@ impl TACGenerator {
         id: u32,
         operand: Option<Operand>) {
         self.current_function().statements.push(
-            Statement::Assignment(
-                None,
-                Some(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(
                     Operand::Variable(
                         var_info, id)),
-                None,
-                operand));
+                left_operand: None,
+                right_operand: operand
+            });
     }
 
     fn handle_array_access(&mut self,
@@ -444,17 +454,16 @@ impl TACGenerator {
         let (var_info, id) = self.get_variable_info_and_id(&name);
 
         self.current_function().statements.push(
-            Statement::Assignment(
-                None,
-                Some(dst.clone()),
-                None,
-                Some(Operand::ArrayIndex {
+            Statement::Assignment {
+                operator: None,
+                destination: Some(dst.clone()),
+                left_operand: None,
+                right_operand: Some(Operand::ArrayIndex {
                     index_operand: Box::new(index),
                     variable_info: var_info,
                     id
                 })
-            )
-        );
+            });
 
         self.operands.push(dst);
     }
@@ -471,16 +480,16 @@ impl TACGenerator {
         let (var_info, id) = self.get_variable_info_and_id(variable_name);
 
         self.current_function().statements.push(
-            Statement::Assignment(
-                None,
-                Some(Operand::ArrayIndex {
+            Statement::Assignment {
+                operator: None,
+                destination: Some(Operand::ArrayIndex {
                     index_operand: Box::new(index_operand),
                     variable_info: var_info,
                     id,
                 }),
-                None,
-                Some(assignment_operand),
-            )
+                left_operand: None,
+                right_operand: Some(assignment_operand),
+            }
         );
     }
 
@@ -500,12 +509,12 @@ impl TACGenerator {
                 let tmp = self.get_temporary(var_info.variable_type.get_array_basic_type());
 
                 self.current_function().statements.push(
-                    Statement::Assignment(
-                        None,
-                        Some(tmp.clone()),
-                        None,
-                        Some(Operand::ArrayLength{ id, variable_info: var_info }),
-                    ));
+                    Statement::Assignment {
+                        operator: None,
+                        destination: Some(tmp.clone()),
+                        left_operand: None,
+                        right_operand: Some(Operand::ArrayLength { id, variable_info: var_info }),
+                    });
 
                 self.operands.push(tmp);
             } else {
@@ -550,9 +559,12 @@ impl TACGenerator {
         let tmp_type = self.get_type(&left_op);
         let temp = self.get_temporary(tmp_type);
 
-        self.current_function().statements.push(Statement::Assignment(
-            Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
-        ));
+        self.current_function().statements.push(Statement::Assignment {
+            operator: Some(operator),
+            destination: Some(temp.clone()),
+            left_operand: Some(left_op),
+            right_operand: Some(right_op),
+        });
 
         self.operands.push(temp)
     }
@@ -665,9 +677,12 @@ impl TACGenerator {
 
         let temp = self.get_temporary(Type::Boolean);
 
-        self.current_function().statements.push(Statement::Assignment(
-            Some(operator), Some(temp.clone()), Some(left_op), Some(right_op),
-        ));
+        self.current_function().statements.push(Statement::Assignment {
+            operator: Some(operator),
+            destination: Some(temp.clone()),
+            left_operand: Some(left_op),
+            right_operand: Some(right_op),
+        });
 
         self.operands.push(temp);
     }
@@ -676,12 +691,12 @@ impl TACGenerator {
         let op = self.get_operand(child_node);
 
         let temp = self.get_temporary(arith_info.node_type.clone());
-        self.current_function().statements.push(Statement::Assignment(
-            Some(Operator::Minus),
-            Some(temp.clone()),
-            None,
-            Some(op)
-        ));
+        self.current_function().statements.push(Statement::Assignment {
+            operator: Some(Operator::Minus),
+            destination: Some(temp.clone()),
+            left_operand: None,
+            right_operand: Some(op)
+        });
 
         self.operands.push(temp);
     }
@@ -701,12 +716,21 @@ impl TACGenerator {
 
         let operand = self.get_operand(left);
         self.current_function().statements.push(
-            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand.clone())));
+            Statement::Assignment{
+                operator: None,
+                destination: Some(tmp.clone()),
+                left_operand: None,
+                right_operand: Some(operand.clone())
+            });
         self.current_function().statements.push(
             Statement::JumpIfFalse(operand, out_label));
         let operand = self.get_operand(right);
         self.current_function().statements.push(
-            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand)));
+            Statement::Assignment{
+                operator: None,
+                destination: Some(tmp.clone()),
+                left_operand: None,
+                right_operand: Some(operand)});
         self.operands.push(tmp);
         self.current_function().statements.push(
             Statement::Label(out_label));
@@ -725,12 +749,22 @@ impl TACGenerator {
 
         let operand = self.get_operand(left);
         self.current_function().statements.push(
-            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand.clone())));
+            Statement::Assignment{
+                operator: None,
+                destination: Some(tmp.clone()),
+                left_operand: None,
+                right_operand: Some(operand.clone())
+            });
         self.current_function().statements.push(
             Statement::JumpIfTrue(operand, out_label));
         let operand = self.get_operand(right);
         self.current_function().statements.push(
-            Statement::Assignment(None, Some(tmp.clone()), None, Some(operand)));
+            Statement::Assignment{
+                operator: None,
+                destination: Some(tmp.clone()),
+                left_operand: None,
+                right_operand: Some(operand)
+            });
         self.operands.push(tmp);
         self.current_function().statements.push(
             Statement::Label(out_label));
@@ -740,11 +774,12 @@ impl TACGenerator {
         let operand = self.get_operand(node);
         let tmp = self.get_temporary(Type::Boolean);
         self.current_function().statements.push(
-            Statement::Assignment(
-                Some(Operator::Xor),
-                Some(tmp.clone()),
-                Some(operand),
-                Some(Operand::Integer(1))));
+            Statement::Assignment{
+                operator: Some(Operator::Xor),
+                destination: Some(tmp.clone()),
+                left_operand: Some(operand),
+                right_operand: Some(Operand::Integer(1))
+           });
 
         self.operands.push(tmp);
     }

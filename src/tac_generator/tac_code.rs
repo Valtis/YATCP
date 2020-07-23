@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    Assignment(Option<Operator>, Option<Operand>, Option<Operand>, Option<Operand>),
+    Assignment{ operator: Option<Operator>, destination: Option<Operand>, left_operand: Option<Operand>, right_operand: Option<Operand> },
     Array{ id: u32, length: i32, size_in_bytes: u32 },
     Call(Rc<String>, Vec<Operand>, Option<Operand>),
     Label(u32),
@@ -97,12 +97,12 @@ impl Function {
 impl Display for Statement {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}", match *self {
-            Statement::Assignment(ref op, ref v1, ref v2, ref v3) =>
+            Statement::Assignment{ref operator, ref destination, ref left_operand, ref right_operand} =>
                 format!("{}= {}{}{}",
-                        opt_to_str(v1),
-                        opt_to_str(v2),
-                        opt_to_str(op),
-                        opt_to_str(v3)),
+                        opt_to_str(destination),
+                        opt_to_str(left_operand),
+                        opt_to_str(operator),
+                        opt_to_str(right_operand)),
             Statement::Array{ id: _, length, size_in_bytes} => format!("Init<Array[{}], {} bytes>", length, size_in_bytes),
             Statement::Call(ref name, ref operands, ref dest) => {
                 let op_str = operands.iter()
