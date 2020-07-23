@@ -1,4 +1,4 @@
-use crate::tac_generator::{Function, Operand, Statement};
+use crate::tac_generator::tac_code::{Function, Operand, Statement};
 
 use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
@@ -211,7 +211,7 @@ mod tests {
     use crate::ast::{DeclarationInfo, Span, FunctionInfo};
     use crate::semcheck::Type;
 
-    use crate::tac_generator::{Operand, Operator};
+    use crate::tac_generator::tac_code::{Operand, Operator};
 
     use std::rc::Rc;
 

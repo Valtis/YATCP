@@ -1,4 +1,4 @@
-use crate::tac_generator::Function;
+use crate::tac_generator::tac_code::Function;
 use crate::byte_generator::ByteGenerator;
 use crate::code_generator::CodeGenerator;
 use crate::obj_generator::{ObjectType, Architecture, generate_object_file};

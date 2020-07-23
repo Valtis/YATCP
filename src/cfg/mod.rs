@@ -1,4 +1,4 @@
-use crate::tac_generator::{Function, Statement};
+use crate::tac_generator::tac_code::{Function, Statement};
 
 pub mod basic_block;
 pub mod dom_front;
@@ -440,7 +440,7 @@ mod tests {
 
     use super::*;
     use crate::ast::{FunctionInfo, Span};
-    use crate::tac_generator::{Statement, Function, Operator, Operand};
+    use crate::tac_generator::tac_code::{Statement, Function, Operator, Operand};
     use crate::semcheck::Type;
     use std::rc::Rc;
 

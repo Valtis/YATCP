@@ -1,6 +1,6 @@
 use crate::cfg::CFG;
 
-use crate::tac_generator::{Function, Statement, Operand};
+use crate::tac_generator::tac_code::{Function, Statement, Operand};
 
 use std::collections::HashMap;
 use std::collections::HashSet;

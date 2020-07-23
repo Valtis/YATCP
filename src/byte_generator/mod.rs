@@ -1,7 +1,7 @@
 #![allow(dead_code)] // primarily for the unused variant lints
 
-use crate::tac_generator::{Statement, Operator, Operand, ARRAY_LENGTH_SLOT_SIZE};
-use crate::tac_generator;
+use crate::tac_generator::tac_code::{Statement, Operator, Operand, Function as TACFunction };
+use crate::tac_generator::{ ARRAY_LENGTH_SLOT_SIZE } ;
 use crate::ast::DeclarationInfo;
 use crate::code_generator::x64::x64_register::X64Register;
 use crate::semcheck::Type;
@@ -223,13 +223,13 @@ impl Function {
 
 pub struct ByteGenerator {
     pub bytecode_functions: Vec<Function>,
-    tac_functions: Vec<tac_generator::Function>,
+    tac_functions: Vec<TACFunction>,
     next_register: u32,
     variable_id_to_register: HashMap<u32, VirtualRegisterData>,
 }
 
 impl ByteGenerator {
-    pub fn new(functions: Vec<tac_generator::Function>) -> ByteGenerator {
+    pub fn new(functions: Vec<TACFunction>) -> ByteGenerator {
         ByteGenerator {
             bytecode_functions: vec![],
             tac_functions: functions,
@@ -609,7 +609,7 @@ mod test {
     use super::*;
     use super::Value::*;
 
-    use crate::tac_generator::{Operand, Function};
+    use crate::tac_generator::tac_code::{Operand, Function};
     use crate::ast::{FunctionInfo, Span};
     use crate::semcheck::Type;
 

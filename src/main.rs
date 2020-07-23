@@ -1,3 +1,5 @@
+#![cfg(not(test))]
+
 extern crate compiler;
 extern crate argparse;
 
@@ -13,7 +15,6 @@ use took::Timer;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-#[cfg(not(test))]
 fn main() {
 
     let mut optimize = false;

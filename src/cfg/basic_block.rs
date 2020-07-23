@@ -1,4 +1,4 @@
-use crate::tac_generator::{Function, Statement};
+use crate::tac_generator::tac_code::{Function, Statement};
 
 #[derive(Debug, PartialEq, Clone)]
 
@@ -58,7 +58,7 @@ impl BasicBlock {
 mod tests {
     use super::*;
     use crate::ast::{FunctionInfo, Span};
-    use crate::tac_generator::{Statement, Function};
+    use crate::tac_generator::tac_code::{Statement, Function};
     use crate::semcheck::Type;
     use std::rc::Rc;
 

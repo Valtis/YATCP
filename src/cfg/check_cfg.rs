@@ -1,7 +1,7 @@
 use super::CFG;
 use super::{Adj};
 
-use crate::tac_generator::{Function, Statement};
+use crate::tac_generator::tac_code::{Function, Statement};
 use crate::error_reporter::{ErrorReporter, ReportKind};
 use crate::semcheck::{Type};
 

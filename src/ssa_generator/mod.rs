@@ -1,7 +1,7 @@
 use crate::ast::DeclarationInfo;
 use crate::cfg::{CFG, Adj};
 use crate::cfg::basic_block::BasicBlock;
-use crate::tac_generator::{Function, Statement, Operand};
+use crate::tac_generator::tac_code::{Function, Statement, Operand};
 
 use std::collections::HashMap;
 use std::rc::Rc;

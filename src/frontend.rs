@@ -3,7 +3,8 @@ use crate::lexer::token::{TokenType};
 use crate::parser::Parser;
 use crate::ast::AstNode;
 use crate::semcheck::SemanticsCheck;
-use crate::tac_generator::{Function, TACGenerator};
+use crate::tac_generator::TACGenerator;
+use crate::tac_generator::tac_code::Function;
 use crate::error_reporter::ErrorReporter;
 
 use std::fs::File;
