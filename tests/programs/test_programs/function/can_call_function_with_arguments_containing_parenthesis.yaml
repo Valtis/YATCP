@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int);
+  extern fn int_printer(value: int);
   fn main() : int {
      int_printer(bar(4, 1, 2*(1+5), (6-5)*6));
      return 0;

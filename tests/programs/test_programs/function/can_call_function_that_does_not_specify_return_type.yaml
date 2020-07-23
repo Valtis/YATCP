@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int); // should be void
+  extern fn int_printer(value: int); // should be void
   fn main() : int {
     bar();
     return 0;

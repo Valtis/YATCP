@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int);
+  extern fn int_printer(value: int);
   fn main() : int {
 
       for let i: int = 0; i < 10; i = i + 1 {

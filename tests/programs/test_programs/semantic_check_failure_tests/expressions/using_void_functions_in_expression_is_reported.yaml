@@ -2,7 +2,7 @@ program: |
     fn main() : int {
       let string_var: string = "hello";
       let int_var: int = 23;
-      let val: bool = baz(4) + baz(2);
+      let value: bool = baz(4) + baz(2);
       return 0;
     }
     
@@ -12,7 +12,7 @@ program: |
     
 expect_compile_failure: true
 expect_stderr: |
-  4:26 Type error: Operands of type 'Void' are not valid for this operator
-    let val: bool = baz(4) + baz(2);
-                           ^
+  4:28 Type error: Operands of type 'Void' are not valid for this operator
+    let value: bool = baz(4) + baz(2);
+                             ^
   Terminating compilation due to 1 error

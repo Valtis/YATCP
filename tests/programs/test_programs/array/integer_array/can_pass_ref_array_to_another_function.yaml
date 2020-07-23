@@ -1,6 +1,6 @@
 program: |
-  extern fn int_printer(val: int) : void;
-  extern fn boolean_printer(val: bool) : void;
+  extern fn int_printer(value: int) : void;
+  extern fn boolean_printer(value: bool) : void;
 
   fn main() : int {
     let arr: int[25] = 0;

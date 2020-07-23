@@ -1,6 +1,6 @@
 program: |
     fn main() : int {
-      let val: bool = true-false;
+      let value: bool = true-false;
       return 0;
     }
     
@@ -10,7 +10,7 @@ program: |
     
 expect_compile_failure: true
 expect_stderr: |
-  2:23 Type error: Operands of type 'Boolean' are not valid for this operator
-    let val: bool = true-false;
-                        ^
+  2:25 Type error: Operands of type 'Boolean' are not valid for this operator
+    let value: bool = true-false;
+                          ^
   Terminating compilation due to 1 error

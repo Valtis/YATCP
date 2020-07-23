@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int) : void;
+  extern fn int_printer(value: int) : void;
 
   fn main() : int {
     let arr: int[25] = 0;
@@ -9,8 +9,8 @@ program: |
   }
 
   fn foo(arr: int[]) : void {
-    let val: int = 8;
-    arr[5] = val;
+    let value: int = 8;
+    arr[5] = value;
     int_printer(arr[5]);
   }
 link_with:

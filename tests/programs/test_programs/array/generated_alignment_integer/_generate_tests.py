@@ -3,7 +3,7 @@ for i in range(1, 100):
 
     out = f'''
 program: |
-  extern fn int_printer(val: int) : void;
+  extern fn int_printer(value: int) : void;
 
   // testing with different array lengths, in case stack/array length alignment affects codegen
   fn main() : int {{

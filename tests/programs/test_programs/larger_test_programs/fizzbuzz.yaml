@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int) : void;
+  extern fn int_printer(value: int) : void;
   extern fn fizz() : void;
   extern fn buzz() : void;
   extern fn fizzbuzz() : void;

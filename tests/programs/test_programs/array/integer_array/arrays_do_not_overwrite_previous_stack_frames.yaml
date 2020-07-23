@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int) : void;
+  extern fn int_printer(value: int) : void;
   // Test that we do not accidentally overwrite values in previous stack frames
 
   fn main() : int {

@@ -1,6 +1,6 @@
 program: |
-  extern fn int_printer(val: int) : void;
-  extern fn boolean_printer(val: bool) : void;
+  extern fn int_printer(value: int) : void;
+  extern fn boolean_printer(value: bool) : void;
   // Test that we do not accidentally overwrite values in previous stack frames
 
   fn main() : int {

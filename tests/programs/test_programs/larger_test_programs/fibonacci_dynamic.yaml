@@ -3,9 +3,9 @@ program: |
 
   fn main() : int {
     let cache: int[50] = -1;
-    let val : int = fib(40, cache);
+    let value : int = fib(40, cache);
 
-    int_printer(val);
+    int_printer(value);
     return 0;
   }
 

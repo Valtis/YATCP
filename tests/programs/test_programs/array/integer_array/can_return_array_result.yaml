@@ -1,5 +1,5 @@
 program: |
-  extern fn int_printer(val: int) : void;
+  extern fn int_printer(value: int) : void;
 
   fn main() : int {
     int_printer(returns_int(0));    

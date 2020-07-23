@@ -1,5 +1,5 @@
 program: |
-  extern fn boolean_printer(val: bool) : void;
+  extern fn boolean_printer(value: bool) : void;
 
   fn main() : int {
     let a: bool[2] = false;
