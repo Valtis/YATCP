@@ -1,0 +1,13 @@
+program: |
+
+    fn main(a: int) : int {
+      if a > 5 {
+        return 32;
+      }
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:4 Data flow error: Function 'main': Not all control flow paths return a value
+  fn main(a: int) : int {
+     ^^^^

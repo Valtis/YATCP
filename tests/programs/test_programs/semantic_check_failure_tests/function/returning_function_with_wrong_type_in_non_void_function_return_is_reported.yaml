@@ -1,0 +1,19 @@
+program: |
+
+    fn main() : int {
+      return baz();
+    }
+
+    fn baz() : bool {
+      return true;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  3:10 Type error: Return statement has type 'Boolean' when 'Integer' was expected
+    return baz();
+           ^^^
+  2:4 Note: Function 'main', declared here, is expected to return 'Integer'
+  fn main() : int {
+     ^^^^
+  Terminating compilation due to 1 error

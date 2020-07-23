@@ -1,0 +1,17 @@
+program: |
+    extern fn bar(a: int, b: bool);
+
+    fn main() : int {
+      bar(4, 1);
+      return 0;
+    }
+    
+expect_compile_failure: true
+expect_stderr: |
+  4:10 Type error: Got argument of type 'Integer' when 'Boolean' was expected
+    bar(4, 1);
+           ^
+  1:23 Note: Corresponding parameter declared here
+  extern fn bar(a: int, b: bool);
+                        ^
+  Terminating compilation due to 1 error

@@ -1,0 +1,15 @@
+program: |
+    fn main() : int {
+      let b: int[4] = 0;
+      let a: int = b.length();
+      return 0;
+    }
+    
+    // bad error message here, but not touching it for now - will revisit once structs with function pointers are on the table
+    
+expect_compile_failure: true
+expect_stderr: |
+        3:24 Syntax error: Unexpected token '('. Missing operator?
+          let a: int = b.length();
+                               ^
+        Terminating compilation due to 1 error

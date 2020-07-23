@@ -248,27 +248,6 @@ impl Parser {
             false
         };
 
-        // Custom error handling for case where expression is missing
-        match next_token.token_type {
-            TokenType::Equals => {
-                    self.lexer.next_token(); // pop the token we peeked before array handling
-            }, // ok
-            TokenType::SemiColon => {
-                self.report_error(
-                    ReportKind::SyntaxError,
-                    Span::new(identifier.line, identifier.column, identifier.length),
-                    format!("Variable declaration must be followed by initialization"));
-                return Err(());
-            },
-            _ => {
-                self.report_unexpected_token(
-                    TokenType::Equals,
-                    &next_token);
-                return Err(());
-            },
-        }
-
-
         let mut declaration_info = DeclarationInfo::new_with_extra_info(&identifier, &var_type, extra_info);
 
         if is_array {
@@ -286,9 +265,31 @@ impl Parser {
             }
         }
 
-        let node = self.parse_expression()?;
+        // Custom error handling for case where expression is missing
+        let expression_node = match next_token.token_type {
+            TokenType::Equals => {
+                self.lexer.next_token(); // pop the token we peeked before array handling
+                 self.parse_expression()?
+            }, // ok
+            TokenType::SemiColon => {
+                self.report_error(
+                    ReportKind::SyntaxError,
+                    Span::new(identifier.line, identifier.column, identifier.length),
+                    format!("Variable declaration must be followed by initialization"));
+                AstNode::ErrorNode
+            },
+            _ => {
+                self.report_unexpected_token(
+                    TokenType::Equals,
+                    &next_token);
+                return Err(());
+            },
+        };
+
+
+
         let declaration = AstNode::VariableDeclaration(
-                Box::new(node),
+                Box::new(expression_node),
                 declaration_info);
 
         Ok(declaration)
@@ -369,10 +370,11 @@ impl Parser {
     }
 
     fn parse_assignment(&mut self, identifier: Token, token_type: TokenType) -> Result<AstNode, ()> {
-        let op = self.expect(token_type)?;
+        let mut op = self.expect(token_type)?;
 
         if token_type != TokenType::Equals {
             self.expect(TokenType::Equals)?;
+            op.length += 1;
         }
         let expression_node = self.parse_expression()?;
 

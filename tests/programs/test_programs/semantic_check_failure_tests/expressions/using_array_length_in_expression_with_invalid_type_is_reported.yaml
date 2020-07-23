@@ -1,0 +1,15 @@
+program: |
+    fn main() : int {
+      let a: bool = false;
+      let b: int[4] = 0;
+      let c: int = a * b.length;
+      return 0;
+    }
+    
+    
+expect_compile_failure: true
+expect_stderr: |
+  4:18 Type error: Incompatible operand types 'Boolean' and 'Integer' for this operation
+    let c: int = a * b.length;
+                   ^
+  Terminating compilation due to 1 error

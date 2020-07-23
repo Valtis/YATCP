@@ -1,0 +1,19 @@
+program: |
+
+    fn main() : int {
+      return 0;
+    }
+    
+    extern fn baz(a: int, a: bool);
+    
+    
+
+expect_compile_failure: true
+expect_stderr: |
+  6:23 Name error: Parameter 'a' shadows earlier parameter
+  extern fn baz(a: int, a: bool);
+                        ^
+  6:15 Note: Parameter with same name previously declared here
+  extern fn baz(a: int, a: bool);
+                ^
+  Terminating compilation due to 1 error

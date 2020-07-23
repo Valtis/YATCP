@@ -1,0 +1,21 @@
+program: |
+
+    fn main() : int {
+      return 0;
+    }
+    
+    fn baz(a: int, b: void) {
+
+    }
+    
+    fn bar() : int {
+      return 4; 
+    }
+    
+
+expect_compile_failure: true
+expect_stderr: |
+  6:16 Type error: Parameter may not have type 'Void'
+  fn baz(a: int, b: void) {
+                 ^
+  Terminating compilation due to 1 error

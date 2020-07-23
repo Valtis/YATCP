@@ -1,0 +1,12 @@
+program: |
+    fn main() : int {
+      let a: bool = 4.2f < 3;
+    }
+    
+    
+expect_compile_failure: true
+expect_stderr: |
+  2:22 Type error: Incompatible operand types 'Float' and 'Integer' for this operation
+    let a: bool = 4.2f < 3;
+                       ^
+  Terminating compilation due to 1 error

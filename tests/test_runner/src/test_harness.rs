@@ -217,7 +217,9 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
         }
     }
 
-    let program = doc["program"].as_str().unwrap().to_owned();
+    // make sure we have a trailing newline, error reporter does not like it when one is not present
+    let program = format!("{}\n", doc["program"].as_str().unwrap().to_owned());
+
     let expected_stdout = doc["expect_stdout"].as_str().unwrap_or("").to_owned();
     let expected_stderr = doc["expect_stderr"].as_str().unwrap_or("").to_owned();
     let callable_function = doc["callable"].as_str().unwrap_or("").to_owned();

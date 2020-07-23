@@ -1,0 +1,20 @@
+program: |
+
+    fn main() : int {
+      bar(4);
+      return 0;
+    }
+
+    fn bar(a: int, b: bool) {
+
+    }
+    
+expect_compile_failure: true
+expect_stderr: |
+  3:3 Type error: 2 arguments expected but 1 provided
+    bar(4);
+    ^^^
+  7:4 Note: Function declared here
+  fn bar(a: int, b: bool) {
+     ^^^
+  Terminating compilation due to 1 error
