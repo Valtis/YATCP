@@ -27,6 +27,8 @@ pub enum TokenType {
   While,
   For,
   Let,
+  Const,
+  Val,
   Fn,
   Return,
   Boolean,
@@ -56,7 +58,7 @@ impl Display for TokenType {
     Display::fmt(
       match *self {
         TokenType::Equals => "=",
-        TokenType::DoubleEquals => "comparison",
+        TokenType::DoubleEquals => "==",
         TokenType::Exclamation => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
@@ -76,6 +78,8 @@ impl Display for TokenType {
         TokenType::While => "while",
         TokenType::For => "for",
         TokenType::Let => "let",
+        TokenType::Const => "const",
+        TokenType::Val => "val",
         TokenType::Fn => "fn",
         TokenType::Return => "return",
         TokenType::Boolean => "boolean",

@@ -262,14 +262,14 @@ impl TACGenerator {
         info: &DeclarationInfo
     ) {
         self.generate_tac(child);
-        let (variable_info, id) = self.get_variable_info_and_id(&info.name);
+        let (_, id) = self.get_variable_info_and_id(&info.name);
         let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
 
-        let length = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = variable_info.extra_info {
+        let length = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = info.extra_info {
             let mut length = 1 as u64;
             for dim in dims.iter() {
                 match dim {
-                    AstInteger::Int(val) => length *= *val as u64,
+                    AstNode::Integer{ value: AstInteger::Int(val), .. } => length *= *val as u64,
                     _ => ice!("Invalid array dimension {:?}", dim),
                 }
             }
@@ -277,13 +277,13 @@ impl TACGenerator {
             ice_if!(length > std::i32::MAX as u64,"Array length exceeds maximum size");
             length as i32
         } else {
-            ice!("Invalid extra declaration field {:?} for an array", variable_info.extra_info);
+            ice!("Invalid extra declaration field {:?} for an array", info.extra_info);
         };
 
         self.store_array_length(id,
                                 length,
-                                (length as u32)*variable_info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
-        self.emit_array_initialization(id, variable_info, length, operand);
+                                (length as u32)*info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
+        self.emit_array_initialization(id, info, length, operand);
     }
 
     fn store_array_length(&mut self,
@@ -296,7 +296,7 @@ impl TACGenerator {
     fn emit_array_initialization(
         &mut self,
         id: u32,
-        variable_info: DeclarationInfo,
+        variable_info: &DeclarationInfo,
         size: i32,
         operand: Operand) {
         // FIXME: Right now there is no runtime, so initialing the array is done like this. Replacing this with a call to memset would likely make more sense

@@ -6,6 +6,15 @@ pub enum Symbol {
     Variable(DeclarationInfo, u32),
 }
 
+impl Symbol {
+    pub fn name(&self) -> &str {
+        match self {
+            Symbol::Function(function_info) => function_info.name.as_str(),
+            Symbol::Variable(declaration_info, _) => declaration_info.name.as_str(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TableEntry {
     // I would really like to use LinkedHashMap here, but as of writing this, it does not
@@ -41,6 +50,9 @@ impl TableEntry {
             }
         }
         None
+    }
+    pub fn symbols(&self) -> impl Iterator<Item=&Symbol> {
+        self.symbols.iter()
     }
 }
 

@@ -9,6 +9,7 @@ use crate::semcheck::Type;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::variable_attributes::VariableAttribute;
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -27,7 +28,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> AstNode {
 
-        let top_level_tokens = vec![TokenType::Fn, TokenType::Extern];
+        let top_level_tokens = vec![TokenType::Fn, TokenType::Extern, TokenType::Const];
         let mut nodes = vec![];
         loop {
             let token = self.lexer.peek_token();
@@ -46,6 +47,19 @@ impl Parser {
                             self.skip_to_first_of(top_level_tokens.clone()),
                     }
                 },
+                TokenType::Const => {
+                    match self.parse_variable_declaration() {
+                        Ok(const_node) => {
+                            nodes.push(const_node);
+                            match self.expect_one_of(vec![TokenType::SemiColon]) {
+                                Ok(_) => (),
+                                Err(_) => self.skip_to_first_of(top_level_tokens.clone()),
+                            }
+                        },
+                        Err(_) =>
+                            self.skip_to_first_of(top_level_tokens.clone()),
+                    }
+                }
                 TokenType::Eof =>
                     return AstNode::Block{
                         statements: nodes,
@@ -179,7 +193,7 @@ impl Parser {
                     self.lexer.next_token();
                     continue;
                 },
-                TokenType::Let => {
+                TokenType::Let | TokenType::Const | TokenType::Val => {
                     let res = self.parse_variable_declaration();
                     if let Err(_) = res {
                         self.skip_to_first_of(vec![TokenType::SemiColon]);
@@ -213,7 +227,9 @@ impl Parser {
     }
 
     fn parse_variable_declaration(&mut self) -> Result<AstNode, ()> {
-        self.expect(TokenType::Let)?;
+        let variable_type = self.expect_one_of(vec![TokenType::Let, TokenType::Const, TokenType::Val])?;
+
+
         let identifier = self.expect(TokenType::Identifier)?;
         self.expect(TokenType::Colon)?;
         let var_type = self.expect(TokenType::VarType)?;
@@ -265,6 +281,16 @@ impl Parser {
             }
         }
 
+        match variable_type.token_type {
+            TokenType::Const => {
+                declaration_info.attributes.insert(VariableAttribute::Const);
+            },
+            TokenType::Val => {
+                declaration_info.attributes.insert(VariableAttribute::ReadOnly);
+            },
+            _ => ()
+        };
+
         // Custom error handling for case where expression is missing
         let expression_node = match next_token.token_type {
             TokenType::Equals => {
@@ -296,21 +322,13 @@ impl Parser {
         Ok(declaration)
     }
 
-    fn parse_array_declaration(&mut self) -> Result<Vec<AstInteger>, ()> {
+    fn parse_array_declaration(&mut self) -> Result<Vec<AstNode>, ()> {
 
         // TODO: Support for multidimensional arrays
         let size = self.parse_expression()?;
         self.expect(TokenType::RBracket)?;
 
-        if let AstNode::Integer{ value, ..} = size {
-            Ok(vec![AstInteger::from(value)])
-        } else {
-            self.report_error(
-                ReportKind::TypeError,
-                size.span(),
-                "Array dimension must be an integer constant".to_owned());
-            Err(())
-        }
+        Ok(vec![size])
     }
 
     fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, ()> {

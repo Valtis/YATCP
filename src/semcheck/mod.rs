@@ -12,7 +12,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use std::collections::HashMap;
-
+use crate::variable_attributes::VariableAttribute;
 
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
@@ -114,6 +114,7 @@ pub struct SemanticsCheck {
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     id_counter: u32,
     enclosing_function_stack: Vec<FunctionInfo>,
+    constant_initializer_stack: Vec<HashMap<String, AstNode>>,
 }
 
 impl SemanticsCheck {
@@ -124,6 +125,7 @@ impl SemanticsCheck {
             error_reporter: reporter,
             id_counter: 0,
             enclosing_function_stack: vec![],
+            constant_initializer_stack: vec![],
         }
     }
 
@@ -138,17 +140,21 @@ impl SemanticsCheck {
     }
 
     pub fn check_semantics(&mut self, node: &mut AstNode) -> u32 {
-        self.check_and_gather_functions(node);
+        self.check_and_gather_top_level_symbols(node);
         self.do_check(node);
 
         ice_if!(
             !self.enclosing_function_stack.is_empty(),
-            "Enclosing function stack not empty after semantic checks");
+            "Enclosing function stack is not empty after semantic checks");
+
+        ice_if!(
+            !self.constant_initializer_stack.is_empty(),
+            "Constant initializer stack is not empty after semantic checks");
         self.errors
     }
 
     // only process function declarations initially, so that we can call functions that appear later
-    fn check_and_gather_functions(&mut self, node: &mut AstNode) {
+    fn check_and_gather_top_level_symbols(&mut self, node: &mut AstNode) {
         self.symbol_table.push_empty();
         if let AstNode::Block{ref mut statements, ref mut block_symbol_table_entry , ..} = node {
 
@@ -181,6 +187,7 @@ impl SemanticsCheck {
     }
 
     fn do_check(&mut self, node: &mut AstNode) {
+
         match node {
             AstNode::Block{ statements, block_symbol_table_entry, span} =>
                 self.handle_block(statements, block_symbol_table_entry, span),
@@ -252,12 +259,23 @@ impl SemanticsCheck {
         _span: &Span) {
 
         self.symbol_table.push_empty();
+        self.constant_initializer_stack.push(HashMap::new());
         for ref mut child in children {
             self.do_check(child);
         }
 
         let entry = self.symbol_table.pop();
-        if let None = tab_ent {
+        self.constant_initializer_stack.pop();
+        if let Some(ref mut main_entries) = tab_ent {
+            if let Some(entries) = entry {
+                for symbol in entries.symbols() {
+                    if let None = main_entries.find_symbol(symbol.name()) {
+                        main_entries.add_symbol(symbol.clone());
+                    }
+                }
+            }
+
+        } else {
             *tab_ent = entry;
         }
     }
@@ -477,7 +495,7 @@ impl SemanticsCheck {
     fn handle_variable_declaration(
         &mut self,
         child: &mut AstNode,
-        variable_info: &DeclarationInfo) {
+        variable_info: &mut DeclarationInfo) {
 
         match self.symbol_table.find_symbol(&variable_info.name) {
             Some(symbol) => {
@@ -511,6 +529,9 @@ impl SemanticsCheck {
                     "Previously declared here".to_string());
             },
             None => {
+
+                self.check_constness_init(child, variable_info);
+
                 let id = self.get_next_id();
                 self.symbol_table.add_symbol(
                     Symbol::Variable(variable_info.clone(), id));
@@ -536,42 +557,94 @@ impl SemanticsCheck {
             }
 
 
-            let dims = if let Some(ExtraDeclarationInfo::ArrayDimension(ref x)) = variable_info.extra_info {
+            let dims = if let Some(ExtraDeclarationInfo::ArrayDimension(ref mut x)) = variable_info.extra_info {
                 x
             } else {
                 ice!("Variable {} has type {}, which is an array type, but array dimension info is not set", variable_info.name, variable_info.variable_type);
             };
 
+            let dimension_span = variable_info.span.clone();
 
-            let mut report_dimension_error = || {
-                self.report_error(
-                    ReportKind::TypeError,
-                    variable_info.span.clone(),
-                    "Array has invalid dimensions".to_owned(),
-                )
-            };
+            for dim in dims.iter_mut() {
+                if self.is_constant(dim) {
 
+                    if self.get_type(dim) != Type::Integer {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            dim.span(),
+                            "Array dimension must be an integer constant".to_owned()
+                        );
+                        continue;
+                    }
 
-            for dim in dims {
-                match dim {
-                    AstInteger::Int(x) if *x <= 0 => {
-                        report_dimension_error();
-                        break;
-                    },
-                    AstInteger::IntMaxPlusOne |
-                    AstInteger::Invalid(_) => {
-                        report_dimension_error();
-                        break;
-                    },
-                    _ => (), // OK
+                    let expr = self.get_constant_initializer_expression(dim);
+                    ice_if!(!self.is_constant(&expr), "Inconsistent constant value tracking");
+
+                    if let AstNode::Integer { ref value, .. } = expr {
+                        match value {
+                            AstInteger::IntMaxPlusOne |
+                            AstInteger::Invalid(_) => {
+
+                                self.report_error(
+                                    ReportKind::TypeError,
+                                    dimension_span.clone(),
+                                    "Array has invalid dimensions".to_owned(),
+                                );
+
+                            }
+                            AstInteger::Int(x) if *x <= 0 => {
+
+                                self.report_error(
+                                    ReportKind::TypeError,
+                                    dimension_span.clone(),
+                                    "Array has invalid dimensions".to_owned(),
+                                );
+                                break;
+                            }
+                            _ => *dim = expr,
+                        }
+                    } else {
+                        // this can happen if constant is initialized with bad expression. Ignore
+                    }
+
+                } else {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        dim.span(),
+                        "Array dimension must be a constant".to_owned()
+                    );
                 }
             }
-
 
         } else if variable_info.variable_type != child_type &&
             child_type != Type::Invalid && variable_info.variable_type != Type::Invalid {
             self.report_type_error(variable_info, child, child_type);
         }
+    }
+
+    fn check_constness_init(
+        &mut self,
+        init_expression: &mut AstNode,
+        declaration_info: &DeclarationInfo) {
+
+        if !declaration_info.attributes.contains(&VariableAttribute::Const) {
+            return;
+        }
+
+        if self.is_constant(init_expression) {
+            ice_if!(self.constant_initializer_stack.len() == 0, "Empty constant initializer stack");
+            let last = self.constant_initializer_stack.len() - 1;
+            self.constant_initializer_stack[last]
+                .insert(declaration_info.name.to_string(), init_expression.clone());
+        } else {
+            self.report_error(
+               ReportKind::TypeError,
+               declaration_info.span,
+               "Cannot initialize constant variable with non-constant initializer".to_owned()
+           );
+        }
+
+
     }
 
 
@@ -625,6 +698,8 @@ impl SemanticsCheck {
                 format!("Variable '{}', declared here, has type '{}'",
                     name,
                     sym_info.variable_type));
+            } else {
+                self.check_constness(&span, sym_info);
             }
 
         } else {
@@ -634,6 +709,28 @@ impl SemanticsCheck {
                 symbol);
         }
     }
+
+    fn check_constness(
+        &mut self,
+        assignment_span: &Span,
+        declaration_info: &DeclarationInfo) {
+       if declaration_info.attributes.contains(&VariableAttribute::ReadOnly) ||
+           declaration_info.attributes .contains(&VariableAttribute::Const) {
+           self.report_error(
+               ReportKind::TypeError,
+               *assignment_span,
+               "Cannot assign to read only variable".to_owned()
+           );
+
+           self.report_error(
+               ReportKind::Note,
+               declaration_info.span,
+               format!("Variable '{}', declared here, has been declared as read only", declaration_info.name)
+           );
+       }
+    }
+
+
 
     fn handle_array_assignment(
         &mut self,
@@ -1196,6 +1293,56 @@ impl SemanticsCheck {
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
+    }
+
+    fn is_constant(&self, node: &AstNode) -> bool {
+        match node {
+            // TODO - If constant folding is always applied, could also consider arithmetic expressions
+            AstNode::Integer{ .. } => true,
+            AstNode::Float{ .. } => true ,
+            AstNode::Double{ .. } => true ,
+            AstNode::Boolean{ .. } => true,
+            AstNode::Text{ .. } => true,
+            AstNode::Negate { expression, .. } => self.is_constant(expression),
+            AstNode::Identifier { name, .. } => {
+                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                  info.attributes.contains(&VariableAttribute::Const)
+                } else {
+                    true // we pretend that undeclared symbols are constant ones, to suppress any extra errors we may see
+                }
+            },
+            AstNode::BooleanNot { expression , ..} => self.is_constant(expression),
+            AstNode::ArrayAccess { index_expression, indexable_expression }
+                => self.is_constant(index_expression) && self.is_constant(indexable_expression),
+            _ => false,
+        }
+    }
+
+    fn get_constant_initializer_expression(&self, node: &AstNode) -> AstNode {
+        ice_if!(!self.is_constant(node), "Constant initializer requested for non-constant expression {}", node);
+        match node {
+            AstNode::Integer{ .. } => node.clone(),
+            AstNode::Float{ .. } => node.clone() ,
+            AstNode::Double{ .. } => node.clone() ,
+            AstNode::Boolean{ .. } => node.clone(),
+            AstNode::Text{ .. } => node.clone(),
+            AstNode::Identifier{ name, ..} => {
+                let node = self.get_constant_initializer_stack_entry(name);
+                self.get_constant_initializer_expression(&node)
+            },
+            _ => ice!("Non-constant node {}", node),
+        }
+    }
+
+    fn get_constant_initializer_stack_entry(&self, name: &String) -> AstNode {
+        for level in (0..self.constant_initializer_stack.len()).rev() {
+            match self.constant_initializer_stack[level].get(name) {
+                Some(x) => return x.clone(),
+                None => (),
+            }
+        }
+
+        ice!("No entry {} in constant initializer stack", name)
     }
 
     fn get_enclosing_function_info(&self) -> FunctionInfo {

@@ -20,6 +20,7 @@ mod code_generator;
 mod obj_generator;
 
 mod function_attributes;
+mod variable_attributes;
 
 pub mod frontend;
 pub mod middleend;

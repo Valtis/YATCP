@@ -9,6 +9,8 @@ use std::fmt::Debug;
 use std::iter;
 
 use std::rc::Rc;
+use crate::variable_attributes::VariableAttribute;
+use std::collections::HashSet;
 
 fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
     match identifier.token_subtype {
@@ -150,11 +152,7 @@ impl Display for AstNode {
 
                         if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = declaration_info.extra_info {
                             for dim in dims.iter() {
-                                match dim {
-                                    AstInteger::Int(val) => dim_str = format!("{}[{}]", dim_str, val),
-                                    AstInteger::IntMaxPlusOne => dim_str = format!("{}[{}]", dim_str, (std::i32::MAX as u64) + 1),
-                                    AstInteger::Invalid(val) => dim_str = format!("{}[{}<invalid>]", dim_str, val),
-                                }
+                                dim_str = format!("{}[{}]", dim_str, dim);
                             }
                         } else {
                             ice!("Non-array dimension information on array declaration");
@@ -439,6 +437,7 @@ pub struct DeclarationInfo {
     pub variable_type: Type,
     pub span: Span,
     pub extra_info: Option<ExtraDeclarationInfo>,
+    pub attributes: HashSet<VariableAttribute>,
 }
 
 impl DeclarationInfo {
@@ -463,6 +462,7 @@ impl DeclarationInfo {
             variable_type: var_type,
             span: Span::new(line, column, length),
             extra_info: None,
+            attributes: HashSet::new(),
         }
     }
 
@@ -475,13 +475,20 @@ impl DeclarationInfo {
             variable_type: get_type_from_type_token(variable_type),
             span: Span::new(identifier.line, identifier.column, identifier.length),
             extra_info,
+            attributes: HashSet::new(),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum ExtraDeclarationInfo {
-    ArrayDimension(Vec<AstInteger>), // left-to-right, in declaration order
+    ArrayDimension(Vec<AstNode>), // left-to-right, in declaration order
+}
+
+impl PartialEq for ExtraDeclarationInfo {
+    fn eq(&self, _other: &Self) -> bool {
+        true // FIXME - proper implementation
+    }
 }
 
 

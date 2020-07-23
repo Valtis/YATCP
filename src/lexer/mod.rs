@@ -214,6 +214,8 @@ impl ReadLexer {
       "while" => Some(self.create_token(TokenType::While, TokenSubType::NoSubType)),
       "for" => Some(self.create_token(TokenType::For, TokenSubType::NoSubType)),
       "let" => Some(self.create_token(TokenType::Let, TokenSubType::NoSubType)),
+      "const" => Some(self.create_token(TokenType::Const, TokenSubType::NoSubType)),
+      "val" => Some(self.create_token(TokenType::Val, TokenSubType::NoSubType)),
       "fn" => Some(self.create_token(TokenType::Fn, TokenSubType::NoSubType)),
       "return" => Some(self.create_token(TokenType::Return, TokenSubType::NoSubType)),
       "new" => Some(self.create_token(TokenType::New, TokenSubType::NoSubType)),
