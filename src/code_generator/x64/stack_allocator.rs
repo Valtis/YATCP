@@ -1,5 +1,5 @@
-use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::Value::*;
+use crate::byte_generator::byte_code::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
+use crate::byte_generator::byte_code::Value::*;
 use crate::semcheck::Type;
 
 use super::x64_register::X64Register;

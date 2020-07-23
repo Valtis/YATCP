@@ -9,9 +9,8 @@ use x64_register::X64Register;
 use opcodes::*;
 use encoding::*;
 
-use crate::byte_generator;
-use crate::byte_generator::Value::*;
-use crate::byte_generator::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType};
+use crate::byte_generator::byte_code::Value::*;
+use crate::byte_generator::byte_code::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType, Function as ByteCodeFunction};
 use crate::code_generator;
 
 use byteorder::{ByteOrder, LittleEndian };
@@ -38,8 +37,8 @@ struct CallPatch {
 }
 
 
-pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> super::Code {
-    let function_asm: Vec<(byte_generator::Function, Vec<u8>, Vec<CallPatch>)> = functions.par_iter()
+pub fn generate_code(functions: Vec<(ByteCodeFunction, u32)>) -> super::Code {
+    let function_asm: Vec<(ByteCodeFunction, Vec<u8>, Vec<CallPatch>)> = functions.par_iter()
         .filter(|(function, _)| !function.has_attribute(FunctionAttribute::External))
         .map(|(function, stack_size)| generate_code_for_function(function, *stack_size))
         .collect();
@@ -97,7 +96,7 @@ pub fn generate_code(functions: Vec<(byte_generator::Function, u32)>) -> super::
     }
 }
 
-fn generate_code_for_function(function: &byte_generator::Function, stack_size: u32) -> (byte_generator::Function, Vec<u8>, Vec<CallPatch>) {
+fn generate_code_for_function(function: &ByteCodeFunction, stack_size: u32) -> (ByteCodeFunction, Vec<u8>, Vec<CallPatch>) {
 
 
     let mut asm = vec![];

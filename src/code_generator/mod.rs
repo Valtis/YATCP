@@ -1,6 +1,6 @@
 pub mod x64; // FIXME: Should be internal implementation detail
 
-use crate::byte_generator;
+use crate::byte_generator::byte_code::Function as ByteCodeFunction;
 use crate::function_attributes::FunctionAttribute;
 
 use self::x64::stack_allocator::allocate;
@@ -8,7 +8,7 @@ use self::x64::stack_allocator::allocate;
 use took::Timer;
 
 pub struct CodeGenerator {
-    bytecode_functions: Vec<byte_generator::Function>
+    bytecode_functions: Vec<ByteCodeFunction>
 }
 
 #[derive(Clone, Debug)]
@@ -32,7 +32,7 @@ pub struct Code {
 }
 
 impl CodeGenerator {
-    pub fn new(bytecode_functions: Vec<byte_generator::Function>) -> CodeGenerator {
+    pub fn new(bytecode_functions: Vec<ByteCodeFunction>) -> CodeGenerator {
         CodeGenerator {
             bytecode_functions
         }

@@ -1,8 +1,3 @@
-#![cfg(not(test))]
-
-extern crate compiler;
-extern crate argparse;
-
 use compiler::frontend::run_frontend;
 use compiler::middleend::run_middleend;
 use compiler::backend::run_backend;
