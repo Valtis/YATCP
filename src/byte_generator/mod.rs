@@ -3,7 +3,7 @@
 use crate::tac_generator::{Statement, Operator, Operand, ARRAY_LENGTH_SLOT_SIZE};
 use crate::tac_generator;
 use crate::ast::DeclarationInfo;
-use crate::code_generator::x64::X64Register;
+use crate::code_generator::x64::x64_register::X64Register;
 use crate::semcheck::Type;
 
 use std::collections::HashMap;

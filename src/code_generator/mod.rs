@@ -1,8 +1,9 @@
-pub mod x64;
-mod stack_allocator;
+pub mod x64; // FIXME: Should be internal implementation detail
 
 use crate::byte_generator;
 use crate::function_attributes::FunctionAttribute;
+
+use self::x64::stack_allocator::allocate;
 
 use took::Timer;
 
@@ -41,7 +42,7 @@ impl CodeGenerator {
 
         // TODO - remove hard coded architecture
         let timer = Timer::new();
-        let bytecode_with_allocations = stack_allocator::allocate(self.bytecode_functions, print_stack_map);
+        let bytecode_with_allocations = allocate(self.bytecode_functions, print_stack_map);
         if print_timings {
             println!("Bytecode register allocation took {}", timer.took());
         }

@@ -2,7 +2,7 @@ use crate::byte_generator::{Function, ByteCode, Value, UnaryOperation, VirtualRe
 use crate::byte_generator::Value::*;
 use crate::semcheck::Type;
 
-use super::x64::X64Register;
+use super::x64_register::X64Register;
 
 const RETURN_VALUE_REGISTER: X64Register = X64Register::EAX; // TODO: Abstract calling convention
 const PTR_SIZE: u32 =  8;
