@@ -422,6 +422,7 @@ mod test {
     use crate::ast::{FunctionInfo, Span};
     use crate::semcheck::Type;
 
+    use std::collections::HashSet;
     use std::rc::Rc;
 
     fn create_function(statements: Vec<Statement>) -> Function {
@@ -494,7 +495,8 @@ mod test {
                             column: 1,
                             length: 1,
                         },
-                        extra_info: None
+                        extra_info: None,
+                        attributes: HashSet::new(),
                     },
                     3)
                 ),
@@ -538,7 +540,7 @@ mod test {
                             length: 1,
                         },
                         extra_info: None,
-
+                        attributes: HashSet::new(),
                     },
                     3)
                 ),
@@ -570,7 +572,8 @@ mod test {
     fn should_generate_byte_code_for_conditional_jump_using_boolean_variable() {
         let statements = vec![
             Statement::JumpIfTrue(
-                Operand::Variable(DeclarationInfo {
+                Operand::Variable(
+                    DeclarationInfo {
                         name: Rc::new("foo".to_owned()),
                         variable_type: Type::Boolean,
                         span: Span {
@@ -578,9 +581,11 @@ mod test {
                             column: 1,
                             length: 1,
                         },
-                        extra_info: None, },
-                        1),
-                    3),
+                        extra_info: None,
+                        attributes: HashSet::new(),
+                    },
+                    1),
+                3),
         ];
 
         let mut generator = create_byte_generator(statements);
