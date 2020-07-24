@@ -152,20 +152,33 @@ impl Parser {
 
     fn parse_parameter_list(&mut self) -> Result<Vec<DeclarationInfo>, ()> {
         let mut params = vec![];
-        if self.lexer.peek_token().token_type == TokenType::Identifier {
+        let token_type = self.lexer.peek_token().token_type;
+        if token_type == TokenType::Identifier || token_type == TokenType::Val {
             loop {
-                let identifier = self.expect(TokenType::Identifier)?;
+                let mut identifier = self.expect_one_of(vec![TokenType::Identifier, TokenType::Val])?;
+                let is_read_only = if identifier.token_type == TokenType::Val {
+                    identifier = self.expect(TokenType::Identifier)?;
+                   true
+                } else {
+                    false
+                };
+
                 self.expect(TokenType::Colon)?;
                 let var_type = self.expect(TokenType::VarType)?;
-                params.push(DeclarationInfo::new(&identifier, &var_type));
+                let mut decl = DeclarationInfo::new(&identifier, &var_type);
+                if is_read_only {
+                    decl.attributes.insert(VariableAttribute::ReadOnly);
+                }
 
                 if let TokenType::LBracket = self.lexer.peek_token().token_type {
                     self.expect(TokenType::LBracket)?;
                     self.expect(TokenType::RBracket)?;
 
                     // update type to array type
-                    params.last_mut().unwrap().variable_type = Type::Reference(Box::new(params.last().unwrap().variable_type.get_array_type_from_basic_type()));
+                    decl.variable_type = Type::Reference(Box::new(decl.variable_type.get_array_type_from_basic_type()));
                 }
+
+                params.push(decl);
 
                 if let TokenType::Comma = self.lexer.peek_token().token_type {
                     self.expect(TokenType::Comma)?;

@@ -459,7 +459,49 @@ impl SemanticsCheck {
                             if let Type::Reference(ref x) = param.variable_type {
                                 if x.is_array() && arg_type.is_array() &&
                                     x.get_array_basic_type() == arg_type.get_array_basic_type() {
-                                    return;
+
+                                    // constness checks
+                                    if let AstNode::Identifier{ ref name, ..} = arg {
+
+                                        if let Some(Symbol::Variable(decl_info, _)) = self.symbol_table.find_symbol(name) {
+
+                                            // unconditionally error on const arrays.
+                                            //
+                                            // This is primarily due to aggressive constant folding,
+                                            // const values do not actually exist and their values get folded into
+                                            // other expressions.
+                                            if decl_info.attributes.contains(&VariableAttribute::Const) {
+                                                self.report_error(
+                                                    ReportKind::TypeError,
+                                                    arg.span(),
+                                                    "Cannot use const array as function argument".to_owned()
+                                                );
+
+                                                self.report_error(
+                                                    ReportKind::Note,
+                                                    decl_info.span,
+                                                    format!("Array '{}', declared here, is const array", name)
+                                                );
+                                            }
+
+                                            if decl_info.attributes.contains(&VariableAttribute::ReadOnly) &&
+                                                !param.attributes.contains(&VariableAttribute::ReadOnly) {
+                                                self.report_error(
+                                                    ReportKind::TypeError,
+                                                    arg.span(),
+                                                    "Cannot use readonly array here, mutability differs".to_owned()
+                                                );
+
+                                                self.report_error(
+                                                    ReportKind::Note,
+                                                    param.span,
+                                                    format!("Corresponding parameter '{}', declared here, is mutable", param.name)
+                                                );
+                                            }
+                                        }
+                                    }
+
+                                    return; // we are happy that types match (possible constness issues aside), do no further type checks
                                 }
                             }
 

@@ -592,7 +592,7 @@ impl TACGenerator {
         // const values are expected to be folded - if we see them, something has gone wrong
         ice_if!(
             variable_info.attributes.contains(&VariableAttribute::Const),
-            "Const value seen when it should have been folded at earler stage");
+            "Const value seen when it should have been folded at earlier stage");
         self.operands.push(Operand::Variable(variable_info, id));
     }
 
