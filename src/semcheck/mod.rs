@@ -695,7 +695,7 @@ impl SemanticsCheck {
         } else {
             self.report_error(
                ReportKind::TypeError,
-               declaration_info.span,
+               init_expression.span(),
                "Cannot initialize constant variable with non-constant initializer".to_owned()
            );
         }

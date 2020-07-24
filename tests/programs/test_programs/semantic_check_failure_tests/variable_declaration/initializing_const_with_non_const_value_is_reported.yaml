@@ -1,0 +1,14 @@
+program: |
+    fn main() : int {
+      val a: int = 4;
+      val b: int = 6;
+      const c: int = a * b;
+      return 0;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  4:20 Type error: Cannot initialize constant variable with non-constant initializer
+    const c: int = a * b;
+                     ^
+  Terminating compilation due to 1 error
