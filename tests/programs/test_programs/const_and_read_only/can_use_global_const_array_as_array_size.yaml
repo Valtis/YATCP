@@ -1,0 +1,16 @@
+program: |
+    
+    extern fn int_printer(value: int);
+    const ARRAY_LENGTH: int[4] = 14;
+
+    fn main() : int {
+      let b: int[ARRAY_LENGTH[0]] = 0;
+      int_printer(b.length);
+      return 0;
+    }
+    
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  14

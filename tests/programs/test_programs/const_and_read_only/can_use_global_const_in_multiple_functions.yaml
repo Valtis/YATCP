@@ -1,0 +1,20 @@
+program: |
+    extern fn int_printer(value: int);
+    const GLOBAL_CONST: int = 14;
+    fn main() : int {
+      int_printer(GLOBAL_CONST);
+      bar();
+      return 0;
+    }
+
+    fn bar() {
+      int_printer(10*GLOBAL_CONST);
+    }
+    
+    
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  14
+  140

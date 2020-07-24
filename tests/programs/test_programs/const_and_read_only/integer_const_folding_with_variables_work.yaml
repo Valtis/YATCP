@@ -1,0 +1,55 @@
+program: |
+    extern fn int_printer(value: int);
+    fn main() : int {
+      const a: int = 9;
+      const b: int = 4;
+
+      // use both arrays and regular variables
+      // first to ensure the value is actually calculated at compile time
+      // second to check that general expression works (different code paths)
+
+      // test:
+      // addition, subtraction, multiplication, division, modulo, negation
+
+      let arr1: int[a+b] = 2;
+      let var1: int = a+b;
+      int_printer(arr1.length);
+      int_printer(var1);      
+
+      let arr2: int[a-b] = 2;
+      let var2: int = a-b;
+      int_printer(arr2.length);
+      int_printer(var2);      
+
+      let arr3: int[a*b] = 2;
+      let var3: int = a*b;
+      int_printer(arr3.length);
+      int_printer(var3);      
+
+      let arr4: int[a/b] = 2;
+      let var4: int = a/b;
+      int_printer(arr4.length);
+      int_printer(var4);      
+
+      let arr5: int[a%b] = 2;
+      let var5: int = a%b;
+      int_printer(arr5.length);
+      int_printer(var5);      
+
+
+      return 0;
+    }
+    
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+ 13
+ 13
+ 5
+ 5
+ 36
+ 36
+ 2
+ 2
+ 1
+ 1

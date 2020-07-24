@@ -14,7 +14,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use crate::variable_attributes::VariableAttribute;
 
-
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
 #[derive(Clone, Debug, PartialEq)]
@@ -684,6 +683,15 @@ impl SemanticsCheck {
             let last = self.constant_initializer_stack.len() - 1;
             self.constant_initializer_stack[last]
                 .insert(declaration_info.name.to_string(), init_expression.clone());
+
+            if declaration_info.variable_type.is_array() {
+                self.report_error(
+                    ReportKind::Warning,
+                    declaration_info.span,
+                    "Const arrays are treated as const scalars. While this is accepted, consider using regular variable instead as this can be misleading".to_owned()
+                );
+            }
+
         } else {
             self.report_error(
                ReportKind::TypeError,
@@ -691,8 +699,6 @@ impl SemanticsCheck {
                "Cannot initialize constant variable with non-constant initializer".to_owned()
            );
         }
-
-
     }
 
 

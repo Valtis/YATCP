@@ -1,0 +1,30 @@
+program: |
+    extern fn boolean_printer(value: bool);
+    fn main() : int {
+      const a: bool = true;
+      const b: bool = false;
+
+
+      // test:
+      //    and, or, not
+      //  currently cannot observe if folding is applied, but the code path is at least exercised, catching miscompiles and crashes 
+      //
+
+      let var1: bool = a && b;
+      boolean_printer(var1);      
+
+      let var2: bool = a || b;
+      boolean_printer(var2);      
+
+      let var3: bool = !b;
+      boolean_printer(var3);      
+
+      return 0;
+    }
+    
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  true
+  true

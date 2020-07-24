@@ -1,0 +1,30 @@
+program: |
+
+  extern fn int_printer(value: int);
+  fn main() : int {
+    val arr: int[8] = 12345;
+    foo(arr);
+    return 0;
+  }
+
+  fn foo(val a: int[]) {
+    int_printer(a.length);
+    for let i: int = 0; i < a.length; i += 1 {
+      int_printer(a[i]);
+    }
+  }
+
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  8
+  12345
+  12345
+  12345
+  12345
+  12345
+  12345
+  12345
+  12345
+

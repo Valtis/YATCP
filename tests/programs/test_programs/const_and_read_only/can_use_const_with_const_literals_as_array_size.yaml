@@ -1,0 +1,16 @@
+program: |
+    extern fn int_printer(value: int);
+    fn main() : int {
+      const a: int = 14;
+      let b: int[a/2+3-1*2 + 3 % 2] = 0;
+      int_printer(b.length);
+      return 0;
+    }
+    
+    // bad error message here, but not touching it for now - will revisit once structs with function pointers are on the table
+    
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  9
