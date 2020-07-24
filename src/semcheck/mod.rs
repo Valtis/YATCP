@@ -705,7 +705,7 @@ impl SemanticsCheck {
                     name,
                     sym_info.variable_type));
             } else {
-                self.check_constness(&span, sym_info);
+                self.report_if_read_only(&span, sym_info);
             }
 
         } else {
@@ -716,7 +716,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn check_constness(
+    fn report_if_read_only(
         &mut self,
         assignment_span: &Span,
         declaration_info: &DeclarationInfo) {
@@ -776,6 +776,8 @@ impl SemanticsCheck {
                 return;
             }
 
+            self.report_if_read_only(span, sym_info);
+
             let index_type = self.get_type(index_expression);
             let assignment_type = self.get_type(assignment_expression);
 
@@ -814,6 +816,7 @@ impl SemanticsCheck {
         indexable_expression: &mut AstNode,
     ) {
 
+        let indexable_span = indexable_expression.span();
         self.do_check(index_expression);
         self.do_check(indexable_expression);
 
@@ -822,7 +825,7 @@ impl SemanticsCheck {
         if !indexable_type.is_array() && indexable_type != Type::Invalid {
             self.report_error(
                 ReportKind::TypeError,
-                indexable_expression.span(),
+                indexable_span,
                 format!("Cannot index expression of type '{}', array type expected", indexable_type));
 
             return;
@@ -1328,9 +1331,9 @@ impl SemanticsCheck {
                     false
                 }
             },
-      /*      AstNode::ArrayAccess {
+            AstNode::ArrayAccess {
                 index_expression, indexable_expression
-            } => self.is_constant(index_expression) && self.is_constant(indexable_expression),*/
+            } => self.is_constant(index_expression) && self.is_constant(indexable_expression),
 
             AstNode::BooleanAnd { left_expression, right_expression, ..} |
             AstNode::BooleanOr { left_expression, right_expression, .. } |
@@ -1373,6 +1376,17 @@ impl SemanticsCheck {
             AstNode::Boolean{ .. } => node.clone(),
             AstNode::Text{ .. } => node.clone(),
             AstNode::Identifier{ name, ..} => {
+
+                // if identifier is array, don't fold - handled separately
+                // if we do fold this, const array identifier gets folded in ArrayAccess type checking phase,
+                // and we get const_array[some_index] --> const_array_value[some_index], which is ill-formed
+                if let Some(Symbol::Variable(decl_info, _)) = self.symbol_table.find_symbol(&name) {
+                   if decl_info.variable_type.is_array() {
+                       return node.clone();
+                   }
+                }
+
+
                 let node = self.get_constant_initializer_stack_entry(name);
                 // in case of:
                 //
@@ -1382,6 +1396,17 @@ impl SemanticsCheck {
                 // above would return "a" for entry of b. We need to recurse until we get the constant
                 self.get_constant_initializer_expression(&node)
             },
+            AstNode::ArrayAccess { indexable_expression, .. } => {
+
+                let node = self.get_constant_initializer_expression(indexable_expression);
+                match node {
+                    AstNode::Identifier{name, .. } => {
+                        let node = self.get_constant_initializer_stack_entry(&name);
+                        self.get_constant_initializer_expression(&node)
+                    },
+                    _ => self.get_constant_initializer_expression(&node),
+                }
+            }
             AstNode::Plus {
                 left_expression,
                 right_expression,
