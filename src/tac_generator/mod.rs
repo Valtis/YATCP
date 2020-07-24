@@ -11,6 +11,7 @@ use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
 
 use std::rc::Rc;
+use crate::variable_attributes::VariableAttribute;
 
 pub const ARRAY_LENGTH_SLOT_SIZE: u32 = 4;
 pub const TMP_NAME : &'static str = ".tmp";
@@ -249,6 +250,12 @@ impl TACGenerator {
         child: &AstNode,
         info: &DeclarationInfo) {
 
+
+        // previous passes propagate constant values - ignore
+        if info.attributes.contains(&VariableAttribute::Const) {
+            return;
+        }
+
         if info.variable_type.is_array() {
             self.handle_array_declaration(child, info);
         } else {
@@ -403,8 +410,11 @@ impl TACGenerator {
 
         let (variable_info, id) = self.get_variable_info_and_id(name);
 
-        let operand = self.operands.pop();
+        ice_if!(variable_info.attributes.contains(&VariableAttribute::Const)
+            || variable_info.attributes.contains(&VariableAttribute::ReadOnly),
+            "Generating TAC assignment to constant or read-only array {}", name);
 
+        let operand = self.operands.pop();
         self.generate_assignment(
             variable_info,
             id,
@@ -478,6 +488,11 @@ impl TACGenerator {
         let assignment_operand = self.get_operand(assignment_expression);
 
         let (var_info, id) = self.get_variable_info_and_id(variable_name);
+
+
+        ice_if!(var_info.attributes.contains(&VariableAttribute::Const)
+            || var_info.attributes.contains(&VariableAttribute::ReadOnly),
+            "Generating TAC assignment to constant or read-only array {}", variable_name);
 
         self.current_function().statements.push(
             Statement::Assignment {
@@ -572,6 +587,12 @@ impl TACGenerator {
     fn handle_identifier(&mut self, name: &String) {
 
         let (variable_info, id) = self.get_variable_info_and_id(name);
+
+
+        // const values are expected to be folded - if we see them, something has gone wrong
+        ice_if!(
+            variable_info.attributes.contains(&VariableAttribute::Const),
+            "Const value seen when it should have been folded at earler stage");
         self.operands.push(Operand::Variable(variable_info, id));
     }
 

@@ -29,19 +29,18 @@ pub fn run_frontend(
         println!("Parsing took {}", timer.took())
     }
 
-    if print_ast {
-        node.print();
-        println!();
-    }
-
     let timer = Timer::new();
-
     let current_id = check_semantics(&mut node, error_reporter.clone());
 
     if print_timings {
         println!("Semantic check phase took {}", timer.took());
     }
 
+    // print after semcheck-stage, as it can decorate/modify the tree
+    if print_ast {
+        node.print();
+        println!();
+    }
 
     let mut reporter = error_reporter.borrow_mut();
     if reporter.has_reports() {

@@ -59,7 +59,15 @@ impl Parser {
                         Err(_) =>
                             self.skip_to_first_of(top_level_tokens.clone()),
                     }
-                }
+                },
+                TokenType::Let | TokenType::Val => {
+                    self.report_error(
+                        ReportKind::SyntaxError,
+                        Span::from(&token),
+                        "Variable declarations are not allowed at global scope (consider using constant if applicable)".to_owned(),
+                    );
+                    self.skip_to_first_of(top_level_tokens.clone());
+                },
                 TokenType::Eof =>
                     return AstNode::Block{
                         statements: nodes,

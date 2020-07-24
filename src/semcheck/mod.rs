@@ -243,12 +243,16 @@ impl SemanticsCheck {
             AstNode::Text{ .. } => (),
             AstNode::Boolean{ .. } => (),
             AstNode::Identifier{ name, span } => {
-                self.check_identifier_is_declared(name,  span);
-            }
+                self.check_identifier_is_declared(name, span);
+            },
             AstNode::ArrayAccess{ index_expression, indexable_expression } => {
                  self.handle_array_access(index_expression, indexable_expression);
             },
             AstNode::ErrorNode => {},
+        }
+
+        if let Some(replacement_node) = self.propagate_constants(node) {
+            *node = replacement_node;
         }
     }
 
@@ -568,11 +572,13 @@ impl SemanticsCheck {
             for dim in dims.iter_mut() {
                 if self.is_constant(dim) {
 
+                    self.do_check(dim);
+
                     if self.get_type(dim) != Type::Integer {
                         self.report_error(
                             ReportKind::TypeError,
                             dim.span(),
-                            "Array dimension must be an integer constant".to_owned()
+                            format!("Array dimension must be an integer constant (now {})", self.get_type(dim))
                         );
                         continue;
                     }
@@ -597,7 +603,7 @@ impl SemanticsCheck {
                                 self.report_error(
                                     ReportKind::TypeError,
                                     dimension_span.clone(),
-                                    "Array has invalid dimensions".to_owned(),
+                                    format!("Array index negative or zero ({})", x)
                                 );
                                 break;
                             }
@@ -985,7 +991,7 @@ impl SemanticsCheck {
         &mut self,
         node: &mut AstNode) {
 
-    let (ref valid_types, ref mut arithmetic_info) = match *node {
+        let (ref valid_types, ref mut arithmetic_info) = match *node {
             AstNode::Plus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
                 (vec![
@@ -997,16 +1003,8 @@ impl SemanticsCheck {
                  arithmetic_info)
             },
             AstNode::Minus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
-            AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
-            AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
+            AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
-                if let AstNode::Integer{value: AstInteger::Int(0), ..} = **right_expression {
-                       self.report_error(
-                           ReportKind::Warning,
-                           arithmetic_info.span.clone(),
-                           "Division by zero".to_owned(),
-                       )
-                };
 
                 (vec![
                     Type::Integer,
@@ -1014,6 +1012,25 @@ impl SemanticsCheck {
                     Type::Double,
                     Type::Invalid],
                     arithmetic_info)
+            },
+            AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
+                self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
+
+                if let AstNode::Integer{value: AstInteger::Int(0), ..} = **right_expression {
+                        println!("REPORTIIIIING");
+                       self.report_error(
+                           ReportKind::Warning,
+                           arithmetic_info.span.clone(),
+                           "Division by zero".to_owned(),
+                       )
+                };
+                (vec![
+                    Type::Integer,
+                    Type::Float,
+                    Type::Double,
+                    Type::Invalid],
+                    arithmetic_info)
+
             },
             AstNode::Modulo{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
 
@@ -1297,23 +1314,52 @@ impl SemanticsCheck {
 
     fn is_constant(&self, node: &AstNode) -> bool {
         match node {
-            // TODO - If constant folding is always applied, could also consider arithmetic expressions
             AstNode::Integer{ .. } => true,
             AstNode::Float{ .. } => true ,
             AstNode::Double{ .. } => true ,
             AstNode::Boolean{ .. } => true,
             AstNode::Text{ .. } => true,
+            AstNode::BooleanNot { expression , ..} |
             AstNode::Negate { expression, .. } => self.is_constant(expression),
             AstNode::Identifier { name, .. } => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
                   info.attributes.contains(&VariableAttribute::Const)
                 } else {
-                    true // we pretend that undeclared symbols are constant ones, to suppress any extra errors we may see
+                    false
                 }
             },
-            AstNode::BooleanNot { expression , ..} => self.is_constant(expression),
-            AstNode::ArrayAccess { index_expression, indexable_expression }
-                => self.is_constant(index_expression) && self.is_constant(indexable_expression),
+      /*      AstNode::ArrayAccess {
+                index_expression, indexable_expression
+            } => self.is_constant(index_expression) && self.is_constant(indexable_expression),*/
+
+            AstNode::BooleanAnd { left_expression, right_expression, ..} |
+            AstNode::BooleanOr { left_expression, right_expression, .. } |
+            AstNode::Plus {
+                left_expression,
+                right_expression,
+                ..
+            } |
+            AstNode::Minus{
+                 left_expression,
+                right_expression,
+                ..
+            } |
+            AstNode::Multiply {
+                left_expression,
+                right_expression,
+                ..
+            } |
+            AstNode::Divide {
+                left_expression,
+                right_expression,
+                ..
+            } |
+            AstNode::Modulo {
+                left_expression,
+                right_expression,
+                ..
+            }=> {
+                self.is_constant(left_expression) && self.is_constant(right_expression) },
             _ => false,
         }
     }
@@ -1328,13 +1374,161 @@ impl SemanticsCheck {
             AstNode::Text{ .. } => node.clone(),
             AstNode::Identifier{ name, ..} => {
                 let node = self.get_constant_initializer_stack_entry(name);
+                // in case of:
+                //
+                //   const a: int = 4;
+                //   const b: int = a;
+                //
+                // above would return "a" for entry of b. We need to recurse until we get the constant
                 self.get_constant_initializer_expression(&node)
+            },
+            AstNode::Plus {
+                left_expression,
+                right_expression,
+                arithmetic_info// use operator span, so that type errors show correct place
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1.wrapping_add(i2)), span: arithmetic_info.span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Float { value: f1 + f2 , span: arithmetic_info.span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Double { value: f1 + f2, span: arithmetic_info.span },
+                    (AstNode::Text{ value: str1, .. } , AstNode::Text{ value: str2, .. } ) =>
+                        AstNode::Text { value: Rc::new(format!("{}{}", str1, str2)) , span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::Minus {
+                left_expression,
+                right_expression,
+                arithmetic_info
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1.wrapping_sub(i2)), span: arithmetic_info.span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Float { value: f1 - f2 , span: arithmetic_info.span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Double { value: f1 - f2, span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            }
+            AstNode::Multiply {
+                left_expression,
+                right_expression,
+                arithmetic_info
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Integer { value: AstInteger::Int(i1.wrapping_mul(i2)), span: arithmetic_info.span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Float { value: f1 * f2 , span: arithmetic_info.span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Double { value: f1 * f2, span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::Divide {
+                left_expression,
+                right_expression,
+                arithmetic_info
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 != 0  =>
+                        AstNode::Integer { value: AstInteger::Int(i1.wrapping_div(i2)), span: arithmetic_info.span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Float { value: f1 / f2 , span: arithmetic_info.span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Double { value: f1 / f2, span: arithmetic_info.span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::Modulo{
+                left_expression,
+                right_expression,
+                arithmetic_info
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1 % i2), span: arithmetic_info.span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::Negate{
+                expression,
+                arithmetic_info
+            } => {
+                match self.get_constant_initializer_expression(expression) {
+                    AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
+                        AstNode::Integer { value: AstInteger::Int(i1.wrapping_neg()), span: arithmetic_info.span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::BooleanNot{
+                expression,
+                span
+            } => {
+                match self.get_constant_initializer_expression(expression) {
+                    AstNode::Boolean { value: boolean, .. }  =>
+                        AstNode::Boolean { value: !boolean, span: *span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::BooleanAnd{
+                left_expression,
+                right_expression,
+                span
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Boolean { value: boolean1, .. } , AstNode::Boolean { value: boolean2 , .. } ) =>
+                        AstNode::Boolean { value: boolean1 && boolean2, span: *span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::BooleanOr{
+                left_expression,
+                right_expression,
+                span
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::Boolean { value: boolean1, .. } , AstNode::Boolean { value: boolean2 , .. } ) =>
+                        AstNode::Boolean { value: boolean1 || boolean2, span: *span },
+
+                    _ => node.clone()
+                }
             },
             _ => ice!("Non-constant node {}", node),
         }
     }
 
-    fn get_constant_initializer_stack_entry(&self, name: &String) -> AstNode {
+    fn get_constant_initializer_stack_entry(&self, name: &str) -> AstNode {
         for level in (0..self.constant_initializer_stack.len()).rev() {
             match self.constant_initializer_stack[level].get(name) {
                 Some(x) => return x.clone(),
@@ -1343,6 +1537,14 @@ impl SemanticsCheck {
         }
 
         ice!("No entry {} in constant initializer stack", name)
+    }
+
+    fn propagate_constants(&self, node: &AstNode) -> Option<AstNode> {
+        if !self.is_constant(node) {
+            return None;
+        }
+
+        Some(self.get_constant_initializer_expression(node))
     }
 
     fn get_enclosing_function_info(&self) -> FunctionInfo {
