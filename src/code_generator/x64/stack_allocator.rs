@@ -566,7 +566,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
             match **index {
                 VirtualRegister(ref vregdata) => {
-                    let tmp_reg = get_register_for_size(*size);
+                    let index_reg = get_register_for_size(4);
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
 
 
@@ -577,7 +577,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                     size: stack_slot.size,
                                     offset: stack_slot.offset,
                                 },
-                                dest: PhysicalRegister(tmp_reg.clone()),
+                                dest: PhysicalRegister(index_reg.clone()),
                             }
                         ));
                     updated_instructions.push(
@@ -588,7 +588,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                     id: *id,
                                     size: *size,
                                     offset: get_indexed_array_offset(*offset, array_stack),
-                                    index: Box::new(PhysicalRegister(tmp_reg)),
+                                    index: Box::new(PhysicalRegister(index_reg)),
                                 }
                             }
                         ));
@@ -624,8 +624,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             let array_stack = &stack_map.array_to_stack_slot[id];
             match **index {
                 VirtualRegister(ref vregdata) => {
-                    let index_reg = get_register_for_size(*size);
-
+                    let index_reg = get_register_for_size(4); // index should be integer
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
 
                     updated_instructions.push(
@@ -727,7 +726,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                         match &**boxed {
                             VirtualRegister(vreg_data) => {
                                 let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
-                                let index_reg = get_register_for_size3(stack_slot.size);
+                                let index_reg = get_register_for_size3(4);
 
                                 updated_instructions.push(
                                     ByteCode::Mov(

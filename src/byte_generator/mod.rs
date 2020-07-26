@@ -327,7 +327,7 @@ impl ByteGenerator {
                     Type::Reference(x) if x.is_array() => {
                         let base_reg = self.get_register_for(variable_info, *id);
 
-                        let size = ARRAY_LENGTH_SLOT_SIZE;
+                        let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
                         Value::IndirectAddress {
                             base: Box::new(base_reg),
                             index: Some(Box::new(self.get_source(index_operand))),
