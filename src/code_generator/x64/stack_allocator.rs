@@ -2671,7 +2671,8 @@ mod tests {
 
     use super::*;
 
-    const STACK_OFFSET: u32 = 8;
+    const INTEGER_STACK_OFFSET: u32 = 8;
+    const BYTE_STACK_OFFSET: u32 = 5;
     const TMP_REGISTER: X64Register = X64Register::EAX;
     const DIV_TMP_REGISTER: X64Register = X64Register::EBX;
 
@@ -2711,7 +2712,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: IntegerConstant(4),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2747,7 +2748,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -2759,7 +2760,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -2792,7 +2793,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: IntegerConstant(9),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2803,11 +2804,11 @@ mod tests {
             ByteCode::Add(BinaryOperation{
                 src2: IntegerConstant(8),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2846,11 +2847,11 @@ mod tests {
             ByteCode::Add(BinaryOperation{
                 src2: IntegerConstant(24),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2888,11 +2889,11 @@ mod tests {
             ByteCode::Add(BinaryOperation{
                 src2: IntegerConstant(24),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2933,7 +2934,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -2945,11 +2946,11 @@ mod tests {
             ByteCode::Add(BinaryOperation{
                 src2: PhysicalRegister(TMP_REGISTER),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -2986,7 +2987,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -2998,7 +2999,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -3009,11 +3010,11 @@ mod tests {
             ByteCode::Add(BinaryOperation{
                 src2: IntegerConstant(7),
                 src1: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3054,7 +3055,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3065,7 +3066,7 @@ mod tests {
         assert_eq!(
             ByteCode::Add(BinaryOperation{
                 src2: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 src1: PhysicalRegister(TMP_REGISTER),
@@ -3078,7 +3079,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 8 + STACK_OFFSET,
+                    offset: 8 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3149,7 +3150,7 @@ mod tests {
         assert_eq!(
             ByteCode::Ret(
                 Some(StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 })),
             allocated_code[0],
@@ -3181,7 +3182,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: IntegerConstant(9),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3192,11 +3193,11 @@ mod tests {
             ByteCode::Sub(BinaryOperation{
                 src2: IntegerConstant(8),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3233,11 +3234,11 @@ mod tests {
             ByteCode::Sub(BinaryOperation{
                 src2: IntegerConstant(8),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3281,7 +3282,7 @@ mod tests {
 
         assert_eq!(
             ByteCode::Sub(BinaryOperation{
-                src2: StackOffset { offset: 0 + STACK_OFFSET, size: 4},
+                src2: StackOffset { offset: 0 + INTEGER_STACK_OFFSET, size: 4},
                 src1: PhysicalRegister(TMP_REGISTER),
                 dest: PhysicalRegister(TMP_REGISTER),
 
@@ -3292,7 +3293,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
-                dest: StackOffset { offset: 0 + STACK_OFFSET , size: 4},
+                dest: StackOffset { offset: 0 + INTEGER_STACK_OFFSET, size: 4},
             }),
             allocated_code[2],
         );
@@ -3331,7 +3332,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3343,11 +3344,11 @@ mod tests {
             ByteCode::Sub(BinaryOperation{
                 src2: PhysicalRegister(TMP_REGISTER),
                 src1: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3384,7 +3385,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3396,7 +3397,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -3407,11 +3408,11 @@ mod tests {
             ByteCode::Sub(BinaryOperation{
                 src2: IntegerConstant(7),
                 src1: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3453,7 +3454,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3464,7 +3465,7 @@ mod tests {
         assert_eq!(
             ByteCode::Sub(BinaryOperation{
                 src2: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 src1: PhysicalRegister(TMP_REGISTER),
@@ -3477,7 +3478,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 8 + STACK_OFFSET,
+                    offset: 8 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3529,7 +3530,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation {
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3546,7 +3547,7 @@ mod tests {
                     src1: VirtualRegister (
                         VirtualRegisterData {
                             id: 1,
-                            size: 0
+                            size: 4,
                        }
                     ),
                     dest: VirtualRegister(
@@ -3567,7 +3568,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation {
                 src: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3588,7 +3589,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation {
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3604,7 +3605,7 @@ mod tests {
                     src2: VirtualRegister (
                         VirtualRegisterData {
                             id: 1,
-                            size: 0
+                            size: 4
                         }
                     ),
                     src1: IntegerConstant(2),
@@ -3626,7 +3627,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation {
                 src: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3647,7 +3648,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation {
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3692,7 +3693,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation {
                 src: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4
                 },
                 dest: PhysicalRegister(TMP_REGISTER),
@@ -3703,7 +3704,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mul(BinaryOperation{
                 src2: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 src1: PhysicalRegister(TMP_REGISTER),
@@ -3716,7 +3717,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation {
                 src: PhysicalRegister(TMP_REGISTER),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 }
             }),
@@ -3784,7 +3785,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(X64Register::EAX),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -3824,7 +3825,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation {
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 dest: PhysicalRegister(X64Register::EAX),
@@ -3861,7 +3862,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(X64Register::EAX),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -3915,7 +3916,7 @@ mod tests {
         assert_eq!(
             ByteCode::Div(BinaryOperation{
                 src2: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                 size: 4,
                 },
                 src1: PhysicalRegister(X64Register::EAX),
@@ -3928,7 +3929,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(X64Register::EAX),
                 dest: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -3971,7 +3972,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 } ,
                 dest: PhysicalRegister(X64Register::EAX),
@@ -3990,7 +3991,7 @@ mod tests {
         assert_eq!(
             ByteCode::Div(BinaryOperation{
                 src2: StackOffset {
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 src1: PhysicalRegister(X64Register::EAX),
@@ -4003,7 +4004,7 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: PhysicalRegister(X64Register::EAX),
                 dest: StackOffset {
-                    offset: 8 + STACK_OFFSET,
+                    offset: 8 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -4072,7 +4073,7 @@ mod tests {
         assert_eq!(
             ByteCode::Compare(ComparisonOperation{
                 src1: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
                 src2: IntegerConstant(8),
@@ -4115,7 +4116,7 @@ mod tests {
             ByteCode::Compare(ComparisonOperation{
                 src1: PhysicalRegister(X64Register::EAX),
                 src2: StackOffset{
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -4152,7 +4153,7 @@ mod tests {
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
                 src: StackOffset {
-                    offset: 0 + STACK_OFFSET,
+                    offset: 0 + INTEGER_STACK_OFFSET,
                     size: 4
                 },
                 dest: PhysicalRegister(X64Register::EAX),
@@ -4164,7 +4165,7 @@ mod tests {
             ByteCode::Compare(ComparisonOperation{
                 src1: PhysicalRegister(X64Register::EAX),
                 src2: StackOffset{
-                    offset: 4 + STACK_OFFSET,
+                    offset: 4 + INTEGER_STACK_OFFSET,
                     size: 4,
                 },
             }),
@@ -4197,8 +4198,8 @@ mod tests {
             ByteCode::Mov(UnaryOperation{
                 src: ByteConstant(1),
                 dest: StackOffset {
-                    offset: 0 + STACK_OFFSET,
-                    size: 4,
+                    offset: 0 + BYTE_STACK_OFFSET,
+                    size: 1,
                 }}),
             allocated_code[0],
         );
