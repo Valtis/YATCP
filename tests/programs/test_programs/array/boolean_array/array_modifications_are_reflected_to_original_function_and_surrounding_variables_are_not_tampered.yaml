@@ -1,40 +1,42 @@
 program: |
   extern fn int_printer(value: int) : void;
+  extern fn boolean_printer(value: bool) : void;
 
   fn main() : int {
     let canary1: int = 2147483647;
-    let arr: int[4] = 0;
+    let arr: bool[4] = false;
     let canary2: int = -2147483648;
     foo(arr);
 
     let i: int = 0;
     while i < arr.length {
-      int_printer(arr[i]);
+      boolean_printer(arr[i]);
       i = i + 1;
     }
-    
+
     int_printer(canary1);
     int_printer(canary2);
+    
     return 0;
   }
 
-  fn foo(arr: int[]) : void {
-    arr[0] = 91;
-    arr[1] = 6789123;
+  fn foo(arr: bool[]) : void {
+    arr[0] = true;
+    arr[1] = true;
     bar(arr);
   }
 
-  fn bar(arr: int[]) : void {
-    arr[2] = 2000000001;
-    arr[3] = -531;
+  fn bar(arr: bool[]) : void {
+    arr[2] = true;
+    arr[3] = true;
   }
 link_with:
   - tests/files/support/support.c 
 expect_stdout: |
-  91
-  6789123
-  2000000001
-  -531
+  true
+  true
+  true
+  true
   2147483647
   -2147483648
 

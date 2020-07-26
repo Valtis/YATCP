@@ -2,21 +2,17 @@ program: |
   extern fn int_printer(value: int) : void;
 
   fn main() : int {
-    let arr: int[25] = 0;
-    arr[5] = 95;
+    let arr: bool[25] = false;
     foo(arr);
     return 0;
   }
 
-  fn foo(arr: int[]) : void {
-    let i: int = 5;
-    let value: int = 8;
-    arr[i] = value;
-    int_printer(arr[i]);
+  fn foo(arr: bool[]) : void {
+    int_printer(arr.length);
   }
 link_with:
   - tests/files/support/support.c 
 expect_stdout: |
-  8
+  25
 
 

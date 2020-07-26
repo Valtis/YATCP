@@ -1,0 +1,34 @@
+program: |
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+    let arr: bool[25] = true;
+    arr[5] = false;
+    foo(arr);
+    return 0;
+  }
+
+  fn foo(arr: bool[]) : void {
+    let i: int = 5;
+
+    boolean_printer(arr[i-1]);
+    boolean_printer(arr[i]);
+    boolean_printer(arr[i-1]);
+
+    let value: bool = true;
+    arr[i] = value;
+
+    boolean_printer(arr[i-1]);
+    boolean_printer(arr[i]);
+    boolean_printer(arr[i-1]);
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  true
+  false
+  true
+  true
+  true
+  true
+

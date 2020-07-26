@@ -1,41 +1,64 @@
 program: |
   extern fn int_printer(value: int) : void;
+  extern fn boolean_printer(value: bool) : void;
 
   fn main() : int {
-    let canary1: int = 2147483647;
-    let arr: int[4] = 0;
-    let canary2: int = -2147483648;
-    foo(arr);
-    let i: int = 0;
-    while i < arr.length {
-      int_printer(arr[i]);
-      i = i + 1;
-    }
-    int_printer(canary1);
-    int_printer(canary2);
+    let arr: int[25] = 0;
+    let arr2: int[20] = -5;
+
+    arr[4] = 9999;
+    arr2[4] = 12345;
+
+    let a: int = 5;
+    let b: int = 5345;
+    let c: bool = false;
+
+    foo(a, arr, b, arr, c, arr2);
+    boolean_printer(c);
+    int_printer(arr[4]);
+    int_printer(arr2[4]);
     return 0;
   }
 
-  fn foo(arr: int[]) : void {
-    arr[0] = 91;
-    arr[1] = 6789123;
-    bar(arr);
+  fn foo(a: int, arr: int[], b: int, arr2: int[], c: bool, arr3: int[]) : void {
+    boolean_printer(c);
+    c = true;
+    boolean_printer(c);
+    int_printer(a);
+    int_printer(b);
+
+    int_printer(arr[4]);
+    int_printer(arr2[4]);
+    int_printer(arr3[4]);
+
+    arr[4] = 100;
+    arr3[4] = 12;
+
+    int_printer(arr[4]);
+    int_printer(arr2[4]);
+    int_printer(arr3[4]);
   }
 
-  fn bar(arr: int[]) : void {
-    arr[2] = 2000000001;
-    arr[3] = -531;
-  }
+  
 link_with:
   - tests/files/support/support.c 
 expect_stdout: |
-  91
-  6789123
-  2000000001
-  -531
-  2147483647
-  -2147483648
+  false
+  true
+  5
+  5345
+  9999
+  9999
+  12345
+  100
+  100
+  12
+  false
+  100
+  12
 
+  
+  
 
 
 
