@@ -187,25 +187,53 @@ impl Display for Value {
         write!(formatter, "{}", match self {
             Value::ReturnValue => "<ARCHITECTURE/CALLING CONVENTION SPECIFIC RETURN VALUE LOCATION>".to_owned(),
             Value::FunctionParameter(_param_type, id) => format!("PARAMETER {}", id),
-            Value::IntegerConstant(i) => format!("0x{:x}", i),
-            Value::ByteConstant(b) => format!("{}", b),
+            Value::IntegerConstant(i) => format!("0x{:X}", i),
+            Value::ByteConstant(b) => format!("0x{:X}", b),
             Value::PhysicalRegister(reg) => format!("{:?}", reg),
             Value::VirtualRegister(vregdata) => format!("VR{}", vregdata.id),
             Value::ComparisonResult(res) => format!("<{}>", res),
             Value::StackOffset {
                 offset,
-                size: _,
-            } => format!("[stack - 0x{:x}]", offset),
+                size,
+            } => format!("{} PTR [stack - 0x{:x}]",
+                         match *size {
+                             1 => "BYTE",
+                             2 => "WORD",
+                             4 => "DWORD",
+                             8 => "QWORD",
+                             _ => "<INVALID SIZE>",
+                         },
+                         offset),
 
             Value::DynamicStackOffset {
                 index, offset, size, id
-            } => format!("[stack + {}*{} - (0x{:x}+array_{}_offset)]", index, size, offset, id),
+            } => format!("{} PTR [stack + {} - (0x{:x}+array_{}_offset)]",
+                         match *size {
+                             1 => "BYTE",
+                             2 => "WORD",
+                             4 => "DWORD",
+                             8 => "QWORD",
+                             _ => "<INVALID SIZE>",
+                         },
+                         index,
+                         offset,
+                         id),
             Value::IndirectAddress {
                 base, index, offset, size
-            } => format!("[{} + {}*{} - 0x{:x}]",
+            } => format!("{}[{} + {} - 0x{:x}]",
+                         if let Some(_) = index {
+                             match size {
+                                 1 => "BYTE PTR ",
+                                 2 => "WORD PTR ",
+                                 4 => "DWORD PTR ",
+                                 8 => "QWORD PTR ",
+                                 _ => "<INVALID SIZE>",
+                             }
+                         } else {
+                             ""
+                         },
                          base,
                          if let Some(x) = index { x.clone() } else { Box::new(Value::IntegerConstant(0)) },
-                         size,
                          if let Some(x) = offset { *x } else { 0 }),
             Value::ArrayPtr { id } => format!("Ptr to array {}", id),
         })
