@@ -18,12 +18,14 @@ pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
+    Byte,
+    Boolean,
     Integer,
     Double,
     Float,
     String,
-    Boolean,
     Void,
+    ByteArray, // TODO: Consider replacing with Array(Box<Type>)
     IntegerArray,
     BooleanArray,
     Uninitialized,
@@ -34,14 +36,16 @@ pub enum Type {
 impl Type {
     pub fn size_in_bytes(&self) -> u32 {
         match *self {
+            Type::Boolean => 1,
+            Type::Byte => 1,
             Type::Integer => 4,
             Type::Double => 8,
             Type::Float => 4,
             Type::String => unimplemented!(),
-            Type::Boolean => 1,
             Type::Void => ice!("Reguesting size of a void type"),
-            Type::IntegerArray => unimplemented!(), // TODO define semantics
+            Type::ByteArray => unimplemented!(), // TODO define semantics
             Type::BooleanArray=> unimplemented!(), // TODO define semantics
+            Type::IntegerArray => unimplemented!(), // TODO define semantics
             Type::Reference(_) => 8,
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
@@ -50,13 +54,15 @@ impl Type {
 
     pub fn is_array(&self) -> bool {
         match *self {
+            Type::Byte => false,
+            Type::Boolean => false,
             Type::Integer => false,
             Type::Double => false,
             Type::Float => false,
             Type::String => false,
-            Type::Boolean => false,
             Type::Void => false,
             Type::IntegerArray => true,
+            Type::ByteArray => true,
             Type::BooleanArray => true,
             Type::Uninitialized => false,
             Type::Reference(ref x) => x.is_array(),
@@ -73,8 +79,9 @@ impl Type {
 
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
-            Type::IntegerArray => Type::Integer,
             Type::BooleanArray => Type::Boolean,
+            Type::ByteArray => Type::Byte,
+            Type::IntegerArray => Type::Integer,
             Type::Reference(ref x) if x.is_array() => x.get_array_basic_type(),
             _ => ice!("{} is not an array type but requested basic type anyway", self),
         }
@@ -84,6 +91,7 @@ impl Type {
         match *self {
             Type::Integer => Type::IntegerArray,
             Type::Boolean => Type::BooleanArray,
+            Type::Byte => Type::ByteArray,
             _ => ice!("{} is not valid basic type for arrays, but requested array type anyway", self),
         }
     }
@@ -92,14 +100,16 @@ impl Type {
 impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
         Display::fmt( &match *self {
+            Type::Byte=> "Byte".to_owned(),
+            Type::Boolean => "Boolean".to_owned(),
             Type::Integer => "Integer".to_owned(),
             Type::Double => "Double".to_owned(),
             Type::Float => "Float".to_owned(),
             Type::String=> "String".to_owned(),
-            Type::Boolean => "Boolean".to_owned(),
             Type::Void => "Void".to_owned(),
-            Type::IntegerArray => "Integer array".to_owned(),
+            Type::ByteArray=> "Boolean array".to_owned(),
             Type::BooleanArray=> "Boolean array".to_owned(),
+            Type::IntegerArray => "Integer array".to_owned(),
             Type::Reference(ref x) => format!("Reference to {}", x),
             Type::Uninitialized => "Uninitialized".to_owned(),
             Type::Invalid => "Invalid".to_owned(),

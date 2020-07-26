@@ -4,7 +4,6 @@ use crate::semcheck::Type;
 
 use super::x64_register::X64Register;
 
-const RETURN_VALUE_REGISTER: X64Register = X64Register::EAX; // TODO: Abstract calling convention
 const PTR_SIZE: u32 =  8;
 
 use rayon::prelude::*;
@@ -67,7 +66,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Label(_) |
             ByteCode::Jump(_) |
             ByteCode::Ret(Some(IntegerConstant(_))) |
-            ByteCode::Ret(Some(BooleanConstant(_))) |
+            ByteCode::Ret(Some(ByteConstant(_))) |
             ByteCode::Ret(Some(ComparisonResult(_))) |
             ByteCode::Ret(None) |
             ByteCode::JumpConditional(_, _) |
@@ -143,16 +142,9 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
 fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
     if !map.reg_to_stack_slot.contains_key(&data.id) {
 
-        // 4 byte align the data
-        let slot_size = if data.size >= 4 && data.size & 0b11 == 0 {
-            data.size
-        } else {
-            (data.size | 0b11) + 1
-        };
-
-
-        map.stack_size += slot_size;
-        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: slot_size} );
+        ice_if!(data.size.count_ones() != 1, "Virtual register {:?} has size which is not power of two!", data);
+        map.stack_size += data.size;
+        map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: data.size } );
     }
 }
 
@@ -202,7 +194,7 @@ fn print_stack_map(function: &Function, stack_map: &StackMap) {
 
 
     for (slot, entity) in stack_slot_to_entity.iter() {
-        println!("    Stack slot {}, size {}, occupied by {}", slot.offset, slot.size, entity);
+        println!("    Stack slot at position 0x{:x}, size {}, occupied by {}", slot.offset, slot.size, entity);
     }
     println!()
 }
@@ -274,12 +266,12 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                src: IntegerConstant(*value),
             }));
         },
-        UnaryOperation{dest: VirtualRegister(ref vregdata), src: BooleanConstant(value)} => {
+        UnaryOperation{dest: VirtualRegister(ref vregdata), src: ByteConstant(value)} => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
             updated_instructions.push(ByteCode::Mov(UnaryOperation{
                 dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
-                src: BooleanConstant(*value),
+                src: ByteConstant(*value),
             }));
         },
         /*
@@ -318,19 +310,6 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             updated_instructions.push(
                 ByteCode::Mov(
                     UnaryOperation {
-                        src: IntegerConstant(0),
-                        dest: StackOffset{
-                            offset: stack_slot.offset,
-                            size: stack_slot.size
-                        }
-                    }
-                )
-            );
-
-
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
                         src: ComparisonResult(comparison_type.clone()),
                         dest: StackOffset {
                             offset: stack_slot.offset,
@@ -350,7 +329,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             updated_instructions.push(
                 ByteCode::Mov(
                     UnaryOperation {
-                        src: PhysicalRegister(RETURN_VALUE_REGISTER),
+                        src: PhysicalRegister(get_return_value_register_for_size(stack_slot.size)),
                         dest: StackOffset{
                             offset: stack_slot.offset,
                             size: stack_slot.size
@@ -365,13 +344,34 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } => {
             match param_type {
                 // integers, and integer-like values like pointers
-                Type::Integer | Type::Boolean | Type::Reference(_) => {
+                Type::Integer | Type::Boolean | Type::Byte | Type::Reference(_) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
                     if *pos < 6 {
+
+
+                        // only limited number of registers have 8 bit aliases. Emit additional move
+                        // from source reg to a register with its 8 bit alias, then move this tmp reg using its 32/64 bit alias to stack
+                        let src = if vregdata.size == 1 {
+                            let byte_alias = get_register_for_size(1);
+                            let qword_alias = get_register_for_size(4);
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: get_destination_for_integer_and_pointer_argument(*pos, 4),
+                                        dest: PhysicalRegister(qword_alias),
+                                    }
+                                ));
+
+                            PhysicalRegister(byte_alias)
+                        } else {
+                            get_destination_for_integer_and_pointer_argument(*pos, stack_slot.size)
+                        };
+
                         updated_instructions.push(
                             ByteCode::Mov(
                                 UnaryOperation {
-                                    src: get_destination_for_integer_and_pointer_argument(*pos),
+                                    src,
                                     dest: StackOffset {
                                         offset: stack_slot.offset,
                                         size: stack_slot.size,
@@ -470,8 +470,24 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             }
 
         },
+
+        /*
+            arr[foo] = byte_constant,
+
+            Emit:
+
+               IF foo is variable
+
+                    MOV TMP_REG, index_var_stack_storage_location
+                    MOV [stack_ptr + offset + TMP_REG*index_var_size], byte_constant
+
+               IF foo is constant:
+
+                    MOV [stack_ptr + constant_offset], byte_constant
+
+        */
         UnaryOperation {
-            src: BooleanConstant(val),
+            src: ByteConstant(val),
             dest: DynamicStackOffset {
                 id,
                 size,
@@ -484,7 +500,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             match **index {
                 VirtualRegister(ref vregdata) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-                    let tmp_reg = get_register_for_size(*size);
+                    let tmp_reg = get_register_for_size(4); // index reg, should be integer
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
@@ -499,7 +515,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: BooleanConstant(*val),
+                                src: ByteConstant(*val),
                                 dest: DynamicStackOffset {
                                     id: *id,
                                     size: *size,
@@ -514,7 +530,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: BooleanConstant(*val),
+                                src: ByteConstant(*val),
                                 dest: StackOffset {
                                     size: *size,
                                     offset: get_constant_array_offset(*offset, *size, index, &array_stack),
@@ -2153,22 +2169,9 @@ fn handle_return_value_allocation(value: &Option<Value>, updated_instructions: &
                 Some(Value::StackOffset{ offset: stack_slot.offset, size: stack_slot.size}),
             ));
         },
+        Some(ByteConstant(_)) |
         Some(IntegerConstant(_)) => {
             updated_instructions.push(ByteCode::Ret(value.clone()));
-        },
-        Some(BooleanConstant(_)) => {
-            updated_instructions.push(ByteCode::Ret(value.clone()));
-        },
-        Some(ComparisonResult(_)) => {
-            // FIXME: Replace with xor rax, rax
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: IntegerConstant(0),
-                    dest: PhysicalRegister(X64Register::RAX),
-                }
-            ));
-            updated_instructions.push(ByteCode::Ret(value.clone()));
-
         },
         None => updated_instructions.push(ByteCode::Ret(None)),
         _ => unimplemented!("Not implemented for {:#?}:", value),
@@ -2235,11 +2238,18 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 )
             )
         },
+        /*
+             A CMP byte_constant
+
+             emit:
+             CMP A, byte_constant
+
+         */
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
-            src2: constant @ BooleanConstant(_),
+            src2: constant @ ByteConstant(_),
         } | ComparisonOperation {
-            src1: constant @ BooleanConstant(_),
+            src1: constant @ ByteConstant(_),
             src2: VirtualRegister(src_vregdata)
         } => {
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
@@ -2350,7 +2360,7 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
         if i < 6 {
             match value {
                 IntegerConstant(val) => {
-                    let dest = get_destination_for_integer_and_pointer_argument(i);
+                    let dest = get_destination_for_integer_and_pointer_argument(i, 4);
 
                     updated_instructions.push(
                         ByteCode::Mov(
@@ -2361,31 +2371,84 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
                         )
                     )
                 },
-                BooleanConstant(val) => {
-                    let dest = get_destination_for_integer_and_pointer_argument(i);
+                ByteConstant(val) => {
+                    // most registers don't have 8 bit aliases (looking at you, RDI...)
+                    // move to TMP register instead, then move TMP to proper reg
+
+                    // register aliases
+                    let byte_reg = get_register_for_size(1);
+                    let dword_reg = get_register_for_size(4);
+
+                    let dest = get_destination_for_integer_and_pointer_argument(i, 4);
 
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: BooleanConstant(*val),
-                                dest,
+                                src: ByteConstant(*val),
+                                dest: PhysicalRegister(byte_reg),
                             }
-                        )
-                    )
-                },
-                VirtualRegister(vregdata) => {
-                    let dest = get_destination_for_integer_and_pointer_argument(i);
-                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                        ));
+
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: StackOffset {
-                                    size: stack_slot.size,
-                                    offset: stack_slot.offset,
-                                },
+                                src: PhysicalRegister(dword_reg),
                                 dest,
                             }
                         ));
+                },
+                VirtualRegister(vregdata) => {
+
+
+                    match vregdata.size {
+                        1 => {
+                            // most registers don't have 8 bit aliases (looking at you, RDI...)
+                            // move to TMP register instead, then move TMP to proper reg
+
+
+                            // register aliases
+                            let byte_reg = get_register_for_size(1);
+                            let dword_reg = get_register_for_size(4);
+
+                            let dest = get_destination_for_integer_and_pointer_argument(i, 4);
+                            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: stack_slot.size,
+                                            offset: stack_slot.offset,
+                                        },
+                                        dest: PhysicalRegister(byte_reg),
+                                    }
+                                ));
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: PhysicalRegister(dword_reg),
+                                        dest,
+                                    }
+                                ));
+                        },
+                        4 | 8 => {
+                            let dest = get_destination_for_integer_and_pointer_argument(i, vregdata.size);
+                            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: stack_slot.size,
+                                            offset: stack_slot.offset,
+                                        },
+                                        dest,
+                                    }
+                                ));
+                        }
+                        _ => ice!("Bad virtual register size {}", vregdata.size),
+                    }
+
                 },
                 _ => unimplemented!("Not implemented for:\n{:#?}", value),
             }
@@ -2464,16 +2527,43 @@ fn get_register_for_size_for_division(size: u32) -> X64Register {
     }
 }
 
-fn get_destination_for_integer_and_pointer_argument(position: usize) -> Value {
-    match position {
-        0 => PhysicalRegister(X64Register::RDI),
-        1 => PhysicalRegister(X64Register::RSI),
-        2 => PhysicalRegister(X64Register::RDX),
-        3 => PhysicalRegister(X64Register::RCX),
-        4 => PhysicalRegister(X64Register::R8),
-        5 => PhysicalRegister(X64Register::R9),
-        _ => ice!("No register for position {}", position),
+fn get_return_value_register_for_size(size: u32) -> X64Register {
+    match size {
+        1 => X64Register::AL,
+        4 => X64Register::EAX,
+        8 => X64Register::RAX,
+        _ => ice!("Invalid register size {}", size),
     }
+}
+
+fn get_destination_for_integer_and_pointer_argument(position: usize, size: u32) -> Value {
+
+    match size {
+        4 => {
+            match position {
+                0 => PhysicalRegister(X64Register::EDI),
+                1 => PhysicalRegister(X64Register::ESI),
+                2 => PhysicalRegister(X64Register::EDX),
+                3 => PhysicalRegister(X64Register::ECX),
+                4 => PhysicalRegister(X64Register::R8d),
+                5 => PhysicalRegister(X64Register::R9d),
+                _ => ice!("No register for position {}", position),
+            }
+        },
+        8 => {
+            match position {
+                0 => PhysicalRegister(X64Register::RDI),
+                1 => PhysicalRegister(X64Register::RSI),
+                2 => PhysicalRegister(X64Register::RDX),
+                3 => PhysicalRegister(X64Register::RCX),
+                4 => PhysicalRegister(X64Register::R8),
+                5 => PhysicalRegister(X64Register::R9),
+                _ => ice!("No register for position {}", position),
+            }
+        },
+        _ => ice!("Bad register size {} ", size),
+    }
+
 }
 
 // as stack grows downwards (subtract value from RBP to get correct spot), we either need to negate index register whenever it is used,
@@ -4004,7 +4094,7 @@ mod tests {
         let functions = get_functions(
             vec![
                 ByteCode::Mov(UnaryOperation {
-                    src: BooleanConstant(true),
+                    src: ByteConstant(1),
                     dest: VirtualRegister(
                         VirtualRegisterData{
                             id: 0,
@@ -4022,7 +4112,7 @@ mod tests {
 
         assert_eq!(
             ByteCode::Mov(UnaryOperation{
-                src: BooleanConstant(true),
+                src: ByteConstant(1),
                 dest: StackOffset {
                     offset: 0 + STACK_OFFSET,
                     size: 4,

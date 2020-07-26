@@ -67,7 +67,7 @@ pub enum Value {
     VirtualRegister(VirtualRegisterData),
     PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
     IntegerConstant(i32),
-    BooleanConstant(bool),
+    ByteConstant(i8),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
     DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
@@ -188,7 +188,7 @@ impl Display for Value {
             Value::ReturnValue => "<ARCHITECTURE/CALLING CONVENTION SPECIFIC RETURN VALUE LOCATION>".to_owned(),
             Value::FunctionParameter(_param_type, id) => format!("PARAMETER {}", id),
             Value::IntegerConstant(i) => format!("0x{:x}", i),
-            Value::BooleanConstant(b) => format!("{}", b),
+            Value::ByteConstant(b) => format!("{}", b),
             Value::PhysicalRegister(reg) => format!("{:?}", reg),
             Value::VirtualRegister(vregdata) => format!("VR{}", vregdata.id),
             Value::ComparisonResult(res) => format!("<{}>", res),

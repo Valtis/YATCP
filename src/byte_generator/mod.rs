@@ -226,11 +226,10 @@ impl ByteGenerator {
                     "Non-boolean register value used for conditional jump:\n{:#?}",
                     vregdata);
 
-
                 self.current_function().code.push(
                     ByteCode::Compare(ComparisonOperation {
                         src1: Value::VirtualRegister(vregdata.clone()),
-                        src2: Value::BooleanConstant(true),
+                        src2: Value::ByteConstant(1),
                     })
                 );
 
@@ -313,7 +312,7 @@ impl ByteGenerator {
                 }
             }
             Operand::Integer(val) => Value::IntegerConstant(*val),
-            Operand::Boolean(val) => Value::BooleanConstant(*val),
+            Operand::Boolean(val) => Value::ByteConstant(if *val { 1 } else { 0 }),
             Operand::Initialized(value_type) => {
                 let pos = self.current_function().parameter_count;
                 self.current_function().parameter_count += 1;
@@ -391,6 +390,7 @@ impl ByteGenerator {
                 id: reg,
                 size: declaration_info.variable_type.size_in_bytes(),
             };
+
             self.variable_id_to_register.insert(variable, vregdata.clone());
             Value::VirtualRegister(vregdata)
         }
@@ -514,7 +514,7 @@ mod test {
 
         assert_eq!(ByteCode::Mov(
             UnaryOperation {
-                src: BooleanConstant(true),
+                src: ByteConstant(1),
                 dest: VirtualRegister (
                     VirtualRegisterData {
                         id: 0,
@@ -558,7 +558,7 @@ mod test {
 
         assert_eq!(ByteCode::Mov(
             UnaryOperation {
-                src: BooleanConstant(false),
+                src: ByteConstant(0),
                 dest: VirtualRegister (
                     VirtualRegisterData {
                         id: 0,
@@ -602,7 +602,7 @@ mod test {
                        size: 1,
                        id: 0,
                     }),
-                    src2: BooleanConstant(true),
+                    src2: ByteConstant(1),
                 }
             ),
             functions[0].code[0]

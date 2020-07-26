@@ -5,6 +5,7 @@ pub const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
 pub const MOV_REG_TO_RM_32_BIT: u8 = 0x89;
 pub const MOV_RM_TO_REG_32_BIT: u8 = 0x8B;
 
+pub const MOV_IMMEDIATE_8_BIT_TO_REG_BASE: u8 = 0xB0; // register encoding will be binary OR'ed into opcode
 pub const MOV_IMMEDIATE_8_BIT_TO_RM: u8 = 0xC6;
 pub const MOV_REG_TO_RM_8_BIT: u8 = 0x88;
 pub const MOV_RM_TO_REG_8_BIT: u8 = 0x8A;
@@ -39,9 +40,12 @@ pub const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 pub const NEGATE_RM_32_BIT: u8 = 0xF7;
 pub const NEGATE_OPCODE_EXT: u8 = 0x03;
 
-pub const COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
 pub const COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
 pub const COMPARE_REG_WITH_RM_32_BIT: u8 = 0x3B;
+
+pub const COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
+pub const COMPARE_REG_WITH_RM_8_BIT: u8 = 0x3A;
+
 pub const CMP_OPCODE_EXT: u8 = 0x07;
 
 

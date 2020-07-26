@@ -306,6 +306,7 @@ impl TACGenerator {
         variable_info: &DeclarationInfo,
         size: i32,
         operand: Operand) {
+
         // FIXME: Right now there is no runtime, so initialing the array is done like this. Replacing this with a call to memset would likely make more sense
 
         /*
@@ -317,7 +318,6 @@ impl TACGenerator {
             i = i + 1
             JUMP START
             END:
-
 
         */
 
@@ -392,7 +392,6 @@ impl TACGenerator {
                 left_operand: None,
                 right_operand: Some(Operand::Integer(size))
             });
-
     }
 
     fn handle_variable_assignment(
@@ -524,7 +523,7 @@ impl TACGenerator {
 
                 ice_if!(**name != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
 
-                let tmp = self.get_temporary(var_info.variable_type.get_array_basic_type());
+                let tmp = self.get_temporary(Type::Integer);
 
                 self.current_function().statements.push(
                     Statement::Assignment {
