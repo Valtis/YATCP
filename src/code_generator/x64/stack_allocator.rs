@@ -868,6 +868,90 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ));
         },
         UnaryOperation {
+            src: ByteConstant(val),
+            dest: IndirectAddress {
+                base,
+                index,
+                offset,
+                size,
+            },
+        } => {
+
+            let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
+                vregdata
+            } else {
+                ice!("Base register is not a virtual register: {}", base);
+            };
+
+            let base_stack_slot= &stack_map.reg_to_stack_slot[&base_vregdata.id];
+            let base_register = get_register_for_size(base_stack_slot.size);
+
+            let value_register = get_register_for_size2(*size);
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: StackOffset {
+                            size: base_stack_slot.size,
+                            offset: base_stack_slot.offset,
+                        },
+                        dest: PhysicalRegister(base_register.clone()),
+                    }
+                ));
+
+            let (index, offset) = match index {
+                // bit clunky as box can't be matched against directly
+                Some(boxed) => {
+                    match &**boxed {
+                        VirtualRegister(vreg_data) => {
+                            let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
+                            let index_reg = get_register_for_size3(stack_slot.size);
+
+                            updated_instructions.push(
+                                ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: stack_slot.size,
+                                            offset: stack_slot.offset,
+                                        },
+                                        dest: PhysicalRegister(index_reg.clone()),
+                                    }
+                                ));
+
+                            (Some(Box::new(PhysicalRegister(index_reg.clone()))), *offset)
+                        },
+                        IntegerConstant(index) => {
+                            let index = (-(*index)*(*size as i32)) as u32;
+                            (None, Some(index))
+                        },
+                        _ => ice!("Unexpected index-operation {}", *boxed)
+                    }
+                },
+                None  => (None, *offset),
+            };
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: ByteConstant(*val),
+                        dest: PhysicalRegister(value_register.clone()),
+                    }
+                ));
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_register),
+                        dest: IndirectAddress {
+                            base: Box::new(Value::PhysicalRegister(base_register)),
+                            index: index,
+                            offset: offset.clone(),
+                            size: *size,
+                        } ,
+                    }
+                ));
+        },
+        UnaryOperation {
             src: IntegerConstant(val),
             dest: IndirectAddress {
                 base,
