@@ -164,10 +164,14 @@ fn do_run(path: &Path) -> Result<(), String> {
 }
 
 fn format_message(name: &str, expected: &str, actual: &str) -> String {
-    let mut err_str = format!("{}: \nExpected:\n{}\nActual:\n{}",
-                              Colour::Yellow.bold().paint(format!("{0} does not match the expected {0}", name)),
-                              indent(expected),
-                              indent(actual));
+    let mut err_str =
+        format!(
+            "{}: \n{}:\n{}\n{}\n{}",
+            Colour::Yellow.bold().paint(format!("{0} does not match the expected {0}", name)),
+            Colour::Fixed(105).paint("Expected"),
+            indent(expected),
+            Colour::Fixed(198).paint("Actual"),
+            indent(actual));
 
     let whitespace_note = if expected.split("\n")
         .zip(actual.split("\n"))
@@ -182,7 +186,11 @@ fn format_message(name: &str, expected: &str, actual: &str) -> String {
 
     let changeset = difference::Changeset::new(&expected, &actual, "\n");
 
-    err_str += &format!("\nDiff{}\n\n{}", whitespace_note, changeset);
+    err_str += &format!(
+        "\n{}{}\n\n{}",
+        Colour::Fixed(84).paint("Diff"),
+        whitespace_note,
+        changeset);
     err_str
 
 }

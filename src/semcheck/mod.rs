@@ -195,8 +195,13 @@ impl SemanticsCheck {
             AstNode::ExternFunction{..} => (), // do nothing, handled in the initial function definition pass
             AstNode::FunctionCall{arguments, function_name, span} =>
                 self.handle_function_call(arguments, function_name, span),
-            AstNode::VariableDeclaration{initialization_expression, declaration_info} =>
-                self.handle_variable_declaration(initialization_expression, declaration_info),
+            AstNode::VariableDeclaration{initialization_expression, declaration_info} => {
+                self.handle_variable_declaration(initialization_expression, declaration_info);
+                // Compile time constant - remove from tree
+                if declaration_info.attributes.contains(&VariableAttribute::Const) {
+                    *node = AstNode::EmptyNode;
+                }
+            }
             AstNode::VariableAssignment{expression, name, span} =>
                 self.handle_variable_assignment(expression, name, span),
             AstNode::ArrayAssignment {
@@ -247,7 +252,8 @@ impl SemanticsCheck {
             AstNode::ArrayAccess{ index_expression, indexable_expression } => {
                  self.handle_array_access(index_expression, indexable_expression);
             },
-            AstNode::ErrorNode => {},
+            AstNode::EmptyNode |
+            AstNode::ErrorNode => (),
         }
 
         if let Some(replacement_node) = self.propagate_constants(node) {

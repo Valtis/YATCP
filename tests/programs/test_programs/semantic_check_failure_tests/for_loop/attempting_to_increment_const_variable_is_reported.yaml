@@ -1,0 +1,23 @@
+program: |
+  extern fn int_printer(value: int);
+  fn main() : int {
+
+      for const i: int = 0, const bound: int = 10; i < bound; i = i + 1 {
+        int_printer(i);
+      }
+
+      return 0;
+  }
+
+expect_compile_failure: true
+link_with:
+  - tests/files/support/support.c 
+expect_stderr: |
+  4:61 Type error: Cannot assign to read only variable
+      for const i: int = 0, const bound: int = 10; i < bound; i = i + 1 {
+                                                              ^
+  4:15 Note: Variable 'i', declared here, has been declared as read only
+      for const i: int = 0, const bound: int = 10; i < bound; i = i + 1 {
+                ^
+  Terminating compilation due to 1 error
+

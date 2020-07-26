@@ -107,8 +107,10 @@ impl TACGenerator {
             },
             AstNode::BooleanNot{ expression, span} => {
                 self.handle_not(expression, span);
-            }
-            x => panic!("Three-address code generation not implemented for '{}'", x),
+            },
+            AstNode::EmptyNode => (),
+            AstNode::ErrorNode => ice!("Error node present in three-address-code generation"),
+            x => todo!("Three-address code generation not implemented for '{}'", x),
         }
     }
 
@@ -250,10 +252,8 @@ impl TACGenerator {
         child: &AstNode,
         info: &DeclarationInfo) {
 
-
-        // previous passes propagate constant values - ignore
         if info.attributes.contains(&VariableAttribute::Const) {
-            return;
+            ice!("Const variable present in three-address-code generation - expected to be inlined");
         }
 
         if info.variable_type.is_array() {
@@ -399,6 +399,13 @@ impl TACGenerator {
         &mut self,
         child: &AstNode,
         name: &String) {
+
+        let (declaration_info, _) = self.get_variable_info_and_id(name);
+
+        ice_if!(declaration_info.attributes.contains(&VariableAttribute::Const)
+            || declaration_info.attributes.contains(&VariableAttribute::ReadOnly),
+            "Generating TAC assignment to constant or read-only array {}", name);
+
         self.declaration_assignment_common(child, name);
     }
 
@@ -409,10 +416,6 @@ impl TACGenerator {
         self.generate_tac(child);
 
         let (variable_info, id) = self.get_variable_info_and_id(name);
-
-        ice_if!(variable_info.attributes.contains(&VariableAttribute::Const)
-            || variable_info.attributes.contains(&VariableAttribute::ReadOnly),
-            "Generating TAC assignment to constant or read-only array {}", name);
 
         let operand = self.operands.pop();
         self.generate_assignment(

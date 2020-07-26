@@ -113,6 +113,7 @@ pub enum AstNode {
     ArrayAccess{ index_expression: Box<AstNode>, indexable_expression: Box<AstNode> },
 
     ErrorNode,
+    EmptyNode, // No-operation in later stages
 }
 
 impl Display for AstNode {
@@ -198,6 +199,7 @@ impl Display for AstNode {
             AstNode::Greater { .. } => "Greater".to_string(),
             AstNode::BooleanNot{ .. } => "Not".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
+            AstNode::EmptyNode => "<empty node>".to_string(),
       })
   }
 }
@@ -305,7 +307,8 @@ impl AstNode {
             AstNode::BooleanNot{ ref expression, .. } => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
-            AstNode::ErrorNode => {}
+            AstNode::EmptyNode |
+            AstNode::ErrorNode => (),
         }
 
         string
@@ -347,6 +350,7 @@ impl AstNode {
             AstNode::Identifier{ span, ..} => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
             AstNode::BooleanNot{ span, .. } => *span,
+            AstNode::EmptyNode |
             AstNode::ErrorNode => empty,
         };
         x

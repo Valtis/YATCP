@@ -625,7 +625,7 @@ impl Parser {
             let t_type = self.lexer.peek_token().token_type;
             let node = if t_type == TokenType::SemiColon {
                 break;
-            } else if t_type  == TokenType::Let {
+            } else if t_type  == TokenType::Let || t_type == TokenType::Const || t_type == TokenType::Val {
                 self.parse_variable_declaration()
             } else if t_type == TokenType::Identifier {
                 let identifier = self.lexer.next_token();
