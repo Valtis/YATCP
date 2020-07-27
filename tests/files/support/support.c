@@ -1,9 +1,11 @@
 #include <stdio.h>
 
 #ifdef INT_FUNCTION 
-
 int INT_FUNCTION();
 #define RUN printf("%d\n", INT_FUNCTION());
+#elif defined(BYTE_FUNCTION )
+char BYTE_FUNCTION();
+#define RUN printf("%d\n", (int)BYTE_FUNCTION());
 #elif defined(VOID_FUNCTION)
 void VOID_FUNCTION();
 #define RUN VOID_FUNCTION();

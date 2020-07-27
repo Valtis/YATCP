@@ -1,6 +1,7 @@
 INT_MAX = 2**31-1
 INT_MIN = -INT_MAX-1
 
+
 """
     Tuples of:
         * Test file name without extension
@@ -20,7 +21,7 @@ test_tuples = [
         "-4",
         -4),
 
-
+    
     # addition
     ("constant_constant_addition_works",
         "",

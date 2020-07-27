@@ -19,6 +19,7 @@ const COMPILER_BINARY:&'static str = "../../target/debug/compiler";
 pub enum FunctionKind {
     VOID(String),
     INT(String),
+    BYTE(String),
 }
 
 #[derive(Debug)]
@@ -35,13 +36,15 @@ impl FunctionKind {
     fn to_define(&self) -> &str {
         match self {
             FunctionKind::VOID(_) => "VOID_FUNCTION",
-            FunctionKind::INT(_) => "INT_FUNCTION"
+            FunctionKind::INT(_) => "INT_FUNCTION",
+            FunctionKind::BYTE(_) => "BYTE_FUNCTION",
         }
     }
 
     fn name(&self) -> &String {
         match self {
             FunctionKind::VOID(ref name) |
+            FunctionKind::BYTE(ref name) |
             FunctionKind::INT(ref name) => name,
         }
     }
