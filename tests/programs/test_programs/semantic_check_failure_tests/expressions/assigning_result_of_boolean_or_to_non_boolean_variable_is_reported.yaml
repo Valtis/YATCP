@@ -9,7 +9,7 @@ expect_stderr: |
   2:21 Type error: Expected 'Integer' but got 'Boolean'
     let a: int = true || false;
                       ^^
-  2:7 Note: Variable 'a', declared here, has type Integer
+  2:7 Note: Variable 'a', declared here, has type 'Integer'
     let a: int = true || false;
         ^
   Terminating compilation due to 1 error

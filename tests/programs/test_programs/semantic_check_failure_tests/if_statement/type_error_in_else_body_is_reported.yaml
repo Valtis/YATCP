@@ -17,7 +17,7 @@ expect_stderr: |
   8:18 Type error: Expected 'Integer' but got 'String'
       let a: int = "y";
                    ^^^
-  8:9 Note: Variable 'a', declared here, has type Integer
+  8:9 Note: Variable 'a', declared here, has type 'Integer'
       let a: int = "y";
           ^
   Terminating compilation due to 1 error

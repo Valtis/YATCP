@@ -13,7 +13,7 @@ expect_stderr: |
   3:20 Type error: Expected 'Integer' but got 'String'
     for let a: int = "type_error"; a < 3; a += 1{
                      ^^^^^^^^^^^^
-  3:11 Note: Variable 'a', declared here, has type Integer
+  3:11 Note: Variable 'a', declared here, has type 'Integer'
     for let a: int = "type_error"; a < 3; a += 1{
             ^
   Terminating compilation due to 1 error

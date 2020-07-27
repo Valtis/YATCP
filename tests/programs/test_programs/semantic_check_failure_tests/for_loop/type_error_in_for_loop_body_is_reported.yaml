@@ -13,7 +13,7 @@ expect_stderr: |
   4:18 Type error: Expected 'Integer' but got 'Float'
       let a: int = 2342f;
                    ^^^^^
-  4:9 Note: Variable 'a', declared here, has type Integer
+  4:9 Note: Variable 'a', declared here, has type 'Integer'
       let a: int = 2342f;
           ^
   Terminating compilation due to 1 error
