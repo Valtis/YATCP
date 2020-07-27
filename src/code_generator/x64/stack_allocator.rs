@@ -1818,44 +1818,26 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
 
-            // FIXME: Replace MOVs with MOVZX - Move with zero extend
-            // For now reuse existing code, even if less efficient
-
-            // zero regs as 8 bit movs leave high bits untouched
-
             let dword_reg1 = get_register_for_size(4);
             let byte_reg1 = get_register_for_size(1);
 
             let dword_reg2 = get_register_for_size2(4);
-            let byte_reg2 = get_register_for_size2(1);
+
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: IntegerConstant(0),
+                ByteCode::MovZeroExtending(UnaryOperation{
+                    src: StackOffset {
+                        offset: src_stack_slot.offset,
+                        size: src_stack_slot.size,
+                    },
                     dest: PhysicalRegister(dword_reg1),
                 })
             );
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
-                    src: IntegerConstant(0),
+                    src: IntegerConstant(*constant as i32),
                     dest: PhysicalRegister(dword_reg2),
-                }));
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: StackOffset {
-                        offset: src_stack_slot.offset,
-                        size: src_stack_slot.size,
-                    },
-                    dest: PhysicalRegister(byte_reg1),
-                })
-            );
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: ByteConstant(*constant),
-                    dest: PhysicalRegister(byte_reg2),
                 })
             );
 
@@ -1943,38 +1925,25 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             let byte_reg1 = get_register_for_size(1);
 
             let dword_reg2 = get_register_for_size2(4);
-            let byte_reg2 = get_register_for_size2(1);
+
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: IntegerConstant(0),
+                ByteCode::MovZeroExtending(UnaryOperation{
+                    src: StackOffset {
+                        offset: src1_stack_slot.offset,
+                        size: src1_stack_slot.size,
+                    },
                     dest: PhysicalRegister(dword_reg1),
                 })
             );
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: IntegerConstant(0),
-                    dest: PhysicalRegister(dword_reg2),
-            }));
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: StackOffset {
-                        offset: src1_stack_slot.offset,
-                        size: src1_stack_slot.size,
-                    },
-                    dest: PhysicalRegister(byte_reg1),
-                })
-            );
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
+                ByteCode::MovZeroExtending(UnaryOperation{
                     src: StackOffset {
                         offset: src2_stack_slot.offset,
                         size: src2_stack_slot.size,
                     },
-                    dest: PhysicalRegister(byte_reg2),
+                    dest: PhysicalRegister(dword_reg2),
                 })
             );
 
@@ -2145,22 +2114,14 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             let reg = get_register_for_size_for_division(dest_stack_slot.size);
 
 
-            // clear reg
-            // TODO: Could use MOVZX that clears high bits
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: IntegerConstant(0),
-                    dest: PhysicalRegister(X64Register::EAX)
-                })
-            );
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
+                ByteCode::MovSignExtending(UnaryOperation {
                     src: StackOffset{
                         offset: dividend_stack_slot.offset,
                         size: dividend_stack_slot.size,
                     },
-                    dest: PhysicalRegister(X64Register::AL)
+                    dest: PhysicalRegister(X64Register::EAX)
                 })
             );
 
@@ -2264,33 +2225,19 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: IntegerConstant(0),
+                    src: IntegerConstant(*dividend as i32),
                     dest: PhysicalRegister(X64Register::EAX)
                 })
             );
 
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: IntegerConstant(0),
-                    dest: PhysicalRegister(src_reg.get_alias_for_size(4))
-                })
-            );
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: ByteConstant(*dividend),
-                    dest: PhysicalRegister(X64Register::AL)
-                })
-            );
-
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
+                ByteCode::MovSignExtending(UnaryOperation {
                     src: StackOffset {
                         offset: divisor_stack_slot.offset,
                         size: divisor_stack_slot.size,
                     },
-                    dest: PhysicalRegister(src_reg)
+                    dest: PhysicalRegister(src_reg.get_alias_for_size(4))
                 })
             );
 
@@ -2386,37 +2333,22 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             ice_if!(src_reg == X64Register::AL, "Register collision");
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: IntegerConstant(0),
+                ByteCode::MovSignExtending(UnaryOperation {
+                    src: StackOffset {
+                        offset: dividend_stack_slot.offset,
+                        size: dividend_stack_slot.size,
+                    },
                     dest: PhysicalRegister(X64Register::EAX)
                 })
             );
 
             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: IntegerConstant(0),
-                    dest: PhysicalRegister(src_reg.get_alias_for_size(4))
-                })
-            );
-
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation {
-                    src: StackOffset {
-                        offset: dividend_stack_slot.offset,
-                        size: dividend_stack_slot.size,
-                    },
-                    dest: PhysicalRegister(X64Register::EAX.get_alias_for_size(1))
-                })
-            );
-
-            updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
+                ByteCode::MovSignExtending(UnaryOperation{
                     src: StackOffset {
                         offset: divisor_stack_slot.offset,
                         size: divisor_stack_slot.size,
                     },
-                    dest: PhysicalRegister(src_reg),
+                    dest: PhysicalRegister(src_reg.get_alias_for_size(4)),
                 })
             );
 

@@ -108,6 +108,8 @@ fn generate_code_for_function(function: &ByteCodeFunction, stack_size: u32) -> (
     for b in function.code.iter() {
         match b {
             ByteCode::Nop => emit_nop(&mut asm),
+            ByteCode::MovZeroExtending(operands) => emit_mov_sign_extending(operands, &mut asm),
+            ByteCode::MovSignExtending(operands) => emit_mov_sign_extending(operands, &mut asm),
             ByteCode::Mov(operands) => emit_mov(operands, &mut asm),
             ByteCode::Lea(operands) => emit_lea(operands, &mut asm),
             ByteCode::Add(operands) => emit_add(operands, &mut asm),
@@ -180,6 +182,83 @@ fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
     );
 }
 
+fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+        UnaryOperation {
+            dest: PhysicalRegister(dest_reg),
+            src: StackOffset { size, offset },
+        } => {
+            match (dest_reg.size(), size) {
+                (4, 1) => emit_mov_sign_extend_byte_to_integer_stack(*dest_reg, *offset, *size, asm),
+                _ => ice!("Invalid register {:?} and size {}", dest_reg, size),
+            }
+        }
+        _ => ice!("Invalid MOVSX operation:\n{:#?}", operand),
+    }
+}
+
+fn emit_mov_sign_extend_byte_to_integer_stack(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() < 4, "Invalid register: {:?}", dest);
+    ice_if!(size != 1, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_SIGN_EXTEND_8_BIT_TO_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn emit_mov_zero_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
+    match operand {
+        UnaryOperation {
+            dest: PhysicalRegister(dest_reg),
+            src: StackOffset { size, offset },
+        } => {
+            match (dest_reg.size(), size) {
+                (4, 1) => emit_mov_zero_extend_byte_to_integer_stack(*dest_reg, *offset, *size, asm),
+                _ => ice!("Invalid register {:?} and size {}", dest_reg, size),
+            }
+        }
+        _ => ice!("Invalid MOVSX operation:\n{:#?}", operand),
+    }
+}
+
+fn emit_mov_zero_extend_byte_to_integer_stack(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() < 4, "Invalid register: {:?}", dest);
+    ice_if!(size != 1, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_ZERO_EXTEND_8_BIT_TO_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
 
 fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     match operand {

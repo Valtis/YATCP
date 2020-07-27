@@ -87,7 +87,15 @@ impl X64Register {
                     8 => X64Register::RBX,
                     _ => ice!("Invalid size {}", size),
                 }
-            }
+            },
+            X64Register::CL | X64Register::ECX | X64Register::RCX => {
+                match size {
+                    1 => X64Register::CL,
+                    4 => X64Register::ECX,
+                    8 => X64Register::RCX,
+                    _ => ice!("Invalid size {}", size),
+                }
+            },
             X64Register::DL | X64Register::EDX | X64Register::RDX => {
                 match size {
                     1 => X64Register::DL,

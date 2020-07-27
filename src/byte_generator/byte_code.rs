@@ -28,6 +28,8 @@ pub enum ByteCode {
     Negate(UnaryOperation),
     Xor(BinaryOperation),
     Mov(UnaryOperation),
+    MovZeroExtending(UnaryOperation),
+    MovSignExtending(UnaryOperation),
     Lea(UnaryOperation),
     SignExtend(UnaryOperation),
     Compare(ComparisonOperation),
@@ -145,6 +147,8 @@ impl Display for ByteCode {
                 src: Value::ComparisonResult(ref comp_result), }) =>
                 format!("set{} {}", comp_result, dest),
             ByteCode::Mov(ref unary_op) => format!("mov {}", unary_op),
+            ByteCode::MovSignExtending(ref unary_op) => format!("movsx {}", unary_op),
+            ByteCode::MovZeroExtending(ref unary_op) => format!("movzx {}", unary_op),
             ByteCode::Negate(ref unary_op) => format!("neg {}", unary_op),
             ByteCode::SignExtend(ref unary_op) => format!("sxt {}", unary_op),
             ByteCode::Add(ref binary_op) => format!("add {}", binary_op),
