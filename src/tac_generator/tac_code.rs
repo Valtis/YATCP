@@ -38,6 +38,7 @@ pub enum Operand {
     },
     SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
+    Byte(i8),
     Float(f32),
     Double(f64),
     Boolean(bool),
@@ -161,6 +162,7 @@ impl Display for Operand {
             Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
             Operand::Integer(v) => format!("{}i", v),
+            Operand::Byte(v) => format!("{}b", v),
             Operand::Float(v) => format!("{}f", v),
             Operand::Double(v) => format!("{}d", v),
             Operand::Boolean(v) => v.to_string(),

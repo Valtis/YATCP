@@ -158,6 +158,7 @@ fn is_constant(var: &Operand) -> bool {
         Operand::Variable(_, _) => false,
         Operand::SSAVariable(_, _, _) => false,
         Operand::Integer(_) => true,
+        Operand::Byte(_) => true,
         Operand::Float(_) => true,
         Operand::Double(_) => true,
         Operand::Boolean(_) => true,

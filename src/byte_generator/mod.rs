@@ -312,6 +312,7 @@ impl ByteGenerator {
                 }
             }
             Operand::Integer(val) => Value::IntegerConstant(*val),
+            Operand::Byte(val) => Value::ByteConstant(*val),
             Operand::Boolean(val) => Value::ByteConstant(if *val { 1 } else { 0 }),
             Operand::Initialized(value_type) => {
                 let pos = self.current_function().parameter_count;

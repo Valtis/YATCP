@@ -2348,13 +2348,6 @@ fn change_1_byte_jump_offsets_to_4_byte_offsets_where_needed(
             }
         }
     }
-
-/*
-    eprintln!("Update opcode");
-    eprintln!("Use 4 byte offset");
-    eprintln!("Update jump labels after this one to account for shift in asm");
-    eprintln!("Update function call patches to account for this");
-*/
 }
 
 fn update_conditional_jump_opcode_and_placeholder_to_32_bit_variant(location: usize, asm: &mut Vec<u8>) {

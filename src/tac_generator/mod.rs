@@ -4,7 +4,7 @@ mod peephole_optimizations;
 use tac_code::*;
 use peephole_optimizations::optimize;
 
-use crate::ast::{AstNode, AstInteger, FunctionInfo, DeclarationInfo, ExtraDeclarationInfo, Span as Span, ArithmeticInfo};
+use crate::ast::*;
 use crate::semcheck::{Type, ARRAY_LENGTH_PROPERTY};
 use crate::function_attributes::FunctionAttribute;
 use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
@@ -83,6 +83,7 @@ impl TACGenerator {
             AstNode::Modulo { .. } =>
                 self.handle_arithmetic_node(node),
             AstNode::Integer{ .. } |
+            AstNode::Byte{ .. } |
             AstNode::Boolean{ .. } => self.handle_constant(node),
             AstNode::Identifier { name, ..} =>
                 self.handle_identifier(name),
@@ -607,6 +608,13 @@ impl TACGenerator {
                 }
             }
             AstNode::Boolean{ value, ..} => Operand::Boolean(*value),
+            AstNode::Byte { value, .. } => {
+                if let AstByte::Byte(b) = value {
+                   Operand::Byte(*b)
+                } else {
+                    ice!("Invalid byte type in three-adress code generation: {}", value);
+                }
+            }
             _ => ice!("Unexpected node '{:?}' encountered when constant was expected during TAC generation", node),
         };
 
@@ -814,6 +822,7 @@ impl TACGenerator {
               Type::Reference(Box::new(variable_info.variable_type.clone()))
             },
             Operand::Integer(_) => Type::Integer,
+            Operand::Byte(_) => Type::Byte,
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,
             Operand::Boolean(_) => Type::Boolean,

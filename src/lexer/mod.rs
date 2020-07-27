@@ -229,6 +229,7 @@ impl ReadLexer {
       "int" => Some(self.create_token(TokenType::VarType, TokenSubType::IntegerType)),
       "float" => Some(self.create_token(TokenType::VarType, TokenSubType::FloatType)),
       "double" => Some(self.create_token(TokenType::VarType, TokenSubType::DoubleType)),
+      "byte" => Some(self.create_token(TokenType::VarType, TokenSubType::ByteType)),
       "bool" => Some(self.create_token(TokenType::VarType, TokenSubType::BooleanType)),
       "void" => Some(self.create_token(TokenType::VarType, TokenSubType::VoidType)),
       "string" => Some(self.create_token(TokenType::VarType, TokenSubType::StringType)),

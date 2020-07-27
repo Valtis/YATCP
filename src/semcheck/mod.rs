@@ -1,4 +1,4 @@
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
+use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo, AstByte};
 
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
@@ -251,7 +251,8 @@ impl SemanticsCheck {
                 self.check_boolean_and_or(left_expression, right_expression, span),
             AstNode::BooleanNot{expression, span} =>
                 self.check_boolean_not(expression, span),
-            AstNode::Integer{ value, span } => self.check_for_overflow(value, span),
+            AstNode::Integer{ value, span } => self.check_integer_for_overflow(value, span),
+            AstNode::Byte{ value, span } => self.check_byte_for_overflow(value, span),
             AstNode::Float{ .. } => (),
             AstNode::Double{ .. }  => (),
             AstNode::Text{ .. } => (),
@@ -681,7 +682,23 @@ impl SemanticsCheck {
 
         } else if variable_info.variable_type != child_type &&
             child_type != Type::Invalid && variable_info.variable_type != Type::Invalid {
-            self.report_type_error(variable_info, child, child_type);
+
+
+            let conversion_result =  self.perform_type_conversion(&variable_info.variable_type, child);
+            println!("Conversion result: {:?}", conversion_result);
+            if conversion_result == ConversionResult::Converted {
+                return;
+            }
+
+            self.report_type_error(variable_info, child, child_type.clone());
+
+            if conversion_result == ConversionResult::CastRequired {
+                self.report_error(
+                    ReportKind::Note,
+                    child.span(),
+                    format!("Explicit cast is required to convert '{}' to '{}'", child_type, variable_info.variable_type)
+                );
+            }
         }
     }
 
@@ -1084,7 +1101,6 @@ impl SemanticsCheck {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
                 if let AstNode::Integer{value: AstInteger::Int(0), ..} = **right_expression {
-                        println!("REPORTIIIIING");
                        self.report_error(
                            ReportKind::Warning,
                            arithmetic_info.span.clone(),
@@ -1257,7 +1273,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn check_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
+    fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         match integer {
             AstInteger::Int(_) => (), // OK
             AstInteger::IntMaxPlusOne | AstInteger::Invalid(_) => {
@@ -1270,6 +1286,21 @@ impl SemanticsCheck {
 
         }
     }
+
+    fn check_byte_for_overflow(&mut self, byte: &AstByte, span: &Span) {
+        match byte {
+            AstByte::Byte(_) => (), // OK
+            AstByte::ByteMaxPlusOne | AstByte::Invalid(_) => {
+                self.report_error(
+                    ReportKind::TokenError,
+                    span.clone(),
+                    "Number does not fit inside 8 bit signed integer".to_owned(),
+                );
+            },
+
+        }
+    }
+
 
     fn check_identifier_is_declared(&mut self, name: &str, span: &Span) ->
         Option<Symbol> {
@@ -1636,6 +1667,60 @@ impl SemanticsCheck {
         Some(self.get_constant_initializer_expression(node))
     }
 
+
+    /*
+        Perform implicit conversions from original node to decl-info type, if possible
+
+        Return true if conversion succeeded
+
+        Return false if conversion failed
+    */
+
+
+
+    fn perform_type_conversion(
+        &mut self,
+        target_type: &Type,
+        origin_node: &mut AstNode
+    ) -> ConversionResult {
+
+        let origin_type = self.get_type(origin_node);
+        let origin_is_constant = self.is_constant(origin_node);
+
+        // automatically support widening conversion (byte -> int, float -> double)
+        // report narrowing conversions requiring manual cast, if non-constant. Try casting constant first
+        // reject otherwise
+        match (origin_type, target_type) {
+
+            (Type::Integer, &Type::Byte) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Integer { value, span}   => {
+                            *origin_node = AstNode::Byte { value: AstByte::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
+            (Type::Byte, &Type::Integer) => {
+                todo!()
+            },
+            (Type::Float, &Type::Double) => {
+                todo!()
+            },
+            (Type::Double, &Type::Float) => {
+                todo!()
+            }
+            _ => ConversionResult::NotPossible
+        }
+    }
+
     fn get_enclosing_function_info(&self) -> FunctionInfo {
         ice_if!(self.enclosing_function_stack.is_empty(),
             "No enclosing function found");
@@ -1664,4 +1749,12 @@ impl SemanticsCheck {
             variable_info.span.clone(),
             format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
     }
+}
+
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum ConversionResult {
+    NotPossible,
+    Converted,
+    CastRequired,
 }

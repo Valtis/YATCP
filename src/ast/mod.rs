@@ -26,6 +26,7 @@ fn get_type_from_type_token(variable_type: &Token) -> Type {
     TokenSubType::FloatType => Type::Float,
     TokenSubType::DoubleType => Type::Double,
     TokenSubType::BooleanType => Type::Boolean,
+    TokenSubType::ByteType => Type::Byte,
     TokenSubType::VoidType => Type::Void,
     _ => ice!("Expected type but was '{}' instead", variable_type),
   }
@@ -37,6 +38,14 @@ pub enum AstInteger {
     IntMaxPlusOne,
     Invalid(u64),
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AstByte {
+    Byte(i8),
+    ByteMaxPlusOne,
+    Invalid(u64),
+}
+
 
 impl From<u64> for AstInteger {
     fn from(val: u64) -> AstInteger {
@@ -50,13 +59,23 @@ impl From<u64> for AstInteger {
     }
 }
 
+impl From<u64> for AstByte {
+    fn from(val: u64) -> AstByte {
+        if val <= i8::max_value() as u64 {
+            AstByte::Byte(val as i8)
+        } else if val == i8::max_value() as u64 + 1 {
+            AstByte::ByteMaxPlusOne
+        } else {
+            AstByte::Invalid(val)
+        }
+    }
+}
+
 impl From<i32> for AstInteger {
     fn from(val: i32) -> AstInteger {
         AstInteger::Int(val)
     }
 }
-
-
 
 impl Display for AstInteger {
      fn fmt(&self, formatter: &mut Formatter) -> Result {
@@ -68,6 +87,45 @@ impl Display for AstInteger {
             })
     }
 }
+
+
+impl From<AstInteger> for AstByte {
+    fn from(value: AstInteger) -> AstByte {
+        match value {
+            AstInteger::Int(value) => {
+                if value == i8::max_value() as i32 + 1 {
+                    AstByte::ByteMaxPlusOne
+                } else if value > i8::max_value() as i32 || value < i8::min_value() as i32 {
+                    AstByte::Invalid(value as u64)
+                } else {
+                    AstByte::Byte(value as i8)
+                }
+
+            },
+            AstInteger::IntMaxPlusOne => AstByte::Invalid(i32::max_value() as u64 + 1),
+            AstInteger::Invalid(x) => AstByte::Invalid(x)
+        }
+    }
+}
+
+impl Display for AstByte {
+     fn fmt(&self, formatter: &mut Formatter) -> Result {
+         write!(formatter, "{}",
+                match self {
+                    AstByte::Invalid(val) => format!("(Overflow, {} does not fit in i8)", val),
+                    AstByte::Byte(val) => format!("{}", val),
+                    AstByte::ByteMaxPlusOne => "Byte max plus one (256)".to_owned(),
+            })
+    }
+}
+
+
+impl From<i8> for AstByte {
+    fn from(val: i8) -> AstByte {
+        AstByte::Byte(val)
+    }
+}
+
 
 #[derive(Clone)]
 pub enum AstNode {
@@ -105,6 +163,7 @@ pub enum AstNode {
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
     Integer{ value: AstInteger, span: Span },
+    Byte { value: AstByte, span: Span },
     Float { value: f32, span: Span },
     Double{ value: f64, span: Span },
     Text { value: Rc<String>, span: Span } ,
@@ -174,6 +233,7 @@ impl Display for AstNode {
             } => format!("Array assignment '{}'", name),
             AstNode::MemberAccess { .. } => format!("Member access"),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
+            AstNode::Byte{ value, .. } => format!("Byte: {}", value),
             AstNode::Float{value , .. } => format!("Float: {}", value),
             AstNode::Double{ value, .. } => format!("Double: {}", value),
             AstNode::Boolean{value, .. } => format!("Boolean: {}", value),
@@ -257,6 +317,7 @@ impl AstNode {
                 string = format!("{}{}", string, member.print_impl(next_int));
             }
             AstNode::Integer{ .. } |
+            AstNode::Byte{ .. } |
             AstNode::Float{ .. }  |
             AstNode::Double{ .. }  => {},
             AstNode::Text{ .. } => {},
@@ -343,6 +404,7 @@ impl AstNode {
             AstNode::GreaterOrEq { span, .. } |
             AstNode::Greater { span, .. } => *span,
             AstNode::Integer{ span, .. } => *span,
+            AstNode::Byte{ span, .. } => *span,
             AstNode::Float{ span, .. } => *span,
             AstNode::Double{  span, .. } => *span,
             AstNode::Boolean{ span, .. } => *span,
