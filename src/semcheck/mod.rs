@@ -1171,6 +1171,7 @@ impl SemanticsCheck {
                         )
                 };
                 (vec![
+                    Type::Byte,
                     Type::Integer,
                     Type::Invalid],
                  arithmetic_info)
