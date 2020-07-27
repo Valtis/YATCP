@@ -1945,9 +1945,12 @@ fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
         BinaryOperation{
             dest: _, // don't care, will be stored in eax,
             src1: _, // don't care, uses edx:eax
-            src2: PhysicalRegister(ref reg), // don't care
+            src2: PhysicalRegister(ref reg),
         } => {
-            emit_div_with_reg(*reg, asm);
+            match reg.size() {
+                4 | 8 => emit_integer_div_with_reg(*reg, asm),
+                _ => ice!("Invalid size {}", reg.size()),
+            }
         },
         BinaryOperation{
             dest: _,
@@ -1957,14 +1960,17 @@ fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 size,
             }
         } => {
-            emit_div_with_stack(*offset, *size, asm);
+            match size {
+                4 | 8 => emit_integer_div_with_stack(*offset, *size, asm),
+                _ => ice!("Invalid size {}", size),
+            }
         },
         _ => ice!("Invalid div operation encoding: {:#?}", operand),
     }
 }
 
-fn emit_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
-
+fn emit_integer_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(divisor.size() < 4, "Invalid register {:?}", divisor);
 
     let modrm = ModRM {
         addressing_mode: AddressingMode::DirectRegisterAddressing,
@@ -1984,7 +1990,9 @@ fn emit_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
     );
 }
 
-fn emit_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_integer_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
+
+    ice_if!(size < 4, "Invalid size {}", size);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 

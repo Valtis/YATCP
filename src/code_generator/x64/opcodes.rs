@@ -38,6 +38,7 @@ pub const SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_: u8 = 0x6B;
 pub const SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x69;
 pub const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
 
+pub const SIGNED_DIV_RM_8_BIT: u8 = 0xF6;
 pub const SIGNED_DIV_RM_32_BIT: u8 = 0xF7;
 pub const DIV_OPCODE_EXT: u8 = 0x07;
 

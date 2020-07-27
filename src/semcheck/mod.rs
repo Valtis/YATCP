@@ -1151,6 +1151,7 @@ impl SemanticsCheck {
                        )
                 };
                 (vec![
+                    Type::Byte,
                     Type::Integer,
                     Type::Float,
                     Type::Double,
