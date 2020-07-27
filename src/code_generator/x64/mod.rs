@@ -1810,7 +1810,9 @@ fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
             src1: PhysicalRegister(ref src_reg),
             src2: IntegerConstant(immediate),
         } => {
-            emit_mul_reg_with_immediate(*dest_reg, *src_reg, *immediate, asm);
+            ice_if!(dest_reg.size() != src_reg.size(), "Registers {:?} and {:?} have different sizes", dest_reg, src_reg);
+            ice_if!(src_reg.size() != 4, "Registers {:?} and {:?} have different sizes", dest_reg, src_reg);
+            emit_mul_integer_reg_with_immediate(*dest_reg, *src_reg, *immediate, asm);
         },
         BinaryOperation {
             dest: PhysicalRegister(ref dest_reg),
@@ -1820,7 +1822,23 @@ fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
             ice_if!(
                 dest_reg != src_reg,
                 "Destination and src1 operands not in two address form: {:#?}", operand);
-            emit_mul_reg_with_stack(*dest_reg, *offset, *size, asm);
+            match size {
+                4 | 8 => emit_mul_integer_reg_with_stack(*dest_reg, *offset, asm),
+                _ => ice!("Invalid size {}", size),
+            }
+        },
+        BinaryOperation {
+            dest: PhysicalRegister(ref dest_reg),
+            src1: PhysicalRegister(ref src_reg),
+            src2: PhysicalRegister(ref src2_reg),
+        } => {
+            ice_if!(
+                dest_reg != src_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+            match dest_reg.size() {
+                4 | 8 => emit_mul_integer_reg_with_reg(*dest_reg, *src2_reg, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
         },
         _ => ice!("Invalid mul operation encoding: {:#?}", operand),
     }
@@ -1830,14 +1848,16 @@ fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 /*
     IMUL dst_reg, src_reg, immediate32/immediate8
 
-    REX: if 64 bit registers are used
-    opcode: 8 bit opcode, either for signed multiplying with 8 bit or 32 bit immediate, depending on immediate value
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
     modrm: direct addressing, destination in reg, src in R/M
     SIB: Not used
     Immediate: 8/32 bit immediate, depending on if the value fits in 8 bits
 */
 
-fn emit_mul_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+fn emit_mul_integer_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid destination register {:?}", dest_reg);
+    ice_if!(src_reg.size() < 4, "Invalid source register {:?}", src_reg);
 
     let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
         (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_)
@@ -1864,8 +1884,18 @@ fn emit_mul_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register, imme
 }
 
 
-fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, _size: u32, asm: &mut Vec<u8>) {
+/*
+    IMUL dst_reg, src_reg, immediate32/immediate8
 
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in reg, src in R/M
+    SIB: Not used
+    Immediate: Not used
+*/
+
+fn emit_mul_integer_reg_with_stack(dest_reg: X64Register, offset: u32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register {:?}", dest_reg);
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1885,6 +1915,30 @@ fn emit_mul_reg_with_stack(dest_reg: X64Register,  offset: u32, _size: u32, asm:
         None,
     );
 }
+
+fn emit_mul_integer_reg_with_reg(dest_reg: X64Register, src_reg: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid destination register {:?}", dest_reg);
+    ice_if!(src_reg.size() < 4, "Invalid source register {:?}", src_reg);
+
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::Register(dest_reg),
+        rm_field: RmField::Register(src_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGNED_MUL_REG_RM_32_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
 
 fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
     match operand {
