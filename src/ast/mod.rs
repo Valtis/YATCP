@@ -89,6 +89,24 @@ impl Display for AstInteger {
 }
 
 
+impl From<AstByte> for AstInteger {
+    fn from(value: AstByte) -> AstInteger {
+        match value {
+            AstByte::Byte(value) => AstInteger::Int(value as i32),
+            AstByte::ByteMaxPlusOne => AstInteger::Int(i8::max_value() as i32),
+            AstByte::Invalid(value ) => {
+                if value == i32::max_value() as u64 + 1 {
+                    AstInteger::IntMaxPlusOne
+                }  else if value > i32::max_value() as u64 || value < i32::min_value() as u64 {
+                    AstInteger::Invalid(value)
+                } else {
+                    AstInteger::Int(value as i32)
+                }
+            }
+        }
+    }
+}
+
 impl From<AstInteger> for AstByte {
     fn from(value: AstInteger) -> AstByte {
         match value {

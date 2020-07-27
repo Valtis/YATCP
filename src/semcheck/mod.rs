@@ -13,6 +13,7 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 use crate::variable_attributes::VariableAttribute;
+use crate::semcheck::ConversionResult::CastRequired;
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
@@ -107,7 +108,7 @@ impl Display for Type {
             Type::Float => "Float".to_owned(),
             Type::String=> "String".to_owned(),
             Type::Void => "Void".to_owned(),
-            Type::ByteArray=> "Boolean array".to_owned(),
+            Type::ByteArray=> "Byte array".to_owned(),
             Type::BooleanArray=> "Boolean array".to_owned(),
             Type::IntegerArray => "Integer array".to_owned(),
             Type::Reference(ref x) => format!("Reference to {}", x),
@@ -611,11 +612,25 @@ impl SemanticsCheck {
         } else if variable_info.variable_type.is_array() {
 
             if variable_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
+
+                let conversion_result = self.perform_type_conversion(
+                    &variable_info.variable_type.get_array_basic_type(),  child);
+
+                if conversion_result == ConversionResult::Converted {
+                    return;
+                }
+
                 self.report_error(
                     ReportKind::TypeError,
                     child.span(),
-                    format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type)
+                    format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type.clone())
                 );
+
+                if conversion_result == CastRequired {
+                    self.report_conversion_note(
+                        &variable_info.variable_type,&child_type,&child.span());
+                }
+
             }
 
 
@@ -683,9 +698,7 @@ impl SemanticsCheck {
         } else if variable_info.variable_type != child_type &&
             child_type != Type::Invalid && variable_info.variable_type != Type::Invalid {
 
-
             let conversion_result =  self.perform_type_conversion(&variable_info.variable_type, child);
-            println!("Conversion result: {:?}", conversion_result);
             if conversion_result == ConversionResult::Converted {
                 return;
             }
@@ -693,11 +706,10 @@ impl SemanticsCheck {
             self.report_type_error(variable_info, child, child_type.clone());
 
             if conversion_result == ConversionResult::CastRequired {
-                self.report_error(
-                    ReportKind::Note,
-                    child.span(),
-                    format!("Explicit cast is required to convert '{}' to '{}'", child_type, variable_info.variable_type)
-                );
+                self.report_conversion_note(
+                    &variable_info.variable_type,
+                    &child_type,
+                    &child.span());
             }
         }
     }
@@ -757,6 +769,7 @@ impl SemanticsCheck {
         // do type check only for a declared variable
         if let Symbol::Variable(ref sym_info, _) = symbol {
             if sym_info.variable_type.is_array() {
+
                 self.report_error(
                     ReportKind::TypeError,
                     span.clone(),
@@ -772,19 +785,19 @@ impl SemanticsCheck {
             } else if sym_info.variable_type != child_type &&
                 child_type != Type::Invalid && sym_info.variable_type != Type::Invalid  {
 
-            self.report_error(
-                ReportKind::TypeError,
-                child.span(),
-                format!(
-                    "Expected '{}' but got '{}'",
-                     sym_info.variable_type, child_type));
+                let conversion_result =  self.perform_type_conversion(&sym_info.variable_type, child);
+                if conversion_result == ConversionResult::Converted {
+                    return;
+                }
 
-            self.report_error(
-                ReportKind::Note,
-                sym_info.span.clone(),
-                format!("Variable '{}', declared here, has type '{}'",
-                    name,
-                    sym_info.variable_type));
+                self.report_type_error(sym_info, child, child_type.clone());
+
+                if conversion_result == ConversionResult::CastRequired {
+                    self.report_conversion_note(
+                        &sym_info.variable_type,
+                        &child_type,
+                        &child.span());
+                }
             } else {
                 self.report_if_read_only(&span, sym_info);
             }
@@ -872,6 +885,14 @@ impl SemanticsCheck {
             }
 
             if sym_info.variable_type.get_array_basic_type() != assignment_type && assignment_type != Type::Invalid {
+
+                let conversion_result = self.perform_type_conversion(
+                    &sym_info.variable_type.get_array_basic_type(),  assignment_expression);
+
+                if conversion_result == ConversionResult::Converted {
+                    return;
+                }
+
                 self.report_error(
                     ReportKind::TypeError,
                     assignment_expression.span(),
@@ -885,6 +906,11 @@ impl SemanticsCheck {
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
+
+                if conversion_result == CastRequired {
+                    self.report_conversion_note(
+                        &sym_info.variable_type,&assignment_type,&assignment_expression.span());
+                }
             }
         } else {
             ice!("Non-variable symbol '{:#?}' returned when variable expected", symbol);
@@ -1079,6 +1105,7 @@ impl SemanticsCheck {
             AstNode::Plus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
                 (vec![
+                    Type::Byte,
                     Type::Integer,
                     Type::Float,
                     Type::Double,
@@ -1164,12 +1191,28 @@ impl SemanticsCheck {
         if left_type == Type::Invalid || right_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;
         } else if left_type != right_type {
+
+            let (target_type, mut origin_node) = self.get_binary_node_types_for_conversion(left_child, right_child);
+            let conversion_result =  self.perform_type_conversion(&target_type, &mut origin_node);
+            if conversion_result == ConversionResult::Converted {
+                arith_info.node_type = target_type;
+                return;
+            }
+
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
                 arith_info.span.clone(),
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+
+            if conversion_result == ConversionResult::CastRequired {
+                self.report_conversion_note(
+                    &target_type,
+                    &self.get_type(&origin_node),
+                    &arith_info.span
+                );
+            }
         } else {
             arith_info.node_type = left_type;
         }
@@ -1709,17 +1752,70 @@ impl SemanticsCheck {
                 }
             },
             (Type::Byte, &Type::Integer) => {
-                todo!()
+                 if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Byte{ value, span}   => {
+                            *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                     todo!("TODO: Implement type1->type2 AST conversion node")
+                }
             },
             (Type::Float, &Type::Double) => {
-                todo!()
+                todo!("TODO: Implement type1->type2 AST conversion node")
             },
             (Type::Double, &Type::Float) => {
-                todo!()
+                todo!("TODO: Implement type1->type2 AST conversion node")
             }
             _ => ConversionResult::NotPossible
         }
     }
+
+
+    /*
+        given two nodes:
+            * if both are variables or both are constants:
+                * return wider type and narrower node
+            * if one is constant and one is variable:
+                * return variable type and const node
+                    * e.g. expressions of type "foo + 123" try to coerce constant to variable type
+     */
+    fn get_binary_node_types_for_conversion<'a>(
+        &mut self,
+        left_node: &'a mut AstNode,
+        right_node: &'a mut AstNode,
+    ) -> (Type, &'a mut AstNode) {
+        let left_type = self.get_type(left_node);
+        let right_type = self.get_type(right_node);
+
+        let left_is_constant = self.is_constant(left_node);
+        let right_is_constant = self.is_constant(right_node);
+
+        if left_is_constant == right_is_constant {
+            match (&left_type, &right_type) {
+                (Type::Byte, Type::Integer) |
+                (Type::Float, Type::Double) => (right_type.clone(), left_node),
+                _ => (left_type.clone(), right_node)
+            }
+        } else {
+            match (left_is_constant, right_is_constant) {
+                (true, false) => {
+                    (right_type, left_node)
+                },
+                (false, true) => {
+                    (left_type, right_node)
+                }
+                _ => ice!("Should not be reached!")
+            }
+        }
+    }
+
 
     fn get_enclosing_function_info(&self) -> FunctionInfo {
         ice_if!(self.enclosing_function_stack.is_empty(),
@@ -1747,7 +1843,19 @@ impl SemanticsCheck {
         self.report_error(
             ReportKind::Note,
             variable_info.span.clone(),
-            format!("Variable '{}', declared here, has type {}", variable_info.name, variable_info.variable_type));
+            format!("Variable '{}', declared here, has type '{}'", variable_info.name, variable_info.variable_type));
+    }
+
+    fn report_conversion_note(
+        &mut self,
+        target_type: &Type,
+        origin_type: &Type,
+        span: &Span) {
+        self.report_error(
+                    ReportKind::Note,
+                    *span,
+                    format!("Explicit cast is required to convert '{}' to '{}'", origin_type, target_type)
+                );
     }
 }
 

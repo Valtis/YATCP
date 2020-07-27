@@ -1200,7 +1200,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         },
 
         /*
-            A = constant + somereg
+            A = integer_constant + somereg
 
             swap constants around and call this function recursively
 
@@ -1219,7 +1219,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             stack_map);
         }
         /*
-            A = B + constant
+            A = B + integer_constant
             cannot encode directly, so emit:
 
             mov tmp_reg, stack_slot_b
@@ -1254,6 +1254,60 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             }));
         },
 
+        /*
+            A = byte  + somereg
+
+            swap constants around and call this function recursively
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(_),
+            src1: ByteConstant(_),
+            src2: VirtualRegister(_)} => {
+
+            handle_add_allocation(&BinaryOperation {
+                dest: binary_op.dest.clone(),
+                src1: binary_op.src2.clone(),
+                src2: binary_op.src1.clone(),
+            },
+            updated_instructions,
+            stack_map);
+        }
+        /*
+            A = B + byte_constant
+            cannot encode directly, so emit:
+
+            mov tmp_reg, stack_slot_b
+            mov stack_slot_a, tmp_reg
+            add stack_slot, constant
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ByteConstant(src2_val)} if dest_vregdata.id != src_vregdata.id => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg= get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src2: ByteConstant(*src2_val),
+            }));
+        },
         /*
             A = A + B
             not directly encodable, as A and B are both memory operands, need to use tmp reg

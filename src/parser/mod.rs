@@ -291,6 +291,7 @@ impl Parser {
             declaration_info.variable_type = match declaration_info.variable_type {
                 Type::Integer => Type::IntegerArray,
                 Type::Boolean => Type::BooleanArray,
+                Type::Byte => Type::ByteArray,
                 _ => {
                     self.report_error(
                         ReportKind::SyntaxError,
