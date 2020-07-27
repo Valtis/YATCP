@@ -297,7 +297,6 @@ impl ByteGenerator {
     }
 
     fn get_source(&mut self, op: &Operand) -> Value {
-
         match op {
             Operand::Variable(declaration_info, id) => {
                 self.get_register_for(declaration_info, *id)

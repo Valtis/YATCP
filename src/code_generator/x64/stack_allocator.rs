@@ -1181,6 +1181,28 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         src2: IntegerConstant(*src2_val),
                 }));
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: ByteConstant(src1_val),
+            src2: ByteConstant(src2_val),
+        } => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*src1_val),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Add(
+                    BinaryOperation{
+                        dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src1: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src2: ByteConstant(*src2_val),
+                }));
+        },
         /*
             A = A + constant
             encodable as is, just emit the instruction
@@ -1198,6 +1220,19 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src2: IntegerConstant(*src2_val),
             }));
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ByteConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src2: ByteConstant(*src2_val),
+            }));
+        },
+
 
         /*
             A = integer_constant + somereg
@@ -1417,6 +1452,28 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         src2: IntegerConstant(*src2_val),
                     }));
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: ByteConstant(src1_val),
+            src2: ByteConstant(src2_val),
+        } => {
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*src1_val),
+                    dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Sub(
+                    BinaryOperation{
+                        dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src1: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
+                        src2: ByteConstant(*src2_val),
+                    }));
+        },
         /*
             A = A - constant
             encodable as is, just emit the instruction
@@ -1432,6 +1489,18 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
                 src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
                 src2: IntegerConstant(*src2_val),
+            }));
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ByteConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            updated_instructions.push(ByteCode::Sub(BinaryOperation{
+                dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src2: ByteConstant(*src2_val),
             }));
         },
         /*
@@ -1472,6 +1541,33 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src2: IntegerConstant(*src2_val),
             }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ByteConstant(src2_val),
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Sub(BinaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src2: ByteConstant(*src2_val),
+            }));
+        },
         /*
             A = constant - B
             not directly encodable
@@ -1496,6 +1592,34 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(ByteCode::Mov(UnaryOperation{
                 src: IntegerConstant(*value),
+                dest: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Sub(BinaryOperation{
+                dest: PhysicalRegister(reg),
+                src1: PhysicalRegister(reg),
+                src2: StackOffset { offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                src: PhysicalRegister(reg),
+            })
+
+            );
+        },
+        BinaryOperation {
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: ByteConstant(value),
+            src2: VirtualRegister(ref src_vregdata),
+        } => {
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: ByteConstant(*value),
                 dest: PhysicalRegister(reg),
             }));
 

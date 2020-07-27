@@ -525,11 +525,18 @@ impl SemanticsCheck {
                             if arg_type != param.variable_type &&
                                 arg_type != Type::Invalid &&
                                 param.variable_type != Type::Invalid {
+
+                                let conversion_result = self.perform_type_conversion(&param.variable_type, arg);
+
+                                if conversion_result == ConversionResult::Converted {
+                                    return;
+                                }
+
                                 self.report_error(
                                     ReportKind::TypeError,
                                     arg.span(),
                                     format!("Got argument of type '{}' when '{}' was expected",
-                                        arg_type,
+                                        arg_type.clone(),
                                         param.variable_type,
                                         ));
 
@@ -538,6 +545,14 @@ impl SemanticsCheck {
                                     param.span.clone(),
                                     "Corresponding parameter declared here"
                                         .to_string());
+
+                                if conversion_result == ConversionResult::CastRequired {
+                                    self.report_conversion_note(
+                                        &param.variable_type,
+                                        &arg_type,
+                                        &arg.span()
+                                    );
+                                }
                             }
                         }
 
@@ -1118,6 +1133,7 @@ impl SemanticsCheck {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
                 (vec![
+                    Type::Byte,
                     Type::Integer,
                     Type::Float,
                     Type::Double,
