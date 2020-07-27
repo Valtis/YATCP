@@ -48,7 +48,10 @@ pub const XOR_OPCODE_EXT: u8 = 0x06;
 
 pub const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 
+
+pub const NEGATE_RM_8_BIT: u8 = 0xF6;
 pub const NEGATE_RM_32_BIT: u8 = 0xF7;
+
 pub const NEGATE_OPCODE_EXT: u8 = 0x03;
 
 pub const COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;

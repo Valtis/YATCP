@@ -1045,6 +1045,11 @@ impl SemanticsCheck {
                     function_info.return_type))
             }
             else {
+
+                if self.perform_type_conversion(&function_info.return_type, child) == ConversionResult::Converted {
+                    return;
+                }
+
                 (format!("Return statement has type '{}' when '{}' was expected",
                     child_type, function_info.return_type),
                 format!("Function '{}', declared here, is expected to return '{}'",
@@ -1249,7 +1254,11 @@ impl SemanticsCheck {
         // if type has non-arithmetic type, report it and set type to invalid
         // otherwise just set the type to the type of the child
 
-        let valid_types = vec![Type::Integer, Type::Float, Type::Double];
+        let valid_types = vec![
+            Type::Integer,
+            Type::Byte,
+            Type::Float,
+            Type::Double];
 
         if child_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;

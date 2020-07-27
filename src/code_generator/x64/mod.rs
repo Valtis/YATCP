@@ -2027,14 +2027,18 @@ fn emit_neg(operands: &UnaryOperation, asm: &mut Vec<u8>) {
             }
         } if src_offset == dest_offset => {
             ice_if!(src_size != dest_size, "Source and destination sizes are different");
-            emit_neg_stack(*src_offset, *src_size, asm);
+            match src_size {
+                1 => emit_neg_byte_stack(*src_offset, *src_size, asm),
+                4 | 8 => emit_neg_integer_stack(*src_offset, *src_size, asm),
+                _ => ice!("Invalid size {}", src_size),
+            }
         },
         _ => ice!("Invalid operand encoding for NEG: {:#?}", operands),
     }
 }
 
-fn emit_neg_stack(offset: u32, _size: u32, asm: &mut Vec<u8>) {
-
+fn emit_neg_integer_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -2043,16 +2047,41 @@ fn emit_neg_stack(offset: u32, _size: u32, asm: &mut Vec<u8>) {
         rm_field: RmField::Register(X64Register::RBP)
     };
 
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
 
     emit_instruction(
         asm,
-        None,
+        rex,
         SizedOpCode::from(NEGATE_RM_32_BIT),
         Some(modrm),
         sib,
         None,
     );
 }
+
+
+fn emit_neg_byte_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(NEGATE_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(NEGATE_RM_8_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
 
 fn emit_xor(operands: &BinaryOperation, asm: &mut Vec<u8>) {
     match operands {

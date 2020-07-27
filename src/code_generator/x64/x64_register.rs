@@ -1,5 +1,3 @@
-use crate::obj_generator::Architecture::X64;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum X64Register {
     // 64 bit regs
