@@ -31,6 +31,10 @@ void int_printer(int a) {
     printf("%d\n", a);
 }
 
+void byte_printer(char a) {
+    printf("%d\n", (int)a);
+}
+
 void boolean_printer(char a) {
     printf("%s\n", a ? "true" : "false");
 }

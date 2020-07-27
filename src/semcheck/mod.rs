@@ -643,7 +643,7 @@ impl SemanticsCheck {
 
                 if conversion_result == CastRequired {
                     self.report_conversion_note(
-                        &variable_info.variable_type,&child_type,&child.span());
+                        &variable_info.variable_type.get_array_basic_type(),&child_type,&child.span());
                 }
 
             }
@@ -923,8 +923,11 @@ impl SemanticsCheck {
                             sym_info.variable_type));
 
                 if conversion_result == CastRequired {
+
                     self.report_conversion_note(
-                        &sym_info.variable_type,&assignment_type,&assignment_expression.span());
+                        &sym_info.variable_type.get_array_basic_type(),
+                        &assignment_type,
+                        &assignment_expression.span());
                 }
             }
         } else {
@@ -1285,11 +1288,26 @@ impl SemanticsCheck {
         if left_type != right_type &&
             left_type != Type::Invalid && right_type != Type::Invalid
         {
+
+            let (target_type, mut origin_node) = self.get_binary_node_types_for_conversion(left_child, right_child);
+            let conversion_result =  self.perform_type_conversion(&target_type, &mut origin_node);
+            if conversion_result == ConversionResult::Converted {
+                return;
+            }
+
             self.report_error(
                 ReportKind::TypeError,
                 span.clone(),
                 format!(
                     "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+
+            if conversion_result == ConversionResult::CastRequired {
+                self.report_conversion_note(
+                    &target_type,
+                    &self.get_type(&origin_node),
+                    span
+                );
+            }
         }
     }
 

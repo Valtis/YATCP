@@ -1,0 +1,20 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+
+  fn main() : int {
+    let arr: byte[25] = 0;
+    arr[5] = 95;
+    foo(arr);
+    return 0;
+  }
+
+  fn foo(arr: byte[]) : void {
+    arr[5] = 8;
+    byte_printer(arr[5]);
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  8
+
+

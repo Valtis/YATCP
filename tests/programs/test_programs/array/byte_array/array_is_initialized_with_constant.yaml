@@ -1,0 +1,31 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+
+  fn main() : int {
+    let a: byte[10] = 5;
+
+    let i: int = 0;
+    while i < 10 {
+        byte_printer(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+
+
+

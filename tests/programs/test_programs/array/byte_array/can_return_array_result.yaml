@@ -1,0 +1,21 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+
+  fn main() : int {
+    byte_printer(returns_byte(0));    
+    byte_printer(returns_byte(-128));    
+    return 0;
+  }
+
+  fn returns_byte(arg: byte) : byte {
+    let arr: byte[1] = arg;
+    return arr[0];
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  0
+  -128
+
+
+

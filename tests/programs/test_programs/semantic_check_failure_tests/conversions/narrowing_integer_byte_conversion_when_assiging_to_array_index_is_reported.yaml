@@ -1,0 +1,19 @@
+program: |
+    fn main() : int {
+      let x: int = 4;
+      let a: byte[4] = 0;
+      a[3] = x;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  4:10 Type error: Expected 'Byte' but got 'Integer'
+    a[3] = x;
+           ^
+  3:7 Note: Variable 'a', declared here, has type 'Byte array'
+    let a: byte[4] = 0;
+        ^
+  4:10 Note: Explicit cast is required to convert 'Integer' to 'Byte'
+    a[3] = x;
+           ^
+  Terminating compilation due to 1 error

@@ -1,0 +1,19 @@
+program: |
+  fn test_function() : int {
+
+      let a: byte = 8;
+      let b: bool = true;
+      
+      if a > 4 {
+        return 12345;
+      }
+      return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+callable: test_function
+returns: int
+expect_stdout: |
+  12345
+

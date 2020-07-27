@@ -1,0 +1,12 @@
+program: |
+    fn main() : int {
+      let a: byte = -129;
+      return 0;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:18 Token error: Number does not fit inside 8 bit signed integer
+    let a: byte = -129;
+                   ^^^
+  Terminating compilation due to 1 error

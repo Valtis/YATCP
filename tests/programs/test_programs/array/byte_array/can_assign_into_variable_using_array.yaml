@@ -1,0 +1,26 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+
+  fn main() : int {
+    let init: byte = 5;
+    let a: byte[2] = init;
+    a[1] = 15;
+    let b: byte = 0;
+
+    b = a[0];
+    byte_printer(b);
+    b = a[1];
+    byte_printer(b);
+
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  15
+
+
+

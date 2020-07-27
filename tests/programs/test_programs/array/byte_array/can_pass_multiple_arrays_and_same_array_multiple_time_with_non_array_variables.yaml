@@ -1,0 +1,64 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+    let arr: byte[25] = 0;
+    let arr2: byte[20] = -5;
+
+    arr[4] = 99;
+    arr2[4] = 123;
+
+    let a: byte = 5;
+    let b: byte = -53;
+    let c: bool = false;
+
+    foo(a, arr, b, arr, c, arr2);
+    boolean_printer(c);
+    byte_printer(arr[4]);
+    byte_printer(arr2[4]);
+    return 0;
+  }
+
+  fn foo(a: byte, arr: byte[], b: byte, arr2: byte[], c: bool, arr3: byte[]) : void {
+    boolean_printer(c);
+    c = true;
+    boolean_printer(c);
+    byte_printer(a);
+    byte_printer(b);
+
+    byte_printer(arr[4]);
+    byte_printer(arr2[4]);
+    byte_printer(arr3[4]);
+
+    arr[4] = 100;
+    arr3[4] = 12;
+
+    byte_printer(arr[4]);
+    byte_printer(arr2[4]);
+    byte_printer(arr3[4]);
+  }
+
+  
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  true
+  5
+  -53
+  99
+  99
+  123
+  100
+  100
+  12
+  false
+  100
+  12
+
+  
+  
+
+
+
