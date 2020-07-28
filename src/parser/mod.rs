@@ -825,7 +825,7 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::DoubleEquals &&
+            if next_token.token_type == TokenType::Comparison &&
                 (next_token.token_subtype == TokenSubType::Equals ||
                 next_token.token_subtype == TokenSubType::NotEquals) {
                 node = self.parse_equals_not_equals_comparison_expression(node)?;
@@ -842,7 +842,7 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::DoubleEquals &&
+            if next_token.token_type == TokenType::Comparison &&
                 !(next_token.token_subtype == TokenSubType::Equals ||
                     next_token.token_subtype == TokenSubType::NotEquals) {
                     node = self.parse_greater_less_comparison_expression(node)?;
@@ -1069,7 +1069,7 @@ impl Parser {
     fn parse_equals_not_equals_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::DoubleEquals)?;
+        let next_token = self.expect(TokenType::Comparison)?;
         let n_node = self.parse_arithmetic_expression_with_greater_less_comparisons()?;
 
         match next_token.token_subtype {
@@ -1096,7 +1096,7 @@ impl Parser {
     fn parse_greater_less_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::DoubleEquals)?;
+        let next_token = self.expect(TokenType::Comparison)?;
         let n_node = self.parse_arithmetic_expression()?;
 
         match next_token.token_subtype {

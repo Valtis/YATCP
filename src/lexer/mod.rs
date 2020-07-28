@@ -108,29 +108,32 @@ impl ReadLexer {
             '^' => self.create_token(TokenType::Caret, TokenSubType::NoSubType),
             '~' => self.create_token(TokenType::Tilde, TokenSubType::NoSubType),
             '=' => self.multi_char_operator_helper(
-                '=',
-                (TokenType::DoubleEquals, TokenSubType::Equals),
-                (TokenType::Equals, TokenSubType::NoSubType)),
+                ch, vec![
+                    ("=", TokenType::Equals, TokenSubType::NoSubType),
+                    ("==", TokenType::Comparison, TokenSubType::Equals)]),
             '>' => self.multi_char_operator_helper(
-                '=',
-                (TokenType::DoubleEquals, TokenSubType::GreaterOrEq),
-                (TokenType::DoubleEquals, TokenSubType::Greater)),
+                ch, vec![
+                    (">", TokenType::Comparison, TokenSubType::Greater),
+                    (">=", TokenType::Comparison, TokenSubType::GreaterOrEq),
+                    (">>", TokenType::DoubleArrowRight, TokenSubType::NoSubType),
+                    (">>>", TokenType::TripleArrowRight, TokenSubType::NoSubType)]),
             '<' => self.multi_char_operator_helper(
-                '=',
-                (TokenType::DoubleEquals, TokenSubType::LessOrEq),
-                (TokenType::DoubleEquals, TokenSubType::Less)),
+                ch, vec![
+                    ("<=", TokenType::Comparison, TokenSubType::LessOrEq),
+                    ("<", TokenType::Comparison, TokenSubType::Less),
+                    ("<<", TokenType::DoubleArrowLeft, TokenSubType::NoSubType)]),
             '!' => self.multi_char_operator_helper(
-                '=',
-                (TokenType::DoubleEquals, TokenSubType::NotEquals),
-                (TokenType::Exclamation, TokenSubType::NoSubType)),
+                ch, vec![
+                    ("!=", TokenType::Comparison, TokenSubType::NotEquals),
+                    ("!", TokenType::Exclamation, TokenSubType::NoSubType)]),
             '&' => self.multi_char_operator_helper(
-                '&',
-                (TokenType::DoubleAmpersand, TokenSubType::NoSubType),
-                (TokenType::Ampersand, TokenSubType::NoSubType)),
+                ch, vec![
+                    ("&&", TokenType::DoubleAmpersand, TokenSubType::NoSubType),
+                    ("&", TokenType::Ampersand, TokenSubType::NoSubType)]),
             '|' => self.multi_char_operator_helper(
-                '|',
-                (TokenType::DoublePipe, TokenSubType::NoSubType),
-                (TokenType::Pipe, TokenSubType::NoSubType)),
+                ch, vec![
+                    ("||", TokenType::DoublePipe, TokenSubType::NoSubType),
+                    ("|", TokenType::Pipe, TokenSubType::NoSubType)]),
             _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
         }
     }
@@ -139,27 +142,45 @@ impl ReadLexer {
         self.peek_char().map_or(false, |c| !c.is_digit(10))
     }
 
-    fn multi_char_operator_helper (
+    fn multi_char_operator_helper(
         &mut self,
-        optional_second_char: char,
-        type_if_matches: (TokenType, TokenSubType),
-        type_if_no_match: (TokenType, TokenSubType)) -> Token {
+        start_char: char,
+        operator_candidates: Vec<(&'static str, TokenType, TokenSubType)>) -> Token {
 
-        let mut next_char = ' ';
+        let mut candidate_string = start_char.to_string();
+        let mut candidate = None;
+        loop {
+            let current_iteration_candidates = operator_candidates.iter().filter(|&(operator, _, _)| operator == &candidate_string).collect::<Vec<_>>();
 
-        if let Some(ch) = self.peek_char() {
-            next_char = ch;
+            candidate = if current_iteration_candidates.len() == 1 {
+                if candidate.is_some() {
+                   self.next_char();
+                }
+                Some((current_iteration_candidates[0].1, current_iteration_candidates[0].2.clone()))
+            } else {
+                if let Some(candidate_tuple) = candidate {
+                    return self.create_token(candidate_tuple.0, candidate_tuple.1);
+                } else {
+                    ice!("No match for operator starting with '{}', current candidate string '{}', candidate operators {:?}",
+                        start_char,
+                        candidate_string,
+                        operator_candidates);
+                }
+            };
+
+            candidate_string.push(if let Some(ch) = self.peek_char() {
+                ch
+            } else {
+                if let Some(candidate_tuple) = candidate {
+                    return self.create_token(candidate_tuple.0, candidate_tuple.1);
+                } else {
+                    ice!("No match for operator starting with '{}', current candidate string '{}', candidate operators {:?}",
+                        start_char,
+                        candidate_string,
+                        operator_candidates);
+                }
+            });
         }
-
-        let (t, st) = if next_char == optional_second_char {
-            // consume the next character
-            self.next_char();
-            type_if_matches
-        } else {
-            type_if_no_match
-        };
-
-        self.create_token(t, st)
     }
 
 
@@ -990,31 +1011,31 @@ mod tests {
 
     #[test]
     fn operators_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ %");
+        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ % << >> >>>");
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::Less);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::LessOrEq);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::Equals);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::GreaterOrEq);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::Greater);
 
         assert_eq_token!(
@@ -1024,7 +1045,7 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::DoubleEquals,
+            TokenType::Comparison,
             TokenSubType::NotEquals);
 
         assert_eq_token!(
@@ -1085,6 +1106,21 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Percentage,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoubleArrowLeft,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoubleArrowRight,
+            TokenSubType::NoSubType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::TripleArrowRight,
             TokenSubType::NoSubType);
 
         assert_eq_token!(

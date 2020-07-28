@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
   Equals,
-  DoubleEquals,
+  Comparison,
   Exclamation,
   Number,
   Text,
@@ -50,6 +50,9 @@ pub enum TokenType {
   DoublePipe,
   Caret,
   Tilde,
+  DoubleArrowLeft,
+  DoubleArrowRight,
+  TripleArrowRight,
   Eof,
 }
 
@@ -58,7 +61,7 @@ impl Display for TokenType {
     Display::fmt(
       match *self {
         TokenType::Equals => "=",
-        TokenType::DoubleEquals => "==",
+        TokenType::Comparison => "Comparison",
         TokenType::Exclamation => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
@@ -101,6 +104,9 @@ impl Display for TokenType {
         TokenType::DoublePipe => "||",
         TokenType::Caret => "^",
         TokenType::Tilde => "~",
+        TokenType::DoubleArrowLeft => "<<",
+        TokenType::DoubleArrowRight => ">>",
+        TokenType::TripleArrowRight => ">>>",
         TokenType::Eof => "<EOF>",
 
       }, formatter)
