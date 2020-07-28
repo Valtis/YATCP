@@ -142,7 +142,7 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
 fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
     if !map.reg_to_stack_slot.contains_key(&data.id) {
 
-        ice_if!(data.size.count_ones() != 1, "Virtual register {:?} has size which is not power of two!", data);
+        ice_if!(!data.size.is_power_of_two(), "Virtual register {:?} has size which is not power of two!", data);
         map.stack_size += data.size;
         map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: data.size } );
     }

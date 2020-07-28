@@ -262,6 +262,28 @@ impl ReadLexer {
         if ch == '.' {
             return self.handle_decimal_number(number_str);
         }
+
+        let radix = if ch == '0' {
+            let next = self.peek_char();
+            if let Some(type_char) = next {
+                if type_char == 'x' {
+                    self.next_char();
+                    number_str.clear();
+                    16
+                } else if type_char == 'b' {
+                    self.next_char();
+                    number_str.clear();
+                    2
+                } else {
+                    10
+                }
+            } else {
+                10
+            }
+        } else {
+            10
+        };
+
         loop {
             // workaround for multiple mutable borrows
             let value = match self.peek_char() {
@@ -272,7 +294,7 @@ impl ReadLexer {
 
             match value {
                 Some(ch) => {
-                    if ch.is_digit(10) {
+                    if ch.is_digit(radix) {
                         number_str.push(ch);
                         self.next_char();
                     } else if ch == '.' {
@@ -289,7 +311,7 @@ impl ReadLexer {
             }
         }
 
-        match number_str.parse() {
+        match u64::from_str_radix(&number_str, radix) {
             Ok(number) => self.create_token(TokenType::Number, TokenSubType::IntegerNumber(number)),
 
 
@@ -1636,7 +1658,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Number,
-            TokenSubType::IntegerNumber(4));
+            TokenSubType::IntegerNumber(2));
 
         assert_eq_token!(
             lexer.next_token(),
