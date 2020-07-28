@@ -20,16 +20,16 @@ fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
 }
 
 fn get_type_from_type_token(variable_type: &Token) -> Type {
-  match variable_type.token_subtype {
-    TokenSubType::IntegerType => Type::Integer,
-    TokenSubType::StringType => Type::String,
-    TokenSubType::FloatType => Type::Float,
-    TokenSubType::DoubleType => Type::Double,
-    TokenSubType::BooleanType => Type::Boolean,
-    TokenSubType::ByteType => Type::Byte,
-    TokenSubType::VoidType => Type::Void,
-    _ => ice!("Expected type but was '{}' instead", variable_type),
-  }
+    match variable_type.token_subtype {
+        TokenSubType::IntegerType => Type::Integer,
+        TokenSubType::StringType => Type::String,
+        TokenSubType::FloatType => Type::Float,
+        TokenSubType::DoubleType => Type::Double,
+        TokenSubType::BooleanType => Type::Boolean,
+        TokenSubType::ByteType => Type::Byte,
+        TokenSubType::VoidType => Type::Void,
+        _ => ice!("Expected type but was '{}' instead", variable_type),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,13 +78,13 @@ impl From<i32> for AstInteger {
 }
 
 impl Display for AstInteger {
-     fn fmt(&self, formatter: &mut Formatter) -> Result {
-         write!(formatter, "{}",
-                match self {
-                    AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in i32)", val),
-                    AstInteger::Int(val) => format!("{}", val),
-                    AstInteger::IntMaxPlusOne => "Int max plus one (2147483648".to_owned(),
-            })
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in i32)", val),
+                   AstInteger::Int(val) => format!("{}", val),
+                   AstInteger::IntMaxPlusOne => "Int max plus one (2147483648".to_owned(),
+               })
     }
 }
 
@@ -127,13 +127,13 @@ impl From<AstInteger> for AstByte {
 }
 
 impl Display for AstByte {
-     fn fmt(&self, formatter: &mut Formatter) -> Result {
-         write!(formatter, "{}",
-                match self {
-                    AstByte::Invalid(val) => format!("(Overflow, {} does not fit in i8)", val),
-                    AstByte::Byte(val) => format!("{}", val),
-                    AstByte::ByteMaxPlusOne => "Byte max plus one (256)".to_owned(),
-            })
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstByte::Invalid(val) => format!("(Overflow, {} does not fit in i8)", val),
+                   AstByte::Byte(val) => format!("{}", val),
+                   AstByte::ByteMaxPlusOne => "Byte max plus one (256)".to_owned(),
+               })
     }
 }
 
@@ -194,32 +194,32 @@ pub enum AstNode {
 }
 
 impl Display for AstNode {
-  fn fmt(&self, formatter: &mut Formatter) -> Result {
-      write!(formatter, "{}", match self {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}", match self {
             AstNode::Block{ .. } => "Block".to_string(),
             AstNode::Function{ function_info, .. } => {
                 let param_str = function_info.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
-                .chars()
-                .skip(2).collect::<String>();
+                    .chars()
+                    .skip(2).collect::<String>();
 
                 format!("Function {}({}) -> {}",
-                    function_info.name,
-                    param_str,
-                    function_info.return_type)
+                        function_info.name,
+                        param_str,
+                        function_info.return_type)
             },
             AstNode::ExternFunction{ function_info} => {
                 let param_str = function_info.parameters.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}, {} : {}", acc, t.name, t.variable_type))
-                .chars()
-                .skip(2).collect::<String>();
+                    .chars()
+                    .skip(2).collect::<String>();
 
                 format!("Extern Function {}({}) -> {}",
-                    function_info.name,
-                    param_str,
-                    function_info.return_type)
+                        function_info.name,
+                        param_str,
+                        function_info.return_type)
             },
             AstNode::FunctionCall{ref function_name, ..} =>
                 format!("Call function {}", function_name),
@@ -278,8 +278,8 @@ impl Display for AstNode {
             AstNode::BooleanNot{ .. } => "Not".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
             AstNode::EmptyNode => "<empty node>".to_string(),
-      })
-  }
+        })
+    }
 }
 
 // primarily implemented for tests so that assert_eq! pretty prints the tree
@@ -503,7 +503,7 @@ impl FunctionInfo {
         line: i32,
         column: i32,
         length: i32,
-        ) -> FunctionInfo {
+    ) -> FunctionInfo {
         FunctionInfo {
             name: name,
             parameters: vec![],
