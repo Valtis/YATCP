@@ -252,6 +252,10 @@ impl SemanticsCheck {
                 self.check_boolean_and_or(left_expression, right_expression, span),
             AstNode::BooleanNot{expression, span} =>
                 self.check_boolean_not(expression, span),
+            AstNode::ArithmeticShiftRight{  value, shift_count, arithmetic_info } |
+            AstNode::LogicalShiftLeft { value, shift_count, arithmetic_info  } |
+            AstNode::LogicalShiftRight { value, shift_count, arithmetic_info } =>
+                self.handle_shift_expression(value, shift_count, arithmetic_info),
             AstNode::Integer{ value, span } => self.check_integer_for_overflow(value, span),
             AstNode::Byte{ value, span } => self.check_byte_for_overflow(value, span),
             AstNode::Float{ .. } => (),
@@ -1361,6 +1365,57 @@ impl SemanticsCheck {
         }
     }
 
+    fn handle_shift_expression(&mut self, value: &mut AstNode, shift_count: &mut AstNode, arithmetic_info: &mut ArithmeticInfo) {
+
+        self.do_check(value);
+        self.do_check(shift_count);
+
+        let value_type = self.get_type(value);
+        let shift_type = self.get_type(shift_count);
+
+        let accepted_shift_types = vec![
+            Type::Integer,
+            Type::Byte,
+            Type::Invalid,
+        ];
+
+        if !accepted_shift_types.contains(&value_type) {
+            self.report_error(
+                ReportKind::TypeError,
+                value.span(),
+                format!("Cannot shift expression of type '{}', must be integral value", self.get_type(value))
+            );
+            arithmetic_info.node_type = Type::Invalid;
+        } else {
+            arithmetic_info.node_type = value_type;
+        }
+
+
+        if !accepted_shift_types.contains(&shift_type) {
+            self.report_error(
+                ReportKind::TypeError,
+                shift_count.span(),
+                format!("Shift count must be an integral value, got '{}' instead", shift_type),
+            );
+        } else if self.is_constant(shift_count) {
+            if let AstNode::Integer { value: AstInteger::Int(count), .. } = *shift_count {
+                if count < 0 {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        shift_count.span(),
+                        "Shift count cannot be negative".to_owned(),
+                    );
+                } else if arithmetic_info.node_type != Type::Invalid && count as u32 >= arithmetic_info.node_type.size_in_bytes()*8 {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        shift_count.span(),
+                        format!("Shift count too large for type '{}'", arithmetic_info.node_type),
+                    );
+                }
+            }
+        }
+    }
+
     fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         match integer {
             AstInteger::Int(_) => (), // OK
@@ -1441,6 +1496,9 @@ impl SemanticsCheck {
             AstNode::Minus{  arithmetic_info, .. } |
             AstNode::Multiply{  arithmetic_info, .. } |
             AstNode::Divide{  arithmetic_info, .. } |
+            AstNode::ArithmeticShiftRight { arithmetic_info, ..} |
+            AstNode::LogicalShiftRight { arithmetic_info, ..} |
+            AstNode::LogicalShiftLeft { arithmetic_info, ..} |
             AstNode::Modulo{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
             AstNode::Negate{  arithmetic_info, .. } => arithmetic_info.node_type.clone(),
             AstNode::Identifier{ name, ..} => {
@@ -1492,7 +1550,7 @@ impl SemanticsCheck {
                     }
                 }
                 return Type::Invalid;
-            }
+            },
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
@@ -1500,16 +1558,16 @@ impl SemanticsCheck {
 
     fn is_constant(&self, node: &AstNode) -> bool {
         match node {
-            AstNode::Integer{ .. } => true,
-            AstNode::Float{ .. } => true ,
-            AstNode::Double{ .. } => true ,
-            AstNode::Boolean{ .. } => true,
-            AstNode::Text{ .. } => true,
-            AstNode::BooleanNot { expression , ..} |
+            AstNode::Integer { .. } => true,
+            AstNode::Float { .. } => true,
+            AstNode::Double { .. } => true,
+            AstNode::Boolean { .. } => true,
+            AstNode::Text { .. } => true,
+            AstNode::BooleanNot { expression, .. } |
             AstNode::Negate { expression, .. } => self.is_constant(expression),
             AstNode::Identifier { name, .. } => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
-                  info.attributes.contains(&VariableAttribute::Const)
+                    info.attributes.contains(&VariableAttribute::Const)
                 } else {
                     false
                 }
@@ -1518,15 +1576,15 @@ impl SemanticsCheck {
                 index_expression, indexable_expression
             } => self.is_constant(index_expression) && self.is_constant(indexable_expression),
 
-            AstNode::BooleanAnd { left_expression, right_expression, ..} |
+            AstNode::BooleanAnd { left_expression, right_expression, .. } |
             AstNode::BooleanOr { left_expression, right_expression, .. } |
             AstNode::Plus {
                 left_expression,
                 right_expression,
                 ..
             } |
-            AstNode::Minus{
-                 left_expression,
+            AstNode::Minus {
+                left_expression,
                 right_expression,
                 ..
             } |
@@ -1544,8 +1602,14 @@ impl SemanticsCheck {
                 left_expression,
                 right_expression,
                 ..
-            }=> {
-                self.is_constant(left_expression) && self.is_constant(right_expression) },
+            } => {
+                self.is_constant(left_expression) && self.is_constant(right_expression)
+            },
+            AstNode::LogicalShiftRight { value, shift_count, .. } |
+            AstNode::LogicalShiftLeft { value, shift_count, .. } |
+            AstNode::ArithmeticShiftRight { value, shift_count, .. } => {
+              self.is_constant(value) && self.is_constant(shift_count)
+            },
             _ => false,
         }
     }
@@ -1717,7 +1781,7 @@ impl SemanticsCheck {
                     _ => node.clone()
                 }
             },
-            AstNode::BooleanOr{
+            AstNode::BooleanOr {
                 left_expression,
                 right_expression,
                 span
@@ -1730,6 +1794,36 @@ impl SemanticsCheck {
                         AstNode::Boolean { value: boolean1 || boolean2, span: *span },
 
                     _ => node.clone()
+                }
+            },
+            AstNode::ArithmeticShiftRight { value, shift_count, arithmetic_info } => {
+                match (
+                    self.get_constant_initializer_expression(value),
+                    self.get_constant_initializer_expression(shift_count),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
+                        AstNode::Integer { value: AstInteger::Int(i1 >> i2), span: arithmetic_info.span },
+                    _ => node.clone(),
+                }
+            }
+            AstNode::LogicalShiftRight { value, shift_count, arithmetic_info }  => {
+                match (
+                    self.get_constant_initializer_expression(value),
+                    self.get_constant_initializer_expression(shift_count),
+                ) {
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
+                        AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
+                    _ => node.clone(),
+                }
+            },
+            AstNode::LogicalShiftLeft { value, shift_count, arithmetic_info } => {
+                match (
+                    self.get_constant_initializer_expression(value),
+                    self.get_constant_initializer_expression(shift_count),
+                ) {
+                   (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 >= 0 =>
+                        AstNode::Integer { value: AstInteger::Int(i1 << i2), span: arithmetic_info.span },
+                    _ => node.clone(),
                 }
             },
             _ => ice!("Non-constant node {}", node),

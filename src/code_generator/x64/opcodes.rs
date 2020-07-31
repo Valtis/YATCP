@@ -1,4 +1,4 @@
-
+#![allow(dead_code)]
 
 pub const MOV_IMMEDIATE_32_BIT_TO_REG_BASE: u8 = 0xB8; // register encoding will be binary OR'ed into opcode
 pub const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
@@ -53,6 +53,37 @@ pub const XOR_OPCODE_EXT: u8 = 0x06;
 pub const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 
 
+pub const SHL_RM_32_BIT_ONCE: u8 = 0xD1;
+pub const SHL_RM_32_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC1;
+pub const SHL_RM_32_BIT: u8 = 0xD3;
+
+pub const SHL_RM_8_BIT_ONCE: u8 = 0xD0;
+pub const SHL_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC0;
+pub const SHL_RM_8_BIT: u8 = 0xD2;
+
+pub const LOGICAL_SHIFT_LEFT_OPCODE_EXT: u8 = 0x04;
+
+pub const SAR_RM_32_BIT_ONCE: u8 = 0xD1;
+pub const SAR_RM_32_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC1;
+pub const SAR_RM_32_BIT: u8 = 0xD3;
+
+pub const SAR_RM_8_BIT_ONCE: u8 = 0xD0;
+pub const SAR_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC0;
+pub const SAR_RM_8_BIT: u8 = 0xD2;
+
+pub const ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT: u8 = 0x07;
+
+pub const SHR_RM_32_BIT_ONCE: u8 = 0xD1;
+pub const SHR_RM_32_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC1;
+pub const SHR_RM_32_BIT: u8 = 0xD3;
+
+pub const SHR_RM_8_BIT_ONCE: u8 = 0xD0;
+pub const SHR_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0xC0;
+pub const SHR_RM_8_BIT: u8 = 0xD2;
+
+pub const LOGICAL_SHIFT_RIGHT_OPCODE_EXT: u8 = 0x05;
+
+
 pub const NEGATE_RM_8_BIT: u8 = 0xF6;
 pub const NEGATE_RM_32_BIT: u8 = 0xF7;
 
@@ -93,7 +124,6 @@ pub const SET_BYTE_IF_GREATER : u16 = 0x0F9F;
 pub const SET_BYTE_OPCODE_EXT: u8 = 0x00;
 
 pub const NOP : u8 = 0x90;
-
 
 
 pub const NEAR_RETURN : u8 = 0xC3;

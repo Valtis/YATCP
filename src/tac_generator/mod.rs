@@ -42,6 +42,8 @@ impl TACGenerator {
     pub fn generate_tac_functions(mut self, node: &AstNode) -> Vec<Function> {
         self.generate_tac(node);
 
+        ice_if!(!self.operands.is_empty(), "Not all temporary operands were consumed");
+
         for function in self.functions.iter_mut() {
             if function.statements.is_empty() {
                function.statements.push(Statement::Empty); // Makes CFG generation easier, if we don't have completely empty function bodies
@@ -109,6 +111,10 @@ impl TACGenerator {
             AstNode::BooleanNot{ expression, span} => {
                 self.handle_not(expression, span);
             },
+            AstNode::ArithmeticShiftRight { .. } |
+            AstNode::LogicalShiftRight { .. } |
+            AstNode::LogicalShiftLeft { .. } =>
+                self.handle_shift(node),
             AstNode::EmptyNode => (),
             AstNode::ErrorNode => ice!("Error node present in three-address-code generation"),
             x => todo!("Three-address code generation not implemented for '{}'", x),
@@ -813,6 +819,38 @@ impl TACGenerator {
            });
 
         self.operands.push(tmp);
+    }
+
+    fn handle_shift(&mut self, node: &AstNode) {
+
+        let (shift_operator, value, shift_count, arithmetic_info) = match node {
+            AstNode::ArithmeticShiftRight { value, shift_count, arithmetic_info } => {
+                (Operator::ArithmeticShiftRight, value, shift_count, arithmetic_info)
+            },
+            AstNode::LogicalShiftRight { value, shift_count, arithmetic_info } => {
+                (Operator::LogicalShiftRight, value, shift_count, arithmetic_info)
+            },
+            AstNode::LogicalShiftLeft{  value, shift_count, arithmetic_info } => {
+                (Operator::LogicalShiftLeft, value, shift_count, arithmetic_info)
+            },
+            _ => ice!("Invalid node {:?}, expected shift node", node),
+        };
+
+        let value = self.get_operand(value);
+        let shift_count = self.get_operand(shift_count);
+
+        let destination = self.get_temporary(arithmetic_info.node_type.clone());
+
+        self.current_function().statements.push(
+            Statement::Assignment {
+                destination: Some(destination.clone()),
+                left_operand: Some(value),
+                right_operand: Some(shift_count),
+                operator: Some(shift_operator.clone()),
+            }
+        );
+
+        self.operands.push(destination);
     }
 
     fn get_type(&self, operand: &Operand) -> Type {

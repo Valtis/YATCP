@@ -47,6 +47,9 @@ fn do_constant_folding(
                 Operator::GreaterOrEq => Operand::Boolean(val >= val2),
                 Operator::Greater => Operand::Boolean(val > val2),
                 Operator::Xor => Operand::Integer(val ^ val2),
+                Operator::LogicalShiftLeft=> Operand::Integer(val << val2),
+                Operator::LogicalShiftRight => Operand::Integer(((val as u32) >> val2) as i32),
+                Operator::ArithmeticShiftRight => Operand::Integer(val >> val2),
             };
             *s = Statement::Assignment{
                 operator: None,

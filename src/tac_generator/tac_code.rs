@@ -61,6 +61,9 @@ pub enum Operator {
     GreaterOrEq,
     Greater,
     Xor,
+    ArithmeticShiftRight,
+    LogicalShiftRight,
+    LogicalShiftLeft,
 }
 
 #[derive(Clone, Debug)]
@@ -187,6 +190,9 @@ impl Display for Operator {
             Operator::GreaterOrEq => ">=".to_string(),
             Operator::Greater => ">".to_string(),
             Operator::Xor => "^".to_string(),
+            Operator::ArithmeticShiftRight => ">>".to_string(),
+            Operator::LogicalShiftRight => ">>>".to_string(),
+            Operator::LogicalShiftLeft => "<<".to_string(),
         })
     }
 }

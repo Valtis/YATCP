@@ -1,6 +1,15 @@
+#![allow(dead_code)]
 use super::x64_register::X64Register;
 
 use byteorder::{ByteOrder, LittleEndian };
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct ModRM {
+    pub addressing_mode: AddressingMode,
+    pub reg_field: RegField,
+    pub rm_field: RmField,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AddressingMode {
@@ -22,13 +31,6 @@ pub enum RegField {
 pub enum RmField {
     Register(X64Register),
     Unused,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ModRM {
-    pub addressing_mode: AddressingMode,
-    pub reg_field: RegField,
-    pub rm_field: RmField,
 }
 
 // scale, index, base, displacement

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod stack_allocator;
 pub mod x64_register; // FIXME: Make bytecode use some abstraction rather than this directly (move reg impl to trait?)
 mod opcodes;
@@ -108,16 +106,19 @@ fn generate_code_for_function(function: &ByteCodeFunction, stack_size: u32) -> (
     for b in function.code.iter() {
         match b {
             ByteCode::Nop => emit_nop(&mut asm),
-            ByteCode::MovZeroExtending(operands) => emit_mov_sign_extending(operands, &mut asm),
-            ByteCode::MovSignExtending(operands) => emit_mov_sign_extending(operands, &mut asm),
+            ByteCode::Movzx(operands) => emit_mov_zero_extending(operands, &mut asm),
+            ByteCode::Movsx(operands) => emit_mov_sign_extending(operands, &mut asm),
             ByteCode::Mov(operands) => emit_mov(operands, &mut asm),
             ByteCode::Lea(operands) => emit_lea(operands, &mut asm),
             ByteCode::Add(operands) => emit_add(operands, &mut asm),
             ByteCode::Sub(operands) => emit_sub(operands, &mut asm),
             ByteCode::Mul(operands) => emit_mul(operands, &mut asm),
             ByteCode::Div(operands) => emit_div(operands, &mut asm),
-            ByteCode::Negate(operands) => emit_neg(operands, &mut asm),
             ByteCode::Xor(operands) => emit_xor(operands, &mut asm),
+            ByteCode::Shl(operands) => emit_shl(operands, &mut asm),
+            ByteCode::Sar(operands) => emit_sar(operands, &mut asm),
+            ByteCode::Shr(operands) => emit_shr(operands, &mut asm),
+            ByteCode::Negate(operands) => emit_neg(operands, &mut asm),
             ByteCode::Ret(value) => emit_ret(value, stack_size, function.parameter_count, &mut asm),
             ByteCode::SignExtend(operands) => emit_sign_extension(operands, &mut asm),
             ByteCode::Compare(ref operands) => emit_comparison(operands, &mut asm),
@@ -1304,6 +1305,20 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
     match operand {
         BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src_reg),
+            src2: IntegerConstant(value)
+        } => {
+            ice_if!(
+                dest_reg != src_reg,
+                "Destination and src1 registers are not in two address form: {:?} vs {:?}", dest_reg, src_reg);
+
+            match dest_reg.size() {
+                4 => emit_add_immediate_to_register(*dest_reg, *value, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation{
             dest: StackOffset{offset: dest_offset, size: dest_size },
             src1: StackOffset{offset: src_offset, size: src_size },
             src2: IntegerConstant(value)
@@ -2200,6 +2215,828 @@ fn emit_xor_immediate_with_stack(offset: u32, size: u32, immediate: i32, asm: &m
         Some(modrm),
         sib,
         Some(immediate),
+    );
+}
+
+fn emit_shl(operands: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operands {
+        BinaryOperation {
+            src1: PhysicalRegister(src_reg),
+            src2: IntegerConstant(immediate),
+            dest: PhysicalRegister(dest_reg),
+        } if dest_reg == src_reg => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
+            match dest_reg.size() {
+                1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate, asm),
+                4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: IntegerConstant(immediate),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+
+            match dest_size {
+                1 => emit_shl_byte_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                4 | 8 => emit_shl_integer_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: PhysicalRegister(reg),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+            ice_if!(*reg != X64Register::CL, "Invalid count register {:?} for shifting", reg);
+
+            match dest_size {
+                1 => emit_shl_byte_stack_with_reg(*dest_offset, *dest_size, asm),
+                4 | 8 => emit_shl_integer_stack_with_reg(*dest_offset, *dest_size, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+
+        _ => ice!("Invalid operand encoding for SHL: {:#?}", operands),
+    }
+}
+/*
+    shl reg32, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_shl_integer_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHL_RM_32_BIT_ONCE, None)
+    } else {
+        (SHL_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+
+/*
+    shl reg8, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_shl_byte_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 1, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHL_RM_8_BIT_ONCE, None)
+    } else {
+        (SHL_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+
+/*
+    shl DWORD/QWORD PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_shl_integer_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHL_RM_32_BIT_ONCE, None)
+    } else {
+        (SHL_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+/*
+    shl BYTE PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_shl_byte_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHL_RM_8_BIT_ONCE, None)
+    } else {
+        (SHL_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+
+/*
+    shl DWORD/QWORD PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+
+fn emit_shl_integer_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SHL_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+
+/*
+    shl BYTE PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+fn emit_shl_byte_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_LEFT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SHL_RM_8_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn emit_sar(operands: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operands {
+        BinaryOperation {
+            src1: PhysicalRegister(src_reg),
+            src2: IntegerConstant(immediate),
+            dest: PhysicalRegister(dest_reg),
+        } if dest_reg == src_reg => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
+            match dest_reg.size() {
+                1 => emit_sar_byte_reg_with_immediate(*dest_reg, *immediate, asm),
+                4 | 8 => emit_sar_integer_reg_with_immediate(*dest_reg, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: IntegerConstant(immediate),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+
+            match dest_size {
+                1 => emit_sar_byte_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                4 | 8 => emit_sar_integer_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: PhysicalRegister(reg),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+            ice_if!(*reg != X64Register::CL, "Invalid count register {:?} for shifting", reg);
+
+            match dest_size {
+                1 => emit_sar_byte_stack_with_reg(*dest_offset, *dest_size, asm),
+                4 | 8 => emit_sar_integer_stack_with_reg(*dest_offset, *dest_size, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+
+        _ => ice!("Invalid operand encoding for SHL: {:#?}", operands),
+    }
+}
+/*
+    sar reg32, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_sar_integer_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SAR_RM_32_BIT_ONCE, None)
+    } else {
+        (SAR_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+/*
+    sar reg8, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_sar_byte_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 1, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SAR_RM_8_BIT_ONCE, None)
+    } else {
+        (SAR_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+/*
+    sar DWORD/QWORD PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_sar_integer_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SAR_RM_32_BIT_ONCE, None)
+    } else {
+        (SAR_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+
+/*
+    sar BYTE PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_sar_byte_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SAR_RM_8_BIT_ONCE, None)
+    } else {
+        (SAR_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+/*
+    shl DWORD/QWORD PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+
+fn emit_sar_integer_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SAR_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+/*
+    shl BYTE PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+
+fn emit_sar_byte_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(ARITHMETIC_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SAR_RM_8_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+
+fn emit_shr(operands: &BinaryOperation, asm: &mut Vec<u8>) {
+    match operands {
+        BinaryOperation {
+            src1: PhysicalRegister(src_reg),
+            src2: IntegerConstant(immediate),
+            dest: PhysicalRegister(dest_reg),
+        } if dest_reg == src_reg => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
+            match dest_reg.size() {
+                1 => emit_shr_byte_reg_with_immediate(*dest_reg, *immediate, asm),
+                4 | 8 => emit_shr_integer_reg_with_immediate(*dest_reg, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: IntegerConstant(immediate),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+
+            match dest_size {
+                1 => emit_shr_byte_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                4 | 8 => emit_shr_integer_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+        BinaryOperation {
+            src1: StackOffset{ size: src_size, offset: src_offset},
+            src2: PhysicalRegister(reg),
+            dest: StackOffset { size: dest_size, offset: dest_offset},
+        } if src_offset == dest_offset => {
+            ice_if!(dest_size != src_size, "Source and destination sizes are different");
+            ice_if!(*reg != X64Register::CL, "Invalid count register {:?} for shifting", reg);
+
+            match dest_size {
+                1 => emit_shr_byte_stack_with_reg(*dest_offset, *dest_size, asm),
+                4 | 8 => emit_shr_integer_stack_with_reg(*dest_offset, *dest_size, asm),
+                _ => ice!("Invalid size {}", dest_size),
+            }
+        },
+
+        _ => ice!("Invalid operand encoding for SHL: {:#?}", operands),
+    }
+}
+/*
+    shr reg32, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_shr_integer_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHR_RM_32_BIT_ONCE, None)
+    } else {
+        (SHR_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+/*
+    shr reg8, imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, destination in r/m, opcode ext in reg
+    SIB: Not used
+    Immediate: Used if immediate != 1
+*/
+fn emit_shr_byte_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 1, "Invalid register '{:?}'", dest_reg);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHR_RM_8_BIT_ONCE, None)
+    } else {
+        (SHR_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        shift_count
+    );
+}
+
+/*
+    shr DWORD/QWORD PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_shr_integer_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHR_RM_32_BIT_ONCE, None)
+    } else {
+        (SHR_RM_32_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+/*
+    shr BYTE PTR [RBP - offset], imm8
+
+    Will be replaced with shift_once instruction if imm == 1
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Used if immediate != 1
+*/
+
+fn emit_shr_byte_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+    ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
+
+    let (opcode, shift_count)  = if immediate == 1 {
+        (SHR_RM_8_BIT_ONCE, None)
+    } else {
+        (SHR_RM_8_BIT_WITH_8_BIT_IMMEDIATE, Some(Immediate::from(immediate as u8)))
+    };
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        sib,
+        shift_count
+    );
+}
+
+
+/*
+    shr DWORD/QWORD PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+
+fn emit_shr_integer_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size < 4, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SHR_RM_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+/*
+    shr BYTE PTR [RBP - offset], CL
+
+    REX: if 64 bit operands used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: rbp in r/m opcode ext in reg. one or four byte displacement only addressing, depending on offset
+    SIB: Yes, displacement only addressing
+    Immediate: Not used
+*/
+
+fn emit_shr_byte_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(size != 1, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(LOGICAL_SHIFT_RIGHT_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SHR_RM_8_BIT),
+        Some(modrm),
+        sib,
+        None,
     );
 }
 

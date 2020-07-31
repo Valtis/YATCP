@@ -60,30 +60,53 @@ impl ByteGenerator {
                         left_operand: None,
                         right_operand: Some(ref src @ Operand::AddressOf { variable_info: _, id: _ })} => self.emit_lea(src, dest),
                     Statement::Assignment{
-                        operator: Some(Operator::Plus),
+                        operator: Some(ref op @ Operator::Plus),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
-                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Plus, op1, op2, dest),
+                        right_operand: Some(ref op2)} |
                     Statement::Assignment{
-                        operator: Some(Operator::Minus),
+                        operator: Some(ref op @ Operator::Minus),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
-                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Minus, op1, op2, dest),
+                        right_operand: Some(ref op2)} |
                     Statement::Assignment{
-                        operator: Some(Operator::Multiply),
+                        operator: Some(ref op @ Operator::Multiply),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
-                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Multiply, op1, op2, dest),
+                        right_operand: Some(ref op2)} |
                     Statement::Assignment{
-                        operator: Some(Operator::Divide),
+                        operator: Some(ref op @ Operator::Divide),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
-                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Divide, op1, op2, dest),
+                        right_operand: Some(ref op2)} |
                     Statement::Assignment{
-                        operator: Some(Operator::Modulo),
+                        operator:  Some(ref op @ Operator::Modulo),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
-                        right_operand: Some(ref op2)} => self.emit_binary_op(Operator::Modulo, op1, op2, dest),
+                        right_operand: Some(ref op2)} |
+                    Statement::Assignment {
+                        operator: Some(ref op @ Operator::ArithmeticShiftRight),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2 )
+                    } |
+                    Statement::Assignment {
+                        operator: Some(ref op @ Operator::LogicalShiftRight),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1),
+                        right_operand: Some(ref op2)
+                    } |
+                    Statement::Assignment {
+                        operator: Some(ref op @ Operator::LogicalShiftLeft),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1 ),
+                        right_operand: Some(ref op2)
+                    } |
+                    Statement::Assignment{
+                        operator: Some(ref op @ Operator::Xor),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1 ),
+                        right_operand: Some(ref op2 )} => self.emit_binary_op(op.clone(), op1, op2, dest),
                     Statement::Assignment{
                         operator: None,
                         destination: Some(ref dest),
@@ -95,11 +118,6 @@ impl ByteGenerator {
                         left_operand: None,
                         right_operand: Some(ref src)}=> self.emit_negate(dest, src),
                     Statement::Assignment{
-                        operator: Some(Operator::Xor),
-                        destination: Some(ref dest),
-                        left_operand: Some(ref src1),
-                        right_operand: Some(ref src2)} => self.emit_xor(dest, src1, src2),
-                    Statement::Assignment{
                         operator: Some(ref x),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1),
@@ -107,7 +125,7 @@ impl ByteGenerator {
                         self.emit_comparison(x, op1, op2, dest),
                     Statement::Array{id, length, size_in_bytes} => {
                         self.emit_array_init(id, length, size_in_bytes);
-                    }
+                    },
                     Statement::Return(val) => self.emit_return(val),
                     Statement::Label(id) => self.emit_label(id),
                     Statement::Jump(id) => self.emit_jump(id),
@@ -138,11 +156,6 @@ impl ByteGenerator {
     fn emit_negate(&mut self, dest: &Operand, src: &Operand) {
         let data = self.form_unary_operation(src, dest);
         self.current_function().code.push(ByteCode::Negate(data));
-    }
-
-    fn emit_xor(&mut self, dest: &Operand, src1: &Operand, src2: &Operand) {
-        let data = self.form_binary_operation(src1, src2, dest);
-        self.current_function().code.push(ByteCode::Xor(data));
     }
 
     fn emit_move(&mut self, op: &Operand, dest: &Operand) {
@@ -403,6 +416,10 @@ impl ByteGenerator {
             Operator::Multiply => ByteCode::Mul(data),
             Operator::Divide => ByteCode::Div(data),
             Operator::Modulo => ByteCode::Mod(data),
+            Operator::Xor => ByteCode::Xor(data),
+            Operator::ArithmeticShiftRight => ByteCode::Sar(data),
+            Operator::LogicalShiftRight => ByteCode::Shr(data),
+            Operator::LogicalShiftLeft => ByteCode::Shl(data),
             _ => ice!("Invalid operator '{}'", operator),
         }
     }

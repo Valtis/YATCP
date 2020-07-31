@@ -364,7 +364,10 @@ impl Parser {
             TokenType::Minus |
             TokenType::Star |
             TokenType::ForwardSlash |
-            TokenType::Percentage => {
+            TokenType::Percentage |
+            TokenType::DoubleArrowRight |
+            TokenType::TripleArrowRight |
+            TokenType::DoubleArrowLeft => {
                 let node = self.parse_assignment_expression(identifier)?;
                 self.expect(TokenType::SemiColon)?;
                 return Ok(node);
@@ -400,7 +403,10 @@ impl Parser {
             token_type @ TokenType::Minus |
             token_type @ TokenType::Star |
             token_type @ TokenType::ForwardSlash |
-            token_type @ TokenType::Percentage => {
+            token_type @ TokenType::Percentage |
+            token_type @ TokenType::DoubleArrowRight |
+            token_type @ TokenType::TripleArrowRight |
+            token_type @ TokenType::DoubleArrowLeft =>  {
                 self.parse_assignment(identifier, token_type)
             },
             TokenType::LBracket => {
@@ -450,6 +456,21 @@ impl Parser {
             TokenType::Percentage=> AstNode::Modulo {
                 left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
                 right_expression: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowLeft => AstNode::LogicalShiftLeft {
+                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
+                shift_count: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowRight => AstNode::ArithmeticShiftRight {
+                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
+                shift_count: Box::new(expression_node),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::TripleArrowRight => AstNode::LogicalShiftRight {
+                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
+                shift_count: Box::new(expression_node),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::Equals => expression_node,
@@ -515,6 +536,9 @@ impl Parser {
             TokenType::Star,
             TokenType::ForwardSlash,
             TokenType::Percentage,
+            TokenType::TripleArrowRight,
+            TokenType::DoubleArrowLeft,
+            TokenType::DoubleArrowRight
         ])?;
 
         if op.token_type != TokenType::Equals {
@@ -553,6 +577,21 @@ impl Parser {
             TokenType::Percentage=> AstNode::Modulo{
                 left_expression: Box::new(get_access()),
                 right_expression: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowLeft => AstNode::LogicalShiftLeft {
+                value: Box::new(get_access() ),
+                shift_count: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowRight => AstNode::ArithmeticShiftRight {
+                value: Box::new(get_access()),
+                shift_count: Box::new(assignment_expression),
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::TripleArrowRight => AstNode::LogicalShiftRight {
+                value: Box::new(get_access()),
+                shift_count: Box::new(assignment_expression),
                 arithmetic_info: ArithmeticInfo::new(&op),
             },
             TokenType::Equals => assignment_expression,
@@ -838,7 +877,7 @@ impl Parser {
     }
 
     fn parse_arithmetic_expression_with_greater_less_comparisons(&mut self) -> Result<AstNode, ()> {
-        let mut node = self.parse_arithmetic_expression()?;
+        let mut node = self.parse_shift_expressions()?;
 
         loop {
             let next_token = self.lexer.peek_token();
@@ -852,6 +891,47 @@ impl Parser {
         }
 
         Ok(node)
+    }
+
+    fn parse_shift_expressions(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_arithmetic_expression()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::DoubleArrowLeft ||
+                next_token.token_type == TokenType::DoubleArrowRight ||
+                next_token.token_type == TokenType::TripleArrowRight {
+                node = self.parse_shift(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_shift(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let shift_token = self.expect_one_of(
+            vec![
+                TokenType::DoubleArrowLeft,
+                TokenType::DoubleArrowRight,
+                TokenType::TripleArrowRight])?;
+
+        let shift_count = self.parse_arithmetic_expression()?;
+
+        match shift_token.token_type {
+            TokenType::DoubleArrowLeft => {
+                Ok(AstNode::LogicalShiftLeft { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+            },
+            TokenType::DoubleArrowRight => {
+                Ok(AstNode::ArithmeticShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+            },
+            TokenType::TripleArrowRight => {
+                Ok(AstNode::LogicalShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+            },
+            _ => todo!(),
+        }
+
     }
 
     fn parse_arithmetic_expression(&mut self) -> Result<AstNode, ()> {

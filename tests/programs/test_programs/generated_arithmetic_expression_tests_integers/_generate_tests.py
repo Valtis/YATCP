@@ -39,9 +39,39 @@ test_tuples = [
         "let a: int = 49;",
         "5 + a",
         54),
+    ("constant_variable__self_assignment_addition_works",
+        """
+        let a: int = 49;
+        a = 5 + a;
+        """,
+        "a",
+        54),
+     ("constant_variable_self_assignment_addition_works",
+        """
+        let a: int = 49;
+        a = a + 5;
+        """,
+        "a",
+        54),
     ("variable_variable_addition_works",
         "let a: int = 123; let b: int = 47;",
         "a + b",
+        170),
+    ("variable_variable_self_assignment_addition_works",
+        """
+        let a: int = 123; 
+        let b: int = 47;
+        a = a + b;
+        """,
+        "a",
+        170),
+    ("variable_variable_self_assignment_rhs_addition_works",
+        """
+        let a: int = 123; 
+        let b: int = 47;
+        a = b + a;
+        """,
+        "a",
         170),
     ("complex_addition_works",
         """
@@ -79,13 +109,43 @@ test_tuples = [
         "let a: int = 8;",
         "a - 6",
         2),
+    ("variable_constant_self_assignment_subtraction_works",
+        """
+        let a: int = 8;
+        a = a - 6;
+        """,
+        "a",
+        2),
     ("constant_variable_subtraction_works",
         "let a: int = 8;",
         "5 - a",
         -3),
+    ("constant_variable_self_assignment_subtraction_works",
+        """
+        let a: int = 8;
+        a = 5 - a;
+        """,
+        "a",
+        -3), 
     ("variable_variable_subtraction_works",
         "let a: int = 8; let b: int = 5402;",
         "a - b",
+        -5394),
+    ("variable_variable_self_assignment_subtraction_works",
+        """
+        let a: int = 8; 
+        let b: int = 5402;
+        a = a - b;
+        """,
+        "a",
+        -5394),
+    ("variable_variable_self_assignment_rhs_subtraction_works",
+        """
+        let a: int = 8; 
+        let b: int = 5402;
+        b = a - b;
+        """,
+        "b",
         -5394),
     ("complex_subtraction_works",
         """
@@ -106,8 +166,6 @@ test_tuples = [
         "a - 1",
         INT_MAX),
 
-
-
     # multiplication
     ("constant_constant_multiplication_works_when_result_is_positive",
        "",
@@ -125,13 +183,43 @@ test_tuples = [
         "let a: int = 8;",
         "a*6",
         48),
+    ("variable_constant_self_assignment_multiplication_works",
+        """
+        let a: int = 8;
+        a = a * 6;
+        """,
+        "a",
+        48),
     ("constant_variable_multiplication_works",
         "let a: int = 8;",
         "5*a",
         40),
+    ("constant_variable_self_assignment_multiplication_works",
+        """
+        let a: int = 8;
+        a = 5*a;
+        """,
+        "a",
+        40),
     ("variable_variable_multiplication_works",
         "let a: int = 8; let b: int = -1;",
         "a*b",
+        -8),
+    ("variable_variable_self_assignment_multiplication_works",
+        """
+        let a: int = 8; 
+        let b: int = -1;
+        a = a * b;
+        """,
+        "a",
+        -8),
+    ("variable_variable_self_assignment_rhs_multiplication_works",
+        """
+        let a: int = 8; 
+        let b: int = -1;
+        b = a * b;
+        """,
+        "b",
         -8),
     ("complex_multiplication_works",
         """
@@ -170,13 +258,41 @@ test_tuples = [
         "let a: int = 20;",
         "a/5",
         4),
+    ("variable_constant_self_assignment_division_works",
+        """
+        let a: int = 20;
+        a = a / 5;
+        """,
+        "a",
+        4),
     ("constant_variable_division_works",
         "let a: int = 8;",
         "24/a",
         3),
+    ("constant_variable_self_assignment_division_works",
+        """
+        let a: int = 8;
+        a = 24 / a;
+        """,
+        "a",
+        3),
     ("variable_variable_division_works",
         "let a: int = 8; let b: int = -1;",
         "a/b",
+        -8),
+    ("variable_variable_self_assignment_division_works",
+        """
+        let a: int = 8; let b: int = -1;
+        a = a / b;
+        """,
+        "a",
+        -8),
+    ("variable_variable_self_assignment_rhs_division_works",
+        """
+        let a: int = 8; let b: int = -1;
+        b = a / b;
+        """,
+        "b",
         -8),
     ("complex_division_works",
         """
@@ -263,6 +379,210 @@ test_tuples = [
         "b",
         INT_MIN),
 
+    # logical shift left
+
+    ("constant_constant_shl_works",
+        """
+        let a: int = 4 << 2;
+        """,
+        "a",
+        16),
+
+    ("variable_constant_shl_works",
+        """
+        let a: int = 4;
+        let b: int = a << 2;
+        """,
+        "b",
+        16),
+
+    ("variable_constant_self_assignment_shl_works",
+        """
+        let a: int = 4;
+        a = a << 2;
+        """,
+        "a",
+        16),
+
+    ("constant_variable_shl_works",
+        """
+        let a: int = 2;
+        let b: int = 4 << a;
+        """,
+        "b",
+        16),
+
+    ("constant_variable_self_assignment_shl_works",
+        """
+        let a: int = 2;
+        a = 4 << a;
+        """,
+        "a",
+        16),
+
+    ("variable_variable_shl_works",
+        """
+        let a: int = 4;
+        let b: int = 2;
+        let c: int = a << b;
+        """,
+        "c",
+        16),
+
+    ("variable_variable_self_assignment_shl_works",
+        """
+        let a: int = 4;
+        let b: int = 2;
+         a = a << b;
+        """,
+        "a",
+        16),
+
+    ("variable_variable_self_assignment_rhs_shl_works",
+        """
+        let a: int = 4;
+        let b: int = 2;
+        b = a << b;
+        """,
+        "b",
+        16),
+
+    # logical shift right
+
+    ("constant_constant_shr_works",
+        """
+        let a: int = -2147483648 >>> 1;
+        """,
+        "a",
+        1073741824),
+
+    ("variable_constant_shr_works",
+        """
+        let a: int = -2147483648;
+        let b: int = a >>> 1;
+        """,
+        "b",
+        1073741824),
+
+    ("variable_constant_self_assignment_shr_works",
+        """
+        let a: int = -2147483648;
+        a = a >>> 1;
+        """,
+        "a",
+        1073741824),
+
+    ("constant_variable_shr_works",
+        """
+        let a: int = 1;
+        let b: int = -2147483648 >>> a;
+        """,
+        "b",
+        1073741824),
+
+    ("constant_variable_self_assignment_shr_works",
+        """
+        let a: int = 1;
+        a = -2147483648 >>> a;
+        """,
+        "a",
+        1073741824),
+
+    ("variable_variable_shr_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+        let c: int = a >>> b;
+        """,
+        "c",
+        1073741824),
+
+    ("variable_variable_self_assignment_shr_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+         a = a >>> b;
+        """,
+        "a",
+        1073741824),
+
+    ("variable_variable_self_assignment_rhs_shr_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+        b = a >>> b;
+        """,
+        "b",
+        1073741824),
+
+
+    # arithmetic shift right
+
+    ("constant_constant_sar_works",
+        """
+        let a: int = -2147483648 >> 1;
+        """,
+        "a",
+        -1073741824),
+
+    ("variable_constant_sar_works",
+        """
+        let a: int = -2147483648;
+        let b: int = a >> 1;
+        """,
+        "b",
+        -1073741824),
+
+    ("variable_constant_self_assignment_sar_works",
+        """
+        let a: int = -2147483648;
+        a = a >> 1;
+        """,
+        "a",
+        -1073741824),
+
+    ("constant_variable_sar_works",
+        """
+        let a: int = 1;
+        let b: int = -2147483648 >> a;
+        """,
+        "b",
+        -1073741824),
+
+    ("constant_variable_self_assignment_sar_works",
+        """
+        let a: int = 1;
+        a = -2147483648 >> a;
+        """,
+        "a",
+        -1073741824),
+
+    ("variable_variable_sar_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+        let c: int = a >> b;
+        """,
+        "c",
+        -1073741824),
+
+    ("variable_variable_self_assignment_sar_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+         a = a >> b;
+        """,
+        "a",
+        -1073741824),
+
+    ("variable_variable_self_assignment_rhs_sar_works",
+        """
+        let a: int = -2147483648;
+        let b: int = 1;
+        b = a >> b;
+        """,
+        "b",
+        -1073741824),
 
     # +=
     ("self_addition_shorthand_works",
@@ -273,6 +593,15 @@ test_tuples = [
         "a",
         10),
 
+    ("self_addition_shorthand_works_with_arrays",
+        f"""
+        let a: int[4] = 4;
+        a[0] += 6;
+        """,
+        "a[0]",
+        10),
+
+
     # -=
     ("self_subtraction_shorthand_works",
         f"""
@@ -282,6 +611,13 @@ test_tuples = [
         "a",
         -2),
 
+    ("self_subtraction_shorthand_works_with_arrays",
+        f"""
+        let a: int[4] = 4;
+        a[0] -= 6;
+        """,
+        "a[0]",
+        -2),
 
 
     # *=
@@ -293,6 +629,13 @@ test_tuples = [
         "a",
         24),
 
+    ("self_multiplication_shorthand_works_with_arrays",
+        f"""
+        let a: int[4] = 4;
+        a[0] *= 6;
+        """,
+        "a[0]",
+        24),
 
 
     # /=
@@ -304,6 +647,14 @@ test_tuples = [
         "a",
         4),
 
+    ("self_division_shorthand_works_with_arrays",
+        f"""
+        let a: int[4] = 9;
+        a[0] /= 2;
+        """,
+        "a[0]",
+        4),
+
 
     # %=
     ("self_modulo_shorthand_works",
@@ -313,6 +664,70 @@ test_tuples = [
         """,
         "a",
         4),
+
+    ("self_modulo_shorthand_works_with_arrays",
+        f"""
+        let a: int[4] = 14;
+        a[0] %= 5;
+        """,
+        "a[0]",
+        4),
+
+    # <<=
+
+    ("self_shl_shorthand_works",
+        """
+        let a: int = 16;
+        a <<= 2;
+        """,
+        "a",
+       64),
+
+
+    ("self_shl_shorthand_works_with_arrays",
+        """
+        let a: int[4] = 16;
+        a[0] <<= 2;
+        """,
+        "a[0]",
+       64),
+
+    # >>=
+
+    ("self_sar_shorthand_works",
+        """
+        let a: int = -16;
+        a >>= 2;
+        """,
+        "a",
+        -4),
+
+    ("self_sar_shorthand_works_with_arrays",
+        """
+        let a: int[4] = -16;
+        a[0] >>= 2;
+        """,
+        "a[0]",
+        -4),
+
+    # >>>=
+
+    ("self_shr_shorthand_works",
+        """
+        let a: int = -16;
+        a >>>= 2;
+        """,
+        "a",
+        1073741820),
+
+
+    ("self_shr_shorthand_works_with_arrays",
+        """
+        let a: int[4] = -16;
+        a[0] >>>= 2;
+        """,
+        "a[0]",
+        1073741820),
 
 ]
 

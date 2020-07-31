@@ -163,6 +163,10 @@ pub enum AstNode {
     Modulo{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
     Negate{ expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
 
+    ArithmeticShiftRight { value: Box<AstNode>, shift_count: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    LogicalShiftRight { value: Box<AstNode>, shift_count: Box<AstNode>, arithmetic_info: ArithmeticInfo  },
+    LogicalShiftLeft { value: Box<AstNode>, shift_count: Box<AstNode>, arithmetic_info: ArithmeticInfo, },
+
     BooleanAnd{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     BooleanOr{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     BooleanNot{ expression: Box<AstNode>, span: Span },
@@ -171,6 +175,7 @@ pub enum AstNode {
 
     While{ condition_expression: Box<AstNode>, block: Box<AstNode>, span: Span },
     If { condition_expression: Box<AstNode>, main_block: Box<AstNode>, else_block: Option<Box<AstNode>>, span: Span },
+
 
     Less { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span } ,
     LessOrEq { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span} ,
@@ -263,6 +268,9 @@ impl Display for AstNode {
             AstNode::Multiply {.. } => "Multiply".to_string(),
             AstNode::Divide { .. } => "Divide".to_string(),
             AstNode::Modulo { .. }  => "Modulo".to_string(),
+            AstNode::ArithmeticShiftRight { .. } => "Arithmetic Shift Right".to_string(),
+            AstNode::LogicalShiftRight{ .. } => "Logical Shift Right".to_string(),
+            AstNode::LogicalShiftLeft { .. } => "Logical Shift Left".to_string(),
             AstNode::BooleanAnd { .. } => "And".to_string(),
             AstNode::BooleanOr { .. } => "Or".to_string(),
             AstNode::Negate { .. }  => "Negate".to_string(),
@@ -295,11 +303,11 @@ impl AstNode {
         println!("{}", self.print_impl(0));
     }
 
-    fn print_impl(&self, intendation: usize) -> String {
-        let int_str = iter::repeat(" ").take(intendation).collect::<String>();
+    fn print_impl(&self, indentation: usize) -> String {
+        let int_str = iter::repeat(" ").take(indentation).collect::<String>();
         let mut string = format!("{}{}\n", int_str, self);
 
-        let next_int = intendation + 2;
+        let next_int = indentation + 2;
         match *self {
             AstNode::Block{ ref statements, ..} => {
                 for c in statements {
@@ -344,6 +352,12 @@ impl AstNode {
             AstNode::ArrayAccess{ref index_expression,  ref indexable_expression} => {
                 string = format!("{}{}", string, indexable_expression.print_impl(next_int));
                 string = format!("{}{}", string, index_expression.print_impl(next_int));
+            },
+            AstNode::ArithmeticShiftRight { ref value, shift_count: ref shift_amount, .. } |
+            AstNode::LogicalShiftRight { ref value, shift_count: ref shift_amount, .. } |
+            AstNode::LogicalShiftLeft {  ref value, shift_count: ref shift_amount, .. } => {
+                string = format!("{}{}", string, value.print_impl(next_int));
+                string = format!("{}{}", string, shift_amount.print_impl(next_int));
             },
             AstNode::BooleanAnd{ ref left_expression, ref right_expression, .. } |
             AstNode::BooleanOr{ ref left_expression, ref right_expression, .. } |
@@ -410,6 +424,9 @@ impl AstNode {
             AstNode::Minus { arithmetic_info, .. } |
             AstNode::Multiply { arithmetic_info, .. } |
             AstNode::Divide { arithmetic_info, .. } |
+            AstNode::ArithmeticShiftRight { arithmetic_info, .. } |
+            AstNode::LogicalShiftRight { arithmetic_info, .. } |
+            AstNode::LogicalShiftLeft { arithmetic_info, .. } |
             AstNode::Modulo { arithmetic_info, .. } => arithmetic_info.span,
             AstNode::Negate{ arithmetic_info, ..} => arithmetic_info.span,
             AstNode::Return{ arithmetic_info, ..} => arithmetic_info.span,
@@ -505,9 +522,9 @@ impl FunctionInfo {
         length: i32,
     ) -> FunctionInfo {
         FunctionInfo {
-            name: name,
+            name,
             parameters: vec![],
-            return_type: return_type,
+            return_type,
             span: Span::new(
                 line, column, length),
         }
@@ -542,7 +559,7 @@ impl DeclarationInfo {
         length: i32) -> DeclarationInfo {
 
         DeclarationInfo {
-            name: name,
+            name,
             variable_type: var_type,
             span: Span::new(line, column, length),
             extra_info: None,
