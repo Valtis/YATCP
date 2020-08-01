@@ -470,23 +470,80 @@ impl ReadLexer {
         }
     }
 
+
+    fn starts_character(ch: char) -> bool {
+        ch == '\''
+    }
+
+    fn handle_character(&mut self) -> Token {
+        let value = self.handle_stringlike_sequence('\'');
+
+        if let Some(bytes) = value {
+            let text = String::from_utf8_lossy(&bytes).to_string();
+            let graphemes = text.chars().count();
+            if text.len() != 1  {
+                self.report_error(
+                    ReportKind::TokenError,
+                    self.token_start_line,
+                    self.token_start_column,
+                    graphemes + 2, // +2 for the open/close '-symbols
+                    "Invalid character length; expected exactly one character".to_owned()
+                );
+
+                if graphemes == 1  {
+                    self.report_error(
+                        ReportKind::Note,
+                        self.token_start_line,
+                        self.token_start_column,
+                        graphemes + 2, // +2 for the open/close '-symbols
+                        format!("This grapheme has length of {} bytes and can't be represented as a character. Use string instead", text.len())
+                    );
+                }
+
+                self.create_token(TokenType::Number, TokenSubType::ErrorToken)
+            } else {
+                self.create_token(TokenType::Number, TokenSubType::IntegerNumber(text.as_bytes()[0] as u64))
+            }
+        } else {
+            self.create_token(TokenType::Number, TokenSubType::ErrorToken)
+        }
+    }
+
     fn starts_string(ch: char) -> bool {
         ch == '"'
     }
 
     fn handle_string(&mut self) -> Token {
+        let value = self.handle_stringlike_sequence('"');
 
-        let mut value = String::new();
+        if let Some(bytes) = value {
+            let text = String::from_utf8_lossy(&bytes).to_string();
+            let index = self.string_table.insert(text);
+            self.create_token(TokenType::Text, TokenSubType::Text(index))
+        } else {
+            self.create_token(
+                TokenType::Text,
+                TokenSubType::ErrorToken)
+        }
+    }
+
+
+    // return Vec of bytes, as otherwise utf8 sequence parsing is wonky
+    fn handle_stringlike_sequence(&mut self, delimiter: char) -> Option<Vec<u8>> {
+
+        let mut value = vec![];
 
         loop {
             match self.next_char() {
                 Some(ch) => {
-                    if ch == '\\' {
-                        value.push(self.handle_escape_sequence());
-                    } else if ch == '"' {
+
+                    if ch == delimiter {
                         break;
                     }
-                    else if ch == '\n' {
+
+                    if ch == '\\' {
+                        value.push(self.handle_escape_sequence() as u8);
+                    } else if ch == '\n' {
                         let (line, column) = (
                             self.token_start_line,
                             self.token_start_column);
@@ -496,12 +553,11 @@ impl ReadLexer {
                             line,
                             column,
                             value.len(),
-                            "Unterminated string".to_string());
-                        return self.create_token(
-                            TokenType::Text,
-                            TokenSubType::ErrorToken);
+                            "Unterminated character sequence".to_string());
+                        return None;
+
                     } else {
-                        value.push(ch);
+                        value.push(ch as u8);
                     }
                 }
                 None => {
@@ -511,23 +567,22 @@ impl ReadLexer {
                         line,
                         column,
                         value.len() + 1,
-                        "Unexpected end of file when processing string".to_string());
+                        "Unexpected end of file when lexing character sequence".to_string());
+                    return None;
 
-                    return self.create_token(
-                        TokenType::Text,
-                        TokenSubType::ErrorToken);
                 },
             }
         }
 
-        let index = self.string_table.insert(value);
-        self.create_token(TokenType::Text, TokenSubType::Text(index))
+        Some(value)
     }
 
     fn handle_escape_sequence(&mut self) -> char {
         match self.next_char() {
             Some(ch) => match ch {
                 'n' => '\n',
+                '\'' => '\'',
+                '0' => 0 as char,
                 't' => '\t',
                 '\\' => '\\',
                 '"' => '"',
@@ -654,6 +709,8 @@ impl Lexer for ReadLexer {
                     self.handle_number(ch)
                 } else if ReadLexer::starts_string(ch) {
                     self.handle_string()
+                } else if ReadLexer::starts_character(ch) {
+                    self.handle_character()
                 } else {
                     let (line, column) = (self.token_start_line, self.token_start_column);
                     self.report_error(
@@ -1717,5 +1774,84 @@ mod tests {
             TokenSubType::NoSubType);
 
         assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+
+    #[test]
+    fn character_literals_are_accepted() {
+        let (mut lexer, reporter) = create_lexer(r"
+          'a' '0' '\n' '\0' '\''
+        ");
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Number,
+            TokenSubType::IntegerNumber(97));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Number,
+            TokenSubType::IntegerNumber(48));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Number,
+            TokenSubType::IntegerNumber(10));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Number,
+            TokenSubType::IntegerNumber(0));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Number,
+            TokenSubType::IntegerNumber(39));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Eof,
+            TokenSubType::NoSubType);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn bad_character_literals_are_reported() {
+      let (mut lexer, reporter) = create_lexer(r"
+        'hello'
+        '🔥'
+        ");
+        lexer.next_token();
+        lexer.next_token();
+
+        let borrowed = reporter.borrow();
+        assert_eq!(borrowed.errors(), 2);
+        let messages = borrowed.get_messages();
+
+        assert_eq!(messages.len(), 3);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TokenError,
+                Span::new(2, 9, 7),
+                "".to_owned()),
+            messages[0]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::TokenError,
+                Span::new(3, 9, 3),
+                "".to_owned()),
+            messages[1]);
+
+        assert_eq!(
+            Message::highlight_message(
+                ReportKind::Note,
+                Span::new(3, 9, 3),
+                "".to_owned()),
+            messages[2]);
+
+
     }
 }
