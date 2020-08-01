@@ -1,0 +1,14 @@
+extern fn int_printer(value: int);
+extern fn byte_printer(value: byte);
+
+const shift_count_const: byte = 2;
+
+
+fn main() {
+	let shift_count: byte = 1;
+
+	// shift_count_const gets promoted to integer, should be byte
+	shift_value = shift_count_const << shift_count;
+
+	byte_printer(shift_value);
+}
