@@ -11,14 +11,14 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 fn main() {
-
+    
     let mut optimize = false;
-    let mut output = "a.out".to_string();
-    let mut input= "".to_string(); // one file for now
+    let mut output = String::new();
+    let mut input = "".to_string(); // one file for now
 
-    let mut print_token= false;
-    let mut print_ast= false;
-    let mut print_tac= false;
+    let mut print_token = false;
+    let mut print_ast = false;
+    let mut print_tac = false;
     let mut print_cfg = false;
     let mut print_bytecode = false;
     let mut print_bytecode_after_register_alloc = false;
@@ -65,6 +65,15 @@ fn main() {
         argparse.refer(&mut generate_code)
             .add_option(&["--no-code-generation"], StoreFalse, "Skip code generation phase");
         argparse.parse_args_or_exit();
+    }
+
+    if output.is_empty() {
+
+        output = if let Some(stem) = std::path::Path::new(&input).file_stem() {
+            format!("{}.o", stem.to_string_lossy())
+        } else {
+            format!("{}.o", output)
+        };
     }
 
     if optimize {
