@@ -20,7 +20,7 @@ test_tuples = [
         "-4",
         -4),
 
-    # # addition
+    # addition
     ("constant_constant_addition_works",
         "",
         "2 + 9",
@@ -33,14 +33,46 @@ test_tuples = [
         "let a: byte = 24;",
         "a + 9",
         "33"),
+    ("variable_constant_self_assignment_addition_works",
+        """
+        let a: byte = 24;
+        a = a + 9;
+        """,
+        "a",
+        "33"),
     ("constant_variable_addition_works",
         "let a: byte = 49;",
         "5 + a",
+        54),
+    ("constant_variable_self_assignment_addition_works",
+        """
+        let a: byte = 49;
+        a = 5 + a;
+        """,
+        "a",
         54),
     ("variable_variable_addition_works",
         "let a: byte = 50; let b: byte = 47;",
         "a + b",
         97),
+    ("variable_variable_self_assignment_addition_works",
+        """
+        let a: byte = 50; 
+        let b: byte = 47;
+        a = a + b;
+        """,
+        "a",
+        97),
+
+    ("variable_variable_self_assignment_rhs_addition_works",
+        """
+        let a: byte = 50; 
+        let b: byte = 47;
+        b = a + b;
+        """,
+        "b",
+        97),
+
     ("complex_addition_works",
         """
         let a: byte = 20;
@@ -60,7 +92,7 @@ test_tuples = [
         BYTE_MIN),
 
 
-    # # subtraction
+    # subtraction
     ("constant_constant_subtraction_works_when_result_is_positive",
        "",
        "3-1",
@@ -77,14 +109,42 @@ test_tuples = [
         "let a: byte = 8;",
         "a - 6",
         2),
+    ("variable_constant_self_assignment_subtraction_works",
+        "let a: byte = 8;",
+        "a - 6",
+        2),
     ("constant_variable_subtraction_works",
         "let a: byte = 8;",
         "5 - a",
+        -3),
+    ("constant_variable_self_assignment_subtraction_works",
+        """
+        let a: byte = 8;
+        a = 5 - a;
+        """,
+        "a",
         -3),
     ("variable_variable_subtraction_works",
         "let a: byte = 8; let b: byte = 38;",
         "a - b",
         -30),
+    ("variable_variable_self_assignment_subtraction_works",
+        """
+        let a: byte = 8; 
+        let b: byte = 38;
+        a = a - b;
+        """,
+        "a",
+        -30),
+    ("variable_variable_self_assignment_rhs_subtraction_works",
+        """
+        let a: byte = 8; 
+        let b: byte = 38;
+        b = a - b;
+        """,
+        "b",
+        -30),
+
     ("complex_subtraction_works",
         """
         let a: byte = 20;
@@ -105,7 +165,7 @@ test_tuples = [
         BYTE_MAX),
 
 
-    # # multiplication
+    # multiplication
     ("constant_constant_multiplication_works_when_result_is_positive",
        "",
        "3*7",
@@ -122,14 +182,45 @@ test_tuples = [
         "let a: byte = 8;",
         "a*6",
         48),
+    ("variable_constant_self_assignment_multiplication_works",
+        """
+        let a: byte = 8;
+        a = a*6;
+        """,
+        "a",
+        48),
     ("constant_variable_multiplication_works",
         "let a: byte = 8;",
         "5*a",
+        40),
+    ("constant_variable_self_assignment_multiplication_works",
+        """
+        let a: byte = 8;
+        a = 5*a;
+        """,
+        "a",
         40),
     ("variable_variable_multiplication_works",
         "let a: byte = 8; let b: byte = -1;",
         "a*b",
         -8),
+    ("variable_variable_self_assignment_multiplication_works",
+        """
+        let a: byte = 8; 
+        let b: byte = -1;
+        a = a*b;
+        """,
+        "a",
+        -8),
+    ("variable_variable_self_assignment_rhs_multiplication_works",
+        """
+        let a: byte = 8; 
+        let b: byte = -1;
+        b = a*b;
+        """,
+        "b",
+        -8),
+
     ("complex_multiplication_works",
         """
         let a: byte = 1;
@@ -150,7 +241,7 @@ test_tuples = [
         ),
 
 
-    # # division
+    # division
     ("constant_constant_division_works_when_result_is_positive",
        "",
        "7/2",
@@ -167,14 +258,47 @@ test_tuples = [
         "let a: byte = 20;",
         "a/5",
         4),
+    ("variable_constant_self_assignment_division_works",
+        """
+        let a: byte = 20;
+        a = a /5;
+        """,
+        "a",
+        4),
     ("constant_variable_division_works",
         "let a: byte = 8;",
         "24/a",
+        3),
+    ("constant_variable_self_assignment_division_works",
+        """
+        let a: byte = 8;
+        a = 24 /a;
+        """,
+        "a",
         3),
     ("variable_variable_division_works",
         "let a: byte = 8; let b: byte = -1;",
         "a/b",
         -8),
+
+    ("variable_variable__self_assignment_division_works",
+        """
+        let a: byte = 8; 
+        let b: byte = -1;
+        a = a / b;
+        """,
+        "a",
+        -8),
+
+    ("variable_variable__self_assignment_rhs_division_works",
+        """
+        let a: byte = 8; 
+        let b: byte = -1;
+        b = a / b;
+        """,
+        "b",
+        -8),
+
     ("complex_division_works",
         """
         let a: byte = 3;
@@ -185,8 +309,7 @@ test_tuples = [
         "127/a/b/c/d",
        5),
 
-
-    # # modulo 
+    # modulo 
     ("constant_constant_modulo_works_when_result_is_positive",
        "",
        "7 % 2",
@@ -215,7 +338,7 @@ test_tuples = [
         "a%b",
         3),
 
-    # # negation 
+    # negation 
 
     ("can_negate_variable",
         """
@@ -260,8 +383,7 @@ test_tuples = [
         "b",
         BYTE_MIN),
 
-
-    # # +=
+    # +=
     ("self_addition_shorthand_works",
         f"""
         let a: byte = 4;
@@ -270,7 +392,15 @@ test_tuples = [
         "a",
         10),
 
-    # # -=
+    ("self_addition_shorthand_works_with_arrays",
+        f"""
+        let a: byte[4] = 4;
+        a[0] += 6;
+        """,
+        "a[0]",
+        10),
+
+    # -=
     ("self_subtraction_shorthand_works",
         f"""
         let a: byte = 4;
@@ -279,9 +409,15 @@ test_tuples = [
         "a",
         -2),
 
+    ("self_subtraction_shorthand_works_with_arrays",
+        f"""
+        let a: byte[7] = 4;
+        a[0] -= 6;
+        """,
+        "a[0]",
+        -2),
 
-
-    # # *=
+    # *=
     ("self_multiplication_shorthand_works",
         f"""
         let a: byte = 4;
@@ -290,9 +426,17 @@ test_tuples = [
         "a",
         24),
 
+    ("self_multiplication_shorthand_works_with_arrays",
+        f"""
+        let a: byte[4] = 4;
+        a[0] *= 6;
+        """,
+        "a[0]",
+        24),
 
 
-    # # /=
+
+    # /=
     ("self_division_shorthand_works",
         f"""
         let a: byte = 9;
@@ -300,6 +444,15 @@ test_tuples = [
         """,
         "a",
         4),
+
+    ("self_division_shorthand_works_with_arrays",
+        f"""
+        let a: byte[4] = 9;
+        a[0] /= 2;
+        """,
+        "a[0]",
+        4),
+
 
 
     # # %=
@@ -310,6 +463,71 @@ test_tuples = [
         """,
         "a",
         4),
+
+    ("self_modulo_shorthand_works_with_arrays",
+        f"""
+        let a: byte[7] = 14;
+        a[0] %= 5;
+        """,
+        "a[0]",
+        4),
+
+
+    # <<=
+
+    ("self_shl_shorthand_works",
+        """
+        let a: byte = 16;
+        a <<= 2;
+        """,
+        "a",
+       64),
+
+
+    ("self_shl_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = 16;
+        a[0] <<= 2;
+        """,
+        "a[0]",
+       64),
+
+    # >>=
+
+    ("self_sar_shorthand_works",
+        """
+        let a: byte = -16;
+        a >>= 2;
+        """,
+        "a",
+        -4),
+
+    ("self_sar_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = -16;
+        a[0] >>= 2;
+        """,
+        "a[0]",
+        -4),
+
+    # >>>=
+
+    ("self_shr_shorthand_works",
+        """
+        let a: byte = -16;
+        a >>>= 2;
+        """,
+        "a",
+        60),
+
+
+    ("self_shr_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = -16;
+        a[0] >>>= 2;
+        """,
+        "a[0]",
+        60),
 
 ]
 
