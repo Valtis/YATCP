@@ -1,7 +1,17 @@
 #!/bin/sh
+set -eu
 
-set -ue
+OBJECT_FILE=compile.o
+OUTPUT=$(cargo run --quiet -- $1 -o ${OBJECT_FILE})
+if [ $? -ne 0 ]; then
+	echo $OUTPUT
+	exit -1
+fi
 
-cargo run --quiet -- $1 > /dev/null
-gcc a.out helper.c -o "$1.bin" > /dev/null
-./"$1.bin"
+OUTPUT=$(gcc ${OBJECT_FILE} helper.c -o test)
+if [ $? -ne 0 ]; then
+	echo $OUTPUT
+	exit -1
+fi
+
+./test
