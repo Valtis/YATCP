@@ -1,0 +1,17 @@
+program: |
+    extern fn int_printer(value: int);
+
+    fn main() : int {
+        let a: int = 128;
+        int_printer(byte_returner() as int);
+        return 0;
+    }
+
+    fn byte_returner() : byte {
+      return -124;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  -124

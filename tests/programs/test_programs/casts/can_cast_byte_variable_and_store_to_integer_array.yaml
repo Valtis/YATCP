@@ -1,0 +1,13 @@
+program: |
+    extern fn int_printer(value: int);
+
+    fn main() : int {
+        let a: byte = -1;
+        let x: int[8] = a as int;
+        int_printer(x[0]);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  -1
