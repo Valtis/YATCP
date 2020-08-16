@@ -13,7 +13,8 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 use crate::variable_attributes::VariableAttribute;
-use crate::semcheck::ConversionResult::CastRequired;
+use crate::semcheck::ConversionResult::{CastRequired, NotPossible, Converted};
+use std::process::exit;
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
@@ -117,6 +118,39 @@ impl Display for Type {
       }, formatter)
   }
 }
+
+impl From<&crate::lexer::token::Token> for Type {
+    fn from(variable_token: &crate::lexer::token::Token) -> Type {
+        use crate::lexer::token::TokenSubType;
+        match variable_token.token_subtype {
+            TokenSubType::IntegerType => Type::Integer,
+            TokenSubType::StringType => Type::String,
+            TokenSubType::FloatType => Type::Float,
+            TokenSubType::DoubleType => Type::Double,
+            TokenSubType::BooleanType => Type::Boolean,
+            TokenSubType::ByteType => Type::Byte,
+            TokenSubType::VoidType => Type::Void,
+            _ => ice!("Expected type but was '{}' instead", variable_token),
+        }
+    }
+}
+
+impl From<crate::lexer::token::Token> for Type {
+    fn from(variable_token: crate::lexer::token::Token) -> Type {
+        use crate::lexer::token::TokenSubType;
+        match variable_token.token_subtype {
+            TokenSubType::IntegerType => Type::Integer,
+            TokenSubType::StringType => Type::String,
+            TokenSubType::FloatType => Type::Float,
+            TokenSubType::DoubleType => Type::Double,
+            TokenSubType::BooleanType => Type::Boolean,
+            TokenSubType::ByteType => Type::Byte,
+            TokenSubType::VoidType => Type::Void,
+            _ => ice!("Expected type but was '{}' instead", variable_token),
+        }
+    }
+}
+
 
 pub struct SemanticsCheck {
     pub errors: u32,
@@ -268,6 +302,7 @@ impl SemanticsCheck {
             AstNode::ArrayAccess{ index_expression, indexable_expression } => {
                  self.handle_array_access(index_expression, indexable_expression);
             },
+            AstNode::Cast{ expression, target_type, span } => self.handle_cast(expression, target_type, span),
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
         }
@@ -1416,34 +1451,84 @@ impl SemanticsCheck {
         }
     }
 
+    fn handle_cast(&mut self, expression: &mut AstNode, target_type: &Type, span: &Span) {
+        self.do_check(expression);
+
+        // clone is important here, we do not want to actually cast the expression, merely check if it would be required
+        let conversion_result = self.perform_type_conversion_with_overflow_definition(
+            target_type, expression, true);
+
+        if conversion_result == ConversionResult::NotPossible {
+            self.report_error(
+                ReportKind::TypeError,
+                span.clone(),
+                format!("Cannot cast type '{}' into type '{}'", self.get_type(expression), target_type)
+            );
+        }
+    }
+
     fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         match integer {
             AstInteger::Int(_) => (), // OK
-            AstInteger::IntMaxPlusOne | AstInteger::Invalid(_) => {
+            AstInteger::IntMaxPlusOne => {
+                let value = i32::MAX as u64 + 1;
+                self.report_error(
+                    ReportKind::TokenError,
+                    span.clone(),
+                    format!("Type '{}' cannot represent value '{}'", Type::Integer, value),
+                );
+                self.report_error(
+                    ReportKind::Note,
+                    span.clone(),
+                    format!("Value '{}' would be stored as '{}'", value, value as i32),
+                )
+            },
+            AstInteger::Invalid(value) => {
                 self.report_error(
                   ReportKind::TokenError,
                     span.clone(),
-                    "Number does not fit inside 32 bit signed integer".to_owned(),
+                    format!("Type '{}' cannot represent value '{}'", Type::Integer, value),
                 );
+                self.report_error(
+                    ReportKind::Note,
+                    span.clone(),
+                    format!("Value '{}' would be stored as '{}'", value, *value as i32),
+                )
             },
-
         }
     }
 
     fn check_byte_for_overflow(&mut self, byte: &AstByte, span: &Span) {
         match byte {
             AstByte::Byte(_) => (), // OK
-            AstByte::ByteMaxPlusOne | AstByte::Invalid(_) => {
+            AstByte::ByteMaxPlusOne => {
+                let value = i8::MAX as u64 + 1;
                 self.report_error(
                     ReportKind::TokenError,
                     span.clone(),
-                    "Number does not fit inside 8 bit signed integer".to_owned(),
+                    format!("Type '{}' cannot represent value '{}'", Type::Byte, value),
                 );
+                self.report_error(
+                    ReportKind::Note,
+                    span.clone(),
+                    format!("Value '{}' would be stored as '{}'", value, value as i8),
+                )
+            }
+            AstByte::Invalid(value) => {
+                self.report_error(
+                    ReportKind::TokenError,
+                    span.clone(),
+                    format!("Type '{}' cannot represent value '{}'", Type::Byte, value),
+                );
+                self.report_error(
+                    ReportKind::Note,
+                    span.clone(),
+                    format!("Value '{}' would be stored as '{}'", value, *value as i8),
+                )
             },
 
         }
     }
-
 
     fn check_identifier_is_declared(&mut self, name: &str, span: &Span) ->
         Option<Symbol> {
@@ -1482,6 +1567,7 @@ impl SemanticsCheck {
     fn get_type(&self, node: &AstNode) -> Type {
         match node {
             AstNode::Integer{ .. } => Type::Integer,
+            AstNode::Byte{ .. } => Type::Byte,
             AstNode::Float{ .. } => Type::Float,
             AstNode::Double{ .. } => Type::Double,
             AstNode::Boolean{ .. } => Type::Boolean,
@@ -1551,6 +1637,7 @@ impl SemanticsCheck {
                 }
                 return Type::Invalid;
             },
+            AstNode::Cast{ target_type, ..  } => target_type.clone(),
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
@@ -1559,6 +1646,7 @@ impl SemanticsCheck {
     fn is_constant(&self, node: &AstNode) -> bool {
         match node {
             AstNode::Integer { .. } => true,
+            AstNode::Byte{ .. } => true,
             AstNode::Float { .. } => true,
             AstNode::Double { .. } => true,
             AstNode::Boolean { .. } => true,
@@ -1610,6 +1698,7 @@ impl SemanticsCheck {
             AstNode::ArithmeticShiftRight { value, shift_count, .. } => {
               self.is_constant(value) && self.is_constant(shift_count)
             },
+            AstNode::Cast { expression, ..  } => self.is_constant(expression),
             _ => false,
         }
     }
@@ -1618,6 +1707,7 @@ impl SemanticsCheck {
         ice_if!(!self.is_constant(node), "Constant initializer requested for non-constant expression {}", node);
         match node {
             AstNode::Integer{ .. } => node.clone(),
+            AstNode::Byte{ .. } => node.clone(),
             AstNode::Float{ .. } => node.clone() ,
             AstNode::Double{ .. } => node.clone() ,
             AstNode::Boolean{ .. } => node.clone(),
@@ -1826,6 +1916,9 @@ impl SemanticsCheck {
                     _ => node.clone(),
                 }
             },
+            AstNode::Cast{ expression, .. } => {
+                *expression.clone()
+            }
             _ => ice!("Non-constant node {}", node),
         }
     }
@@ -1863,7 +1956,20 @@ impl SemanticsCheck {
     fn perform_type_conversion(
         &mut self,
         target_type: &Type,
-        origin_node: &mut AstNode
+        origin_node: &mut AstNode,
+    ) -> ConversionResult {
+        self.perform_type_conversion_with_overflow_definition(
+            target_type,
+            origin_node,
+            false,
+        )
+    }
+
+    fn perform_type_conversion_with_overflow_definition(
+        &mut self,
+        target_type: &Type,
+        origin_node: &mut AstNode,
+        allow_constant_overflow: bool,
     ) -> ConversionResult {
 
         let origin_type = self.get_type(origin_node);
@@ -1878,8 +1984,24 @@ impl SemanticsCheck {
                 if origin_is_constant {
                     match origin_node.clone() {
                         AstNode::Integer { value, span}   => {
-                            *origin_node = AstNode::Byte { value: AstByte::from(value), span: span.clone() };
 
+                            *origin_node = if allow_constant_overflow {
+
+                                match value {
+                                    AstInteger::Int(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                    AstInteger::IntMaxPlusOne => {
+                                        let value = i32::MAX as u64 + 1;
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                    AstInteger::Invalid(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Byte { value: AstByte::from(value), span: span.clone() }
+                            };
                             self.do_check(origin_node); // overflow checks
 
                             ConversionResult::Converted
@@ -1897,25 +2019,26 @@ impl SemanticsCheck {
                             *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
 
                             self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
-
                             ConversionResult::Converted
                         },
                         _ => return ConversionResult::NotPossible,
                     }
                 } else {
-                     todo!("TODO: Implement type1->type2 AST conversion node")
+                     ConversionResult::CastRequired
                 }
             },
             (Type::Float, &Type::Double) => {
-                todo!("TODO: Implement type1->type2 AST conversion node")
+                ConversionResult::CastRequired
             },
             (Type::Double, &Type::Float) => {
-                todo!("TODO: Implement type1->type2 AST conversion node")
-            }
+                ConversionResult::CastRequired
+            },
+            // self casts
+            (x, y) if &x == y => ConversionResult::Converted,
+
             _ => ConversionResult::NotPossible
         }
     }
-
 
     /*
         given two nodes:

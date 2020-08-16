@@ -53,6 +53,7 @@ pub enum TokenType {
   DoubleArrowLeft,
   DoubleArrowRight,
   TripleArrowRight,
+  As,
   Eof,
 }
 
@@ -93,6 +94,7 @@ impl Display for TokenType {
         TokenType::Private => "private",
         TokenType::Extern => "extern",
         TokenType::VarType => "type",
+        TokenType::As => "as",
         TokenType::Plus => "+" ,
         TokenType::Minus => "-",
         TokenType::Star => "*",

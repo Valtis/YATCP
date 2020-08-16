@@ -115,6 +115,8 @@ impl TACGenerator {
             AstNode::LogicalShiftRight { .. } |
             AstNode::LogicalShiftLeft { .. } =>
                 self.handle_shift(node),
+            AstNode::Cast{ expression, target_type, span } =>
+                self.handle_cast(expression, target_type, span),
             AstNode::EmptyNode => (),
             AstNode::ErrorNode => ice!("Error node present in three-address-code generation"),
             x => todo!("Three-address code generation not implemented for '{}'", x),
@@ -851,6 +853,11 @@ impl TACGenerator {
         );
 
         self.operands.push(destination);
+    }
+
+    fn handle_cast(&mut self, expression: &AstNode, target_type: &Type, _span: &Span) {
+        let destination = self.get_temporary(target_type.clone());
+        todo!();
     }
 
     fn get_type(&self, operand: &Operand) -> Type {

@@ -209,14 +209,14 @@ impl ReadLexer {
                         break;
                     }
                 }
-                None => break
+                _ => break
             }
         }
 
 
         match self.handle_keywords(&identifier) {
             Some(token) => token,
-            None => {
+            _ => {
                 let index = self.string_table.insert(identifier);
 
                 self.create_token(
@@ -254,6 +254,7 @@ impl ReadLexer {
             "bool" => Some(self.create_token(TokenType::VarType, TokenSubType::BooleanType)),
             "void" => Some(self.create_token(TokenType::VarType, TokenSubType::VoidType)),
             "string" => Some(self.create_token(TokenType::VarType, TokenSubType::StringType)),
+            "as" => Some(self.create_token(TokenType::As, TokenSubType::NoSubType)),
             _ => None
         }
     }

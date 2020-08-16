@@ -19,19 +19,6 @@ fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
     }
 }
 
-fn get_type_from_type_token(variable_type: &Token) -> Type {
-    match variable_type.token_subtype {
-        TokenSubType::IntegerType => Type::Integer,
-        TokenSubType::StringType => Type::String,
-        TokenSubType::FloatType => Type::Float,
-        TokenSubType::DoubleType => Type::Double,
-        TokenSubType::BooleanType => Type::Boolean,
-        TokenSubType::ByteType => Type::Byte,
-        TokenSubType::VoidType => Type::Void,
-        _ => ice!("Expected type but was '{}' instead", variable_type),
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstInteger {
     Int(i32),
@@ -176,13 +163,14 @@ pub enum AstNode {
     While{ condition_expression: Box<AstNode>, block: Box<AstNode>, span: Span },
     If { condition_expression: Box<AstNode>, main_block: Box<AstNode>, else_block: Option<Box<AstNode>>, span: Span },
 
-
     Less { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span } ,
     LessOrEq { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span} ,
     Equals { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     NotEquals { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     GreaterOrEq{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     Greater { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
+
+    Cast { expression: Box<AstNode>, target_type: Type, span: Span},
 
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
     Integer{ value: AstInteger, span: Span },
@@ -284,6 +272,7 @@ impl Display for AstNode {
             AstNode::GreaterOrEq { .. } => "GreaterOrEq".to_string(),
             AstNode::Greater { .. } => "Greater".to_string(),
             AstNode::BooleanNot{ .. } => "Not".to_string(),
+            AstNode::Cast { .. }  => "As".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
             AstNode::EmptyNode => "<empty node>".to_string(),
         })
@@ -400,6 +389,9 @@ impl AstNode {
             AstNode::BooleanNot{ ref expression, .. } => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
+            AstNode::Cast{ ref expression, .. } => {
+                string = format!("{}{}", string, expression.print_impl(next_int));
+            },
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
         }
@@ -447,6 +439,7 @@ impl AstNode {
             AstNode::Identifier{ span, ..} => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
             AstNode::BooleanNot{ span, .. } => *span,
+            AstNode::Cast{ span, .. } => *span,
             AstNode::EmptyNode |
             AstNode::ErrorNode => empty,
         };
@@ -508,7 +501,7 @@ impl FunctionInfo {
 
         FunctionInfo::new_alt(
             get_text_from_identifier(identifier),
-            get_type_from_type_token(return_type),
+            Type::from(return_type),
             identifier.line,
             identifier.column,
             identifier.length)
@@ -545,7 +538,7 @@ impl DeclarationInfo {
     pub fn new(identifier: &Token, variable_type: &Token) -> DeclarationInfo {
         DeclarationInfo::new_alt(
             get_text_from_identifier(identifier),
-            get_type_from_type_token(variable_type),
+            Type::from(variable_type),
             identifier.line,
             identifier.column,
             identifier.length)
@@ -573,7 +566,7 @@ impl DeclarationInfo {
         extra_info: Option<ExtraDeclarationInfo>) -> DeclarationInfo {
         DeclarationInfo {
             name: get_text_from_identifier(identifier),
-            variable_type: get_type_from_type_token(variable_type),
+            variable_type: Type::from(variable_type),
             span: Span::new(identifier.line, identifier.column, identifier.length),
             extra_info,
             attributes: HashSet::new(),

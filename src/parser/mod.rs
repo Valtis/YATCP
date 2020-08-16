@@ -963,7 +963,7 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Result<AstNode, ()> {
-        let mut node = self.parse_boolean_not()?;
+        let mut node = self.parse_cast()?;
 
         // while mul or div tokens are next, keep parsing
         loop {
@@ -971,6 +971,22 @@ impl Parser {
             match next_token.token_type {
                 TokenType::Star | TokenType::ForwardSlash | TokenType::Percentage =>
                     node = self.parse_mult_divide_modulo_expression(node)?,
+                _ => break,
+            }
+        }
+        Ok(node)
+    }
+
+
+    fn parse_cast(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_boolean_not()?;
+
+        // while mul or div tokens are next, keep parsing
+        loop {
+            let next_token = self.lexer.peek_token();
+            match next_token.token_type {
+                TokenType::As =>
+                    node = self.parse_cast_expression(node)?,
                 _ => break,
             }
         }
@@ -1328,6 +1344,19 @@ impl Parser {
             },
             _ => Ok(node),
         }
+    }
+
+    fn parse_cast_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let as_token = self.expect(TokenType::As)?;
+        let type_token = self.expect(TokenType::VarType)?;
+
+        let cast_node = AstNode::Cast {
+            expression: Box::new(node),
+            target_type: Type::from(type_token),
+            span: Span::from(as_token),
+        };
+
+        Ok(cast_node)
     }
 
     fn expect(&mut self, token_type: TokenType) -> Result<Token, ()> {
