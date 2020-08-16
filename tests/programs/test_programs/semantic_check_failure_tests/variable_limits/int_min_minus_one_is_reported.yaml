@@ -6,10 +6,10 @@ program: |
 
 expect_compile_failure: true
 expect_stderr: |
-  2:17 Token error: Type 'Integer' cannot represent value '2147483649'
+  2:17 Token error: Type 'Integer' cannot represent value '-2147483649'
     let a: int = -2147483649;
                   ^^^^^^^^^^
-  2:17 Note: Value '2147483649' would be stored as '-2147483647'
+  2:17 Note: Value '-2147483649' would be stored as '2147483647'
     let a: int = -2147483649;
                   ^^^^^^^^^^
   2:17 Note: Use explicit 'as int' cast if this is wanted

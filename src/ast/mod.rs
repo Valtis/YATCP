@@ -23,16 +23,27 @@ fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
 pub enum AstInteger {
     Int(i32),
     IntMaxPlusOne,
-    Invalid(u64),
+    Invalid(i128),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstByte {
     Byte(i8),
     ByteMaxPlusOne,
-    Invalid(u64),
+    Invalid(i128),
 }
 
+impl From<i128> for AstInteger {
+    fn from(val: i128) -> AstInteger {
+        if val <= i32::max_value() as i128 && val >= i32::min_value() as i128 {
+            AstInteger::Int(val as i32)
+        } else if val == i32::max_value() as i128 + 1 {
+            AstInteger::IntMaxPlusOne
+        } else {
+            AstInteger::Invalid(val)
+        }
+    }
+}
 
 impl From<u64> for AstInteger {
     fn from(val: u64) -> AstInteger {
@@ -41,7 +52,20 @@ impl From<u64> for AstInteger {
         } else if val == i32::max_value() as u64 + 1 {
             AstInteger::IntMaxPlusOne
         } else {
-            AstInteger::Invalid(val)
+            AstInteger::Invalid(val as i128)
+        }
+    }
+}
+
+
+impl From<i128> for AstByte {
+    fn from(val: i128) -> AstByte {
+        if val <= i8::max_value() as i128 && val >= i8::min_value() as i128  {
+            AstByte::Byte(val as i8)
+        } else if val == i8::max_value() as i128 + 1 {
+            AstByte::ByteMaxPlusOne
+        } else {
+            AstByte::Invalid(val)
         }
     }
 }
@@ -53,7 +77,7 @@ impl From<u64> for AstByte {
         } else if val == i8::max_value() as u64 + 1 {
             AstByte::ByteMaxPlusOne
         } else {
-            AstByte::Invalid(val)
+            AstByte::Invalid(val as i128)
         }
     }
 }
@@ -82,9 +106,9 @@ impl From<AstByte> for AstInteger {
             AstByte::Byte(value) => AstInteger::Int(value as i32),
             AstByte::ByteMaxPlusOne => AstInteger::Int(i8::max_value() as i32),
             AstByte::Invalid(value ) => {
-                if value == i32::max_value() as u64 + 1 {
+                if value == i32::max_value() as i128 + 1 {
                     AstInteger::IntMaxPlusOne
-                }  else if value > i32::max_value() as u64 || value < i32::min_value() as u64 {
+                }  else if value > i32::max_value() as i128 || value < i32::min_value() as i128 {
                     AstInteger::Invalid(value)
                 } else {
                     AstInteger::Int(value as i32)
@@ -101,13 +125,13 @@ impl From<AstInteger> for AstByte {
                 if value == i8::max_value() as i32 + 1 {
                     AstByte::ByteMaxPlusOne
                 } else if value > i8::max_value() as i32 || value < i8::min_value() as i32 {
-                    AstByte::Invalid(value as u64)
+                    AstByte::Invalid(value as i128)
                 } else {
                     AstByte::Byte(value as i8)
                 }
 
             },
-            AstInteger::IntMaxPlusOne => AstByte::Invalid(i32::max_value() as u64 + 1),
+            AstInteger::IntMaxPlusOne => AstByte::Invalid(i32::max_value() as i128 + 1),
             AstInteger::Invalid(x) => AstByte::Invalid(x)
         }
     }
@@ -172,6 +196,8 @@ pub enum AstNode {
 
     Cast { expression: Box<AstNode>, target_type: Type, span: Span},
 
+
+    IntegralNumber{ value: i128, span: Span},
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
     Integer{ value: AstInteger, span: Span },
     Byte { value: AstByte, span: Span },
@@ -243,6 +269,7 @@ impl Display for AstNode {
                 span: _
             } => format!("Array assignment '{}'", name),
             AstNode::MemberAccess { .. } => format!("Member access"),
+            AstNode::IntegralNumber{value, ..} => format!("Integral number: {}", value),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
             AstNode::Byte{ value, .. } => format!("Byte: {}", value),
             AstNode::Float{value , .. } => format!("Float: {}", value),
@@ -331,6 +358,7 @@ impl AstNode {
                 string = format!("{}{}", string, member_access.print_impl(next_int));
                 string = format!("{}{}", string, member.print_impl(next_int));
             }
+            AstNode::IntegralNumber{ .. } |
             AstNode::Integer{ .. } |
             AstNode::Byte{ .. } |
             AstNode::Float{ .. }  |
@@ -430,6 +458,7 @@ impl AstNode {
             AstNode::NotEquals { span, .. } |
             AstNode::GreaterOrEq { span, .. } |
             AstNode::Greater { span, .. } => *span,
+            AstNode::IntegralNumber{ span, .. } => *span,
             AstNode::Integer{ span, .. } => *span,
             AstNode::Byte{ span, .. } => *span,
             AstNode::Float{ span, .. } => *span,

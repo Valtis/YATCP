@@ -3,7 +3,7 @@ use crate::lexer::token::{Token, TokenType, TokenSubType};
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
+use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
 
 use crate::semcheck::Type;
 
@@ -1068,13 +1068,8 @@ impl Parser {
             TokenType::Minus => {
                 let node = self.parse_factor()?;
                 match node {
-                    AstNode::Integer{ value: AstInteger::Int(val), span } => {
-                        Ok(AstNode::Integer{value: AstInteger::Int(-val), span: span.clone() })
-                    },
-                    AstNode::Integer{ value: AstInteger::IntMaxPlusOne, span } => {
-                        Ok(AstNode::Integer{
-                            value: AstInteger::Int(i32::min_value()),
-                            span: span.clone()})
+                    AstNode::IntegralNumber{ value, span } => {
+                        Ok(AstNode::IntegralNumber{value: -value, span: span.clone() })
                     },
                     _ => {
                         Ok(AstNode::Negate{
@@ -1103,8 +1098,8 @@ impl Parser {
             TokenType::Number => {
                 match token.token_subtype {
                     TokenSubType::IntegerNumber(i) => {
-                        Ok(AstNode::Integer{
-                            value: AstInteger::from(i),
+                        Ok(AstNode::IntegralNumber{
+                            value: i as i128,
                             span: Span::from(token)})
                     },
                     TokenSubType::DoubleNumber(i) => {

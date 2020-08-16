@@ -1,0 +1,19 @@
+program: |
+    fn main() : int {
+      let a: int = 0;
+      a = 2147483648;
+      return 0;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  3:7 Token error: Type 'Integer' cannot represent value '2147483648'
+    a = 2147483648;
+        ^^^^^^^^^^
+  3:7 Note: Value '2147483648' would be stored as '-2147483648'
+    a = 2147483648;
+        ^^^^^^^^^^
+  3:7 Note: Use explicit 'as int' cast if this is wanted
+    a = 2147483648;
+        ^^^^^^^^^^
+  Terminating compilation due to 1 error

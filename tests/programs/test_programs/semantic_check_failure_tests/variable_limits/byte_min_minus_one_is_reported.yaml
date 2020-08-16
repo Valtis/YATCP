@@ -6,10 +6,10 @@ program: |
 
 expect_compile_failure: true
 expect_stderr: |
-  2:18 Token error: Type 'Byte' cannot represent value '18446744073709551487'
+  2:18 Token error: Type 'Byte' cannot represent value '-129'
     let a: byte = -129;
                    ^^^
-  2:18 Note: Value '18446744073709551487' would be stored as '127'
+  2:18 Note: Value '-129' would be stored as '127'
     let a: byte = -129;
                    ^^^
   2:18 Note: Use explicit 'as byte' cast if this is wanted

@@ -20,6 +20,7 @@ pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 pub enum Type {
     Byte,
     Boolean,
+    IntegralNumber,
     Integer,
     Double,
     Float,
@@ -36,6 +37,7 @@ pub enum Type {
 impl Type {
     pub fn size_in_bytes(&self) -> u32 {
         match *self {
+            Type::IntegralNumber => ice!("Generic integral number has no size"),
             Type::Boolean => 1,
             Type::Byte => 1,
             Type::Integer => 4,
@@ -54,6 +56,7 @@ impl Type {
 
     pub fn is_array(&self) -> bool {
         match *self {
+            Type::IntegralNumber => false,
             Type::Byte => false,
             Type::Boolean => false,
             Type::Integer => false,
@@ -100,6 +103,8 @@ impl Type {
 impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
         Display::fmt( &match *self {
+            // For printing purposes, we treat integral numbers as integers
+            Type::IntegralNumber => "Integer".to_owned(),
             Type::Byte=> "Byte".to_owned(),
             Type::Boolean => "Boolean".to_owned(),
             Type::Integer => "Integer".to_owned(),
@@ -274,11 +279,12 @@ impl SemanticsCheck {
                 self.handle_if(condition_expression, main_block, else_block, span),
             AstNode::Less{ left_expression, right_expression, span} |
             AstNode::LessOrEq{ left_expression, right_expression, span} |
-            AstNode::Equals{ left_expression, right_expression, span} |
             AstNode::NotEquals{ left_expression, right_expression, span} |
             AstNode::GreaterOrEq{ left_expression, right_expression, span} |
             AstNode::Greater{ left_expression, right_expression, span} =>
-                self.handle_comparison_operation(left_expression, right_expression, span),
+                self.handle_comparison_operation(left_expression, right_expression, span, false),
+            AstNode::Equals{ left_expression, right_expression, span} =>
+                self.handle_comparison_operation(left_expression, right_expression, span, true),
             AstNode::BooleanAnd{ left_expression, right_expression, span} |
             AstNode::BooleanOr{left_expression, right_expression, span} =>
                 self.check_boolean_and_or(left_expression, right_expression, span),
@@ -300,7 +306,10 @@ impl SemanticsCheck {
             AstNode::ArrayAccess{ index_expression, indexable_expression } => {
                  self.handle_array_access(index_expression, indexable_expression);
             },
-            AstNode::Cast{ expression, target_type, span } => self.handle_cast(expression, target_type, span),
+            AstNode::Cast{ expression, target_type, span } => {
+                self.handle_cast(expression, target_type, span);
+            }
+            AstNode::IntegralNumber { .. } |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
         }
@@ -555,7 +564,7 @@ impl SemanticsCheck {
                                         }
                                     }
 
-                                    return; // we are happy that types match (possible constness issues aside), do no further type checks
+                                    continue;
                                 }
                             }
 
@@ -565,30 +574,28 @@ impl SemanticsCheck {
 
                                 let conversion_result = self.perform_type_conversion(&param.variable_type, arg);
 
-                                if conversion_result == ConversionResult::Converted {
-                                    return;
-                                }
-
-                                self.report_error(
-                                    ReportKind::TypeError,
-                                    arg.span(),
-                                    format!("Got argument of type '{}' when '{}' was expected",
-                                        arg_type.clone(),
-                                        param.variable_type,
+                                if conversion_result != ConversionResult::Converted {
+                                    self.report_error(
+                                        ReportKind::TypeError,
+                                        arg.span(),
+                                        format!("Got argument of type '{}' when '{}' was expected",
+                                                arg_type.clone(),
+                                                param.variable_type,
                                         ));
 
-                                self.report_error(
-                                    ReportKind::Note,
-                                    param.span.clone(),
-                                    "Corresponding parameter declared here"
-                                        .to_string());
+                                    self.report_error(
+                                        ReportKind::Note,
+                                        param.span.clone(),
+                                        "Corresponding parameter declared here"
+                                            .to_string());
 
-                                if conversion_result == ConversionResult::CastRequired {
-                                    self.report_conversion_note(
-                                        &param.variable_type,
-                                        &arg_type,
-                                        &arg.span()
-                                    );
+                                    if conversion_result == ConversionResult::CastRequired {
+                                        self.report_conversion_note(
+                                            &param.variable_type,
+                                            &arg_type,
+                                            &arg.span()
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -668,21 +675,18 @@ impl SemanticsCheck {
                 let conversion_result = self.perform_type_conversion(
                     &variable_info.variable_type.get_array_basic_type(),  child);
 
-                if conversion_result == ConversionResult::Converted {
-                    return;
+                if conversion_result != ConversionResult::Converted {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        child.span(),
+                        format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type.clone())
+                    );
+
+                    if conversion_result == ConversionResult::CastRequired {
+                        self.report_conversion_note(
+                            &variable_info.variable_type.get_array_basic_type(), &child_type, &child.span());
+                    }
                 }
-
-                self.report_error(
-                    ReportKind::TypeError,
-                    child.span(),
-                    format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type.clone())
-                );
-
-                if conversion_result == ConversionResult::CastRequired {
-                    self.report_conversion_note(
-                        &variable_info.variable_type.get_array_basic_type(),&child_type,&child.span());
-                }
-
             }
 
 
@@ -699,13 +703,19 @@ impl SemanticsCheck {
 
                     self.do_check(dim);
 
-                    if self.get_type(dim) != Type::Integer {
+                    let dimension_type = self.get_type(dim);
+                    if dimension_type != Type::IntegralNumber && dimension_type != Type::Integer {
                         self.report_error(
                             ReportKind::TypeError,
                             dim.span(),
                             format!("Array dimension must be an integer constant (now {})", self.get_type(dim))
                         );
                         continue;
+                    }
+
+                    if dimension_type == Type::IntegralNumber {
+                        let conversion_result = self.perform_type_conversion(&Type::Integer, dim);
+                        ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
                     }
 
                     let expr = self.get_constant_initializer_expression(dim);
@@ -833,26 +843,25 @@ impl SemanticsCheck {
                     format!("Variable '{}', declared here, has type '{}'",
                             name,
                             sym_info.variable_type));
+
+                return;
                 // if type is invalid, errors has already been reported
             } else if sym_info.variable_type != child_type &&
-                child_type != Type::Invalid && sym_info.variable_type != Type::Invalid  {
+                child_type != Type::Invalid && sym_info.variable_type != Type::Invalid {
+                let conversion_result = self.perform_type_conversion(&sym_info.variable_type, child);
+                if conversion_result != ConversionResult::Converted {
+                    self.report_type_error(sym_info, child, child_type.clone());
 
-                let conversion_result =  self.perform_type_conversion(&sym_info.variable_type, child);
-                if conversion_result == ConversionResult::Converted {
+                    if conversion_result == ConversionResult::CastRequired {
+                        self.report_conversion_note(
+                            &sym_info.variable_type,
+                            &child_type,
+                            &child.span());
+                    }
                     return;
                 }
-
-                self.report_type_error(sym_info, child, child_type.clone());
-
-                if conversion_result == ConversionResult::CastRequired {
-                    self.report_conversion_note(
-                        &sym_info.variable_type,
-                        &child_type,
-                        &child.span());
-                }
-            } else {
-                self.report_if_read_only(&span, sym_info);
             }
+            self.report_if_read_only(&span, sym_info);
 
         } else {
             // should not happen, only variables should be returned
@@ -927,13 +936,18 @@ impl SemanticsCheck {
             let index_type = self.get_type(index_expression);
             let assignment_type = self.get_type(assignment_expression);
 
-            if index_type != Type::Invalid && index_type != Type::Integer {
+            if index_type != Type::Invalid && index_type != Type::Integer && index_type != Type::IntegralNumber {
                 self.report_error(
                     ReportKind::TypeError,
                     index_expression.span(),
                     format!(
                         "Array index must be an '{}', but got '{}' instead",
                         Type::Integer, index_type));
+            }
+
+            if index_type == Type::IntegralNumber {
+                let conversion_result = self.perform_type_conversion(&Type::Integer, index_expression);
+                ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
             }
 
             if sym_info.variable_type.get_array_basic_type() != assignment_type && assignment_type != Type::Invalid {
@@ -995,13 +1009,18 @@ impl SemanticsCheck {
 
         let index_type = self.get_type(index_expression);
 
-        if index_type != Type::Invalid && index_type != Type::Integer {
+        if index_type != Type::Invalid && index_type != Type::Integer && index_type != Type::IntegralNumber {
             self.report_error(
                 ReportKind::TypeError,
                 index_expression.span(),
                 format!(
                     "Array index must be an '{}', but got '{}' instead",
                     Type::Integer, index_type));
+        }
+
+        if index_type == Type::IntegralNumber {
+            let conversion_result = self.perform_type_conversion(&Type::Integer, index_expression);
+            ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
         }
     }
 
@@ -1167,6 +1186,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
                     Type::String,
@@ -1180,6 +1200,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
                     Type::Invalid],
@@ -1198,6 +1219,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
                     Type::Invalid],
@@ -1216,6 +1238,7 @@ impl SemanticsCheck {
                         )
                 };
                 (vec![
+                    Type::IntegralNumber,
                     Type::Byte,
                     Type::Integer,
                     Type::Invalid],
@@ -1314,7 +1337,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn handle_comparison_operation(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, span: &Span) {
+    fn handle_comparison_operation(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, span: &Span, equality_comparison: bool) {
 
         self.do_check(left_child);
         self.do_check(right_child);
@@ -1322,29 +1345,60 @@ impl SemanticsCheck {
         let left_type = self.get_type(left_child);
         let right_type = self.get_type(right_child);
 
+        let mut accepted_types = vec![
+            Type::IntegralNumber,
+            Type::Integer,
+            Type::Byte,
+            Type::Float,
+            Type::Double,
+        ];
+
+        if equality_comparison {
+            accepted_types.push(Type::Boolean);
+        }
+
         if left_type != right_type &&
             left_type != Type::Invalid && right_type != Type::Invalid
         {
 
             let (target_type, mut origin_node) = self.get_binary_node_types_for_conversion(left_child, right_child);
             let conversion_result =  self.perform_type_conversion(&target_type, &mut origin_node);
-            if conversion_result == ConversionResult::Converted {
+
+            if conversion_result != ConversionResult::Converted {
+                self.report_error(
+                    ReportKind::TypeError,
+                    span.clone(),
+                    format!(
+                        "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+
+                if conversion_result == ConversionResult::CastRequired {
+                    self.report_conversion_note(
+                        &target_type,
+                        &self.get_type(&origin_node),
+                        span
+                    );
+                }
+
                 return;
             }
+        }
 
+        if !accepted_types.contains(&left_type) {
             self.report_error(
                 ReportKind::TypeError,
                 span.clone(),
-                format!(
-                    "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+                format!("Cannot compare operands of type '{}'",
+                        left_type));
+        }
 
-            if conversion_result == ConversionResult::CastRequired {
-                self.report_conversion_note(
-                    &target_type,
-                    &self.get_type(&origin_node),
-                    span
-                );
-            }
+        if left_type == Type::IntegralNumber {
+            ice_if!(
+                self.perform_type_conversion(&Type::Integer, left_child) != ConversionResult::Converted,
+                "Unexpected conversion failure");
+
+            ice_if!(
+                self.perform_type_conversion(&Type::Integer, right_child) != ConversionResult::Converted,
+                "Unexpected conversion failure");
         }
     }
 
@@ -1408,6 +1462,7 @@ impl SemanticsCheck {
 
         let accepted_shift_types = vec![
             Type::Integer,
+            Type::IntegralNumber,
             Type::Byte,
             Type::Invalid,
         ];
@@ -1420,9 +1475,15 @@ impl SemanticsCheck {
             );
             arithmetic_info.node_type = Type::Invalid;
         } else {
+            let value_type = if value_type == Type::IntegralNumber {
+                ice_if!(self.perform_type_conversion(&Type::Integer, value) != ConversionResult::Converted, "Unexpected conversion failure");
+                Type::Integer
+            } else {
+                value_type
+            };
+
             arithmetic_info.node_type = value_type;
         }
-
 
         if !accepted_shift_types.contains(&shift_type) {
             self.report_error(
@@ -1431,6 +1492,9 @@ impl SemanticsCheck {
                 format!("Shift count must be an integral value, got '{}' instead", shift_type),
             );
         } else if self.is_constant(shift_count) {
+            if shift_type == Type::IntegralNumber {
+                ice_if!(self.perform_type_conversion(&Type::Integer, shift_count) != ConversionResult::Converted, "Unexpected conversion failure");
+            }
             if let AstNode::Integer { value: AstInteger::Int(count), .. } = *shift_count {
                 if count < 0 {
                     self.report_error(
@@ -1450,13 +1514,16 @@ impl SemanticsCheck {
     }
 
     fn handle_cast(&mut self, expression: &mut AstNode, target_type: &mut Type, span: &Span) {
+        // special case handling for integers:
+        // we want to support casts like OVERFLOWING_INTEGER_CONSTANT as int, or ARITHMETIC_EXPRESSION_RESULTING_IN_OVERFLOWING_INTEGER_CONSTANT as int
+        // right now the basic do_check reports the overflow, before we apply the ast.
         self.do_check(expression);
 
         // clone is important here, we do not want to actually cast the expression, merely check if it would be required
         let conversion_result = self.perform_type_conversion_with_overflow_definition(
             target_type, expression, true);
 
-        if conversion_result == ConversionResult::NotPossible {
+        if self.get_type(expression) != Type::Invalid && conversion_result == ConversionResult::NotPossible {
             self.report_error(
                 ReportKind::TypeError,
                 span.clone(),
@@ -1470,7 +1537,7 @@ impl SemanticsCheck {
         let value = match integer {
             AstInteger::Int(_) => return, // OK
             AstInteger::IntMaxPlusOne => {
-                i32::MAX as u64 + 1
+                i32::MAX as i128 + 1
             },
             AstInteger::Invalid(value) => {
               *value
@@ -1498,7 +1565,7 @@ impl SemanticsCheck {
         let value = match byte {
             AstByte::Byte(_) => return, // OK
             AstByte::ByteMaxPlusOne => {
-                i8::MAX as u64 + 1
+                i8::MAX as i128 + 1
 
             }
             AstByte::Invalid(value) => {
@@ -1559,6 +1626,7 @@ impl SemanticsCheck {
 
     fn get_type(&self, node: &AstNode) -> Type {
         match node {
+            AstNode::IntegralNumber { .. } => Type::IntegralNumber,
             AstNode::Integer{ .. } => Type::Integer,
             AstNode::Byte{ .. } => Type::Byte,
             AstNode::Float{ .. } => Type::Float,
@@ -1638,6 +1706,7 @@ impl SemanticsCheck {
 
     fn is_constant(&self, node: &AstNode) -> bool {
         match node {
+            AstNode::IntegralNumber { .. } => true,
             AstNode::Integer { .. } => true,
             AstNode::Byte{ .. } => true,
             AstNode::Float { .. } => true,
@@ -1691,7 +1760,14 @@ impl SemanticsCheck {
             AstNode::ArithmeticShiftRight { value, shift_count, .. } => {
               self.is_constant(value) && self.is_constant(shift_count)
             },
-            AstNode::Cast { expression, ..  } => self.is_constant(expression),
+            AstNode::Cast { expression, target_type, ..  } => {
+                // don't propagate invalid cast results, can lead to bad error reporting
+                if *target_type == Type::Invalid {
+                    false
+                } else {
+                    self.is_constant(expression)
+                }
+            }
             _ => false,
         }
     }
@@ -1699,6 +1775,7 @@ impl SemanticsCheck {
     fn get_constant_initializer_expression(&self, node: &AstNode) -> AstNode {
         ice_if!(!self.is_constant(node), "Constant initializer requested for non-constant expression {}", node);
         match node {
+            AstNode::IntegralNumber { .. } => node.clone(),
             AstNode::Integer{ .. } => node.clone(),
             AstNode::Byte{ .. } => node.clone(),
             AstNode::Float{ .. } => node.clone() ,
@@ -1746,6 +1823,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(left_expression),
                     self.get_constant_initializer_expression(right_expression),
                 ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1.wrapping_add(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
@@ -1766,6 +1845,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(left_expression),
                     self.get_constant_initializer_expression(right_expression),
                 ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1.wrapping_sub(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_sub(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
@@ -1784,6 +1865,9 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(left_expression),
                     self.get_constant_initializer_expression(right_expression),
                 ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1.wrapping_mul(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_mul(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
@@ -1802,6 +1886,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(left_expression),
                     self.get_constant_initializer_expression(right_expression),
                 ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) if i2 != 0 =>
+                        AstNode::IntegralNumber { value: i1.wrapping_div(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 != 0  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
@@ -1821,7 +1907,9 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(left_expression),
                     self.get_constant_initializer_expression(right_expression),
                 ) {
-                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) if i2 != 0 =>
+                        AstNode::IntegralNumber { value: i1 % i2, span: arithmetic_info.span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) if i2 != 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 % i2), span: arithmetic_info.span },
 
                     _ => node.clone()
@@ -1832,6 +1920,8 @@ impl SemanticsCheck {
                 arithmetic_info
             } => {
                 match self.get_constant_initializer_expression(expression) {
+                    AstNode::IntegralNumber{ value, .. }  =>
+                        AstNode::IntegralNumber { value: value.wrapping_neg(), span: arithmetic_info.span },
                     AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_neg()), span: arithmetic_info.span },
 
@@ -1968,11 +2058,49 @@ impl SemanticsCheck {
         let origin_type = self.get_type(origin_node);
         let origin_is_constant = self.is_constant(origin_node);
 
-        // automatically support widening conversion (byte -> int, float -> double)
         // report narrowing conversions requiring manual cast, if non-constant. Try casting constant first
+        // report any cast that would be possible with explicit cast
         // reject otherwise
         match (origin_type, target_type) {
+            (Type::IntegralNumber, &Type::Integer) => {
+               if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::IntegralNumber { value, span}   => {
 
+                            *origin_node = if allow_constant_overflow {
+                                AstNode::Integer { value: AstInteger::from(value as i32), span: span.clone() }
+                            } else {
+                                AstNode::Integer { value: AstInteger::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow check
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                   ice!("Integral number type should not appear as non-constant");
+                }
+            },
+            (Type::IntegralNumber, &Type::Byte) => {
+               if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::IntegralNumber { value, span}   => {
+                            *origin_node = if allow_constant_overflow {
+                                AstNode::Byte { value: AstByte::from(value as i8), span: span.clone() }
+                            } else {
+                                AstNode::Byte { value: AstByte::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow check
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                   ice!("Integral number type should not appear as non-constant");
+                }
+            },
             (Type::Integer, &Type::Byte) => {
                 if origin_is_constant {
                     match origin_node.clone() {
@@ -2035,6 +2163,9 @@ impl SemanticsCheck {
 
     /*
         given two nodes:
+            * if one is integral number and another isn't:
+                * if both constants, convert to integral number, let higher level handle
+                * else convert to non-integral
             * if both are variables or both are constants:
                 * return wider type and narrower node
             * if one is constant and one is variable:
@@ -2056,6 +2187,12 @@ impl SemanticsCheck {
             match (&left_type, &right_type) {
                 (Type::Byte, Type::Integer) |
                 (Type::Float, Type::Double) => (right_type.clone(), left_node),
+                (_, Type::IntegralNumber) => {
+                    (Type::IntegralNumber, left_node)
+                },
+                (Type::IntegralNumber, _) => {
+                    (Type::IntegralNumber, right_node)
+                }
                 _ => (left_type.clone(), right_node)
             }
         } else {
