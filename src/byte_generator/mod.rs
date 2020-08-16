@@ -184,8 +184,7 @@ impl ByteGenerator {
              _ => ice!("Unexpected value {:?}", data.src)
          }
 
-        let op = if from.size_in_bytes() > to.size_in_bytes() {
-
+        let op = if from.size_in_bytes() >= to.size_in_bytes() {
             ByteCode::Mov(data)
         } else {
             ByteCode::Movsx(data)
