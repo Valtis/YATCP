@@ -50,6 +50,7 @@ fn do_constant_folding(
                 Operator::LogicalShiftLeft=> Operand::Integer(val << val2),
                 Operator::LogicalShiftRight => Operand::Integer(((val as u32) >> val2) as i32),
                 Operator::ArithmeticShiftRight => Operand::Integer(val >> val2),
+                Operator::Cast{..} => todo!(),
             };
             *s = Statement::Assignment{
                 operator: None,

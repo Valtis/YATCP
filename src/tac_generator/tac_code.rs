@@ -64,6 +64,7 @@ pub enum Operator {
     ArithmeticShiftRight,
     LogicalShiftRight,
     LogicalShiftLeft,
+    Cast{ from: Type, to: Type},
 }
 
 #[derive(Clone, Debug)]
@@ -193,6 +194,7 @@ impl Display for Operator {
             Operator::ArithmeticShiftRight => ">>".to_string(),
             Operator::LogicalShiftRight => ">>>".to_string(),
             Operator::LogicalShiftLeft => "<<".to_string(),
+            Operator::Cast{ref from, ref to}=> format!("Cast({} to {})", from, to),
         })
     }
 }

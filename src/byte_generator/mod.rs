@@ -111,7 +111,13 @@ impl ByteGenerator {
                         operator: None,
                         destination: Some(ref dest),
                         left_operand: None,
-                        right_operand: Some(ref op)} => self.emit_move(op, dest),
+                        right_operand: Some(ref src)} => self.emit_move(src, dest),
+                    Statement::Assignment {
+                        operator: Some(Operator::Cast{ ref from, ref to }),
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref src),
+                    } => self.emit_move_with_casting(src, dest, from, to),
                     Statement::Assignment{
                         operator: Some(Operator::Minus),
                         destination: Some(ref dest),
@@ -158,9 +164,34 @@ impl ByteGenerator {
         self.current_function().code.push(ByteCode::Negate(data));
     }
 
-    fn emit_move(&mut self, op: &Operand, dest: &Operand) {
-        let data = self.form_unary_operation(op, dest);
+    fn emit_move(&mut self, src: &Operand, dest: &Operand) {
+        let data = self.form_unary_operation(src, dest);
         self.current_function().code.push(ByteCode::Mov(data));
+    }
+
+    fn emit_move_with_casting(
+        &mut self,
+        src: &Operand,
+        dest: &Operand,
+        from: &Type,
+        to: &Type) {
+        let mut data = self.form_unary_operation(src, dest);
+
+         match data.src {
+             Value::VirtualRegister(VirtualRegisterData { ref mut size, ..}) => {
+                 *size = to.size_in_bytes();
+             },
+             _ => ice!("Unexpected value {:?}", data.src)
+         }
+
+        let op = if from.size_in_bytes() > to.size_in_bytes() {
+
+            ByteCode::Mov(data)
+        } else {
+            ByteCode::Movsx(data)
+        };
+
+        self.current_function().code.push(op);
     }
 
     fn emit_lea(&mut self, src: &Operand, dest: &Operand) {

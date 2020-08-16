@@ -246,9 +246,6 @@ impl TACGenerator {
             function_operands.push(operand);
         }
 
-
-
-
         self.current_function().statements.push(
             Statement::Call(
                 name.clone(),
@@ -857,7 +854,21 @@ impl TACGenerator {
 
     fn handle_cast(&mut self, expression: &AstNode, target_type: &Type, _span: &Span) {
         let destination = self.get_temporary(target_type.clone());
-        todo!();
+
+        let operand = self.get_operand(expression);
+        let operand_type = self.get_type(&operand);
+        self.current_function().statements.push(
+            Statement::Assignment {
+                destination: Some(destination.clone()),
+                left_operand: None,
+                right_operand: Some(operand),
+                operator: Some(Operator::Cast{
+                    from: operand_type,
+                    to: target_type.clone()}),
+            }
+        );
+
+        self.operands.push(destination);
     }
 
     fn get_type(&self, operand: &Operand) -> Type {

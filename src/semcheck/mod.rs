@@ -13,8 +13,6 @@ use std::cell::RefCell;
 
 use std::collections::HashMap;
 use crate::variable_attributes::VariableAttribute;
-use crate::semcheck::ConversionResult::{CastRequired, NotPossible, Converted};
-use std::process::exit;
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
@@ -680,7 +678,7 @@ impl SemanticsCheck {
                     format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type.clone())
                 );
 
-                if conversion_result == CastRequired {
+                if conversion_result == ConversionResult::CastRequired {
                     self.report_conversion_note(
                         &variable_info.variable_type.get_array_basic_type(),&child_type,&child.span());
                 }
@@ -961,7 +959,7 @@ impl SemanticsCheck {
                             name,
                             sym_info.variable_type));
 
-                if conversion_result == CastRequired {
+                if conversion_result == ConversionResult::CastRequired {
 
                     self.report_conversion_note(
                         &sym_info.variable_type.get_array_basic_type(),
@@ -1451,7 +1449,7 @@ impl SemanticsCheck {
         }
     }
 
-    fn handle_cast(&mut self, expression: &mut AstNode, target_type: &Type, span: &Span) {
+    fn handle_cast(&mut self, expression: &mut AstNode, target_type: &mut Type, span: &Span) {
         self.do_check(expression);
 
         // clone is important here, we do not want to actually cast the expression, merely check if it would be required
@@ -1464,70 +1462,65 @@ impl SemanticsCheck {
                 span.clone(),
                 format!("Cannot cast type '{}' into type '{}'", self.get_type(expression), target_type)
             );
+            *target_type = Type::Invalid;
         }
     }
 
     fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
-        match integer {
-            AstInteger::Int(_) => (), // OK
+        let value = match integer {
+            AstInteger::Int(_) => return, // OK
             AstInteger::IntMaxPlusOne => {
-                let value = i32::MAX as u64 + 1;
-                self.report_error(
-                    ReportKind::TokenError,
-                    span.clone(),
-                    format!("Type '{}' cannot represent value '{}'", Type::Integer, value),
-                );
-                self.report_error(
-                    ReportKind::Note,
-                    span.clone(),
-                    format!("Value '{}' would be stored as '{}'", value, value as i32),
-                )
+                i32::MAX as u64 + 1
             },
             AstInteger::Invalid(value) => {
-                self.report_error(
-                  ReportKind::TokenError,
-                    span.clone(),
-                    format!("Type '{}' cannot represent value '{}'", Type::Integer, value),
-                );
-                self.report_error(
-                    ReportKind::Note,
-                    span.clone(),
-                    format!("Value '{}' would be stored as '{}'", value, *value as i32),
-                )
+              *value
             },
-        }
+        };
+
+        self.report_error(
+            ReportKind::TokenError,
+            span.clone(),
+            format!("Type '{}' cannot represent value '{}'", Type::Integer, value),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            format!("Value '{}' would be stored as '{}'", value, value as i32),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            "Use explicit 'as int' cast if this is wanted".to_owned(),
+        );
     }
 
     fn check_byte_for_overflow(&mut self, byte: &AstByte, span: &Span) {
-        match byte {
-            AstByte::Byte(_) => (), // OK
+        let value = match byte {
+            AstByte::Byte(_) => return, // OK
             AstByte::ByteMaxPlusOne => {
-                let value = i8::MAX as u64 + 1;
-                self.report_error(
-                    ReportKind::TokenError,
-                    span.clone(),
-                    format!("Type '{}' cannot represent value '{}'", Type::Byte, value),
-                );
-                self.report_error(
-                    ReportKind::Note,
-                    span.clone(),
-                    format!("Value '{}' would be stored as '{}'", value, value as i8),
-                )
+                i8::MAX as u64 + 1
+
             }
             AstByte::Invalid(value) => {
-                self.report_error(
-                    ReportKind::TokenError,
-                    span.clone(),
-                    format!("Type '{}' cannot represent value '{}'", Type::Byte, value),
-                );
-                self.report_error(
-                    ReportKind::Note,
-                    span.clone(),
-                    format!("Value '{}' would be stored as '{}'", value, *value as i8),
-                )
+               *value
             },
+        };
 
-        }
+        self.report_error(
+            ReportKind::TokenError,
+            span.clone(),
+            format!("Type '{}' cannot represent value '{}'", Type::Byte, value),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            format!("Value '{}' would be stored as '{}'", value, value as i8),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            "Use explicit 'as byte' cast if this is wanted".to_owned(),
+        );
     }
 
     fn check_identifier_is_declared(&mut self, name: &str, span: &Span) ->

@@ -76,6 +76,8 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
 
 
             ByteCode::Mov(unary_op) |
+            ByteCode::Movzx(unary_op) |
+            ByteCode::Movsx(unary_op) |
             ByteCode::Lea(unary_op) |
             ByteCode::Negate(unary_op) => handle_unary_op(unary_op, &mut stack_map),
             ByteCode::Add(binary_op) |
@@ -222,6 +224,7 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
     for instr in code.iter() {
         match instr {
             ByteCode::Mov(unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Movsx(unary_op) => handle_movsx_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Lea(unary_op) => handle_lea_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Negate(unary_op) => handle_negate_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Add(binary_op) => handle_add_allocation(binary_op, &mut updated_instructions, stack_map),
@@ -266,16 +269,18 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         UnaryOperation{dest: VirtualRegister(ref vregdata), src: IntegerConstant(value)} => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+            ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
             updated_instructions.push(ByteCode::Mov(UnaryOperation{
-               dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+               dest: StackOffset{offset: stack_slot.offset, size: vregdata.size},
                src: IntegerConstant(*value),
             }));
         },
         UnaryOperation{dest: VirtualRegister(ref vregdata), src: ByteConstant(value)} => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+            ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
             updated_instructions.push(ByteCode::Mov(UnaryOperation{
-                dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                dest: StackOffset{offset: stack_slot.offset, size: vregdata.size},
                 src: ByteConstant(*value),
             }));
         },
@@ -293,14 +298,17 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
 
+            ice_if!(src_vregdata.size > src_stack_slot.size, "Attempt to read {} bytes from stack slot with size {}", src_vregdata.size, src_stack_slot.size);
+            ice_if!(dest_vregdata.size > dest_stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", dest_vregdata.size, dest_stack_slot.size);
+
             updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                dest: PhysicalRegister(get_register_for_size(dest_stack_slot.size)),
-                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+                dest: PhysicalRegister(get_register_for_size(dest_vregdata.size)),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_vregdata.size},
             }));
 
             updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
-                src: PhysicalRegister(get_register_for_size(dest_stack_slot.size)),
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_vregdata.size},
+                src: PhysicalRegister(get_register_for_size(dest_vregdata.size)),
             }));
 
 
@@ -1039,6 +1047,30 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                         } ,
                     }
                 ));
+        },
+        _ => unimplemented!("Not implemented for {:#?}", unary_op),
+    }
+}
+
+
+fn handle_movsx_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &mut StackMap) {
+    match unary_op {
+          UnaryOperation{dest: VirtualRegister(ref dest_vregdata), src: VirtualRegister(ref src_vregdata)} => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+
+
+            updated_instructions.push(ByteCode::Movsx(UnaryOperation {
+                dest: PhysicalRegister(get_register_for_size(dest_stack_slot.size)),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_vregdata.size},
+                src: PhysicalRegister(get_register_for_size(dest_vregdata.size)),
+            }));
+
+
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
     }
