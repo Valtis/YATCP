@@ -914,7 +914,7 @@ mod tests {
     #[test]
     fn keywords_are_accepted() {
         let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class
-        public protected private extern int float double bool void string");
+        public protected private extern int float double bool void string as");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1010,6 +1010,11 @@ mod tests {
             lexer.next_token(),
             TokenType::VarType,
             TokenSubType::StringType);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::As,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1852,7 +1857,5 @@ mod tests {
                 Span::new(3, 9, 3),
                 "".to_owned()),
             messages[2]);
-
-
     }
 }
