@@ -8,7 +8,7 @@ fn main() {
 	let shift_count: byte = 1;
 
 	// shift_count_const gets promoted to integer, should be byte
-	shift_value = shift_count_const << shift_count;
+	let shift_value: byte = shift_count_const << shift_count;
 
 	byte_printer(shift_value);
 }
