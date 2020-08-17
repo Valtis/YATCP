@@ -64,13 +64,12 @@ pub enum TokenType {
 
 impl Display for TokenType {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
-    Display::fmt(
-      match *self {
+    write!(formatter, "{}", match *self {
         TokenType::Equals => "=",
         TokenType::Exclamation => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
-        TokenType::Identifier => "identifier",
+        TokenType::Identifier=> "identifier",
         TokenType::LParen => "(",
         TokenType::RParen => ")",
         TokenType::LBrace => "{",
@@ -99,7 +98,7 @@ impl Display for TokenType {
         TokenType::Extern => "extern",
         TokenType::VarType => "type",
         TokenType::As => "as",
-        TokenType::Plus => "+" ,
+        TokenType::Plus => "+",
         TokenType::Minus => "-",
         TokenType::Star => "*",
         TokenType::Percentage => "%",
@@ -120,10 +119,10 @@ impl Display for TokenType {
         TokenType::ArrowRightEquals => ">=",
         TokenType::ArrowLeftEquals => "<=",
         TokenType::Eof => "<EOF>",
-
-      }, formatter)
+      })
   }
 }
+
 
 // TODO: PartialEq should be implemented explicitly so that
 // we can use epsilon for floating point numbers when doing equality comparison
@@ -142,7 +141,6 @@ pub enum TokenSubType {
    *
    */
   IntegerNumber(u64),
-  Identifier(Rc<String>),
   BooleanValue(bool),
   FloatType,
   DoubleType,
@@ -161,12 +159,12 @@ impl Display for TokenSubType {
           TokenSubType::NoSubType => "".to_string(),
           _ => "(".to_string(),
      })?;
-    write!(formatter, "{}", match *self {
-        TokenSubType::Text(ref text) => format!("{}{}{}", "\"", text, "\""),
+
+      write!(formatter, "{}", match *self {
+        TokenSubType::Text(ref text) => format!("\"{}\"", text),
         TokenSubType::FloatNumber(value) => format!("{}f", value.to_string()),
         TokenSubType::DoubleNumber(value) => format!("{}d", value.to_string()),
         TokenSubType::IntegerNumber(value) => value.to_string(),
-        TokenSubType::Identifier(ref text) => format!("{}{}{}", "\"", text, "\""),
         TokenSubType::BooleanValue(value) => value.to_string(),
         TokenSubType::FloatType => "float".to_string(),
         TokenSubType::DoubleType => "double".to_string(),

@@ -1,4 +1,4 @@
-use crate::lexer::token::{Token, TokenSubType};
+use crate::lexer::token::{Token, TokenType, TokenSubType};
 use crate::semcheck::Type;
 use crate::symbol_table;
 
@@ -13,8 +13,8 @@ use crate::variable_attributes::VariableAttribute;
 use std::collections::HashSet;
 
 fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
-    match identifier.token_subtype {
-        TokenSubType::Identifier(ref text) => text.clone(),
+    match (identifier.token_type, &identifier.token_subtype) {
+        (TokenType::Identifier, &TokenSubType::Text(ref text)) => text.clone(),
         _ => ice!("Expected identifier but was '{}' instead", identifier),
     }
 }

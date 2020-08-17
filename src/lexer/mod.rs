@@ -221,7 +221,7 @@ impl ReadLexer {
 
                 self.create_token(
                     TokenType::Identifier,
-                    TokenSubType::Identifier(index))
+                    TokenSubType::Text(index))
             },
         }
     }
@@ -1032,37 +1032,37 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("id".to_string())));
+            TokenSubType::Text(Rc::new("id".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("ident".to_string())));
+            TokenSubType::Text(Rc::new("ident".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("while_ident".to_string())));
+            TokenSubType::Text(Rc::new("while_ident".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("ifff".to_string())));
+            TokenSubType::Text(Rc::new("ifff".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("_a_".to_string())));
+            TokenSubType::Text(Rc::new("_a_".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("a123".to_string())));
+            TokenSubType::Text(Rc::new("a123".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("a_1_2_3".to_string())));
+            TokenSubType::Text(Rc::new("a_1_2_3".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1341,7 +1341,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("identifier".to_string())));
+            TokenSubType::Text(Rc::new("identifier".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1477,7 +1477,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("valid_token".to_string())));
+            TokenSubType::Text(Rc::new("valid_token".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1699,12 +1699,12 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("hello".to_string())));
+            TokenSubType::Text(Rc::new("hello".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Identifier(Rc::new("foo".to_string())));
+            TokenSubType::Text(Rc::new("foo".to_string())));
 
         assert_eq_token!(
             lexer.next_token(),

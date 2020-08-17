@@ -424,7 +424,7 @@ impl Parser {
         }
         let expression_node = self.parse_expression()?;
 
-        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
+        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_assignment",
@@ -487,7 +487,7 @@ impl Parser {
         &mut self,
         identifier: Token) -> Result<AstNode, ()>  {
 
-        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
+        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_function_call",
@@ -518,7 +518,7 @@ impl Parser {
     fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
         self.expect(TokenType::LBracket)?;
 
-        let name = if let TokenSubType::Identifier(ref ident) = identifier.token_subtype {
+        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_function_call",
@@ -1048,7 +1048,7 @@ impl Parser {
         let dot = self.expect(TokenType::Dot)?;
         let member = self.expect(TokenType::Identifier)?;
 
-        let name = if let TokenSubType::Identifier(ref id) = member.token_subtype {
+        let name = if let TokenSubType::Text(ref id) = member.token_subtype {
             id.clone()
         } else {
             ice!("Invalid token '{:#?'} received when identifier was expected");
@@ -1088,7 +1088,7 @@ impl Parser {
                     self.parse_function_call(token)
                 } else {
                     match token.token_subtype {
-                        TokenSubType::Identifier(ref name) =>
+                        TokenSubType::Text(ref name) =>
                             Ok(AstNode::Identifier{
                                 name: name.clone(),
                                 span: Span::from(token)}),
