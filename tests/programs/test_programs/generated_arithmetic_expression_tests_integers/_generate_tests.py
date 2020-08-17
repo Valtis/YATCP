@@ -21,7 +21,7 @@ test_tuples = [
         "-4",
         -4),
 
-    
+
     # addition
     ("constant_constant_addition_works",
         "",
@@ -59,7 +59,7 @@ test_tuples = [
         170),
     ("variable_variable_self_assignment_addition_works",
         """
-        let a: int = 123; 
+        let a: int = 123;
         let b: int = 47;
         a = a + b;
         """,
@@ -67,7 +67,7 @@ test_tuples = [
         170),
     ("variable_variable_self_assignment_rhs_addition_works",
         """
-        let a: int = 123; 
+        let a: int = 123;
         let b: int = 47;
         a = b + a;
         """,
@@ -126,14 +126,14 @@ test_tuples = [
         a = 5 - a;
         """,
         "a",
-        -3), 
+        -3),
     ("variable_variable_subtraction_works",
         "let a: int = 8; let b: int = 5402;",
         "a - b",
         -5394),
     ("variable_variable_self_assignment_subtraction_works",
         """
-        let a: int = 8; 
+        let a: int = 8;
         let b: int = 5402;
         a = a - b;
         """,
@@ -141,7 +141,7 @@ test_tuples = [
         -5394),
     ("variable_variable_self_assignment_rhs_subtraction_works",
         """
-        let a: int = 8; 
+        let a: int = 8;
         let b: int = 5402;
         b = a - b;
         """,
@@ -207,7 +207,7 @@ test_tuples = [
         -8),
     ("variable_variable_self_assignment_multiplication_works",
         """
-        let a: int = 8; 
+        let a: int = 8;
         let b: int = -1;
         a = a * b;
         """,
@@ -215,7 +215,7 @@ test_tuples = [
         -8),
     ("variable_variable_self_assignment_rhs_multiplication_works",
         """
-        let a: int = 8; 
+        let a: int = 8;
         let b: int = -1;
         b = a * b;
         """,
@@ -305,7 +305,7 @@ test_tuples = [
        2),
 
 
-    # modulo 
+    # modulo
     ("constant_constant_modulo_works_when_result_is_positive",
        "",
        "7 % 2",
@@ -334,7 +334,7 @@ test_tuples = [
         "a%b",
         3),
 
-    # negation 
+    # negation
 
     ("can_negate_variable",
         """
@@ -378,6 +378,13 @@ test_tuples = [
         """,
         "b",
         INT_MIN),
+    ("can_negate_constant_variable",
+        f"""
+        const X: int = 12345;
+        let b: int = -X;
+        """,
+        "b",
+        -12345),
 
     # logical shift left
 

@@ -1317,6 +1317,7 @@ impl SemanticsCheck {
         // otherwise just set the type to the type of the child
 
         let valid_types = vec![
+            Type::IntegralNumber,
             Type::Integer,
             Type::Byte,
             Type::Float,

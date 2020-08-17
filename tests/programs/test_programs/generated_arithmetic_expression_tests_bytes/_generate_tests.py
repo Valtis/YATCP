@@ -57,7 +57,7 @@ test_tuples = [
         97),
     ("variable_variable_self_assignment_addition_works",
         """
-        let a: byte = 50; 
+        let a: byte = 50;
         let b: byte = 47;
         a = a + b;
         """,
@@ -66,7 +66,7 @@ test_tuples = [
 
     ("variable_variable_self_assignment_rhs_addition_works",
         """
-        let a: byte = 50; 
+        let a: byte = 50;
         let b: byte = 47;
         b = a + b;
         """,
@@ -130,7 +130,7 @@ test_tuples = [
         -30),
     ("variable_variable_self_assignment_subtraction_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = 38;
         a = a - b;
         """,
@@ -138,7 +138,7 @@ test_tuples = [
         -30),
     ("variable_variable_self_assignment_rhs_subtraction_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = 38;
         b = a - b;
         """,
@@ -206,7 +206,7 @@ test_tuples = [
         -8),
     ("variable_variable_self_assignment_multiplication_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = -1;
         a = a*b;
         """,
@@ -214,7 +214,7 @@ test_tuples = [
         -8),
     ("variable_variable_self_assignment_rhs_multiplication_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = -1;
         b = a*b;
         """,
@@ -283,7 +283,7 @@ test_tuples = [
 
     ("variable_variable__self_assignment_division_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = -1;
         a = a / b;
         """,
@@ -292,7 +292,7 @@ test_tuples = [
 
     ("variable_variable__self_assignment_rhs_division_works",
         """
-        let a: byte = 8; 
+        let a: byte = 8;
         let b: byte = -1;
         b = a / b;
         """,
@@ -309,7 +309,7 @@ test_tuples = [
         "127/a/b/c/d",
        5),
 
-    # modulo 
+    # modulo
     ("constant_constant_modulo_works_when_result_is_positive",
        "",
        "7 % 2",
@@ -338,7 +338,7 @@ test_tuples = [
         "a%b",
         3),
 
-    # negation 
+    # negation
 
     ("can_negate_variable",
         """
@@ -382,6 +382,14 @@ test_tuples = [
         """,
         "b",
         BYTE_MIN),
+
+    ("can_negate_constant_variable",
+        f"""
+        const X: byte = 5;
+        let b: byte = -X;
+        """,
+        "b",
+        -5),
 
     # +=
     ("self_addition_shorthand_works",
@@ -542,7 +550,7 @@ program: |
 link_with:
     - tests/files/support/support.c
 callable: test_function
-returns: byte 
+returns: byte
 expect_stdout: |
     {t[3]}
     '''
