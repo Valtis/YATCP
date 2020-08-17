@@ -6,8 +6,6 @@ use std::rc::Rc;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
-  Equals,
-  Comparison,
   Exclamation,
   Number,
   Text,
@@ -55,6 +53,13 @@ pub enum TokenType {
   TripleArrowRight,
   As,
   Eof,
+  Equals,
+  DoubleEquals,
+  ExclamationEquals,
+  ArrowLeft,
+  ArrowLeftEquals,
+  ArrowRight,
+  ArrowRightEquals,
 }
 
 impl Display for TokenType {
@@ -62,7 +67,6 @@ impl Display for TokenType {
     Display::fmt(
       match *self {
         TokenType::Equals => "=",
-        TokenType::Comparison => "Comparison",
         TokenType::Exclamation => "!",
         TokenType::Number => "number",
         TokenType::Text => "text",
@@ -109,6 +113,12 @@ impl Display for TokenType {
         TokenType::DoubleArrowLeft => "<<",
         TokenType::DoubleArrowRight => ">>",
         TokenType::TripleArrowRight => ">>>",
+        TokenType::ExclamationEquals => "!=",
+        TokenType::DoubleEquals => "==",
+        TokenType::ArrowLeft => "<",
+        TokenType::ArrowRight => ">",
+        TokenType::ArrowRightEquals => ">=",
+        TokenType::ArrowLeftEquals => "<=",
         TokenType::Eof => "<EOF>",
 
       }, formatter)
@@ -142,12 +152,6 @@ pub enum TokenSubType {
   VoidType,
   StringType,
   NoSubType,
-  Equals,
-  Less,
-  LessOrEq,
-  Greater,
-  GreaterOrEq,
-  NotEquals,
   ErrorToken
 }
 
@@ -172,12 +176,6 @@ impl Display for TokenSubType {
         TokenSubType::VoidType => "void".to_string(),
         TokenSubType::StringType => "string".to_string(),
         TokenSubType::NoSubType => "".to_string(),
-        TokenSubType::Equals => "==".to_string(),
-        TokenSubType::Less => "<".to_string(),
-        TokenSubType::Greater => ">".to_string(),
-        TokenSubType::GreaterOrEq => ">=".to_string(),
-        TokenSubType::LessOrEq => "<=".to_string(),
-        TokenSubType::NotEquals => "!=".to_string(),
         TokenSubType::ErrorToken => "<Invalid token>".to_string(),
     })?;
 
@@ -237,6 +235,6 @@ impl PartialEq for Token {
 
 impl Token {
   pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32, length : i32) -> Token {
-    Token { token_type: token_type, token_subtype: subtype, line: line, column: column, length: length }
+    Token { token_type, token_subtype: subtype, line, column, length }
   }
 }

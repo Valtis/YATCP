@@ -110,21 +110,21 @@ impl ReadLexer {
             '=' => self.multi_char_operator_helper(
                 ch, vec![
                     ("=", TokenType::Equals, TokenSubType::NoSubType),
-                    ("==", TokenType::Comparison, TokenSubType::Equals)]),
+                    ("==", TokenType::DoubleEquals, TokenSubType::NoSubType)]),
             '>' => self.multi_char_operator_helper(
                 ch, vec![
-                    (">", TokenType::Comparison, TokenSubType::Greater),
-                    (">=", TokenType::Comparison, TokenSubType::GreaterOrEq),
+                    (">", TokenType::ArrowRight, TokenSubType::NoSubType),
+                    (">=", TokenType::ArrowRightEquals, TokenSubType::NoSubType),
                     (">>", TokenType::DoubleArrowRight, TokenSubType::NoSubType),
                     (">>>", TokenType::TripleArrowRight, TokenSubType::NoSubType)]),
             '<' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("<=", TokenType::Comparison, TokenSubType::LessOrEq),
-                    ("<", TokenType::Comparison, TokenSubType::Less),
+                    ("<=", TokenType::ArrowLeftEquals, TokenSubType::NoSubType),
+                    ("<", TokenType::ArrowLeft, TokenSubType::NoSubType),
                     ("<<", TokenType::DoubleArrowLeft, TokenSubType::NoSubType)]),
             '!' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("!=", TokenType::Comparison, TokenSubType::NotEquals),
+                    ("!=", TokenType::ExclamationEquals, TokenSubType::NoSubType),
                     ("!", TokenType::Exclamation, TokenSubType::NoSubType)]),
             '&' => self.multi_char_operator_helper(
                 ch, vec![
@@ -1078,28 +1078,28 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::Less);
+            TokenType::ArrowLeft,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::LessOrEq);
+            TokenType::ArrowLeftEquals,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::Equals);
+            TokenType::DoubleEquals,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::GreaterOrEq);
+            TokenType::ArrowRightEquals,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::Greater);
+            TokenType::ArrowRight,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1108,8 +1108,8 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::Comparison,
-            TokenSubType::NotEquals);
+            TokenType::ExclamationEquals,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),

@@ -21,13 +21,12 @@ impl Parser {
         lexer: Box<dyn Lexer>,
         error_reporter: Rc<RefCell<dyn ErrorReporter>>) -> Parser {
         Parser {
-            lexer: lexer,
-            error_reporter: error_reporter,
+            lexer,
+            error_reporter,
         }
     }
 
     pub fn parse(&mut self) -> AstNode {
-
         let top_level_tokens = vec![TokenType::Fn, TokenType::Extern, TokenType::Const];
         let mut nodes = vec![];
         loop {
@@ -338,7 +337,7 @@ impl Parser {
 
         let declaration = AstNode::VariableDeclaration{
             initialization_expression: Box::new(expression_node),
-            declaration_info: declaration_info
+            declaration_info
         };
 
         Ok(declaration)
@@ -479,7 +478,7 @@ impl Parser {
 
         Ok(AstNode::VariableAssignment{
             expression: Box::new(expression_node),
-            name: name,
+            name,
             span: Span::from(&identifier)
         })
     }
@@ -788,7 +787,7 @@ impl Parser {
                 span: Span::from(for_node)});
 
         let block = AstNode::Block{
-            statements: statements,
+            statements,
             block_symbol_table_entry: None,
             span: Span::new(0,0,0)
         };
@@ -864,9 +863,8 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::Comparison &&
-                (next_token.token_subtype == TokenSubType::Equals ||
-                next_token.token_subtype == TokenSubType::NotEquals) {
+            if next_token.token_type == TokenType::DoubleEquals ||
+                next_token.token_type == TokenType::ExclamationEquals {
                 node = self.parse_equals_not_equals_comparison_expression(node)?;
             } else {
                 break;
@@ -881,9 +879,15 @@ impl Parser {
 
         loop {
             let next_token = self.lexer.peek_token();
-            if next_token.token_type == TokenType::Comparison &&
-                !(next_token.token_subtype == TokenSubType::Equals ||
-                    next_token.token_subtype == TokenSubType::NotEquals) {
+
+            const TOKENS: [TokenType; 4] = [
+                TokenType::ArrowRight,
+                TokenType::ArrowRightEquals,
+                TokenType::ArrowLeft,
+                TokenType::ArrowLeftEquals,
+            ];
+
+            if TOKENS.contains(&next_token.token_type) {
                     node = self.parse_greater_less_comparison_expression(node)?;
                 } else {
                 break;
@@ -1160,11 +1164,11 @@ impl Parser {
     fn parse_equals_not_equals_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::Comparison)?;
+        let next_token = self.expect_one_of(vec![TokenType::DoubleEquals, TokenType::ExclamationEquals])?;
         let n_node = self.parse_arithmetic_expression_with_greater_less_comparisons()?;
 
-        match next_token.token_subtype {
-            TokenSubType::Equals => {
+        match next_token.token_type {
+            TokenType::DoubleEquals => {
                 let equals_node = AstNode::Equals {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
@@ -1172,7 +1176,7 @@ impl Parser {
                 };
                 Ok(equals_node)
             },
-            TokenSubType::NotEquals => {
+            TokenType::ExclamationEquals => {
                 let not_equals_node = AstNode::NotEquals{
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
@@ -1187,11 +1191,18 @@ impl Parser {
     fn parse_greater_less_comparison_expression(
         &mut self, node: AstNode) -> Result<AstNode, ()> {
 
-        let next_token = self.expect(TokenType::Comparison)?;
+        let next_token = self.expect_one_of(
+            vec![
+                TokenType::ArrowLeft,
+                TokenType::ArrowLeftEquals,
+                TokenType::ArrowRight,
+                TokenType::ArrowRightEquals
+            ]
+        )?;
         let n_node = self.parse_arithmetic_expression()?;
 
-        match next_token.token_subtype {
-            TokenSubType::Less => {
+        match next_token.token_type {
+            TokenType::ArrowLeft => {
                 let less_node = AstNode::Less {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
@@ -1199,7 +1210,7 @@ impl Parser {
                 };
                 Ok(less_node)
             },
-            TokenSubType::LessOrEq => {
+            TokenType::ArrowLeftEquals => {
                 let less_or_eq_node = AstNode::LessOrEq {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
@@ -1207,7 +1218,7 @@ impl Parser {
                 };
                 Ok(less_or_eq_node)
             },
-            TokenSubType::GreaterOrEq => {
+            TokenType::ArrowRightEquals => {
                 let greater_or_eq_node = AstNode::GreaterOrEq {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
@@ -1215,7 +1226,7 @@ impl Parser {
                 };
                 Ok(greater_or_eq_node)
             },
-            TokenSubType::Greater => {
+            TokenType::ArrowRight => {
                 let greater_node = AstNode::Greater {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
