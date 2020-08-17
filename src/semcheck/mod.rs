@@ -723,7 +723,6 @@ impl SemanticsCheck {
 
                     if let AstNode::Integer { ref value, .. } = expr {
                         match value {
-                            AstInteger::IntMaxPlusOne |
                             AstInteger::Invalid(_) => {
 
                                 self.report_error(
@@ -1536,9 +1535,6 @@ impl SemanticsCheck {
     fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         let value = match integer {
             AstInteger::Int(_) => return, // OK
-            AstInteger::IntMaxPlusOne => {
-                i32::MAX as i128 + 1
-            },
             AstInteger::Invalid(value) => {
               *value
             },
@@ -1564,10 +1560,6 @@ impl SemanticsCheck {
     fn check_byte_for_overflow(&mut self, byte: &AstByte, span: &Span) {
         let value = match byte {
             AstByte::Byte(_) => return, // OK
-            AstByte::ByteMaxPlusOne => {
-                i8::MAX as i128 + 1
-
-            }
             AstByte::Invalid(value) => {
                *value
             },
@@ -2110,10 +2102,6 @@ impl SemanticsCheck {
 
                                 match value {
                                     AstInteger::Int(value) => {
-                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
-                                    }
-                                    AstInteger::IntMaxPlusOne => {
-                                        let value = i32::MAX as u64 + 1;
                                         AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
                                     }
                                     AstInteger::Invalid(value) => {

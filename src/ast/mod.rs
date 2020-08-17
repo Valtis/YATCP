@@ -22,14 +22,12 @@ fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstInteger {
     Int(i32),
-    IntMaxPlusOne,
     Invalid(i128),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstByte {
     Byte(i8),
-    ByteMaxPlusOne,
     Invalid(i128),
 }
 
@@ -37,8 +35,6 @@ impl From<i128> for AstInteger {
     fn from(val: i128) -> AstInteger {
         if val <= i32::max_value() as i128 && val >= i32::min_value() as i128 {
             AstInteger::Int(val as i32)
-        } else if val == i32::max_value() as i128 + 1 {
-            AstInteger::IntMaxPlusOne
         } else {
             AstInteger::Invalid(val)
         }
@@ -49,8 +45,6 @@ impl From<u64> for AstInteger {
     fn from(val: u64) -> AstInteger {
         if val <= i32::max_value() as u64 {
             AstInteger::Int(val as i32)
-        } else if val == i32::max_value() as u64 + 1 {
-            AstInteger::IntMaxPlusOne
         } else {
             AstInteger::Invalid(val as i128)
         }
@@ -62,8 +56,6 @@ impl From<i128> for AstByte {
     fn from(val: i128) -> AstByte {
         if val <= i8::max_value() as i128 && val >= i8::min_value() as i128  {
             AstByte::Byte(val as i8)
-        } else if val == i8::max_value() as i128 + 1 {
-            AstByte::ByteMaxPlusOne
         } else {
             AstByte::Invalid(val)
         }
@@ -74,8 +66,6 @@ impl From<u64> for AstByte {
     fn from(val: u64) -> AstByte {
         if val <= i8::max_value() as u64 {
             AstByte::Byte(val as i8)
-        } else if val == i8::max_value() as u64 + 1 {
-            AstByte::ByteMaxPlusOne
         } else {
             AstByte::Invalid(val as i128)
         }
@@ -94,7 +84,6 @@ impl Display for AstInteger {
                match self {
                    AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in i32)", val),
                    AstInteger::Int(val) => format!("{}", val),
-                   AstInteger::IntMaxPlusOne => "Int max plus one (2147483648".to_owned(),
                })
     }
 }
@@ -104,11 +93,8 @@ impl From<AstByte> for AstInteger {
     fn from(value: AstByte) -> AstInteger {
         match value {
             AstByte::Byte(value) => AstInteger::Int(value as i32),
-            AstByte::ByteMaxPlusOne => AstInteger::Int(i8::max_value() as i32),
             AstByte::Invalid(value ) => {
-                if value == i32::max_value() as i128 + 1 {
-                    AstInteger::IntMaxPlusOne
-                }  else if value > i32::max_value() as i128 || value < i32::min_value() as i128 {
+                if value > i32::max_value() as i128 || value < i32::min_value() as i128 {
                     AstInteger::Invalid(value)
                 } else {
                     AstInteger::Int(value as i32)
@@ -122,16 +108,13 @@ impl From<AstInteger> for AstByte {
     fn from(value: AstInteger) -> AstByte {
         match value {
             AstInteger::Int(value) => {
-                if value == i8::max_value() as i32 + 1 {
-                    AstByte::ByteMaxPlusOne
-                } else if value > i8::max_value() as i32 || value < i8::min_value() as i32 {
+                if value > i8::max_value() as i32 || value < i8::min_value() as i32 {
                     AstByte::Invalid(value as i128)
                 } else {
                     AstByte::Byte(value as i8)
                 }
 
             },
-            AstInteger::IntMaxPlusOne => AstByte::Invalid(i32::max_value() as i128 + 1),
             AstInteger::Invalid(x) => AstByte::Invalid(x)
         }
     }
@@ -143,7 +126,6 @@ impl Display for AstByte {
                match self {
                    AstByte::Invalid(val) => format!("(Overflow, {} does not fit in i8)", val),
                    AstByte::Byte(val) => format!("{}", val),
-                   AstByte::ByteMaxPlusOne => "Byte max plus one (256)".to_owned(),
                })
     }
 }
