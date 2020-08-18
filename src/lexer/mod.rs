@@ -365,7 +365,7 @@ impl ReadLexer {
                         format!("Number does not fit inside 32 bit signed integer"),
                     );
 
-                    return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken);
+                    return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);
                 }
 
                 ice!("Non-numeric characters in number token at {}:{} ({})",
@@ -406,7 +406,7 @@ impl ReadLexer {
         }
 
         if separator_error {
-            return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken);
+            return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);
         }
 
         match number_str.parse() {
@@ -446,7 +446,7 @@ impl ReadLexer {
 
             self.create_token_with_attribute(
                 TokenType::NumberConstant,
-                TokenAttribute::ErrorToken)
+                TokenAttribute::ErrorValue)
         }
     }
 
@@ -501,12 +501,12 @@ impl ReadLexer {
                     );
                 }
 
-                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken)
+                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue)
             } else {
                 self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegralConstant(text.as_bytes()[0] as u128))
             }
         } else {
-            self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken)
+            self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue)
         }
     }
 
@@ -524,7 +524,7 @@ impl ReadLexer {
         } else {
             self.create_token_with_attribute(
                 TokenType::Text,
-                TokenAttribute::ErrorToken)
+                TokenAttribute::ErrorValue)
         }
     }
 
@@ -1397,17 +1397,17 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1476,7 +1476,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1486,7 +1486,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1506,7 +1506,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1587,7 +1587,7 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1647,17 +1647,17 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::ErrorToken));
+            Some(TokenAttribute::ErrorValue));
 
         assert_eq_token!(
             lexer.next_token(),

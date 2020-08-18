@@ -1092,7 +1092,7 @@ impl Parser {
                             Ok(AstNode::Identifier{
                                 name: name.clone(),
                                 span: Span::from(token)}),
-                        Some(TokenAttribute::ErrorToken) =>
+                        Some(TokenAttribute::ErrorValue) =>
                                 Ok(AstNode::ErrorNode),
                         _ => ice!(
                             "invalid token '{}' passed when identifier expected", token),
@@ -1116,7 +1116,7 @@ impl Parser {
                             value: i,
                             span: Span::from(token)})
                     },
-                    Some(TokenAttribute::ErrorToken) => {
+                    Some(TokenAttribute::ErrorValue) => {
                         Ok(AstNode::ErrorNode)
                     },
                     _ => ice!("Invalid token '{}' passed when number expected", token)
@@ -1143,7 +1143,7 @@ impl Parser {
                         Ok(AstNode::Text{
                             value: text.clone(),
                             span: Span::from(token)}),
-                    Some(TokenAttribute::ErrorToken) =>
+                    Some(TokenAttribute::ErrorValue) =>
                         Ok(AstNode::ErrorNode),
                     _ => ice!("Invalid token '{}' passed when text expected", token),
                 }
