@@ -90,50 +90,50 @@ impl ReadLexer {
 
     fn handle_symbols(&mut self, ch: char) -> Token {
         match ch {
-            '-' => self.create_token(TokenType::Minus, TokenSubType::NoSubType),
-            '+' => self.create_token(TokenType::Plus, TokenSubType::NoSubType),
-            '*' => self.create_token(TokenType::Star, TokenSubType::NoSubType),
-            '/' => self.create_token(TokenType::ForwardSlash, TokenSubType::NoSubType),
-            '%' => self.create_token(TokenType::Percentage, TokenSubType::NoSubType),
-            '[' => self.create_token(TokenType::LBracket, TokenSubType::NoSubType),
-            ']' => self.create_token(TokenType::RBracket, TokenSubType::NoSubType),
-            '{' => self.create_token(TokenType::LBrace, TokenSubType::NoSubType),
-            '}' => self.create_token(TokenType::RBrace, TokenSubType::NoSubType),
-            '(' => self.create_token(TokenType::LParen, TokenSubType::NoSubType),
-            ')' => self.create_token(TokenType::RParen, TokenSubType::NoSubType),
-            ';' => self.create_token(TokenType::SemiColon, TokenSubType::NoSubType),
-            ',' => self.create_token(TokenType::Comma, TokenSubType::NoSubType),
-            '.' => self.create_token(TokenType::Dot, TokenSubType::NoSubType),
-            ':' => self.create_token(TokenType::Colon, TokenSubType::NoSubType),
-            '^' => self.create_token(TokenType::Caret, TokenSubType::NoSubType),
-            '~' => self.create_token(TokenType::Tilde, TokenSubType::NoSubType),
+            '-' => self.create_token(TokenType::Minus),
+            '+' => self.create_token(TokenType::Plus),
+            '*' => self.create_token(TokenType::Star),
+            '/' => self.create_token(TokenType::ForwardSlash),
+            '%' => self.create_token(TokenType::Percentage),
+            '[' => self.create_token(TokenType::LBracket),
+            ']' => self.create_token(TokenType::RBracket),
+            '{' => self.create_token(TokenType::LBrace),
+            '}' => self.create_token(TokenType::RBrace),
+            '(' => self.create_token(TokenType::LParen),
+            ')' => self.create_token(TokenType::RParen),
+            ';' => self.create_token(TokenType::SemiColon),
+            ',' => self.create_token(TokenType::Comma),
+            '.' => self.create_token(TokenType::Dot),
+            ':' => self.create_token(TokenType::Colon),
+            '^' => self.create_token(TokenType::Caret),
+            '~' => self.create_token(TokenType::Tilde),
             '=' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("=", TokenType::Equals, TokenSubType::NoSubType),
-                    ("==", TokenType::DoubleEquals, TokenSubType::NoSubType)]),
+                    ("=", TokenType::Equals),
+                    ("==", TokenType::DoubleEquals)]),
             '>' => self.multi_char_operator_helper(
                 ch, vec![
-                    (">", TokenType::ArrowRight, TokenSubType::NoSubType),
-                    (">=", TokenType::ArrowRightEquals, TokenSubType::NoSubType),
-                    (">>", TokenType::DoubleArrowRight, TokenSubType::NoSubType),
-                    (">>>", TokenType::TripleArrowRight, TokenSubType::NoSubType)]),
+                    (">", TokenType::ArrowRight),
+                    (">=", TokenType::ArrowRightEquals),
+                    (">>", TokenType::DoubleArrowRight),
+                    (">>>", TokenType::TripleArrowRight)]),
             '<' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("<=", TokenType::ArrowLeftEquals, TokenSubType::NoSubType),
-                    ("<", TokenType::ArrowLeft, TokenSubType::NoSubType),
-                    ("<<", TokenType::DoubleArrowLeft, TokenSubType::NoSubType)]),
+                    ("<=", TokenType::ArrowLeftEquals),
+                    ("<", TokenType::ArrowLeft),
+                    ("<<", TokenType::DoubleArrowLeft)]),
             '!' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("!=", TokenType::ExclamationEquals, TokenSubType::NoSubType),
-                    ("!", TokenType::Exclamation, TokenSubType::NoSubType)]),
+                    ("!=", TokenType::ExclamationEquals),
+                    ("!", TokenType::Exclamation)]),
             '&' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("&&", TokenType::DoubleAmpersand, TokenSubType::NoSubType),
-                    ("&", TokenType::Ampersand, TokenSubType::NoSubType)]),
+                    ("&&", TokenType::DoubleAmpersand),
+                    ("&", TokenType::Ampersand)]),
             '|' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("||", TokenType::DoublePipe, TokenSubType::NoSubType),
-                    ("|", TokenType::Pipe, TokenSubType::NoSubType)]),
+                    ("||", TokenType::DoublePipe),
+                    ("|", TokenType::Pipe)]),
             _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
         }
     }
@@ -145,21 +145,21 @@ impl ReadLexer {
     fn multi_char_operator_helper(
         &mut self,
         start_char: char,
-        operator_candidates: Vec<(&'static str, TokenType, TokenSubType)>) -> Token {
+        operator_candidates: Vec<(&'static str, TokenType)>) -> Token {
 
         let mut candidate_string = start_char.to_string();
         let mut candidate = None;
         loop {
-            let current_iteration_candidates = operator_candidates.iter().filter(|&(operator, _, _)| operator == &candidate_string).collect::<Vec<_>>();
+            let current_iteration_candidates = operator_candidates.iter().filter(|&(operator, _)| operator == &candidate_string).map(|(_, token_type)| token_type).collect::<Vec<_>>();
 
             candidate = if current_iteration_candidates.len() == 1 {
                 if candidate.is_some() {
                    self.next_char();
                 }
-                Some((current_iteration_candidates[0].1, current_iteration_candidates[0].2.clone()))
+                Some(current_iteration_candidates[0])
             } else {
-                if let Some(candidate_tuple) = candidate {
-                    return self.create_token(candidate_tuple.0, candidate_tuple.1);
+                if let Some(token_type) = candidate {
+                    return self.create_token(*token_type);
                 } else {
                     ice!("No match for operator starting with '{}', current candidate string '{}', candidate operators {:?}",
                         start_char,
@@ -171,8 +171,8 @@ impl ReadLexer {
             candidate_string.push(if let Some(ch) = self.peek_char() {
                 ch
             } else {
-                if let Some(candidate_tuple) = candidate {
-                    return self.create_token(candidate_tuple.0, candidate_tuple.1);
+                if let Some(token_type) = candidate {
+                    return self.create_token(*token_type);
                 } else {
                     ice!("No match for operator starting with '{}', current candidate string '{}', candidate operators {:?}",
                         start_char,
@@ -219,9 +219,9 @@ impl ReadLexer {
             _ => {
                 let index = self.string_table.insert(identifier);
 
-                self.create_token(
+                self.create_token_with_attribute(
                     TokenType::Identifier,
-                    TokenSubType::Text(index))
+                    TokenAttribute::Text(index))
             },
         }
     }
@@ -230,31 +230,31 @@ impl ReadLexer {
     public, protected, private, true, false, int, float, double, bool, void*/
     fn handle_keywords(&self, identifier: &str) -> Option<Token> {
         match identifier {
-            "if" => Some(self.create_token(TokenType::If, TokenSubType::NoSubType)),
-            "else" => Some(self.create_token(TokenType::Else, TokenSubType::NoSubType)),
-            "while" => Some(self.create_token(TokenType::While, TokenSubType::NoSubType)),
-            "for" => Some(self.create_token(TokenType::For, TokenSubType::NoSubType)),
-            "let" => Some(self.create_token(TokenType::Let, TokenSubType::NoSubType)),
-            "const" => Some(self.create_token(TokenType::Const, TokenSubType::NoSubType)),
-            "val" => Some(self.create_token(TokenType::Val, TokenSubType::NoSubType)),
-            "fn" => Some(self.create_token(TokenType::Fn, TokenSubType::NoSubType)),
-            "return" => Some(self.create_token(TokenType::Return, TokenSubType::NoSubType)),
-            "new" => Some(self.create_token(TokenType::New, TokenSubType::NoSubType)),
-            "class" => Some(self.create_token(TokenType::Class, TokenSubType::NoSubType)),
-            "public" => Some(self.create_token(TokenType::Public, TokenSubType::NoSubType)),
-            "protected" => Some(self.create_token(TokenType::Protected, TokenSubType::NoSubType)),
-            "private" => Some(self.create_token(TokenType::Private, TokenSubType::NoSubType)),
-            "extern" => Some(self.create_token(TokenType::Extern, TokenSubType::NoSubType)),
-            "true" => Some(self.create_token(TokenType::BooleanConstant, TokenSubType::BooleanValue(true))),
-            "false" => Some(self.create_token(TokenType::BooleanConstant, TokenSubType::BooleanValue(false))),
-            "int" => Some(self.create_token(TokenType::Integer, TokenSubType::NoSubType)),
-            "float" => Some(self.create_token(TokenType::Float, TokenSubType::NoSubType)),
-            "double" => Some(self.create_token(TokenType::Double, TokenSubType::NoSubType)),
-            "byte" => Some(self.create_token(TokenType::Byte, TokenSubType::NoSubType)),
-            "bool" => Some(self.create_token(TokenType::Boolean, TokenSubType::NoSubType)),
-            "void" => Some(self.create_token(TokenType::Void, TokenSubType::NoSubType)),
-            "string" => Some(self.create_token(TokenType::String, TokenSubType::NoSubType)),
-            "as" => Some(self.create_token(TokenType::As, TokenSubType::NoSubType)),
+            "if" => Some(self.create_token(TokenType::If)),
+            "else" => Some(self.create_token(TokenType::Else)),
+            "while" => Some(self.create_token(TokenType::While)),
+            "for" => Some(self.create_token(TokenType::For)),
+            "let" => Some(self.create_token(TokenType::Let)),
+            "const" => Some(self.create_token(TokenType::Const)),
+            "val" => Some(self.create_token(TokenType::Val)),
+            "fn" => Some(self.create_token(TokenType::Fn)),
+            "return" => Some(self.create_token(TokenType::Return)),
+            "new" => Some(self.create_token(TokenType::New)),
+            "class" => Some(self.create_token(TokenType::Class)),
+            "public" => Some(self.create_token(TokenType::Public)),
+            "protected" => Some(self.create_token(TokenType::Protected)),
+            "private" => Some(self.create_token(TokenType::Private)),
+            "extern" => Some(self.create_token(TokenType::Extern)),
+            "true" => Some(self.create_token_with_attribute(TokenType::BooleanConstant, TokenAttribute::BooleanValue(true))),
+            "false" => Some(self.create_token_with_attribute(TokenType::BooleanConstant, TokenAttribute::BooleanValue(false))),
+            "int" => Some(self.create_token(TokenType::Integer)),
+            "float" => Some(self.create_token(TokenType::Float)),
+            "double" => Some(self.create_token(TokenType::Double)),
+            "byte" => Some(self.create_token(TokenType::Byte)),
+            "bool" => Some(self.create_token(TokenType::Boolean)),
+            "void" => Some(self.create_token(TokenType::Void)),
+            "string" => Some(self.create_token(TokenType::String)),
+            "as" => Some(self.create_token(TokenType::As)),
             _ => None
         }
     }
@@ -334,7 +334,7 @@ impl ReadLexer {
         }
 
         match u128::from_str_radix(&number_str, radix) {
-            Ok(number) => self.create_token(TokenType::NumberConstant, TokenSubType::IntegralConstant(number)),
+            Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegralConstant(number)),
 
 
             Err(e) => {
@@ -365,7 +365,7 @@ impl ReadLexer {
                         format!("Number does not fit inside 32 bit signed integer"),
                     );
 
-                    return self.create_token(TokenType::NumberConstant, TokenSubType::ErrorToken);
+                    return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken);
                 }
 
                 ice!("Non-numeric characters in number token at {}:{} ({})",
@@ -406,11 +406,11 @@ impl ReadLexer {
         }
 
         if separator_error {
-            return self.create_token(TokenType::NumberConstant, TokenSubType::ErrorToken);
+            return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken);
         }
 
         match number_str.parse() {
-            Ok(number) => self.create_token(TokenType::NumberConstant, TokenSubType::DoubleConstant(number)),
+            Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::DoubleConstant(number)),
             Err(e) => ice!("Non-numeric characters in number token at {}:{} ({})",
             self.line, self.column, e),
         }
@@ -444,9 +444,9 @@ impl ReadLexer {
                 type_str.len(), // length of a single character
                 format!("Invalid type string '{}'", type_str));
 
-            self.create_token(
+            self.create_token_with_attribute(
                 TokenType::NumberConstant,
-                TokenSubType::ErrorToken)
+                TokenAttribute::ErrorToken)
         }
     }
 
@@ -454,14 +454,14 @@ impl ReadLexer {
 
         if &type_str == "d" {
             match number_str.parse() {
-                Ok(number) => self.create_token(TokenType::NumberConstant, TokenSubType::DoubleConstant(number)),
+                Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::DoubleConstant(number)),
                 Err(e) =>
                     ice!("Non-numeric characters in number token at {}:{} ({})",
               self.line, self.column, e),
             }
         } else if &type_str == "f" {
             match number_str.parse() {
-                Ok(number) => self.create_token(TokenType::NumberConstant, TokenSubType::FloatConstant(number)),
+                Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::FloatConstant(number)),
                 Err(e) =>
                     ice!("Non-numeric characters in number token at {}:{} ({})",
                 self.line, self.column, e),
@@ -501,12 +501,12 @@ impl ReadLexer {
                     );
                 }
 
-                self.create_token(TokenType::NumberConstant, TokenSubType::ErrorToken)
+                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken)
             } else {
-                self.create_token(TokenType::NumberConstant, TokenSubType::IntegralConstant(text.as_bytes()[0] as u128))
+                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegralConstant(text.as_bytes()[0] as u128))
             }
         } else {
-            self.create_token(TokenType::NumberConstant, TokenSubType::ErrorToken)
+            self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorToken)
         }
     }
 
@@ -520,11 +520,11 @@ impl ReadLexer {
         if let Some(bytes) = value {
             let text = String::from_utf8_lossy(&bytes).to_string();
             let index = self.string_table.insert(text);
-            self.create_token(TokenType::Text, TokenSubType::Text(index))
+            self.create_token_with_attribute(TokenType::Text, TokenAttribute::Text(index))
         } else {
-            self.create_token(
+            self.create_token_with_attribute(
                 TokenType::Text,
-                TokenSubType::ErrorToken)
+                TokenAttribute::ErrorToken)
         }
     }
 
@@ -611,8 +611,12 @@ impl ReadLexer {
         }
     }
 
-    fn create_token(&self, token_type: TokenType, token_subtype: TokenSubType) -> Token {
-        Token::new(token_type, token_subtype, self.token_start_line, self.token_start_column, self.column - self.token_start_column)
+    fn create_token(&self, token_type: TokenType) -> Token {
+        Token::new(token_type, None, self.token_start_line, self.token_start_column, self.column - self.token_start_column)
+    }
+
+    fn create_token_with_attribute(&self, token_type: TokenType, attribute: TokenAttribute) -> Token {
+        Token::new(token_type, Some(attribute), self.token_start_line, self.token_start_column, self.column - self.token_start_column)
     }
 
 
@@ -724,7 +728,7 @@ impl Lexer for ReadLexer {
                     self.next_token()
                 }
             }
-            None => self.create_token(TokenType::Eof, TokenSubType::NoSubType),
+            None => self.create_token(TokenType::Eof),
         };
         self.current_token = Some(token.clone());
         token
@@ -795,11 +799,11 @@ mod tests {
     }
 
     macro_rules! assert_eq_token {
-        ($token:expr, $t_type:expr, $t_subtype:expr) => (
+        ($token:expr, $t_type:expr, $t_attribute:expr) => (
           {
             let token = $token;
             assert_eq!(token.token_type, $t_type);
-            assert_eq!(token.token_subtype, $t_subtype);
+            assert_eq!(token.attribute, $t_attribute);
           }
         )
     }
@@ -818,20 +822,20 @@ mod tests {
     fn empty_stream_returns_eofs() {
         let (mut lexer, reporter) = create_lexer(r"");
         assert_eq_token!(lexer.next_token(),
-          TokenType::Eof,
-          TokenSubType::NoSubType);
+            TokenType::Eof,
+            None);
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -843,21 +847,21 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(1234));
+            Some(TokenAttribute::IntegralConstant(1234)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(111222));
+            Some(TokenAttribute::IntegralConstant(111222)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(99887766));
+            Some(TokenAttribute::IntegralConstant(99887766)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -869,19 +873,19 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::FloatConstant(123 as f32));
+            Some(TokenAttribute::FloatConstant(123 as f32)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::FloatConstant(456.78 as f32));
+            Some(TokenAttribute::FloatConstant(456.78 as f32)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::FloatConstant(0.99 as f32));
+            Some(TokenAttribute::FloatConstant(0.99 as f32)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -893,19 +897,19 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::DoubleConstant(123 as f64));
+            Some(TokenAttribute::DoubleConstant(123 as f64)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::DoubleConstant(456.78 as f64));
+            Some(TokenAttribute::DoubleConstant(456.78 as f64)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::DoubleConstant(0.99 as f64));
+            Some(TokenAttribute::DoubleConstant(0.99 as f64)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -919,107 +923,107 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::If,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Else,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::While,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::For,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Let,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Fn,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Return,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::New,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Class,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Public,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Protected,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Private,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Extern,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Integer,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Float,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Double,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Boolean,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Void,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::String,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::As,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1032,42 +1036,42 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("id".to_string())));
+            Some(TokenAttribute::Text(Rc::new("id".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("ident".to_string())));
+            Some(TokenAttribute::Text(Rc::new("ident".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("while_ident".to_string())));
+            Some(TokenAttribute::Text(Rc::new("while_ident".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("ifff".to_string())));
+            Some(TokenAttribute::Text(Rc::new("ifff".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("_a_".to_string())));
+            Some(TokenAttribute::Text(Rc::new("_a_".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("a123".to_string())));
+            Some(TokenAttribute::Text(Rc::new("a123".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("a_1_2_3".to_string())));
+            Some(TokenAttribute::Text(Rc::new("a_1_2_3".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1079,117 +1083,117 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ArrowLeft,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ArrowLeftEquals,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::DoubleEquals,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ArrowRightEquals,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ArrowRight,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Exclamation,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ExclamationEquals,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Equals,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Plus,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Minus,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Star,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::ForwardSlash,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Ampersand,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::DoubleAmpersand,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Pipe,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::DoublePipe,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Caret,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Tilde,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Percentage,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::DoubleArrowLeft,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::DoubleArrowRight,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::TripleArrowRight,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
 
         assert_eq!(reporter.borrow().errors(), 0);
@@ -1202,57 +1206,57 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LParen,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RParen,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LBrace,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RBrace,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LBracket,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RBracket,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::SemiColon,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Colon,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Dot,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Comma,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1264,57 +1268,57 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LParen,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RParen,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LBrace,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RBrace,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::LBracket,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::RBracket,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::SemiColon,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Colon,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Dot,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Comma,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1325,28 +1329,28 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-        TokenType::Text,
-            TokenSubType::Text(Rc::new("hello world".to_string())));
+            TokenType::Text,
+            Some(TokenAttribute::Text(Rc::new("hello world".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::Text(Rc::new("test".to_string())));
+            Some(TokenAttribute::Text(Rc::new("test".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::Text(Rc::new("yarhar".to_string())));
+            Some(TokenAttribute::Text(Rc::new("yarhar".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("identifier".to_string())));
+            Some(TokenAttribute::Text(Rc::new("identifier".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1393,22 +1397,22 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 3);
 
@@ -1472,42 +1476,42 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("valid_token".to_string())));
+            Some(TokenAttribute::Text(Rc::new("valid_token".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(123));
+            Some(TokenAttribute::IntegralConstant(123)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Plus,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Minus,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 3);
     }
@@ -1573,22 +1577,22 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::Text(Rc::new("foo ".to_string())));
+            Some(TokenAttribute::Text(Rc::new("foo ".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::Text(Rc::new("  ".to_string())));
+            Some(TokenAttribute::Text(Rc::new("  ".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Text,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 5);
     }
@@ -1643,22 +1647,22 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::ErrorToken);
+            Some(TokenAttribute::ErrorToken));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 3);
     }
@@ -1699,17 +1703,17 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("hello".to_string())));
+            Some(TokenAttribute::Text(Rc::new("hello".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Identifier,
-            TokenSubType::Text(Rc::new("foo".to_string())));
+            Some(TokenAttribute::Text(Rc::new("foo".to_string()))));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 2);
     }
@@ -1723,27 +1727,27 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(255));
+            Some(TokenAttribute::IntegralConstant(255)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(255));
+            Some(TokenAttribute::IntegralConstant(255)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(128));
+            Some(TokenAttribute::IntegralConstant(128)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(25987610));
+            Some(TokenAttribute::IntegralConstant(25987610)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1757,27 +1761,27 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(2));
+            Some(TokenAttribute::IntegralConstant(2)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(255));
+            Some(TokenAttribute::IntegralConstant(255)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(341));
+            Some(TokenAttribute::IntegralConstant(341)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(113019));
+            Some(TokenAttribute::IntegralConstant(113019)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }
@@ -1792,32 +1796,32 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(97));
+            Some(TokenAttribute::IntegralConstant(97)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(48));
+            Some(TokenAttribute::IntegralConstant(48)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(10));
+            Some(TokenAttribute::IntegralConstant(10)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(0));
+            Some(TokenAttribute::IntegralConstant(0)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            TokenSubType::IntegralConstant(39));
+            Some(TokenAttribute::IntegralConstant(39)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Eof,
-            TokenSubType::NoSubType);
+            None);
 
         assert_eq!(reporter.borrow().errors(), 0);
     }

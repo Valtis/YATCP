@@ -1,5 +1,5 @@
 use crate::lexer::Lexer;
-use crate::lexer::token::{Token, TokenType, TokenSubType};
+use crate::lexer::token::{Token, TokenType, TokenAttribute};
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
@@ -95,7 +95,7 @@ impl Parser {
         } else {
             Token {
                 token_type: TokenType::Void,
-                token_subtype: TokenSubType::NoSubType,
+                attribute: None,
                 line: 0,
                 column: 0,
                 length: 0
@@ -130,7 +130,7 @@ impl Parser {
         } else {
             Token {
                 token_type: TokenType::Void,
-                token_subtype: TokenSubType::NoSubType,
+                attribute: None,
                 line: 0,
                 column: 0,
                 length: 0
@@ -424,7 +424,7 @@ impl Parser {
         }
         let expression_node = self.parse_expression()?;
 
-        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
+        let name = if let Some(TokenAttribute::Text(ref ident)) = identifier.attribute {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_assignment",
@@ -487,7 +487,7 @@ impl Parser {
         &mut self,
         identifier: Token) -> Result<AstNode, ()>  {
 
-        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
+        let name = if let Some(TokenAttribute::Text(ref ident)) = identifier.attribute {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_function_call",
@@ -518,7 +518,7 @@ impl Parser {
     fn parse_array_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
         self.expect(TokenType::LBracket)?;
 
-        let name = if let TokenSubType::Text(ref ident) = identifier.token_subtype {
+        let name = if let Some(TokenAttribute::Text(ref ident)) = identifier.attribute {
             ident.clone()
         } else {
             ice!("Non-identifier token '{}' passed to parse_function_call",
@@ -1048,7 +1048,7 @@ impl Parser {
         let dot = self.expect(TokenType::Dot)?;
         let member = self.expect(TokenType::Identifier)?;
 
-        let name = if let TokenSubType::Text(ref id) = member.token_subtype {
+        let name = if let Some(TokenAttribute::Text(ref id)) = member.attribute {
             id.clone()
         } else {
             ice!("Invalid token '{:#?'} received when identifier was expected");
@@ -1087,12 +1087,12 @@ impl Parser {
                 if self.lexer.peek_token().token_type == TokenType::LParen {
                     self.parse_function_call(token)
                 } else {
-                    match token.token_subtype {
-                        TokenSubType::Text(ref name) =>
+                    match token.attribute {
+                        Some(TokenAttribute::Text(ref name)) =>
                             Ok(AstNode::Identifier{
                                 name: name.clone(),
                                 span: Span::from(token)}),
-                        TokenSubType::ErrorToken =>
+                        Some(TokenAttribute::ErrorToken) =>
                                 Ok(AstNode::ErrorNode),
                         _ => ice!(
                             "invalid token '{}' passed when identifier expected", token),
@@ -1100,31 +1100,31 @@ impl Parser {
                 }
             },
             TokenType::NumberConstant => {
-                match token.token_subtype {
-                    TokenSubType::IntegralConstant(i) => {
+                match token.attribute {
+                    Some(TokenAttribute::IntegralConstant(i)) => {
                         Ok(AstNode::IntegralNumber{
                             value: i as i128,
                             span: Span::from(token)})
                     },
-                    TokenSubType::DoubleConstant(i) => {
+                    Some(TokenAttribute::DoubleConstant(i)) => {
                         Ok(AstNode::Double{
                             value: i,
                             span: Span::from(token)})
                     },
-                    TokenSubType::FloatConstant(i) => {
+                    Some(TokenAttribute::FloatConstant(i)) => {
                         Ok(AstNode::Float{
                             value: i,
                             span: Span::from(token)})
                     },
-                    TokenSubType::ErrorToken => {
+                    Some(TokenAttribute::ErrorToken) => {
                         Ok(AstNode::ErrorNode)
                     },
                     _ => ice!("Invalid token '{}' passed when number expected", token)
                 }
             },
             TokenType::BooleanConstant => {
-                match token.token_subtype {
-                    TokenSubType::BooleanValue(v) => {
+                match token.attribute {
+                    Some(TokenAttribute::BooleanValue(v)) => {
                         Ok(AstNode::Boolean{
                             value: v,
                             span: Span::from(token)})
@@ -1138,12 +1138,12 @@ impl Parser {
                 Ok(node)
             },
             TokenType::Text => {
-                match token.token_subtype {
-                    TokenSubType::Text(ref text) =>
+                match token.attribute {
+                    Some(TokenAttribute::Text(ref text)) =>
                         Ok(AstNode::Text{
                             value: text.clone(),
                             span: Span::from(token)}),
-                    TokenSubType::ErrorToken =>
+                    Some(TokenAttribute::ErrorToken) =>
                         Ok(AstNode::ErrorNode),
                     _ => ice!("Invalid token '{}' passed when text expected", token),
                 }

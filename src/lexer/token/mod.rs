@@ -153,7 +153,7 @@ impl Display for TokenType {
 // TODO: PartialEq should be implemented explicitly so that
 // we can use epsilon for floating point numbers when doing equality comparison
 #[derive(PartialEq, Debug, Clone)]
-pub enum TokenSubType {
+pub enum TokenAttribute {
     Text(Rc<String>),
     FloatConstant(f32), // TODO: Align with integer handling
     DoubleConstant(f64),
@@ -170,30 +170,18 @@ pub enum TokenSubType {
     // Generic integral constant, no type specified in constant
     IntegralConstant(u128),
     BooleanValue(bool),
-    NoSubType,
     ErrorToken
 }
 
-impl Display for TokenSubType {
+impl Display for TokenAttribute {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
-     write!(formatter, "{}", match *self {
-          TokenSubType::NoSubType => "".to_string(),
-          _ => "(".to_string(),
-     })?;
-
       write!(formatter, "{}", match *self {
-        TokenSubType::Text(ref text) => format!("\"{}\"", text),
-        TokenSubType::FloatConstant(value) => format!("{}f", value.to_string()),
-        TokenSubType::DoubleConstant(value) => format!("{}d", value.to_string()),
-        TokenSubType::IntegralConstant(value) => value.to_string(),
-        TokenSubType::BooleanValue(value) => value.to_string(),
-        TokenSubType::NoSubType => "".to_string(),
-        TokenSubType::ErrorToken => "<Invalid token>".to_string(),
-    })?;
-
-    write!(formatter, "{}", match *self {
-         TokenSubType::NoSubType => "".to_string(),
-         _ => ")".to_string(),
+        TokenAttribute::Text(ref text) => format!("\"{}\"", text),
+        TokenAttribute::FloatConstant(value) => format!("{}f", value.to_string()),
+        TokenAttribute::DoubleConstant(value) => format!("{}d", value.to_string()),
+        TokenAttribute::IntegralConstant(value) => value.to_string(),
+        TokenAttribute::BooleanValue(value) => value.to_string(),
+        TokenAttribute::ErrorToken => "<Invalid token>".to_string(),
     })
   }
 }
@@ -202,7 +190,7 @@ impl Display for TokenSubType {
 #[derive(Clone, Debug)]
 pub struct Token {
   pub token_type: TokenType,
-  pub token_subtype: TokenSubType,
+  pub attribute: Option<TokenAttribute>,
   pub line: i32,
   pub column: i32,
   pub length: i32,
@@ -210,32 +198,32 @@ pub struct Token {
 
 impl Display for Token {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
-      write!(formatter, "{}{}", self.token_type, self.token_subtype)
+      write!(formatter, "{}{}", self.token_type, if self.attribute.is_some() { format!("{}", self.attribute.as_ref().unwrap()) } else { "".to_string() })
     }
 }
 
 
-// do not check for line numbers or positions; only check for type\subtype equality
+// do not check for line numbers or positions; only check for type\attribute equality
 // also, special cases for floating point comparisons
 impl PartialEq for Token {
 
   fn eq(&self, other: &Token) -> bool {
     if self.token_type == other.token_type {
-      match self.token_subtype {
-        TokenSubType::FloatConstant(self_val) => {
-          match other.token_subtype {
-            TokenSubType::FloatConstant(other_val) => (self_val - other_val).abs() < 0.0001,
+      match self.attribute {
+        Some(TokenAttribute::FloatConstant(self_val)) => {
+          match other.attribute {
+            Some(TokenAttribute::FloatConstant(other_val)) => (self_val - other_val).abs() < 0.0001,
             _=> false
           }
         }
-        TokenSubType::DoubleConstant(self_val) => {
-          match other.token_subtype {
-            TokenSubType::DoubleConstant(other_val) => (self_val - other_val).abs() < 0.0001,
+        Some(TokenAttribute::DoubleConstant(self_val)) => {
+          match other.attribute {
+            Some(TokenAttribute::DoubleConstant(other_val)) => (self_val - other_val).abs() < 0.0001,
             _=> false
           }
         }
 
-        _ => self.token_subtype == other.token_subtype
+        _ => self.attribute == other.attribute
       }
 
     } else {
@@ -246,7 +234,7 @@ impl PartialEq for Token {
 }
 
 impl Token {
-  pub fn new(token_type: TokenType, subtype: TokenSubType, line: i32, column: i32, length : i32) -> Token {
-    Token { token_type, token_subtype: subtype, line, column, length }
+  pub fn new(token_type: TokenType, attribute: Option<TokenAttribute>, line: i32, column: i32, length : i32) -> Token {
+    Token { token_type, attribute, line, column, length }
   }
 }
