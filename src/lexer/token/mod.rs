@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
     Exclamation,
-    Number,
+    NumberConstant,
     BooleanConstant,
     Text,
     Identifier,
@@ -87,7 +87,7 @@ impl Display for TokenType {
     write!(formatter, "{}", match *self {
         TokenType::Equals => "=",
         TokenType::Exclamation => "!",
-        TokenType::Number => "number",
+        TokenType::NumberConstant => "number",
         TokenType::Text => "text",
         TokenType::Identifier=> "identifier",
         TokenType::LParen => "(",
@@ -154,22 +154,24 @@ impl Display for TokenType {
 // we can use epsilon for floating point numbers when doing equality comparison
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenSubType {
-  Text(Rc<String>),
-  FloatNumber(f32), // TODO: Align with integer handling
-  DoubleNumber(f64),
+    Text(Rc<String>),
+    FloatConstant(f32), // TODO: Align with integer handling
+    DoubleConstant(f64),
   /*
    *  At token stage, we only deal with positive values; later stages will negate numbers, as they
    *  have more context on if minus means negate or is part of arithmetic expression
    *  (for example, a = -45 vs a= 2-45).
    *
    *  This means that we must be able to store INT_MAX + 1, when token is actually INT_MIN.
-   *  To do this, use u32 at this stage, and convert to i32 later on when number is known
+   *
    *
    */
-  IntegerNumber(u64),
-  BooleanValue(bool),
-  NoSubType,
-  ErrorToken
+
+    // Generic integral constant, no type specified in constant
+    IntegralConstant(u128),
+    BooleanValue(bool),
+    NoSubType,
+    ErrorToken
 }
 
 impl Display for TokenSubType {
@@ -181,9 +183,9 @@ impl Display for TokenSubType {
 
       write!(formatter, "{}", match *self {
         TokenSubType::Text(ref text) => format!("\"{}\"", text),
-        TokenSubType::FloatNumber(value) => format!("{}f", value.to_string()),
-        TokenSubType::DoubleNumber(value) => format!("{}d", value.to_string()),
-        TokenSubType::IntegerNumber(value) => value.to_string(),
+        TokenSubType::FloatConstant(value) => format!("{}f", value.to_string()),
+        TokenSubType::DoubleConstant(value) => format!("{}d", value.to_string()),
+        TokenSubType::IntegralConstant(value) => value.to_string(),
         TokenSubType::BooleanValue(value) => value.to_string(),
         TokenSubType::NoSubType => "".to_string(),
         TokenSubType::ErrorToken => "<Invalid token>".to_string(),
@@ -220,15 +222,15 @@ impl PartialEq for Token {
   fn eq(&self, other: &Token) -> bool {
     if self.token_type == other.token_type {
       match self.token_subtype {
-        TokenSubType::FloatNumber(self_val) => {
+        TokenSubType::FloatConstant(self_val) => {
           match other.token_subtype {
-            TokenSubType::FloatNumber(other_val) => (self_val - other_val).abs() < 0.0001,
+            TokenSubType::FloatConstant(other_val) => (self_val - other_val).abs() < 0.0001,
             _=> false
           }
         }
-        TokenSubType::DoubleNumber(self_val) => {
+        TokenSubType::DoubleConstant(self_val) => {
           match other.token_subtype {
-            TokenSubType::DoubleNumber(other_val) => (self_val - other_val).abs() < 0.0001,
+            TokenSubType::DoubleConstant(other_val) => (self_val - other_val).abs() < 0.0001,
             _=> false
           }
         }

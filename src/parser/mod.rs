@@ -1066,7 +1066,7 @@ impl Parser {
 
     fn parse_factor(&mut self) -> Result<AstNode, ()> {
         let token = self.expect_one_of(vec![
-            TokenType::Identifier, TokenType::Number, TokenType::LParen, TokenType::Text, TokenType::Minus, TokenType::BooleanConstant])?;
+            TokenType::Identifier, TokenType::NumberConstant, TokenType::LParen, TokenType::Text, TokenType::Minus, TokenType::BooleanConstant])?;
 
         match token.token_type {
             TokenType::Minus => {
@@ -1099,19 +1099,19 @@ impl Parser {
                     }
                 }
             },
-            TokenType::Number => {
+            TokenType::NumberConstant => {
                 match token.token_subtype {
-                    TokenSubType::IntegerNumber(i) => {
+                    TokenSubType::IntegralConstant(i) => {
                         Ok(AstNode::IntegralNumber{
                             value: i as i128,
                             span: Span::from(token)})
                     },
-                    TokenSubType::DoubleNumber(i) => {
+                    TokenSubType::DoubleConstant(i) => {
                         Ok(AstNode::Double{
                             value: i,
                             span: Span::from(token)})
                     },
-                    TokenSubType::FloatNumber(i) => {
+                    TokenSubType::FloatConstant(i) => {
                         Ok(AstNode::Float{
                             value: i,
                             span: Span::from(token)})
@@ -1156,7 +1156,7 @@ impl Parser {
 
     fn starts_operand(&self, token: &Token) -> bool {
         token.token_type == TokenType::Identifier ||
-        token.token_type == TokenType::Number ||
+        token.token_type == TokenType::NumberConstant ||
         token.token_type == TokenType::LParen ||
         token.token_type ==TokenType::Text
     }
