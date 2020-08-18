@@ -91,11 +91,11 @@ impl Parser {
 
         let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
             self.expect(TokenType::Colon)?;
-            self.expect(TokenType::VarType)?
+            self.expect_one_of(TokenType::get_type_tokens())?
         } else {
             Token {
-                token_type: TokenType::VarType,
-                token_subtype: TokenSubType::VoidType,
+                token_type: TokenType::Void,
+                token_subtype: TokenSubType::NoSubType,
                 line: 0,
                 column: 0,
                 length: 0
@@ -126,11 +126,11 @@ impl Parser {
 
         let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
             self.expect(TokenType::Colon)?;
-            self.expect(TokenType::VarType)?
+            self.expect_one_of(TokenType::get_type_tokens())?
         } else {
             Token {
-                token_type: TokenType::VarType,
-                token_subtype: TokenSubType::VoidType,
+                token_type: TokenType::Void,
+                token_subtype: TokenSubType::NoSubType,
                 line: 0,
                 column: 0,
                 length: 0
@@ -163,7 +163,7 @@ impl Parser {
                 };
 
                 self.expect(TokenType::Colon)?;
-                let var_type = self.expect(TokenType::VarType)?;
+                let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
                 let mut decl = DeclarationInfo::new(&identifier, &var_type);
                 if is_read_only {
                     decl.attributes.insert(VariableAttribute::ReadOnly);
@@ -252,7 +252,7 @@ impl Parser {
 
         let identifier = self.expect(TokenType::Identifier)?;
         self.expect(TokenType::Colon)?;
-        let var_type = self.expect(TokenType::VarType)?;
+        let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
 
         // Array parse & custom error handling for missing initialization
         let mut next_token = self.lexer.peek_token();
@@ -1066,7 +1066,7 @@ impl Parser {
 
     fn parse_factor(&mut self) -> Result<AstNode, ()> {
         let token = self.expect_one_of(vec![
-            TokenType::Identifier, TokenType::Number, TokenType::LParen, TokenType::Text, TokenType::Minus, TokenType::Boolean])?;
+            TokenType::Identifier, TokenType::Number, TokenType::LParen, TokenType::Text, TokenType::Minus, TokenType::BooleanConstant])?;
 
         match token.token_type {
             TokenType::Minus => {
@@ -1122,7 +1122,7 @@ impl Parser {
                     _ => ice!("Invalid token '{}' passed when number expected", token)
                 }
             },
-            TokenType::Boolean => {
+            TokenType::BooleanConstant => {
                 match token.token_subtype {
                     TokenSubType::BooleanValue(v) => {
                         Ok(AstNode::Boolean{
@@ -1342,7 +1342,7 @@ impl Parser {
             TokenType::Percentage => {
                 self.lexer.next_token();
                 let n_node = self.parse_boolean_not()?;
-                let modulo_node = AstNode::Modulo{
+                let modulo_node = AstNode::Modulo {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
                     arithmetic_info: ArithmeticInfo::new(&next_token)};
@@ -1354,7 +1354,7 @@ impl Parser {
 
     fn parse_cast_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let as_token = self.expect(TokenType::As)?;
-        let type_token = self.expect(TokenType::VarType)?;
+        let type_token = self.expect_one_of(TokenType::get_type_tokens() )?;
 
         let cast_node = AstNode::Cast {
             expression: Box::new(node),

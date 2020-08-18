@@ -6,7 +6,7 @@ program: |
 
 expect_compile_failure: true
 expect_stderr: |
-  3:24 Syntax error: Unexpected token 'identifier' when 'type' was expected
+  3:24 Syntax error: Unexpected token 'identifier' when one of 'double', 'float', 'string', 'void', 'bool', 'byte', 'int' were expected
       let b: byte = x as x;
                          ^
   Terminating compilation due to 1 error

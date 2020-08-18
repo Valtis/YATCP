@@ -124,15 +124,15 @@ impl Display for Type {
 
 impl From<&crate::lexer::token::Token> for Type {
     fn from(variable_token: &crate::lexer::token::Token) -> Type {
-        use crate::lexer::token::TokenSubType;
-        match variable_token.token_subtype {
-            TokenSubType::IntegerType => Type::Integer,
-            TokenSubType::StringType => Type::String,
-            TokenSubType::FloatType => Type::Float,
-            TokenSubType::DoubleType => Type::Double,
-            TokenSubType::BooleanType => Type::Boolean,
-            TokenSubType::ByteType => Type::Byte,
-            TokenSubType::VoidType => Type::Void,
+        use crate::lexer::token::TokenType;
+        match variable_token.token_type {
+            TokenType::Integer => Type::Integer,
+            TokenType::String => Type::String,
+            TokenType::Float => Type::Float,
+            TokenType::Double => Type::Double,
+            TokenType::Boolean => Type::Boolean,
+            TokenType::Byte => Type::Byte,
+            TokenType::Void => Type::Void,
             _ => ice!("Expected type but was '{}' instead", variable_token),
         }
     }
@@ -140,15 +140,15 @@ impl From<&crate::lexer::token::Token> for Type {
 
 impl From<crate::lexer::token::Token> for Type {
     fn from(variable_token: crate::lexer::token::Token) -> Type {
-        use crate::lexer::token::TokenSubType;
-        match variable_token.token_subtype {
-            TokenSubType::IntegerType => Type::Integer,
-            TokenSubType::StringType => Type::String,
-            TokenSubType::FloatType => Type::Float,
-            TokenSubType::DoubleType => Type::Double,
-            TokenSubType::BooleanType => Type::Boolean,
-            TokenSubType::ByteType => Type::Byte,
-            TokenSubType::VoidType => Type::Void,
+        use crate::lexer::token::TokenType;
+        match variable_token.token_type {
+            TokenType::Integer => Type::Integer,
+            TokenType::String => Type::String,
+            TokenType::Float => Type::Float,
+            TokenType::Double => Type::Double,
+            TokenType::Boolean => Type::Boolean,
+            TokenType::Byte => Type::Byte,
+            TokenType::Void => Type::Void,
             _ => ice!("Expected type but was '{}' instead", variable_token),
         }
     }

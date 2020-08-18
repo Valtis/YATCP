@@ -5,7 +5,7 @@ program: |
     fn dummy() { }
 expect_compile_failure: true
 expect_stderr: |
-  1:11 Syntax error: Unexpected token 'type' when '{' was expected
+  1:11 Syntax error: Unexpected token 'int' when '{' was expected
   fn main() int {
             ^^^
   1:9 Note: Token likely missing here

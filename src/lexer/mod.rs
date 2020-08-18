@@ -245,15 +245,15 @@ impl ReadLexer {
             "protected" => Some(self.create_token(TokenType::Protected, TokenSubType::NoSubType)),
             "private" => Some(self.create_token(TokenType::Private, TokenSubType::NoSubType)),
             "extern" => Some(self.create_token(TokenType::Extern, TokenSubType::NoSubType)),
-            "true" => Some(self.create_token(TokenType::Boolean, TokenSubType::BooleanValue(true))),
-            "false" => Some(self.create_token(TokenType::Boolean, TokenSubType::BooleanValue(false))),
-            "int" => Some(self.create_token(TokenType::VarType, TokenSubType::IntegerType)),
-            "float" => Some(self.create_token(TokenType::VarType, TokenSubType::FloatType)),
-            "double" => Some(self.create_token(TokenType::VarType, TokenSubType::DoubleType)),
-            "byte" => Some(self.create_token(TokenType::VarType, TokenSubType::ByteType)),
-            "bool" => Some(self.create_token(TokenType::VarType, TokenSubType::BooleanType)),
-            "void" => Some(self.create_token(TokenType::VarType, TokenSubType::VoidType)),
-            "string" => Some(self.create_token(TokenType::VarType, TokenSubType::StringType)),
+            "true" => Some(self.create_token(TokenType::BooleanConstant, TokenSubType::BooleanValue(true))),
+            "false" => Some(self.create_token(TokenType::BooleanConstant, TokenSubType::BooleanValue(false))),
+            "int" => Some(self.create_token(TokenType::Integer, TokenSubType::NoSubType)),
+            "float" => Some(self.create_token(TokenType::Float, TokenSubType::NoSubType)),
+            "double" => Some(self.create_token(TokenType::Double, TokenSubType::NoSubType)),
+            "byte" => Some(self.create_token(TokenType::Byte, TokenSubType::NoSubType)),
+            "bool" => Some(self.create_token(TokenType::Boolean, TokenSubType::NoSubType)),
+            "void" => Some(self.create_token(TokenType::Void, TokenSubType::NoSubType)),
+            "string" => Some(self.create_token(TokenType::String, TokenSubType::NoSubType)),
             "as" => Some(self.create_token(TokenType::As, TokenSubType::NoSubType)),
             _ => None
         }
@@ -983,33 +983,33 @@ mod tests {
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::IntegerType);
+            TokenType::Integer,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::FloatType);
+            TokenType::Float,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::DoubleType);
+            TokenType::Double,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::BooleanType);
+            TokenType::Boolean,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::VoidType);
+            TokenType::Void,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
-            TokenType::VarType,
-            TokenSubType::StringType);
+            TokenType::String,
+            TokenSubType::NoSubType);
 
         assert_eq_token!(
             lexer.next_token(),
