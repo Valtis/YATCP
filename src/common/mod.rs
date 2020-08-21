@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod ice;
+
 pub mod function_attributes;
 pub mod variable_attributes;
 pub mod types;

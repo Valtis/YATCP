@@ -23,13 +23,13 @@ pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
 macro_rules! ice {
     ($fmt:expr) => (
       {
-        $crate::ice::print_and_panic($fmt, file!(), line!())
+        $crate::common::ice::print_and_panic($fmt, file!(), line!())
       }
     );
     ($fmt:expr, $($args:tt)+) => (
       {
         let msg = format!($fmt, $($args)+);
-        $crate::ice::print_and_panic(&msg, file!(), line!())
+        $crate::common::ice::print_and_panic(&msg, file!(), line!())
       }
     )
 }
@@ -40,7 +40,7 @@ macro_rules! ice_if {
     ($condition:expr, $fmt:expr) => (
       {
        if $condition {
-            $crate::ice::print_and_panic($fmt, file!(), line!())
+            $crate::common::ice::print_and_panic($fmt, file!(), line!())
         }
       }
     );
@@ -48,7 +48,7 @@ macro_rules! ice_if {
       {
         if $condition {
             let msg = format!($fmt, $($args)+);
-            $crate::ice::print_and_panic(&msg, file!(), line!())
+            $crate::common::ice::print_and_panic(&msg, file!(), line!())
         }
       }
     )
