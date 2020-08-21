@@ -1,18 +1,16 @@
 use super::CFG;
 use super::{Adj};
 
-use crate::error_reporter::{ErrorReporter, ReportKind};
+use crate::common::{
+    function_attributes::FunctionAttribute,
+    types::Type,
+    tac_code::{Function, Statement},
+    error_reporter::{ErrorReporter, ReportKind},
+};
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-
-use crate::common::{
-    function_attributes::FunctionAttribute,
-    types::Type,
-    tac_code::{Function, Statement}
-};
-
 
 pub fn check_cfg(
     mut functions: Vec<Function>,

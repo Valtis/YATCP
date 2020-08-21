@@ -11,9 +11,11 @@ use parser::Parser;
 use ast::AstNode;
 use semcheck::SemanticsCheck;
 use tac_generator::TACGenerator;
-use crate::error_reporter::ErrorReporter;
 
-use crate::common::tac_code::Function;
+use crate::common::{
+    tac_code::Function,
+    error_reporter::ErrorReporter,
+};
 
 use std::fs::File;
 use std::io::Write;

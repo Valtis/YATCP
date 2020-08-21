@@ -1,12 +1,12 @@
 pub mod token;
 
 use token::*;
-use crate::error_reporter::{ErrorReporter, ReportKind};
 use crate::string_table::StringTable;
 
 use crate::common::{
     node_info::Span,
     constants::SPACES_PER_TAB,
+    error_reporter::{ErrorReporter, ReportKind},
 };
 
 
@@ -780,7 +780,7 @@ impl Lexer for ReadLexer {
 mod tests {
     use super::*;
 
-    use crate::error_reporter::{ReportKind, Message, null_reporter::NullReporter};
+    use crate::common::error_reporter::{ReportKind, Message, null_reporter::NullReporter};
 
     use std::io::Read;
     use std::io;

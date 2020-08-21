@@ -2,14 +2,12 @@ use super::lexer::Lexer;
 use super::lexer::token::{Token, TokenType, TokenAttribute};
 use super::ast::AstNode;
 
-use crate::error_reporter::{ErrorReporter, ReportKind};
 use crate::common::{
     variable_attributes::VariableAttribute,
     types::Type,
     node_info::*,
+    error_reporter::{ErrorReporter, ReportKind},
 };
-
-
 
 use std::cell::RefCell;
 use std::rc::Rc;

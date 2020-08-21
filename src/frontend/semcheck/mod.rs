@@ -4,9 +4,9 @@ use crate::common::{
     variable_attributes::VariableAttribute,
     types::Type,
     node_info::*,
+    error_reporter::{ErrorReporter, ReportKind},
 };
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
-use crate::error_reporter::{ReportKind, ErrorReporter};
 
 use std::rc::Rc;
 use std::cell::RefCell;

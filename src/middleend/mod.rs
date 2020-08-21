@@ -11,8 +11,10 @@ use cfg::CFG;
 
 use optimizer::optimize;
 
-use crate::error_reporter::ErrorReporter;
-use crate::common::tac_code::Function;
+use crate::common::{
+    tac_code::Function,
+    error_reporter::ErrorReporter,
+};
 
 use took::Timer;
 
