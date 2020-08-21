@@ -1,7 +1,11 @@
+mod byte_generator;
+mod code_generator;
+mod obj_generator;
+
 use crate::common::tac_code::Function;
-use crate::byte_generator::ByteGenerator;
-use crate::code_generator::CodeGenerator;
-use crate::obj_generator::{ObjectType, Architecture, generate_object_file};
+use byte_generator::ByteGenerator;
+use code_generator::CodeGenerator;
+use obj_generator::{ObjectType, Architecture, generate_object_file};
 
 use took::Timer;
 

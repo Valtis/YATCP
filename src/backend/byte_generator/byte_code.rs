@@ -1,5 +1,6 @@
+use super::super::code_generator::x64::x64_register::X64Register;
+
 use crate::common::{function_attributes::FunctionAttribute, types::Type};
-use crate::code_generator::x64::x64_register::X64Register;
 
 use std::fmt::Display;
 use std::fmt::Formatter;

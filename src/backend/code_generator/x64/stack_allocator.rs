@@ -1,5 +1,13 @@
-use crate::byte_generator::byte_code::{Function, ByteCode, Value, UnaryOperation, VirtualRegisterData, BinaryOperation, ComparisonOperation};
-use crate::byte_generator::byte_code::Value::*;
+use super::super::super::byte_generator::byte_code::{
+    Function,
+    ByteCode,
+    Value,
+    Value::*,
+    UnaryOperation,
+    VirtualRegisterData,
+    BinaryOperation,
+    ComparisonOperation
+};
 
 use super::x64_register::X64Register;
 
@@ -7,8 +15,12 @@ const PTR_SIZE: u32 =  8;
 
 use rayon::prelude::*;
 use std::collections::HashMap;
-use crate::common::{function_attributes::FunctionAttribute, types::Type};
-use crate::common::constants::ARRAY_LENGTH_SLOT_SIZE;
+
+use crate::common::{
+    function_attributes::FunctionAttribute,
+    types::Type,
+    constants::ARRAY_LENGTH_SLOT_SIZE
+};
 
 #[derive(Debug, Clone)]
 struct StackSlot {

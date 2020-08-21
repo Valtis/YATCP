@@ -13,8 +13,5 @@ mod symbol_table;
 mod cfg;
 mod ssa_generator;
 mod optimizer;
-mod byte_generator;
-mod code_generator;
-mod obj_generator;
 mod common;
 

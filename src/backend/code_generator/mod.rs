@@ -1,6 +1,7 @@
 pub mod x64; // FIXME: Should be internal implementation detail
 
-use crate::byte_generator::byte_code::Function as ByteCodeFunction;
+use super::byte_generator::byte_code::Function as ByteCodeFunction;
+
 use crate::common::function_attributes::FunctionAttribute;
 
 use self::x64::stack_allocator::allocate;

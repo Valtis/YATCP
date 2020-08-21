@@ -7,9 +7,9 @@ use x64_register::X64Register;
 use opcodes::*;
 use encoding::*;
 
-use crate::byte_generator::byte_code::Value::*;
-use crate::byte_generator::byte_code::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType, Function as ByteCodeFunction};
-use crate::code_generator;
+use super::super::byte_generator::byte_code::Value::*;
+use super::super::byte_generator::byte_code::{ByteCode, UnaryOperation, BinaryOperation, ComparisonOperation, Value, ComparisonType, Function as ByteCodeFunction};
+use super::super::code_generator;
 
 use byteorder::{ByteOrder, LittleEndian };
 use rayon::prelude::*;

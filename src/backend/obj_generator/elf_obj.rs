@@ -1,7 +1,6 @@
 #![allow(dead_code)]
-use crate::obj_generator::Architecture;
-
-use crate::code_generator::Code;
+use super::Architecture;
+use super::super::code_generator::Code;
 
 use byteorder::{ByteOrder, LittleEndian };
 
