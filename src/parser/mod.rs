@@ -333,8 +333,6 @@ impl Parser {
             },
         };
 
-
-
         let declaration = AstNode::VariableDeclaration{
             initialization_expression: Box::new(expression_node),
             declaration_info
@@ -359,14 +357,14 @@ impl Parser {
 
             TokenType::LBracket |
             TokenType::Equals |
-            TokenType::Plus |
-            TokenType::Minus |
-            TokenType::Star |
-            TokenType::ForwardSlash |
-            TokenType::Percentage |
-            TokenType::DoubleArrowRight |
-            TokenType::TripleArrowRight |
-            TokenType::DoubleArrowLeft => {
+            TokenType::PlusEquals |
+            TokenType::MinusEquals |
+            TokenType::StarEquals |
+            TokenType::ForwardSlashEquals |
+            TokenType::PercentageEquals |
+            TokenType::DoubleArrowRightEquals |
+            TokenType::TripleArrowRightEquals |
+            TokenType::DoubleArrowLeftEquals => {
                 let node = self.parse_assignment_expression(identifier)?;
                 self.expect(TokenType::SemiColon)?;
                 return Ok(node);
@@ -382,11 +380,14 @@ impl Parser {
                 self.report_unexpected_token_mul(
                     &vec![
                         TokenType::Equals,
-                        TokenType::Plus,
-                        TokenType::Minus,
-                        TokenType::Star,
-                        TokenType::ForwardSlash,
-                        TokenType::Percentage,
+                        TokenType::PlusEquals,
+                        TokenType::MinusEquals,
+                        TokenType::StarEquals,
+                        TokenType::ForwardSlashEquals,
+                        TokenType::PercentageEquals,
+                        TokenType::DoubleArrowLeftEquals,
+                        TokenType::DoubleArrowRightEquals,
+                        TokenType::TripleArrowRightEquals,
                         TokenType::LParen,
                         TokenType::LBracket],
                     &token);
@@ -397,31 +398,24 @@ impl Parser {
 
     fn parse_assignment_expression(&mut self, identifier: Token) -> Result<AstNode, ()> {
         match self.lexer.peek_token().token_type {
-            token_type @ TokenType::Equals |
-            token_type @ TokenType::Plus |
-            token_type @ TokenType::Minus |
-            token_type @ TokenType::Star |
-            token_type @ TokenType::ForwardSlash |
-            token_type @ TokenType::Percentage |
-            token_type @ TokenType::DoubleArrowRight |
-            token_type @ TokenType::TripleArrowRight |
-            token_type @ TokenType::DoubleArrowLeft =>  {
-                self.parse_assignment(identifier, token_type)
-            },
-            TokenType::LBracket => {
-                self.parse_array_assignment(identifier)
-            },
-            bad_token => ice!("Unexpected token {}", bad_token),
+            TokenType::LBracket => self.parse_array_assignment(identifier),
+            _ => self.parse_assignment(identifier),
         }
     }
 
-    fn parse_assignment(&mut self, identifier: Token, token_type: TokenType) -> Result<AstNode, ()> {
-        let mut op = self.expect(token_type)?;
+    fn parse_assignment(&mut self, identifier: Token) -> Result<AstNode, ()> {
+        let op = self.expect_one_of(vec![
+            TokenType::Equals,
+            TokenType::PlusEquals,
+            TokenType::MinusEquals,
+            TokenType::StarEquals,
+            TokenType::ForwardSlashEquals,
+            TokenType::PercentageEquals,
+            TokenType::DoubleArrowLeftEquals,
+            TokenType::DoubleArrowRightEquals,
+            TokenType::TripleArrowRightEquals,
+        ])?;
 
-        if token_type != TokenType::Equals {
-            self.expect(TokenType::Equals)?;
-            op.length += 1;
-        }
         let expression_node = self.parse_expression()?;
 
         let name = if let Some(TokenAttribute::Text(ref ident)) = identifier.attribute {
@@ -431,50 +425,10 @@ impl Parser {
                 identifier);
         };
 
-        let expression_node = match token_type {
-            TokenType::Plus => AstNode::Plus {
-                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                right_expression: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Minus=> AstNode::Minus {
-                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                right_expression: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Star => AstNode::Multiply {
-                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                right_expression: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::ForwardSlash => AstNode::Divide {
-                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                right_expression: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Percentage=> AstNode::Modulo {
-                left_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                right_expression: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::DoubleArrowLeft => AstNode::LogicalShiftLeft {
-                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                shift_count: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::DoubleArrowRight => AstNode::ArithmeticShiftRight {
-                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                shift_count: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::TripleArrowRight => AstNode::LogicalShiftRight {
-                value: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)} ),
-                shift_count: Box::new(expression_node),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Equals => expression_node,
-            bad => ice!("Bad expression type {}", bad),
-        };
+        let expression_node = self.get_assignment_node(
+            op,
+            Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)}),
+            Box::new(expression_node));
 
         Ok(AstNode::VariableAssignment{
             expression: Box::new(expression_node),
@@ -530,19 +484,15 @@ impl Parser {
 
         let op = self.expect_one_of(vec![
             TokenType::Equals,
-            TokenType::Plus,
-            TokenType::Minus,
-            TokenType::Star,
-            TokenType::ForwardSlash,
-            TokenType::Percentage,
-            TokenType::TripleArrowRight,
-            TokenType::DoubleArrowLeft,
-            TokenType::DoubleArrowRight
+            TokenType::PlusEquals,
+            TokenType::MinusEquals,
+            TokenType::StarEquals,
+            TokenType::ForwardSlashEquals,
+            TokenType::PercentageEquals,
+            TokenType::TripleArrowRightEquals,
+            TokenType::DoubleArrowLeftEquals,
+            TokenType::DoubleArrowRightEquals,
         ])?;
-
-        if op.token_type != TokenType::Equals {
-            self.expect(TokenType::Equals)?;
-        }
 
         let assignment_expression = self.parse_expression()?;
 
@@ -552,57 +502,65 @@ impl Parser {
                 indexable_expression: Box::new(AstNode::Identifier{ name: name.clone(), span: Span::from(&identifier)}),
             }
         };
-        let assignment_expression  = match op.token_type {
-            TokenType::Plus => AstNode::Plus {
-                left_expression: Box::new(get_access()),
-                right_expression: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Minus=> AstNode::Minus {
-                left_expression: Box::new(get_access()),
-                right_expression: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Star => AstNode::Multiply {
-                left_expression: Box::new(get_access()),
-                right_expression: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::ForwardSlash => AstNode::Divide {
-                left_expression: Box::new(get_access()),
-                right_expression: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Percentage=> AstNode::Modulo{
-                left_expression: Box::new(get_access()),
-                right_expression: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::DoubleArrowLeft => AstNode::LogicalShiftLeft {
-                value: Box::new(get_access() ),
-                shift_count: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::DoubleArrowRight => AstNode::ArithmeticShiftRight {
-                value: Box::new(get_access()),
-                shift_count: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::TripleArrowRight => AstNode::LogicalShiftRight {
-                value: Box::new(get_access()),
-                shift_count: Box::new(assignment_expression),
-                arithmetic_info: ArithmeticInfo::new(&op),
-            },
-            TokenType::Equals => assignment_expression,
-            bad => ice!("Bad expression type {}", bad),
-        };
 
+        let assignment_expression = self.get_assignment_node(
+            op,
+            Box::new(get_access()),
+            Box::new(assignment_expression),
+        );
 
         Ok(AstNode::ArrayAssignment{
             index_expression: Box::new(index_expression),
             assignment_expression: Box::new(assignment_expression),
             variable_name: name,
             span: Span::from(&identifier) })
+    }
+
+    fn get_assignment_node(&self, op: Token, left_expression: Box<AstNode>, right_expression: Box<AstNode>) -> AstNode {
+        match op.token_type {
+            TokenType::PlusEquals => AstNode::Plus {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::MinusEquals => AstNode::Minus {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::StarEquals => AstNode::Multiply {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::ForwardSlashEquals => AstNode::Divide {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::PercentageEquals => AstNode::Modulo {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowLeftEquals => AstNode::LogicalShiftLeft {
+                value: left_expression,
+                shift_count: right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::DoubleArrowRightEquals => AstNode::ArithmeticShiftRight {
+                value: left_expression,
+                shift_count: right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::TripleArrowRightEquals => AstNode::LogicalShiftRight {
+                value: left_expression,
+                shift_count: right_expression,
+                arithmetic_info: ArithmeticInfo::new(&op),
+            },
+            TokenType::Equals => *right_expression,
+            bad => ice!("Bad expression type {}", bad),
+        }
     }
 
     fn parse_return_statement(&mut self) -> Result<AstNode, ()> {

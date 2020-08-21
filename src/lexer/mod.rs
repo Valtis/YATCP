@@ -90,11 +90,26 @@ impl ReadLexer {
 
     fn handle_symbols(&mut self, ch: char) -> Token {
         match ch {
-            '-' => self.create_token(TokenType::Minus),
-            '+' => self.create_token(TokenType::Plus),
-            '*' => self.create_token(TokenType::Star),
-            '/' => self.create_token(TokenType::ForwardSlash),
-            '%' => self.create_token(TokenType::Percentage),
+            '+' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("+", TokenType::Plus),
+                    ("+=", TokenType::PlusEquals)]),
+            '-' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("-", TokenType::Minus),
+                    ("-=", TokenType::MinusEquals)]),
+            '*' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("*", TokenType::Star),
+                    ("*=", TokenType::StarEquals)]),
+            '/' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("/", TokenType::ForwardSlash),
+                    ("/=", TokenType::ForwardSlashEquals)]),
+            '%' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("%", TokenType::Percentage),
+                    ("%=", TokenType::PercentageEquals)]),
             '[' => self.create_token(TokenType::LBracket),
             ']' => self.create_token(TokenType::RBracket),
             '{' => self.create_token(TokenType::LBrace),
@@ -116,12 +131,17 @@ impl ReadLexer {
                     (">", TokenType::ArrowRight),
                     (">=", TokenType::ArrowRightEquals),
                     (">>", TokenType::DoubleArrowRight),
-                    (">>>", TokenType::TripleArrowRight)]),
+                    (">>=", TokenType::DoubleArrowRightEquals),
+                    (">>>", TokenType::TripleArrowRight),
+                    (">>>=", TokenType::TripleArrowRightEquals),
+                ]),
             '<' => self.multi_char_operator_helper(
                 ch, vec![
-                    ("<=", TokenType::ArrowLeftEquals),
                     ("<", TokenType::ArrowLeft),
-                    ("<<", TokenType::DoubleArrowLeft)]),
+                    ("<=", TokenType::ArrowLeftEquals),
+                    ("<<", TokenType::DoubleArrowLeft),
+                    ("<<=", TokenType::DoubleArrowLeftEquals)
+                ]),
             '!' => self.multi_char_operator_helper(
                 ch, vec![
                     ("!=", TokenType::ExclamationEquals),
@@ -582,6 +602,7 @@ impl ReadLexer {
         match self.next_char() {
             Some(ch) => match ch {
                 'n' => '\n',
+                'e' => 27 as char,
                 '\'' => '\'',
                 '0' => 0 as char,
                 't' => '\t',
@@ -1078,7 +1099,7 @@ mod tests {
 
     #[test]
     fn operators_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ % << >> >>>");
+        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ % << >> >>> += -= *= /= %= <<= >>= >>>=");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1188,6 +1209,46 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::TripleArrowRight,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::PlusEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::MinusEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::StarEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::ForwardSlashEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::PercentageEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoubleArrowLeftEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::DoubleArrowRightEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::TripleArrowRightEquals,
             None);
 
         assert_eq_token!(

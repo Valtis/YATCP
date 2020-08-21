@@ -66,6 +66,14 @@ pub enum TokenType {
     ArrowLeftEquals,
     ArrowRight,
     ArrowRightEquals,
+    PlusEquals,
+    MinusEquals,
+    StarEquals,
+    ForwardSlashEquals,
+    PercentageEquals,
+    DoubleArrowLeftEquals,
+    DoubleArrowRightEquals,
+    TripleArrowRightEquals,
 }
 
 impl TokenType {
@@ -145,7 +153,15 @@ impl Display for TokenType {
         TokenType::ArrowRightEquals => ">=",
         TokenType::ArrowLeftEquals => "<=",
         TokenType::Eof => "<EOF>",
-      })
+        TokenType::PlusEquals => "+=",
+        TokenType::MinusEquals => "-=",
+        TokenType::StarEquals => "*=",
+        TokenType::ForwardSlashEquals => "/=",
+        TokenType::PercentageEquals => "%=",
+        TokenType::DoubleArrowLeftEquals => "<<=",
+        TokenType::DoubleArrowRightEquals => ">>=",
+        TokenType::TripleArrowRightEquals => ">>>="
+    })
   }
 }
 
