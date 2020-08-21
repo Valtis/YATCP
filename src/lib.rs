@@ -10,8 +10,5 @@ pub mod string_table;
 
 
 mod symbol_table;
-mod cfg;
-mod ssa_generator;
-mod optimizer;
 mod common;
 

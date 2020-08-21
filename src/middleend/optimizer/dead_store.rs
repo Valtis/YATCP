@@ -1,4 +1,4 @@
-use crate::cfg::CFG;
+use super::super::cfg::CFG;
 
 use crate::common::tac_code::{Function, Statement, Operand};
 
@@ -148,7 +148,8 @@ mod tests {
         node_info::{FunctionInfo, Span, DeclarationInfo},
         types::Type,
     };
-    use crate::cfg::{Adj, basic_block::BasicBlock};
+
+    use super::super::super::cfg::{Adj, basic_block::BasicBlock};
 
     use std::rc::Rc;
 

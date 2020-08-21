@@ -1,5 +1,4 @@
-
-use crate::cfg::{CFG, Adj};
+use super::super::cfg::{CFG, Adj};
 
 use std::collections::HashMap;
 use std::collections::HashSet;

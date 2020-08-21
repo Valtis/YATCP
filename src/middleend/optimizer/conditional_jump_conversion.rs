@@ -1,6 +1,6 @@
 use crate::common::tac_code::{Function, Operand, Statement};
 
-use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
+use super::super::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
 use std::collections::HashMap;
 
@@ -203,7 +203,7 @@ mod tests {
 
     use super::*;
 
-    use crate::cfg::basic_block::BasicBlock;
+    use super::super::super::cfg::basic_block::BasicBlock;
     use crate::common::{
         types::Type,
         node_info::*,

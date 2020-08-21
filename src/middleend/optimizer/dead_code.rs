@@ -1,15 +1,14 @@
-use crate::cfg::{CFG};
-
 use super::merge_block::merge_linear_blocks;
 use super::conditional_jump_conversion::convert_jumps;
 use super::dead_store::remove_dead_stores;
+
+use super::super::cfg::{CFG};
+
 use crate::common::tac_code::{Function, Operand, Statement};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-
 use std::rc::Rc;
-
 
 pub fn remove_dead_code(
     functions: &mut Vec<Function>,

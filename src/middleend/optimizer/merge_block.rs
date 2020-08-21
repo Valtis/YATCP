@@ -1,4 +1,4 @@
-use crate::cfg::{Adj, CFG};
+use super::super::cfg::{Adj, CFG};
 use crate::common::tac_code::{Function, Statement};
 
 pub fn merge_linear_blocks(
@@ -341,7 +341,7 @@ mod tests {
         node_info::{FunctionInfo, Span },
         types::Type,
     };
-    use crate::cfg::basic_block::BasicBlock;
+    use super::super::super::cfg::basic_block::BasicBlock;
 
     use std::rc::Rc;
 

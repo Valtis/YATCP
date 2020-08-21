@@ -1,5 +1,6 @@
-use crate::cfg::{CFG, Adj};
-use crate::cfg::basic_block::BasicBlock;
+use super::cfg::{CFG, Adj};
+use super::cfg::basic_block::BasicBlock;
+
 use crate::common::{
     tac_code::{Function, Statement, Operand},
     node_info::DeclarationInfo,

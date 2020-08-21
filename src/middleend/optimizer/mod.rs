@@ -4,9 +4,11 @@ pub mod dead_store;
 pub mod merge_block;
 pub mod conditional_jump_conversion;
 
-use crate::cfg::CFG;
 use self::const_prop::propagate_and_fold_constants;
 use self::dead_code::remove_dead_code;
+
+use super::cfg::CFG;
+
 use crate::common::tac_code::Function;
 
 use std::collections::HashMap;

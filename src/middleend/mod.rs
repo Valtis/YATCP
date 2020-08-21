@@ -1,20 +1,25 @@
-use crate::common::tac_code::Function;
-use crate::ssa_generator::convert_to_ssa;
-use crate::ssa_generator::destroy_ssa;
+mod cfg;
+mod ssa_generator;
+mod optimizer;
 
-use crate::cfg::generate_cfg;
-use crate::cfg::check_cfg::check_cfg;
-use crate::cfg::CFG;
+use ssa_generator::convert_to_ssa;
+use ssa_generator::destroy_ssa;
+
+use cfg::generate_cfg;
+use cfg::check_cfg::check_cfg;
+use cfg::CFG;
+
+use optimizer::optimize;
 
 use crate::error_reporter::ErrorReporter;
-
-use crate::optimizer::optimize;
+use crate::common::tac_code::Function;
 
 use took::Timer;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
+
 
 pub fn run_middleend(
     mut functions: Vec<Function>,
