@@ -11,7 +11,7 @@ use std::io::prelude::*;
 use std::io::Error;
 
 use std::rc::Rc;
-use crate::function_attributes::FunctionAttribute;
+use crate::common::function_attributes::FunctionAttribute;
 
 // elf file magic number
 const MAGIC_NUMBER : &'static str  ="\u{007f}ELF";

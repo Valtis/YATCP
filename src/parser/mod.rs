@@ -5,11 +5,10 @@ use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
 
-use crate::semcheck::Type;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::variable_attributes::VariableAttribute;
+use crate::common::{variable_attributes::VariableAttribute, types::Type};
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,

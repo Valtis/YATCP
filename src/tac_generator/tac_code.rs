@@ -3,9 +3,8 @@ use std::fmt::Formatter;
 use std::fmt::Result;
 
 use crate::ast::{ DeclarationInfo, FunctionInfo };
-use crate::function_attributes::FunctionAttribute;
+use crate::common::{function_attributes::FunctionAttribute, types::Type};
 
-use crate::semcheck::Type;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]

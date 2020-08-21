@@ -5,10 +5,9 @@ use byte_code::*;
 use crate::tac_generator::tac_code::{Statement, Operator, Operand, Function as TACFunction };
 use crate::tac_generator::{ ARRAY_LENGTH_SLOT_SIZE } ;
 use crate::ast::DeclarationInfo;
-use crate::semcheck::Type;
 
 use std::collections::HashMap;
-use crate::function_attributes::FunctionAttribute;
+use crate::common::{function_attributes::FunctionAttribute, types::Type};
 
 pub struct ByteGenerator {
     pub bytecode_functions: Vec<Function>,

@@ -1,5 +1,4 @@
 use crate::lexer::token::{Token, TokenType, TokenAttribute};
-use crate::semcheck::Type;
 use crate::symbol_table;
 
 use std::fmt::Display;
@@ -9,7 +8,7 @@ use std::fmt::Debug;
 use std::iter;
 
 use std::rc::Rc;
-use crate::variable_attributes::VariableAttribute;
+use crate::common::{variable_attributes::VariableAttribute, types::Type};
 use std::collections::HashSet;
 
 fn get_text_from_identifier(identifier: &Token) -> Rc<String> {

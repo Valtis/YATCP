@@ -1,5 +1,4 @@
-use crate::function_attributes::FunctionAttribute;
-use crate::semcheck::Type;
+use crate::common::{function_attributes::FunctionAttribute, types::Type};
 use crate::code_generator::x64::x64_register::X64Register;
 
 use std::fmt::Display;

@@ -3,12 +3,11 @@ use super::{Adj};
 
 use crate::tac_generator::tac_code::{Function, Statement};
 use crate::error_reporter::{ErrorReporter, ReportKind};
-use crate::semcheck::{Type};
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::function_attributes::FunctionAttribute;
+use crate::common::{function_attributes::FunctionAttribute, types::Type};
 
 
 pub fn check_cfg(

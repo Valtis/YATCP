@@ -1,6 +1,9 @@
 #[macro_use]
 mod ice;
 
+pub mod frontend;
+pub mod middleend;
+pub mod backend;
 
 pub mod lexer;
 pub mod parser;
@@ -18,10 +21,5 @@ mod optimizer;
 mod byte_generator;
 mod code_generator;
 mod obj_generator;
+mod common;
 
-mod function_attributes;
-mod variable_attributes;
-
-pub mod frontend;
-pub mod middleend;
-pub mod backend;

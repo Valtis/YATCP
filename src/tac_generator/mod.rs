@@ -5,13 +5,12 @@ use tac_code::*;
 use peephole_optimizations::optimize;
 
 use crate::ast::*;
-use crate::semcheck::{Type, ARRAY_LENGTH_PROPERTY};
-use crate::function_attributes::FunctionAttribute;
+use crate::semcheck::{ARRAY_LENGTH_PROPERTY};
+use crate::common::{function_attributes::FunctionAttribute, variable_attributes::VariableAttribute, types::Type} ;
 use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
 
 use std::rc::Rc;
-use crate::variable_attributes::VariableAttribute;
 
 pub const ARRAY_LENGTH_SLOT_SIZE: u32 = 4;
 pub const TMP_NAME : &'static str = ".tmp";

@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use crate::function_attributes::FunctionAttribute;
+use crate::common::function_attributes::FunctionAttribute;
 
 
 // used to store jumps that need the target patched afterwards
