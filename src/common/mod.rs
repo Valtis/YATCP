@@ -6,3 +6,4 @@ pub mod constants;
 pub mod tac_code;
 pub mod node_info;
 pub mod error_reporter;
+pub mod string_table;

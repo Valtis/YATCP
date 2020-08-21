@@ -1,12 +1,12 @@
 pub mod token;
 
 use token::*;
-use crate::string_table::StringTable;
 
 use crate::common::{
     node_info::Span,
     constants::SPACES_PER_TAB,
     error_reporter::{ErrorReporter, ReportKind},
+    string_table::StringTable,
 };
 
 
