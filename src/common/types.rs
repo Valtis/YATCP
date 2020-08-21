@@ -107,36 +107,3 @@ impl Display for Type {
       }, formatter)
   }
 }
-
-impl From<&crate::lexer::token::Token> for Type {
-    fn from(variable_token: &crate::lexer::token::Token) -> Type {
-        use crate::lexer::token::TokenType;
-        match variable_token.token_type {
-            TokenType::Integer => Type::Integer,
-            TokenType::String => Type::String,
-            TokenType::Float => Type::Float,
-            TokenType::Double => Type::Double,
-            TokenType::Boolean => Type::Boolean,
-            TokenType::Byte => Type::Byte,
-            TokenType::Void => Type::Void,
-            _ => ice!("Expected type but was '{}' instead", variable_token),
-        }
-    }
-}
-
-impl From<crate::lexer::token::Token> for Type {
-    fn from(variable_token: crate::lexer::token::Token) -> Type {
-        use crate::lexer::token::TokenType;
-        match variable_token.token_type {
-            TokenType::Integer => Type::Integer,
-            TokenType::String => Type::String,
-            TokenType::Float => Type::Float,
-            TokenType::Double => Type::Double,
-            TokenType::Boolean => Type::Boolean,
-            TokenType::Byte => Type::Byte,
-            TokenType::Void => Type::Void,
-            _ => ice!("Expected type but was '{}' instead", variable_token),
-        }
-    }
-}
-

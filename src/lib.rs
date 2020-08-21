@@ -5,16 +5,11 @@ pub mod frontend;
 pub mod middleend;
 pub mod backend;
 
-pub mod lexer;
-pub mod parser;
-pub mod ast;
-pub mod semcheck;
 pub mod error_reporter;
 pub mod string_table;
 
 
 mod symbol_table;
-mod tac_generator;
 mod cfg;
 mod ssa_generator;
 mod optimizer;

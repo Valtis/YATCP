@@ -1,4 +1,4 @@
-use crate::tac_generator::tac_code::{Function, Operand, Operator, Statement};
+use crate::common::tac_code::{Function, Operand, Operator, Statement};
 
 use std::collections::HashMap;
 

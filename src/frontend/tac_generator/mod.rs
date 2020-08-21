@@ -1,18 +1,21 @@
-pub mod tac_code;
 mod peephole_optimizations;
-
-use tac_code::*;
 use peephole_optimizations::optimize;
 
-use crate::ast::*;
-use crate::semcheck::{ARRAY_LENGTH_PROPERTY};
-use crate::common::{function_attributes::FunctionAttribute, variable_attributes::VariableAttribute, types::Type} ;
-use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
+use super::ast::*;
+use super::semcheck::{ARRAY_LENGTH_PROPERTY};
 
+use crate::common::{
+    function_attributes::FunctionAttribute,
+    variable_attributes::VariableAttribute,
+    types::Type,
+    tac_code::*,
+    node_info::*,
+    constants::ARRAY_LENGTH_SLOT_SIZE,
+};
+use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
 use std::rc::Rc;
 
-pub const ARRAY_LENGTH_SLOT_SIZE: u32 = 4;
 pub const TMP_NAME : &'static str = ".tmp";
 
 pub struct TACGenerator {
@@ -900,10 +903,10 @@ impl TACGenerator {
         let id = self.get_next_id();
 
         Operand::Variable(
-            DeclarationInfo::new_alt(
+            DeclarationInfo::new(
                 self.tmp_name.clone(),
-                var_type,
-                0, 0, 0),
+                Span::new(0,0,0),
+                var_type),
             id)
     }
 

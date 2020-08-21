@@ -1,4 +1,4 @@
-use crate::tac_generator::tac_code::{Function, Statement};
+use crate::common::tac_code::{Function, Statement};
 
 #[derive(Debug, PartialEq, Clone)]
 
@@ -57,9 +57,12 @@ impl BasicBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{FunctionInfo, Span};
-    use crate::tac_generator::tac_code::{Statement, Function};
-    use crate::semcheck::Type;
+    use crate::common::{
+        node_info::{FunctionInfo, Span},
+        types::Type,
+        tac_code::{Statement, Function}
+    };
+
     use std::rc::Rc;
 
     fn create_function(statements: Vec<Statement>) -> Function {

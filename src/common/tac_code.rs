@@ -2,10 +2,14 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
 
-use crate::ast::{ DeclarationInfo, FunctionInfo };
-use crate::common::{function_attributes::FunctionAttribute, types::Type};
+use super::{
+    function_attributes::FunctionAttribute,
+    types::Type,
+    node_info::{ DeclarationInfo, FunctionInfo },
+};
 
 use std::rc::Rc;
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {

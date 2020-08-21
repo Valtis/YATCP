@@ -2,12 +2,16 @@ pub mod byte_code;
 
 use byte_code::*;
 
-use crate::tac_generator::tac_code::{Statement, Operator, Operand, Function as TACFunction };
-use crate::tac_generator::{ ARRAY_LENGTH_SLOT_SIZE } ;
-use crate::ast::DeclarationInfo;
+use crate::common::node_info::DeclarationInfo;
 
 use std::collections::HashMap;
-use crate::common::{function_attributes::FunctionAttribute, types::Type};
+
+use crate::common::{
+    function_attributes::FunctionAttribute,
+    types::Type,
+    tac_code::{Statement, Operator, Operand, Function as TACFunction},
+    constants::ARRAY_LENGTH_SLOT_SIZE,
+};
 
 pub struct ByteGenerator {
     pub bytecode_functions: Vec<Function>,
@@ -464,9 +468,11 @@ mod test {
     use super::*;
     use super::Value::*;
 
-    use crate::tac_generator::tac_code::{Operand, Function};
-    use crate::ast::{FunctionInfo, Span};
-    use crate::semcheck::Type;
+    use crate::common::{
+        tac_code::{Operand, Function},
+        node_info::{FunctionInfo, Span},
+        types::Type,
+    };
 
     use std::collections::HashSet;
     use std::rc::Rc;

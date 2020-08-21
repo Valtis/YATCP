@@ -1,4 +1,4 @@
-use crate::tac_generator::tac_code::{Function, Statement};
+use crate::common::tac_code::{Function, Statement};
 
 pub mod basic_block;
 pub mod dom_front;
@@ -439,9 +439,11 @@ fn remove_dead_blocks(
 mod tests {
 
     use super::*;
-    use crate::ast::{FunctionInfo, Span};
-    use crate::tac_generator::tac_code::{Statement, Function, Operator, Operand};
-    use crate::semcheck::Type;
+    use crate::common::{
+        node_info::{FunctionInfo, Span},
+        types::Type,
+        tac_code::{Statement, Function, Operator, Operand},
+    };
     use std::rc::Rc;
 
     fn create_function(statements: Vec<Statement>) -> Function {

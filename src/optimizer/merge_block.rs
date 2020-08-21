@@ -1,5 +1,5 @@
 use crate::cfg::{Adj, CFG};
-use crate::tac_generator::tac_code::{Function, Statement};
+use crate::common::tac_code::{Function, Statement};
 
 pub fn merge_linear_blocks(
     function: &mut Function,
@@ -336,10 +336,12 @@ fn get_false_branch_and_label(
 mod tests {
     use super::*;
 
-    use crate::tac_generator::tac_code::{Operand};
+    use crate::common::{
+        tac_code::{Operand},
+        node_info::{FunctionInfo, Span },
+        types::Type,
+    };
     use crate::cfg::basic_block::BasicBlock;
-    use crate::ast::{FunctionInfo, Span};
-    use crate::semcheck::Type;
 
     use std::rc::Rc;
 

@@ -1,10 +1,13 @@
 pub mod token;
 
 use token::*;
-use crate::ast::Span as Span;
 use crate::error_reporter::{ErrorReporter, ReportKind};
-
 use crate::string_table::StringTable;
+
+use crate::common::{
+    node_info::Span,
+    constants::SPACES_PER_TAB,
+};
 
 
 use std::io::BufReader;
@@ -17,7 +20,6 @@ use std::cell::RefCell;
 /* Unstable API - use this once stabilized */
 //use std::num::IntErrorKind::*;
 
-pub const SPACES_PER_TAB: i32 = 4;
 
 pub trait Lexer {
     fn next_token(&mut self) -> Token;

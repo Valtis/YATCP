@@ -1,4 +1,4 @@
-use crate::tac_generator::tac_code::{Function, Operand, Statement};
+use crate::common::tac_code::{Function, Operand, Statement};
 
 use crate::cfg::{Adj, CFG, dom_front::calculate_immediate_dominator_opt};
 
@@ -204,10 +204,11 @@ mod tests {
     use super::*;
 
     use crate::cfg::basic_block::BasicBlock;
-    use crate::ast::{DeclarationInfo, Span, FunctionInfo};
-    use crate::semcheck::Type;
-
-    use crate::tac_generator::tac_code::{Operand, Operator};
+    use crate::common::{
+        types::Type,
+        node_info::*,
+        tac_code::*,
+    };
 
     use std::rc::Rc;
 
@@ -414,20 +415,22 @@ mod tests {
             Statement::Assignment{
                 operator: None,
                 destination: Some(Operand::SSAVariable(
-                    DeclarationInfo::new_alt(
+                    DeclarationInfo::new(
                         Rc::new("a".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                     0, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(5))
             },
             Statement::Assignment{
                 operator: None,
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                ),
                                           1, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(6))
@@ -437,10 +440,11 @@ mod tests {
             Statement::Label(1),
             Statement::Assignment{
                 operator: None,
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                ),
                                           1, 1)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(8))
@@ -452,28 +456,32 @@ mod tests {
             // block 4
             Statement::Label(3),
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 0),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 1)
                 ]),
             Statement::Return(Some(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2))),
         ];
 
@@ -523,16 +531,18 @@ mod tests {
             f.statements[7]);
         assert_eq!(
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 1)
                 ]),
             f.statements[9]);
@@ -546,19 +556,21 @@ mod tests {
             Statement::Assignment{
                 operator: None,
                 destination: Some(Operand::SSAVariable(
-                    DeclarationInfo::new_alt(
+                    DeclarationInfo::new(
                         Rc::new("a".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                     0, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(5))} ,
             Statement::Assignment{
                 operator: None,
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(6))
@@ -568,10 +580,11 @@ mod tests {
             Statement::Label(1),
             Statement::Assignment{
                 operator: None,
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 1)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(8))
@@ -583,28 +596,32 @@ mod tests {
             // block 4
             Statement::Label(3),
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 0),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 1)
                 ]),
             Statement::Return(Some(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2))),
         ];
 
@@ -664,16 +681,18 @@ mod tests {
         }
 
         if let Statement::PhiFunction(ref op, ref ops) = Statement::PhiFunction(
-            Operand::SSAVariable(DeclarationInfo::new_alt(
+            Operand::SSAVariable(DeclarationInfo::new(
                 Rc::new("b".to_string()),
+                Span::new(0,0,0),
                 Type::Integer,
-                0, 0, 0),
+                ),
                                  1, 2),
             vec![
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 1)
             ]) {
             println!("\nexp Variable: {:?}", op);
@@ -683,16 +702,18 @@ mod tests {
 
         assert_eq!(
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("b".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 2),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("b".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 0)
                 ]),
             f.statements[8]);
@@ -721,20 +742,22 @@ mod tests {
             Statement::Assignment{
                 operator: None,
                 destination: Some(Operand::SSAVariable(
-                    DeclarationInfo::new_alt(
+                    DeclarationInfo::new(
                         Rc::new("i".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                     0, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(0))
             },
             Statement::Assignment{
                 operator:  None,
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 0)),
                 left_operand: None,
                 right_operand: Some(Operand::Integer(0))
@@ -744,33 +767,38 @@ mod tests {
             Statement::Label(1),
             Statement::Assignment{
                 operator: Some(Operator::Plus),
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 2)),
-                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 1)),
-                right_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                right_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           0, 1))
             },
             Statement::Assignment{
                 operator: Some(Operator::Plus),
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           0, 2)),
-                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           0, 1)),
                 right_operand: Some(Operand::Integer(1))
             },
@@ -779,15 +807,17 @@ mod tests {
             Statement::Label(3),
             Statement::Assignment{
                 operator: Some(Operator::Multiply),
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 3)),
-                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           1, 2)),
                 right_operand: Some(Operand::Integer(2))
             },
@@ -796,110 +826,126 @@ mod tests {
             Statement::Label(2),
             Statement::Assignment{
                 operator: Some(Operator::Greater),
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("tmp".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           5, 0)),
-                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           0, 2)),
                 right_operand: Some(Operand::Integer(10))
             },
             Statement::JumpIfTrue(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("tmp".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      5, 0),
                 3),
             // block 5
             Statement::Label(5),
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 4),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 3),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 2)
                 ]),
             // block 6
             Statement::Label(0),
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 1),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 4),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 0)
                 ]),
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      0, 1),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("i".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          0, 2),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("i".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          0, 0)
                 ]),
             Statement::Assignment{
                 operator: Some(Operator::Less),
-                destination: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                destination: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("tmp".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           6, 0)),
-                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new_alt(
+                left_operand: Some(Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                           0, 1)),
                 right_operand: Some(Operand::Integer(20))
             },
             Statement::JumpIfTrue(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("tmp".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      6, 0),
                 1),
             // block 7
             Statement::Return(Some(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                ),
                                      1, 1))),
         ];
 
@@ -966,42 +1012,48 @@ mod tests {
 
         assert_eq!(
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 4),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 3),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 2)
                 ]),
             f.statements[14]);
 
         assert_eq!(
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("j".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                    ),
                                      1, 1),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 4),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("j".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          1, 0)
                 ]),
             f.statements[16]);
@@ -1009,21 +1061,24 @@ mod tests {
 
         assert_eq!(
             Statement::PhiFunction(
-                Operand::SSAVariable(DeclarationInfo::new_alt(
+                Operand::SSAVariable(DeclarationInfo::new(
                     Rc::new("i".to_string()),
+                    Span::new(0,0,0),
                     Type::Integer,
-                    0, 0, 0),
+                   ),
                                      0, 1),
                 vec![
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("i".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                    ),
                                          0, 2),
-                    Operand::SSAVariable(DeclarationInfo::new_alt(
+                    Operand::SSAVariable(DeclarationInfo::new(
                         Rc::new("i".to_string()),
+                        Span::new(0,0,0),
                         Type::Integer,
-                        0, 0, 0),
+                        ),
                                          0, 0)
                 ]),
             f.statements[17]);

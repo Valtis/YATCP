@@ -1,6 +1,10 @@
-use crate::ast::{AstNode, AstInteger, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo, AstByte};
+use super::ast::{AstNode, AstByte, AstInteger};
 
-use crate::common::{variable_attributes::VariableAttribute, types::Type};
+use crate::common::{
+    variable_attributes::VariableAttribute,
+    types::Type,
+    node_info::*,
+};
 use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 use crate::error_reporter::{ReportKind, ErrorReporter};
 
@@ -336,7 +340,7 @@ impl SemanticsCheck {
         function_name: &Rc<String>,
         span: &Span) {
 
-        for arg in args.iter_mut() {
+        for arg in args.into_iter() {
             self.do_check(arg);
         }
 
@@ -553,7 +557,7 @@ impl SemanticsCheck {
 
             let dimension_span = variable_info.span.clone();
 
-            for dim in dims.iter_mut() {
+            for dim in dims.into_iter() {
                 if self.is_constant(dim) {
 
                     self.do_check(dim);

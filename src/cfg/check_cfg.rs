@@ -1,13 +1,17 @@
 use super::CFG;
 use super::{Adj};
 
-use crate::tac_generator::tac_code::{Function, Statement};
 use crate::error_reporter::{ErrorReporter, ReportKind};
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::common::{function_attributes::FunctionAttribute, types::Type};
+
+use crate::common::{
+    function_attributes::FunctionAttribute,
+    types::Type,
+    tac_code::{Function, Statement}
+};
 
 
 pub fn check_cfg(

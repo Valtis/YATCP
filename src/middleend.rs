@@ -1,4 +1,4 @@
-use crate::tac_generator::tac_code::Function;
+use crate::common::tac_code::Function;
 use crate::ssa_generator::convert_to_ssa;
 use crate::ssa_generator::destroy_ssa;
 

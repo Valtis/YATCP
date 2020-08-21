@@ -1,11 +1,19 @@
-use crate::lexer::{ReadLexer, Lexer};
-use crate::lexer::token::{TokenType};
-use crate::parser::Parser;
-use crate::ast::AstNode;
-use crate::semcheck::SemanticsCheck;
-use crate::tac_generator::TACGenerator;
-use crate::tac_generator::tac_code::Function;
+
+mod lexer;
+mod parser;
+pub mod ast;
+mod semcheck;
+mod tac_generator;
+
+use lexer::{ReadLexer, Lexer};
+use lexer::token::{TokenType};
+use parser::Parser;
+use ast::AstNode;
+use semcheck::SemanticsCheck;
+use tac_generator::TACGenerator;
 use crate::error_reporter::ErrorReporter;
+
+use crate::common::tac_code::Function;
 
 use std::fs::File;
 use std::io::Write;
@@ -13,6 +21,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use took::Timer;
+
 
 pub fn run_frontend(
     file_name: String,

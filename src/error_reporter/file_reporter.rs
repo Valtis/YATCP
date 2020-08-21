@@ -1,12 +1,13 @@
 use super::{ErrorReporter, ReportKind, Message };
 
-use crate::ast::Span as Span;
-
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::cmp;
 use std::iter;
-use crate::lexer::SPACES_PER_TAB;
+use crate::common::{
+    constants::SPACES_PER_TAB,
+    node_info::Span,
+};
 
 
 /*

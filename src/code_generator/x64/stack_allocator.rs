@@ -8,7 +8,7 @@ const PTR_SIZE: u32 =  8;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use crate::common::{function_attributes::FunctionAttribute, types::Type};
-use crate::tac_generator::ARRAY_LENGTH_SLOT_SIZE;
+use crate::common::constants::ARRAY_LENGTH_SLOT_SIZE;
 
 #[derive(Debug, Clone)]
 struct StackSlot {

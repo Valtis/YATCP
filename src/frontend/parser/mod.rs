@@ -1,14 +1,18 @@
-use crate::lexer::Lexer;
-use crate::lexer::token::{Token, TokenType, TokenAttribute};
+use super::lexer::Lexer;
+use super::lexer::token::{Token, TokenType, TokenAttribute};
+use super::ast::AstNode;
 
 use crate::error_reporter::{ErrorReporter, ReportKind};
+use crate::common::{
+    variable_attributes::VariableAttribute,
+    types::Type,
+    node_info::*,
+};
 
-use crate::ast::{AstNode, ArithmeticInfo, FunctionInfo, Span as Span, DeclarationInfo, ExtraDeclarationInfo};
 
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::common::{variable_attributes::VariableAttribute, types::Type};
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -103,8 +107,9 @@ impl Parser {
 
         let node = self.parse_block()?;
         let mut func_info = FunctionInfo::new(
-                &identifier,
-                &type_token);
+            (&identifier).into(),
+                identifier.into(),
+                type_token.into());
 
         func_info.parameters = params;
 
@@ -140,8 +145,9 @@ impl Parser {
 
 
         let mut func_info = FunctionInfo::new(
-                &identifier,
-                &type_token);
+            (&identifier).into(),
+            identifier.into(),
+            type_token.into());
 
         func_info.parameters = params;
 
@@ -163,7 +169,7 @@ impl Parser {
 
                 self.expect(TokenType::Colon)?;
                 let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
-                let mut decl = DeclarationInfo::new(&identifier, &var_type);
+                let mut decl = DeclarationInfo::new((&identifier).into(), identifier.into(), var_type.into());
                 if is_read_only {
                     decl.attributes.insert(VariableAttribute::ReadOnly);
                 }
@@ -283,7 +289,11 @@ impl Parser {
             false
         };
 
-        let mut declaration_info = DeclarationInfo::new_with_extra_info(&identifier, &var_type, extra_info);
+        let mut declaration_info = DeclarationInfo::new_with_extra_info(
+            (&identifier).into(),
+            (&identifier).into(),
+            var_type.into(),
+            extra_info);
 
         if is_array {
             declaration_info.variable_type = match declaration_info.variable_type {
@@ -520,42 +530,42 @@ impl Parser {
             TokenType::PlusEquals => AstNode::Plus {
                 left_expression,
                 right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(Span::from(&op))),
             },
             TokenType::MinusEquals => AstNode::Minus {
                 left_expression,
                 right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::StarEquals => AstNode::Multiply {
                 left_expression,
                 right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::ForwardSlashEquals => AstNode::Divide {
                 left_expression,
                 right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::PercentageEquals => AstNode::Modulo {
                 left_expression,
                 right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::DoubleArrowLeftEquals => AstNode::LogicalShiftLeft {
                 value: left_expression,
                 shift_count: right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::DoubleArrowRightEquals => AstNode::ArithmeticShiftRight {
                 value: left_expression,
                 shift_count: right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::TripleArrowRightEquals => AstNode::LogicalShiftRight {
                 value: left_expression,
                 shift_count: right_expression,
-                arithmetic_info: ArithmeticInfo::new(&op),
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::Equals => *right_expression,
             bad => ice!("Bad expression type {}", bad),
@@ -577,7 +587,7 @@ impl Parser {
 
         Ok(AstNode::Return{
             return_value: node,
-            arithmetic_info: ArithmeticInfo::new(&return_node)})
+            arithmetic_info: ArithmeticInfo::new(Span::from(&return_node))})
     }
 
     fn parse_while_statement(&mut self) -> Result<AstNode, ()> {
@@ -882,13 +892,13 @@ impl Parser {
 
         match shift_token.token_type {
             TokenType::DoubleArrowLeft => {
-                Ok(AstNode::LogicalShiftLeft { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+                Ok(AstNode::LogicalShiftLeft { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(Span::from(&shift_token)) })
             },
             TokenType::DoubleArrowRight => {
-                Ok(AstNode::ArithmeticShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+                Ok(AstNode::ArithmeticShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(Span::from(&shift_token)) })
             },
             TokenType::TripleArrowRight => {
-                Ok(AstNode::LogicalShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(&shift_token) })
+                Ok(AstNode::LogicalShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(Span::from(&shift_token)) })
             },
             _ => todo!(),
         }
@@ -1035,7 +1045,7 @@ impl Parser {
                     _ => {
                         Ok(AstNode::Negate{
                             expression: Box::new(node),
-                            arithmetic_info: ArithmeticInfo::new(&token)})
+                            arithmetic_info: ArithmeticInfo::new(Span::from(&token))})
                     }
                 }
 
@@ -1255,7 +1265,7 @@ impl Parser {
                 let plus_node = AstNode::Plus{
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
-                    arithmetic_info: ArithmeticInfo::new(&next_token)};
+                    arithmetic_info: ArithmeticInfo::new(Span::from(&next_token))};
 
                 Ok(plus_node)
             },
@@ -1265,7 +1275,7 @@ impl Parser {
                 let minus_node = AstNode::Minus{
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
-                    arithmetic_info: ArithmeticInfo::new(&next_token)};
+                    arithmetic_info: ArithmeticInfo::new(Span::from(&next_token))};
 
                 Ok(minus_node)
             },
@@ -1283,7 +1293,7 @@ impl Parser {
                 let mult_node = AstNode::Multiply{
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
-                    arithmetic_info: ArithmeticInfo::new(&next_token)};
+                    arithmetic_info: ArithmeticInfo::new(Span::from(&next_token))};
 
                 Ok(mult_node)
             },
@@ -1293,7 +1303,7 @@ impl Parser {
                 let div_node = AstNode::Divide{
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
-                    arithmetic_info: ArithmeticInfo::new(&next_token)};
+                    arithmetic_info: ArithmeticInfo::new(Span::from(&next_token))};
                 Ok(div_node)
             },
             TokenType::Percentage => {
@@ -1302,7 +1312,7 @@ impl Parser {
                 let modulo_node = AstNode::Modulo {
                     left_expression: Box::new(node),
                     right_expression: Box::new(n_node),
-                    arithmetic_info: ArithmeticInfo::new(&next_token)};
+                    arithmetic_info: ArithmeticInfo::new(Span::from(&next_token))};
                 Ok(modulo_node)
             },
             _ => Ok(node),

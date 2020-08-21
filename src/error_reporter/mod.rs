@@ -1,4 +1,4 @@
-use crate::ast::Span as Span;
+use crate::common::node_info::Span;
 
 use ansi_term::Colour::{Red, Cyan, Yellow};
 use ansi_term;

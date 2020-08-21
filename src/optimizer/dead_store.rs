@@ -1,6 +1,6 @@
 use crate::cfg::CFG;
 
-use crate::tac_generator::tac_code::{Function, Statement, Operand};
+use crate::common::tac_code::{Function, Statement, Operand};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -144,12 +144,11 @@ fn remove_dead_writes_in_function_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{FunctionInfo, Span, DeclarationInfo};
+    use crate::common::{
+        node_info::{FunctionInfo, Span, DeclarationInfo},
+        types::Type,
+    };
     use crate::cfg::{Adj, basic_block::BasicBlock};
-
-
-    use crate::semcheck::Type;
-
 
     use std::rc::Rc;
 
@@ -178,10 +177,11 @@ mod tests {
             return a;
         */
 
-        let decl_info = DeclarationInfo::new_alt(
+        let decl_info = DeclarationInfo::new(
             Rc::new("a".to_string()),
+            Span::new(0,0,0),
             Type::Integer,
-            0, 0, 0);
+            );
 
         let statements = vec![
             // block 1
@@ -249,10 +249,11 @@ mod tests {
             foo(a);
         */
 
-        let decl_info = DeclarationInfo::new_alt(
+        let decl_info = DeclarationInfo::new(
             Rc::new("a".to_string()),
+            Span::new(0,0,0),
             Type::Integer,
-            0, 0, 0);
+            );
 
         let statements = vec![
             // block 1
@@ -324,16 +325,18 @@ mod tests {
             return a;
         */
 
-        let decl_info_a = DeclarationInfo::new_alt(
+        let decl_info_a = DeclarationInfo::new(
             Rc::new("a".to_string()),
+            Span::new(0,0,0),
             Type::Integer,
-            0, 0, 0);
+            );
 
 
-        let decl_info_b = DeclarationInfo::new_alt(
+        let decl_info_b = DeclarationInfo::new(
             Rc::new("b".to_string()),
+            Span::new(0,0,0),
             Type::Integer,
-            0, 0, 0);
+            );
 
 
         let statements = vec![
@@ -410,10 +413,11 @@ mod tests {
             return a;
         */
 
-        let decl_info = DeclarationInfo::new_alt(
+        let decl_info = DeclarationInfo::new(
             Rc::new("a".to_string()),
+            Span::new(0,0,0),
             Type::Integer,
-            0, 0, 0);
+            );
 
 
         let statements = vec![

@@ -1,4 +1,3 @@
-use crate::lexer::token::{Token, TokenType, TokenAttribute};
 use crate::symbol_table;
 
 use std::fmt::Display;
@@ -8,15 +7,10 @@ use std::fmt::Debug;
 use std::iter;
 
 use std::rc::Rc;
-use crate::common::{variable_attributes::VariableAttribute, types::Type};
-use std::collections::HashSet;
-
-fn get_text_from_identifier(identifier: &Token) -> Rc<String> {
-    match (identifier.token_type, &identifier.attribute) {
-        (TokenType::Identifier, Some(TokenAttribute::Text(ref text))) => text.clone(),
-        _ => ice!("Expected identifier but was '{}' instead", identifier),
-    }
-}
+use crate::common::{
+    types::Type,
+    node_info::*,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstInteger {
@@ -454,168 +448,5 @@ impl AstNode {
             AstNode::ErrorNode => empty,
         };
         x
-    }
-}
-
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Span {
-    pub line: i32,
-    pub column: i32,
-    pub length: i32,
-}
-
-impl Span {
-    pub fn new(line: i32, column: i32, length: i32) -> Span {
-        Span {
-            line,
-            column,
-            length,
-        }
-    }
-}
-
-impl From<Token> for Span {
-    fn from(val: Token) -> Span {
-        Span {
-            line: val.line,
-            column: val.column,
-            length: val.length,
-        }
-    }
-}
-
-impl From<&Token> for Span {
-    fn from(val: &Token) -> Span {
-        Span {
-            line: val.line,
-            column: val.column,
-            length: val.length,
-        }
-    }
-}
-
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct FunctionInfo {
-    pub name: Rc<String>,
-    pub parameters: Vec<DeclarationInfo>,
-    pub return_type: Type,
-    pub span: Span,
-}
-
-impl FunctionInfo {
-    pub fn new(
-        identifier: &Token,
-        return_type: &Token) -> FunctionInfo {
-
-        FunctionInfo::new_alt(
-            get_text_from_identifier(identifier),
-            Type::from(return_type),
-            identifier.line,
-            identifier.column,
-            identifier.length)
-    }
-
-    pub fn new_alt(
-        name: Rc<String>,
-        return_type: Type,
-        line: i32,
-        column: i32,
-        length: i32,
-    ) -> FunctionInfo {
-        FunctionInfo {
-            name,
-            parameters: vec![],
-            return_type,
-            span: Span::new(
-                line, column, length),
-        }
-
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct DeclarationInfo {
-    pub name: Rc<String>,
-    pub variable_type: Type,
-    pub span: Span,
-    pub extra_info: Option<ExtraDeclarationInfo>,
-    pub attributes: HashSet<VariableAttribute>,
-}
-
-impl DeclarationInfo {
-    pub fn new(identifier: &Token, variable_type: &Token) -> DeclarationInfo {
-        DeclarationInfo::new_alt(
-            get_text_from_identifier(identifier),
-            Type::from(variable_type),
-            identifier.line,
-            identifier.column,
-            identifier.length)
-    }
-
-    pub fn new_alt(
-        name: Rc<String>,
-        var_type: Type,
-        line: i32,
-        column: i32,
-        length: i32) -> DeclarationInfo {
-
-        DeclarationInfo {
-            name,
-            variable_type: var_type,
-            span: Span::new(line, column, length),
-            extra_info: None,
-            attributes: HashSet::new(),
-        }
-    }
-
-    pub fn new_with_extra_info(
-        identifier: &Token,
-        variable_type: &Token,
-        extra_info: Option<ExtraDeclarationInfo>) -> DeclarationInfo {
-        DeclarationInfo {
-            name: get_text_from_identifier(identifier),
-            variable_type: Type::from(variable_type),
-            span: Span::new(identifier.line, identifier.column, identifier.length),
-            extra_info,
-            attributes: HashSet::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ExtraDeclarationInfo {
-    ArrayDimension(Vec<AstNode>), // left-to-right, in declaration order
-}
-
-impl PartialEq for ExtraDeclarationInfo {
-    fn eq(&self, _other: &Self) -> bool {
-        true // FIXME - proper implementation
-    }
-}
-
-
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ArithmeticInfo {
-    pub node_type: Type,
-    pub span: Span
-}
-
-impl ArithmeticInfo {
-    pub fn new(token: &Token) -> ArithmeticInfo {
-        ArithmeticInfo::new_alt(token.line, token.column, token.length)
-    }
-
-    pub fn new_alt(
-        line: i32,
-        column: i32,
-        length: i32) -> ArithmeticInfo {
-
-        ArithmeticInfo {
-            node_type: Type::Uninitialized,
-            span: Span::new(line, column, length)
-        }
     }
 }

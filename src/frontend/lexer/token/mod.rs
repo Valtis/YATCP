@@ -1,8 +1,12 @@
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
-
 use std::rc::Rc;
+
+use crate::common::{
+    node_info::Span,
+    types::Type,
+};
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum TokenType {
@@ -253,4 +257,67 @@ impl Token {
   pub fn new(token_type: TokenType, attribute: Option<TokenAttribute>, line: i32, column: i32, length : i32) -> Token {
     Token { token_type, attribute, line, column, length }
   }
+}
+
+
+
+impl From<Token> for Span {
+    fn from(val: Token) -> Span {
+        Span {
+            line: val.line,
+            column: val.column,
+            length: val.length,
+        }
+    }
+}
+
+impl From<&Token> for Span {
+    fn from(val: &Token) -> Span {
+        Span {
+            line: val.line,
+            column: val.column,
+            length: val.length,
+        }
+    }
+}
+
+
+
+impl From<&Token> for Type {
+    fn from(variable_token: &Token) -> Type {
+        match variable_token.token_type {
+            TokenType::Integer => Type::Integer,
+            TokenType::String => Type::String,
+            TokenType::Float => Type::Float,
+            TokenType::Double => Type::Double,
+            TokenType::Boolean => Type::Boolean,
+            TokenType::Byte => Type::Byte,
+            TokenType::Void => Type::Void,
+            _ => ice!("Expected type but was '{}' instead", variable_token),
+        }
+    }
+}
+
+impl From<Token> for Type {
+    fn from(variable_token: Token) -> Type {
+        match variable_token.token_type {
+            TokenType::Integer => Type::Integer,
+            TokenType::String => Type::String,
+            TokenType::Float => Type::Float,
+            TokenType::Double => Type::Double,
+            TokenType::Boolean => Type::Boolean,
+            TokenType::Byte => Type::Byte,
+            TokenType::Void => Type::Void,
+            _ => ice!("Expected type but was '{}' instead", variable_token),
+        }
+    }
+}
+
+impl From<&Token> for Rc<String> {
+    fn from(variable_token: &Token) -> Rc<String> {
+        match variable_token.attribute {
+            Some(TokenAttribute::Text(ref text)) => text.clone(),
+            _ => ice!("Bad token {:?}", variable_token),
+        }
+    }
 }

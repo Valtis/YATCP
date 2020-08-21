@@ -7,7 +7,7 @@ pub mod conditional_jump_conversion;
 use crate::cfg::CFG;
 use self::const_prop::propagate_and_fold_constants;
 use self::dead_code::remove_dead_code;
-use crate::tac_generator::tac_code::Function;
+use crate::common::tac_code::Function;
 
 use std::collections::HashMap;
 use std::rc::Rc;
