@@ -8,5 +8,4 @@ pub mod backend;
 
 
 
-mod symbol_table;
 

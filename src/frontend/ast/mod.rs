@@ -1,4 +1,3 @@
-use crate::symbol_table;
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -10,6 +9,7 @@ use std::rc::Rc;
 use crate::common::{
     types::Type,
     node_info::*,
+    symbol_table,
 };
 
 #[derive(Clone, Debug, PartialEq)]

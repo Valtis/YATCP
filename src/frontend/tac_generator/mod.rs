@@ -11,8 +11,8 @@ use crate::common::{
     tac_code::*,
     node_info::*,
     constants::ARRAY_LENGTH_SLOT_SIZE,
+    symbol_table::{TableEntry, SymbolTable, Symbol},
 };
-use crate::symbol_table::{TableEntry, SymbolTable, Symbol};
 
 use std::rc::Rc;
 

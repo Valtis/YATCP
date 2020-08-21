@@ -5,8 +5,8 @@ use crate::common::{
     types::Type,
     node_info::*,
     error_reporter::{ErrorReporter, ReportKind},
+    symbol_table::{SymbolTable, Symbol, TableEntry},
 };
-use crate::symbol_table::{SymbolTable, Symbol, TableEntry};
 
 use std::rc::Rc;
 use std::cell::RefCell;
