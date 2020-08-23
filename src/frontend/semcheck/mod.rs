@@ -583,7 +583,7 @@ impl SemanticsCheck {
 
             child_type = Type::Byte;
         }
-        
+
         self.check_declaration_validity(child, declaration_info);
 
         if declaration_info.variable_type == Type::Invalid {
@@ -1006,18 +1006,19 @@ impl SemanticsCheck {
                             index_expression.span(),
                             "Index expression must be constant when indexing constant array".to_owned(),
                         );
+
+                        if let AstNode::Identifier { name, .. } = index_expression {
+                            if let Some(declaration_info) = self.symbol_table.get_declaration_info(name) {
+                                self.report_error(
+                                     ReportKind::Note,
+                                    declaration_info.span,
+                                     format!("Variable '{}', declared here, is not compile time constant", name)
+                                );
+                            }
+                        }
                     }
                 }
 
-                if let AstNode::Identifier { name, .. } = index_expression {
-                    if let Some(declaration_info) = self.symbol_table.get_declaration_info(name) {
-                        self.report_error(
-                            ReportKind::Note,
-                            declaration_info.span,
-                            format!("Variable '{}', declared here, is not compile time constant", name)
-                        );
-                    }
-                }
             }
         }
 
