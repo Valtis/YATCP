@@ -461,4 +461,53 @@ impl AstNode {
         };
         x
     }
+
+    pub fn span_ref_mut(&mut self) -> Option<&mut Span> {
+        let x = match self {
+            AstNode::Block { ref mut span, .. } => span,
+            AstNode::Function { function_info, .. } => &mut function_info.span,
+            AstNode::ExternFunction { function_info } => &mut function_info.span,
+            AstNode::FunctionCall { span, .. } => span,
+            AstNode::VariableDeclaration { declaration_info, .. } => &mut declaration_info.span,
+            AstNode::VariableAssignment { span, .. } => span,
+            AstNode::ArrayDeclaration { declaration_info, .. } => &mut declaration_info.span,
+            AstNode::ArrayAssignment { span, .. } => span,
+            AstNode::InitializerList { span, .. } => span,
+            AstNode::MemberAccess { span, .. } => span,
+            AstNode::BooleanAnd { span, .. } |
+            AstNode::BooleanOr { span, .. } => span,
+            AstNode::Plus { arithmetic_info, .. } |
+            AstNode::Minus { arithmetic_info, .. } |
+            AstNode::Multiply { arithmetic_info, .. } |
+            AstNode::Divide { arithmetic_info, .. } |
+            AstNode::ArithmeticShiftRight { arithmetic_info, .. } |
+            AstNode::LogicalShiftRight { arithmetic_info, .. } |
+            AstNode::LogicalShiftLeft { arithmetic_info, .. } |
+            AstNode::Modulo { arithmetic_info, .. } => &mut arithmetic_info.span,
+            AstNode::Negate { arithmetic_info, .. } => &mut arithmetic_info.span,
+            AstNode::Return { arithmetic_info, .. } => &mut arithmetic_info.span,
+            AstNode::While { span, .. } => span,
+            AstNode::If { span, .. } => span,
+            AstNode::Less { span, .. } |
+            AstNode::LessOrEq { span, .. } |
+            AstNode::Equals { span, .. } |
+            AstNode::NotEquals { span, .. } |
+            AstNode::GreaterOrEq { span, .. } |
+            AstNode::Greater { span, .. } => span,
+            AstNode::IntegralNumber { span, .. } => span,
+            AstNode::Integer { span, .. } => span,
+            AstNode::Byte { span, .. } => span,
+            AstNode::Float { span, .. } => span,
+            AstNode::Double { span, .. } => span,
+            AstNode::Boolean { span, .. } => span,
+            AstNode::Text { span, .. } => span,
+            AstNode::Identifier { span, .. } => span,
+            AstNode::ArrayAccess { indexable_expression, .. } => return indexable_expression.span_ref_mut(),
+            AstNode::BooleanNot { span, .. } => span,
+            AstNode::Cast { span, .. } => span,
+            AstNode::EmptyNode |
+            AstNode::ErrorNode => return None,
+        };
+        Some(x)
+    }
 }

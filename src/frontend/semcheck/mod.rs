@@ -209,7 +209,11 @@ impl SemanticsCheck {
                 (_, _) => replacement_node,
             };
 
+            let old_span = node.span();
             *node = replacement_node;
+            if let Some(span) = node.span_ref_mut() {
+                *span = old_span;
+            }
         }
     }
 
