@@ -123,6 +123,8 @@ impl SemanticsCheck {
                 variable_name,
                 span,
             } => self.handle_array_assignment(index_expression, assignment_expression, variable_name, span),
+            AstNode::InitializerList { values, list_type, span } =>
+                self.handle_initializer_list(values, list_type, span),
             AstNode::MemberAccess {
                 object,
                 member,
@@ -538,8 +540,13 @@ impl SemanticsCheck {
                 "Array may not have type 'Void'".to_string());
         } else {
 
-            if declaration_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
+            let child_type = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
+                *inner.clone()
+            } else {
+                child_type
+            };
 
+            if declaration_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
                 let conversion_result = self.perform_type_conversion(
                     &declaration_info.variable_type.get_array_basic_type(),  child);
 
@@ -558,7 +565,7 @@ impl SemanticsCheck {
             }
 
             let dimension_span = declaration_info.span.clone();
-
+            let mut dimension_constants = vec![];
             for dim in dimensions.into_iter() {
                 if self.is_constant(dim) {
 
@@ -600,9 +607,12 @@ impl SemanticsCheck {
                                     dimension_span.clone(),
                                     format!("Array index negative or zero ({})", x)
                                 );
-                                break;
+                                continue;
                             }
-                            _ => *dim = expr,
+                            AstInteger::Int(x) => {
+                                dimension_constants.push(*x);
+                                *dim = expr;
+                            }
                         }
                     } else {
                         // this can happen if constant is initialized with bad expression. Ignore
@@ -617,6 +627,38 @@ impl SemanticsCheck {
                 }
             }
 
+
+            if let AstNode::InitializerList {ref values, span, .. } = child {
+                // TODO: Support multiple dimensions
+                if dimension_constants.is_empty() {
+                    dimensions.push(AstNode::Integer {
+                        value: AstInteger::Int(values.len() as i32),
+                        span: Span::new(0, 0, 0)
+                    });
+                } else if dimension_constants.len() == 1 {
+                    if dimension_constants[0] != values.len() as i32 {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            span.clone(),
+                            format!(
+                                "Initializer list length does not match array length: Array of length {} but list has {} elements",
+                                dimension_constants[0],
+                                values.len()
+                            )
+                        );
+                    }
+                } else {
+                    todo!()
+                }
+            } else {
+                if dimensions.is_empty() {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        declaration_info.span,
+                        "Array length must be specified if shorthand initialization syntax is used".to_owned()
+                    )
+                }
+            }
         }
     }
 
@@ -912,6 +954,50 @@ impl SemanticsCheck {
             let conversion_result = self.perform_type_conversion(&Type::Integer, index_expression);
             ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
         }
+    }
+
+    fn handle_initializer_list(
+        &mut self,
+        values: &mut Vec<AstNode>,
+        list_type: &mut Type,
+        span: &Span
+    ) {
+        for value in values.into_iter() {
+            self.do_check(value);
+        }
+
+        if values.is_empty() {
+            self.report_error(
+                ReportKind::TypeError,
+                *span,
+                "Empty initializer list".to_owned(),
+            );
+            return;
+        }
+
+        *list_type = self.get_type(&values[0]);
+
+        for value in values.into_iter().skip(1) {
+            if *list_type != self.get_type(value) {
+                self.report_error(
+                    ReportKind::TypeError,
+                    *span,
+                    format!("Invalid lnitializer list type, expected '{}' but got '{}'", list_type, self.get_type(value)),
+                );
+
+            }
+        }
+
+        if *list_type == Type::IntegralNumber {
+            values.into_iter().for_each(|value| {
+                let conversion_result = self.perform_type_conversion(&Type::Integer, value);
+                ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
+            });
+            *list_type = Type::Integer;
+        }
+
+
+        *list_type = Type::InitializerList(Box::new(list_type.clone()));
     }
 
     fn handle_member_access(
@@ -1583,6 +1669,7 @@ impl SemanticsCheck {
                 return Type::Invalid;
             },
             AstNode::Cast{ target_type, ..  } => target_type.clone(),
+            AstNode::InitializerList { list_type, .. } => list_type.clone(),
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }

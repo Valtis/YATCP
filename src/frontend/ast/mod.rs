@@ -141,6 +141,7 @@ pub enum AstNode {
     ArrayDeclaration{ initialization_expression: Box<AstNode>, dimensions: Vec<AstNode>, declaration_info: DeclarationInfo },
     VariableAssignment{ expression: Box<AstNode>, name: Rc<String>, span: Span },
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: Span },
+    InitializerList { values: Vec<AstNode>, list_type: Type, span: Span },
 
     MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: Span },
     Plus{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
@@ -235,7 +236,8 @@ impl Display for AstNode {
                 variable_name: name,
                 span: _
             } => format!("Array assignment '{}'", name),
-            AstNode::MemberAccess { .. } => format!("Member access"),
+            AstNode::InitializerList{..} => "Initializer list".to_owned(),
+            AstNode::MemberAccess { .. } => "Member access".to_owned(),
             AstNode::IntegralNumber{value, ..} => format!("Integral number: {}", value),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
             AstNode::Byte{ value, .. } => format!("Byte: {}", value),
@@ -319,6 +321,20 @@ impl AstNode {
                 string = format!("{}{}", string, index.print_impl(next_int));
                 string = format!("{}{}", string, assign.print_impl(next_int));
             },
+            AstNode::InitializerList { ref values, .. } => {
+                let mut list = vec![];
+                for value in values.iter() {
+                    list.push(value.print_impl(next_int).trim_end().to_owned());
+                }
+
+                let list = list.
+                    iter().
+                    skip(0).
+                    fold(String::new(), |acc, t| format!("{}{}\n", acc, t));
+
+                string = format!("{}{}", string, list);
+
+            }
             AstNode::MemberAccess {
                 object: ref member_access,
                 ref member,
@@ -407,6 +423,7 @@ impl AstNode {
             AstNode::VariableAssignment{ span, .. } => *span,
             AstNode::ArrayDeclaration{declaration_info, .. } => declaration_info.span,
             AstNode::ArrayAssignment{ span, .. } => *span,
+            AstNode::InitializerList{ span, .. } => *span,
             AstNode::MemberAccess { span, .. } => *span,
             AstNode::BooleanAnd{ span, ..} |
             AstNode::BooleanOr{ span, ..} => *span,

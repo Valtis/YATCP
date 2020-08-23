@@ -316,7 +316,9 @@ impl Parser {
         // TODO: Support for multidimensional arrays
         let mut dimensions = vec![];
         self.expect(TokenType::LBracket)?;
-        dimensions.push(self.parse_expression()?);
+        if self.lexer.peek_token().token_type != TokenType::RBracket {
+            dimensions.push(self.parse_expression()?);
+        }
         self.expect(TokenType::RBracket)?;
 
         let array_type = match (&var_type).into() {
@@ -1047,7 +1049,12 @@ impl Parser {
 
     fn parse_factor(&mut self) -> Result<AstNode, ()> {
         let token = self.expect_one_of(vec![
-            TokenType::Identifier, TokenType::NumberConstant, TokenType::LParen, TokenType::Text, TokenType::Minus, TokenType::BooleanConstant])?;
+            TokenType::Identifier,
+            TokenType::NumberConstant,
+            TokenType::LParen, TokenType::Text,
+            TokenType::Minus,
+            TokenType::BooleanConstant,
+            TokenType::LBrace])?;
 
         match token.token_type {
             TokenType::Minus => {
@@ -1118,6 +1125,9 @@ impl Parser {
                 self.expect(TokenType::RParen)?;
                 Ok(node)
             },
+            TokenType::LBrace => {
+                self.parse_initializer_list(Span::from(token))
+            }
             TokenType::Text => {
                 match token.attribute {
                     Some(TokenAttribute::Text(ref text)) =>
@@ -1133,6 +1143,34 @@ impl Parser {
                     "Invalid token '{}' passed to match statement in parse_factor",
                     token),
         }
+    }
+
+    fn parse_initializer_list(&mut self, mut start_span: Span) -> Result<AstNode, ()> {
+
+        let mut values = vec![];
+        loop {
+            if self.lexer.peek_token().token_type == TokenType::RBrace {
+                break;
+            }
+            values.push(self.parse_expression()?);
+
+            if self.lexer.peek_token().token_type != TokenType::Comma {
+                break;
+            }
+            self.expect(TokenType::Comma)?;
+        }
+
+        let end_span = Span::from(self.expect(TokenType::RBrace)?);
+
+        if end_span.line == start_span.line {
+            start_span.length = end_span.column - start_span.column + 1;
+        }
+
+        Ok(AstNode::InitializerList {
+            values,
+            span: start_span,
+            list_type: Type::Uninitialized
+        })
     }
 
     fn starts_operand(&self, token: &Token) -> bool {

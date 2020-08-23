@@ -121,6 +121,8 @@ impl TACGenerator {
                 self.handle_shift(node),
             AstNode::Cast{ expression, target_type, span } =>
                 self.handle_cast(expression, target_type, span),
+            AstNode::InitializerList {values, .. } =>
+                self.handle_initializer_list(values),
             AstNode::EmptyNode => (),
             AstNode::ErrorNode => ice!("Error node present in three-address-code generation"),
             x => todo!("Three-address code generation not implemented for '{}'", x),
@@ -282,7 +284,6 @@ impl TACGenerator {
 
         self.generate_tac(child);
         let (_, id) = self.get_variable_info_and_id(&info.name);
-        let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
 
         let length = {
             let mut length = 1 as u64;
@@ -297,10 +298,17 @@ impl TACGenerator {
             length as i32
         };
 
+
         self.store_array_length(id,
                                 length,
                                 (length as u32)*info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
-        self.emit_array_initialization(id, info, length, operand);
+
+        if let AstNode::InitializerList { .. } = child {
+            self.emit_array_initialization_using_initializer_list(id, info, length);
+        }  else {
+            let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
+            self.emit_array_initialization_using_shorthand(id, info, length, operand);
+        }
     }
 
     fn store_array_length(&mut self,
@@ -310,7 +318,52 @@ impl TACGenerator {
         self.current_function().statements.push(Statement::Array{ id, length, size_in_bytes });
     }
 
-    fn emit_array_initialization(
+    fn emit_array_initialization_using_initializer_list(
+        &mut self,
+        id: u32,
+        variable_info: &DeclarationInfo,
+        size: i32,
+        ) {
+
+
+        for i in (0..size).rev() {
+
+            let operand = self.operands.pop().unwrap_or_else(|| ice!("Missing array initializer value"));
+            self.current_function().statements.push(
+                Statement::Assignment{
+                    operator: None,
+                    destination: Some(Operand::ArrayIndex {
+                        id,
+                        variable_info: variable_info.clone(),
+                        index_operand: Box::new(Operand::Integer(i)),
+                    }),
+                    left_operand: None, right_operand: Some(operand),
+                }
+            );
+        }
+
+
+        // init array length
+        // Dirtyish hack: To ensure that the indexing operatino correctly indexes with 4 byte length,
+        // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
+        // would fail with arrays with non-integer base type (e.g. boolean arrays)
+        let mut init_length_into = variable_info.clone();
+        init_length_into.variable_type = Type::IntegerArray;
+
+        self.current_function().statements.push(
+            Statement::Assignment{
+                operator: None,
+                destination: Some(Operand::ArrayIndex {
+                    id,
+                    variable_info: init_length_into,
+                    index_operand: Box::new(Operand::Integer(-1)),
+                }),
+                left_operand: None,
+                right_operand: Some(Operand::Integer(size))
+            });
+    }
+
+    fn emit_array_initialization_using_shorthand(
         &mut self,
         id: u32,
         variable_info: &DeclarationInfo,
@@ -389,7 +442,7 @@ impl TACGenerator {
         // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
         // would fail with arrays with non-integer base type (e.g. boolean arrays)
         let mut init_length_into = variable_info.clone();
-        init_length_into.variable_type = Type::IntegerArray; //
+        init_length_into.variable_type = Type::IntegerArray;
 
         self.current_function().statements.push(
             Statement::Assignment{
@@ -874,6 +927,10 @@ impl TACGenerator {
         );
 
         self.operands.push(destination);
+    }
+
+    fn handle_initializer_list(&mut self, values: &Vec<AstNode>) {
+        values.iter().for_each(|node| self.generate_tac(node));
     }
 
     fn get_type(&self, operand: &Operand) -> Type {

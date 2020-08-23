@@ -413,7 +413,7 @@ impl ByteGenerator {
                         Value::DynamicStackOffset {
                             id: *id,
                             index: Box::new(Value::IntegerConstant(-1)),
-                            offset: 0,
+                            offset: ARRAY_LENGTH_SLOT_SIZE,
                             size,
                         }
                     },
@@ -547,7 +547,6 @@ mod test {
                             column: 1,
                             length: 1,
                         },
-                        extra_info: None,
                         attributes: HashSet::new(),
                     },
                     3)
@@ -591,7 +590,6 @@ mod test {
                             column: 1,
                             length: 1,
                         },
-                        extra_info: None,
                         attributes: HashSet::new(),
                     },
                     3)
@@ -633,7 +631,6 @@ mod test {
                             column: 1,
                             length: 1,
                         },
-                        extra_info: None,
                         attributes: HashSet::new(),
                     },
                     1),

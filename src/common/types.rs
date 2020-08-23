@@ -16,6 +16,7 @@ pub enum Type {
     IntegerArray,
     BooleanArray,
     Uninitialized,
+    InitializerList(Box<Type>),
     Reference(Box<Type>),
     Invalid, // type error occurred
 }
@@ -34,6 +35,7 @@ impl Type {
             Type::ByteArray => unimplemented!(), // TODO define semantics
             Type::BooleanArray=> unimplemented!(), // TODO define semantics
             Type::IntegerArray => unimplemented!(), // TODO define semantics
+            Type::InitializerList(_) => ice!("Requesting size of an initializer list"),
             Type::Reference(_) => 8,
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
@@ -55,6 +57,7 @@ impl Type {
             Type::BooleanArray => true,
             Type::Uninitialized => false,
             Type::Reference(ref x) => x.is_array(),
+            Type::InitializerList(_) => false,
             Type::Invalid => false,
         }
     }
@@ -102,6 +105,7 @@ impl Display for Type {
             Type::BooleanArray=> "Boolean array".to_owned(),
             Type::IntegerArray => "Integer array".to_owned(),
             Type::Reference(ref x) => format!("Reference to {}", x),
+            Type::InitializerList(_) => "Initializer list".to_owned(),
             Type::Uninitialized => "Uninitialized".to_owned(),
             Type::Invalid => "Invalid".to_owned(),
       }, formatter)
