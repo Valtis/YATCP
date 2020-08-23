@@ -555,8 +555,36 @@ impl SemanticsCheck {
         declaration_info: &mut DeclarationInfo) {
 
         self.do_check(child);
+         let mut child_type = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
+            *inner.clone()
+        } else {
+            self.get_type(child)
+        };
+
+        // Syntactic sugar: If assigning string into byte array, convert string into byte initializer list
+
+        if declaration_info.variable_type.get_array_basic_type() == Type::Byte && child_type == Type::String {
+            let text = if let AstNode::Text { value, .. } = child {
+                value.clone()
+            } else {
+                ice!("Unexpected node '{}' when Text node was expected", child);
+            };
+
+            let values = text.bytes().map(|byte| AstNode::Byte {
+                value: AstByte::Byte(byte as i8),
+                span: Span::new(0, 0, 0),
+            }).collect::<Vec<_>>();
+
+            *child = AstNode::InitializerList {
+                values,
+                list_type: Type::InitializerList(Box::new(Type::Byte)),
+                span: child.span(),
+            };
+
+            child_type = Type::Byte;
+        }
+        
         self.check_declaration_validity(child, declaration_info);
-        let child_type = self.get_type(child);
 
         if declaration_info.variable_type == Type::Invalid {
             return;
@@ -569,126 +597,122 @@ impl SemanticsCheck {
                 ReportKind::TypeError,
                 declaration_info.span.clone(),
                 "Array may not have type 'Void'".to_string());
-        } else {
+            return;
+        }
 
-            let child_type = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
-                *inner.clone()
-            } else {
-                child_type
-            };
 
-            if declaration_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
-                let conversion_result = self.perform_type_conversion(
-                    &declaration_info.variable_type.get_array_basic_type(),  child);
 
-                if conversion_result != ConversionResult::Converted {
-                    self.report_error(
-                        ReportKind::TypeError,
-                        child.span(),
-                        format!("Expected '{}' but got '{}' instead", declaration_info.variable_type.get_array_basic_type(), child_type.clone())
-                    );
+        if declaration_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
+            let conversion_result = self.perform_type_conversion(
+                &declaration_info.variable_type.get_array_basic_type(),  child);
 
-                    if conversion_result == ConversionResult::CastRequired {
-                        self.report_conversion_note(
-                            &declaration_info.variable_type.get_array_basic_type(), &child_type, &child.span());
-                    }
+            if conversion_result != ConversionResult::Converted {
+                self.report_error(
+                    ReportKind::TypeError,
+                    child.span(),
+                    format!("Expected '{}' but got '{}' instead", declaration_info.variable_type.get_array_basic_type(), child_type.clone())
+                );
+
+                if conversion_result == ConversionResult::CastRequired {
+                    self.report_conversion_note(
+                        &declaration_info.variable_type.get_array_basic_type(), &child_type, &child.span());
                 }
             }
+        }
 
-            let dimension_span = declaration_info.span.clone();
-            let mut dimension_constants = vec![];
-            for dim in dimensions.into_iter() {
-                if self.is_constant(dim) {
+        let dimension_span = declaration_info.span.clone();
+        let mut dimension_constants = vec![];
+        for dim in dimensions.into_iter() {
+            if self.is_constant(dim) {
 
-                    self.do_check(dim);
+                self.do_check(dim);
 
-                    let dimension_type = self.get_type(dim);
-                    if dimension_type != Type::IntegralNumber && dimension_type != Type::Integer {
-                        self.report_error(
-                            ReportKind::TypeError,
-                            dim.span(),
-                            format!("Array dimension must be an integer constant (now {})", self.get_type(dim))
-                        );
-                        continue;
-                    }
-
-                    if dimension_type == Type::IntegralNumber {
-                        let conversion_result = self.perform_type_conversion(&Type::Integer, dim);
-                        ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
-                    }
-
-                    let expr = self.get_constant_initializer_expression(dim);
-                    ice_if!(!self.is_constant(&expr), "Inconsistent constant value tracking");
-
-                    if let AstNode::Integer { ref value, .. } = expr {
-                        match value {
-                            AstInteger::Invalid(_) => {
-
-                                self.report_error(
-                                    ReportKind::TypeError,
-                                    dimension_span.clone(),
-                                    "Array has invalid dimensions".to_owned(),
-                                );
-
-                            }
-                            AstInteger::Int(x) if *x <= 0 => {
-
-                                self.report_error(
-                                    ReportKind::TypeError,
-                                    dimension_span.clone(),
-                                    format!("Array index negative or zero ({})", x)
-                                );
-                                continue;
-                            }
-                            AstInteger::Int(x) => {
-                                dimension_constants.push(*x);
-                                *dim = expr;
-                            }
-                        }
-                    } else {
-                        // this can happen if constant is initialized with bad expression. Ignore
-                    }
-
-                } else {
+                let dimension_type = self.get_type(dim);
+                if dimension_type != Type::IntegralNumber && dimension_type != Type::Integer {
                     self.report_error(
                         ReportKind::TypeError,
                         dim.span(),
-                        "Array dimension must be a constant".to_owned()
+                        format!("Array dimension must be an integer constant (now {})", self.get_type(dim))
                     );
+                    continue;
                 }
-            }
 
+                if dimension_type == Type::IntegralNumber {
+                    let conversion_result = self.perform_type_conversion(&Type::Integer, dim);
+                    ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
+                }
 
-            if let AstNode::InitializerList {ref values, span, .. } = child {
-                // TODO: Support multiple dimensions
-                if dimension_constants.is_empty() {
-                    dimensions.push(AstNode::Integer {
-                        value: AstInteger::Int(values.len() as i32),
-                        span: Span::new(0, 0, 0)
-                    });
-                } else if dimension_constants.len() == 1 {
-                    if dimension_constants[0] != values.len() as i32 {
-                        self.report_error(
-                            ReportKind::TypeError,
-                            span.clone(),
-                            format!(
-                                "Initializer list length does not match array length: Array of length {} but list has {} elements",
-                                dimension_constants[0],
-                                values.len()
-                            )
-                        );
+                let expr = self.get_constant_initializer_expression(dim);
+                ice_if!(!self.is_constant(&expr), "Inconsistent constant value tracking");
+
+                if let AstNode::Integer { ref value, .. } = expr {
+                    match value {
+                        AstInteger::Invalid(_) => {
+
+                            self.report_error(
+                                ReportKind::TypeError,
+                                dimension_span.clone(),
+                                "Array has invalid dimensions".to_owned(),
+                            );
+
+                        }
+                        AstInteger::Int(x) if *x <= 0 => {
+
+                            self.report_error(
+                                ReportKind::TypeError,
+                                dimension_span.clone(),
+                                format!("Array index negative or zero ({})", x)
+                            );
+                            continue;
+                        }
+                        AstInteger::Int(x) => {
+                            dimension_constants.push(*x);
+                            *dim = expr;
+                        }
                     }
                 } else {
-                    todo!()
+                    // this can happen if constant is initialized with bad expression. Ignore
                 }
+
             } else {
-                if dimensions.is_empty() {
+                self.report_error(
+                    ReportKind::TypeError,
+                    dim.span(),
+                    "Array dimension must be a constant".to_owned()
+                );
+            }
+        }
+
+
+        if let AstNode::InitializerList {ref values, span, .. } = child {
+            // TODO: Support multiple dimensions
+            if dimension_constants.is_empty() {
+                dimensions.push(AstNode::Integer {
+                    value: AstInteger::Int(values.len() as i32),
+                    span: Span::new(0, 0, 0)
+                });
+            } else if dimension_constants.len() == 1 {
+                if dimension_constants[0] != values.len() as i32 {
                     self.report_error(
                         ReportKind::TypeError,
-                        declaration_info.span,
-                        "Array length must be specified if shorthand initialization syntax is used".to_owned()
-                    )
+                        span.clone(),
+                        format!(
+                            "Initializer list length does not match array length: Array of length {} but list has {} elements",
+                            dimension_constants[0],
+                            values.len()
+                        )
+                    );
                 }
+            } else {
+                todo!()
+            }
+        } else {
+                if dimensions.is_empty() {
+                self.report_error(
+                    ReportKind::TypeError,
+                    declaration_info.span,
+                    "Array length must be specified if shorthand initialization syntax is used".to_owned()
+                )
             }
         }
     }
