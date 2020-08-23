@@ -1,6 +1,0 @@
-
-
-fn main() {
-	const X: byte = 200 as byte;  
-	let y: byte = X; // above line incorrectly reported
-}

@@ -1,0 +1,9 @@
+extern fn int_printer(value: int);
+
+
+fn main() : int {
+	const ARRAY: int[4] = 4;
+	int_printer(ARRAY.length);
+	return 0;
+}
+
