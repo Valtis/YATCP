@@ -11,6 +11,7 @@ use crate::common::{
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::frontend::ast::AstByte;
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -1104,6 +1105,12 @@ impl Parser {
                             value: i,
                             span: Span::from(token)})
                     },
+                    Some(TokenAttribute::ByteConstant(i)) => {
+                       Ok(AstNode::Byte {
+                           value: AstByte::from(i as i128),
+                           span: Span::from(token),
+                       })
+                    }
                     Some(TokenAttribute::ErrorValue) => {
                         Ok(AstNode::ErrorNode)
                     },

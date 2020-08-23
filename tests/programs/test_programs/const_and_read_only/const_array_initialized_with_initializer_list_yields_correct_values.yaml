@@ -1,0 +1,21 @@
+program: |
+    extern fn int_printer(value: int);
+    fn main() : int {
+      const array: int[] = { 1, 2, 3, 4, 5 };
+      int_printer(array[0]);
+      int_printer(array[1]);
+      int_printer(array[2]);
+      int_printer(array[3]);
+      int_printer(array[4]);
+
+      return 0;
+    }
+
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  1
+  2
+  3
+  4
+  5

@@ -555,15 +555,14 @@ impl SemanticsCheck {
         declaration_info: &mut DeclarationInfo) {
 
         self.do_check(child);
-         let mut child_type = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
-            *inner.clone()
+        let (mut child_type, original_is_initializer) = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
+            (*inner.clone(), true)
         } else {
-            self.get_type(child)
+            (self.get_type(child), false)
         };
 
         // Syntactic sugar: If assigning string into byte array, convert string into byte initializer list
-
-        if declaration_info.variable_type.get_array_basic_type() == Type::Byte && child_type == Type::String {
+        if declaration_info.variable_type.get_array_basic_type() == Type::Byte && child_type == Type::String && !original_is_initializer {
             let text = if let AstNode::Text { value, .. } = child {
                 value.clone()
             } else {
@@ -1044,20 +1043,31 @@ impl SemanticsCheck {
                 *span,
                 "Empty initializer list".to_owned(),
             );
+            *list_type = Type::Invalid;
             return;
         }
 
         *list_type = self.get_type(&values[0]);
 
+        let mut is_invalid = false;
         for value in values.into_iter().skip(1) {
-            if *list_type != self.get_type(value) {
+            let value_type = self.get_type(value);
+            if *list_type != value_type {
+                if *list_type == Type::IntegralNumber && value_type.is_integral() {
+                    continue;
+                }
+
                 self.report_error(
                     ReportKind::TypeError,
-                    *span,
-                    format!("Invalid lnitializer list type, expected '{}' but got '{}'", list_type, self.get_type(value)),
+                    value.span(),
+                    format!("Invalid initializer list member type, expected '{}' but got '{}'", list_type, self.get_type(value)),
                 );
-
+                is_invalid = true;
             }
+        }
+
+        if is_invalid {
+            *list_type = Type::Invalid;
         }
 
         if *list_type == Type::IntegralNumber {

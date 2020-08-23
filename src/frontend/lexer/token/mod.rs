@@ -189,6 +189,7 @@ pub enum TokenAttribute {
 
     // Generic integral constant, no type specified in constant
     IntegralConstant(u128),
+    ByteConstant(u128),
     BooleanValue(bool),
     ErrorValue
 }
@@ -196,12 +197,13 @@ pub enum TokenAttribute {
 impl Display for TokenAttribute {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
       write!(formatter, "{}", match *self {
-        TokenAttribute::Text(ref text) => format!("\"{}\"", text),
-        TokenAttribute::FloatConstant(value) => format!("{}f", value.to_string()),
-        TokenAttribute::DoubleConstant(value) => format!("{}d", value.to_string()),
-        TokenAttribute::IntegralConstant(value) => value.to_string(),
-        TokenAttribute::BooleanValue(value) => value.to_string(),
-        TokenAttribute::ErrorValue => "<Invalid token>".to_string(),
+          TokenAttribute::Text(ref text) => format!("\"{}\"", text),
+          TokenAttribute::FloatConstant(value) => format!("{}f", value.to_string()),
+          TokenAttribute::DoubleConstant(value) => format!("{}d", value.to_string()),
+          TokenAttribute::IntegralConstant(value) => value.to_string(),
+          TokenAttribute::ByteConstant(value) => value.to_string(),
+          TokenAttribute::BooleanValue(value) => value.to_string(),
+          TokenAttribute::ErrorValue => "<Invalid token>".to_string(),
     })
   }
 }
@@ -218,7 +220,7 @@ pub struct Token {
 
 impl Display for Token {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
-      write!(formatter, "{}{}", self.token_type, if self.attribute.is_some() { format!("{}", self.attribute.as_ref().unwrap()) } else { "".to_string() })
+      write!(formatter, "{}{}", self.token_type, if self.attribute.is_some() { format!(" {}", self.attribute.as_ref().unwrap()) } else { "".to_string() })
     }
 }
 

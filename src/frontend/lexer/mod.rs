@@ -525,7 +525,7 @@ impl ReadLexer {
 
                 self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue)
             } else {
-                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegralConstant(text.as_bytes()[0] as u128))
+                self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ByteConstant(text.as_bytes()[0] as u128))
             }
         } else {
             self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue)
@@ -1859,27 +1859,27 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::IntegralConstant(97)));
+            Some(TokenAttribute::ByteConstant(97)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::IntegralConstant(48)));
+            Some(TokenAttribute::ByteConstant(48)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::IntegralConstant(10)));
+            Some(TokenAttribute::ByteConstant(10)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::IntegralConstant(0)));
+            Some(TokenAttribute::ByteConstant(0)));
 
         assert_eq_token!(
             lexer.next_token(),
             TokenType::NumberConstant,
-            Some(TokenAttribute::IntegralConstant(39)));
+            Some(TokenAttribute::ByteConstant(39)));
 
         assert_eq_token!(
             lexer.next_token(),

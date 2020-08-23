@@ -1,0 +1,27 @@
+program: |
+  extern fn byte_printer(value: byte) : void;
+
+  fn main() : int {
+    let array: byte[5] = { 0 as byte, 1 as byte, (2 + 9) as byte, 3 as byte, 4 as byte };
+
+    for let i: int = 0; i < array.length; i += 1 {
+      byte_printer(array[i]);
+    }
+
+    return 0;
+  }
+
+
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  0
+  1
+  11
+  3
+  4
+
+
+
+
+

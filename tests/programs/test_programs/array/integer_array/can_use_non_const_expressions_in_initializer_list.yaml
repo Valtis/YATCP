@@ -1,0 +1,28 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let not_a_constant: int = 4;
+    let array: int[] = {0, 1, 2, not_a_constant, 4*2-1 };
+
+    for let i: int = 0; i < array.length; i += 1 {
+      int_printer(array[i]);
+    }
+
+    return 0;
+  }
+
+
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  0
+  1
+  2
+  4
+  7
+
+
+
+
+

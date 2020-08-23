@@ -1,0 +1,30 @@
+program: |
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+    let array: bool[5] = { true, get_boolean(), true, false, true };
+
+    for let i: int = 0; i < array.length; i += 1 {
+      boolean_printer(array[i]);
+    }
+
+    return 0;
+  }
+
+
+  fn get_boolean() : bool {
+    return false;
+  }
+
+
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  true
+  false
+  true
+  false
+  true
+
+
+

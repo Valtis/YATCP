@@ -69,6 +69,14 @@ impl Type {
         }
     }
 
+    pub fn is_integral(&self) -> bool {
+        match *self {
+            Type::Integer => true,
+            Type::Byte => true,
+            _ => false,
+        }
+    }
+
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
             Type::BooleanArray => Type::Boolean,
