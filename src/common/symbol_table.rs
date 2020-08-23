@@ -103,4 +103,11 @@ impl SymbolTable {
         }
         None
     }
+
+    pub fn get_declaration_info(&self, name: &str) -> Option<DeclarationInfo> {
+        match self.find_symbol(name) {
+            Some(Symbol::Variable(info, _)) => Some(info.clone()),
+            _ => None,
+        }
+    }
 }

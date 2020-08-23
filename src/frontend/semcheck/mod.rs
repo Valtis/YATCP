@@ -170,9 +170,8 @@ impl SemanticsCheck {
             AstNode::Identifier{ name, span } => {
                 self.check_identifier_is_declared(name, span);
             },
-            AstNode::ArrayAccess{ index_expression, indexable_expression } => {
-                 self.handle_array_access(index_expression, indexable_expression);
-            },
+            AstNode::ArrayAccess{ index_expression, indexable_expression } =>
+                 self.handle_array_access(index_expression, indexable_expression),
             AstNode::Cast{ expression, target_type, span } => {
                 self.handle_cast(expression, target_type, span);
             }
@@ -182,6 +181,34 @@ impl SemanticsCheck {
         }
 
         if let Some(replacement_node) = self.propagate_constants(node) {
+            let replacement_node = match (&replacement_node, &node) {
+                (AstNode::InitializerList { values, .. },
+                    AstNode::ArrayAccess { index_expression, ..}) => {
+
+                    ice_if!(!self.is_constant(index_expression), "Index expression must be constant when propagating constants");
+
+                    let index = match &**index_expression {
+                        AstNode::Integer { value, .. } => {
+                            match value {
+                                AstInteger::Int(value) => *value,
+                                AstInteger::Invalid(_) => return,
+                            }
+                        },
+                        _ => ice!("Bad expression: {}", index_expression),
+                    };
+
+                    if index < 0 || index >= values.len() as i32 {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            index_expression.span(),
+                            "Index expression is out of bounds".to_owned());
+                        return;
+                    }
+                    values[index as usize].clone()
+                },
+                (_, _) => replacement_node,
+            };
+
             *node = replacement_node;
         }
     }
@@ -523,8 +550,8 @@ impl SemanticsCheck {
         dimensions: &mut Vec<AstNode>,
         declaration_info: &mut DeclarationInfo) {
 
-        self.check_declaration_validity(child, declaration_info);
         self.do_check(child);
+        self.check_declaration_validity(child, declaration_info);
         let child_type = self.get_type(child);
 
         if declaration_info.variable_type == Type::Invalid {
@@ -722,14 +749,6 @@ impl SemanticsCheck {
             let last = self.constant_initializer_stack.len() - 1;
             self.constant_initializer_stack[last]
                 .insert(declaration_info.name.to_string(), init_expression.clone());
-
-            if declaration_info.variable_type.is_array() {
-                self.report_error(
-                    ReportKind::Warning,
-                    declaration_info.span,
-                    "Const arrays are treated as const scalars. While this is accepted, consider using regular variable instead as this can be misleading".to_owned()
-                );
-            }
 
         } else {
             self.report_error(
@@ -948,6 +967,30 @@ impl SemanticsCheck {
                 format!(
                     "Array index must be an '{}', but got '{}' instead",
                     Type::Integer, index_type));
+        }
+
+        if !self.is_constant(index_expression) {
+            if let AstNode::Identifier { name, .. } = indexable_expression {
+                if let Some(declaration_info) = self.symbol_table.get_declaration_info(&name) {
+                    if declaration_info.attributes.contains(&VariableAttribute::Const) {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            index_expression.span(),
+                            "Index expression must be constant when indexing constant array".to_owned(),
+                        );
+                    }
+                }
+
+                if let AstNode::Identifier { name, .. } = index_expression {
+                    if let Some(declaration_info) = self.symbol_table.get_declaration_info(name) {
+                        self.report_error(
+                            ReportKind::Note,
+                            declaration_info.span,
+                            format!("Variable '{}', declared here, is not compile time constant", name)
+                        );
+                    }
+                }
+            }
         }
 
         if index_type == Type::IntegralNumber {
@@ -1738,7 +1781,9 @@ impl SemanticsCheck {
                 } else {
                     self.is_constant(expression)
                 }
-            }
+            },
+            AstNode::InitializerList { values, ..} =>
+                values.iter().all(|value| self.is_constant(value) ),
             _ => false,
         }
     }
@@ -1972,14 +2017,15 @@ impl SemanticsCheck {
             },
             AstNode::Cast{ expression, .. } => {
                 *expression.clone()
-            }
+            },
+            node @ AstNode::InitializerList { .. }  => node.clone(),
             _ => ice!("Non-constant node {}", node),
         }
     }
 
     fn get_constant_initializer_stack_entry(&self, name: &str) -> AstNode {
-        for level in (0..self.constant_initializer_stack.len()).rev() {
-            match self.constant_initializer_stack[level].get(name) {
+        for level in self.constant_initializer_stack.iter().rev() {
+            match level.get(name) {
                 Some(x) => return x.clone(),
                 None => (),
             }
