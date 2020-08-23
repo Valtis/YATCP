@@ -14,7 +14,7 @@ pub fn calculate_dominance_frontier(
             enumerate().
             map(
                 |(n, v)| v.unwrap_or_else(
-                    || ice!("Unitialized immediate dominator for node {}", n)) ).
+                    || ice!("Uninitialized immediate dominator for node {}", n)) ).
             collect();
 
         for bb in 0..cfg.basic_blocks.len() {
