@@ -10,10 +10,6 @@ program: |
     
 expect_compile_failure: true
 expect_stderr: |
-  5:9 Warning: Const arrays are treated as const scalars. While this is accepted, consider using regular variable instead as this can be misleading
-    const a: int[8] = 4;
-          ^
-
   6:7 Type error: Cannot use const array as function argument
     bar(a);
         ^

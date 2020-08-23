@@ -6,10 +6,6 @@ program: |
     
 expect_compile_failure: true
 expect_stderr: |
-  1:7 Warning: Const arrays are treated as const scalars. While this is accepted, consider using regular variable instead as this can be misleading
-  const a: int[32] = 4;
-        ^
-
   3:5 Type error: Cannot assign into an array
       a = 28;
       ^

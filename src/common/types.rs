@@ -74,6 +74,7 @@ impl Type {
             Type::BooleanArray => Type::Boolean,
             Type::ByteArray => Type::Byte,
             Type::IntegerArray => Type::Integer,
+            Type::Invalid => Type::Invalid,
             Type::Reference(ref x) if x.is_array() => x.get_array_basic_type(),
             _ => ice!("{} is not an array type but requested basic type anyway", self),
         }
@@ -84,6 +85,7 @@ impl Type {
             Type::Integer => Type::IntegerArray,
             Type::Boolean => Type::BooleanArray,
             Type::Byte => Type::ByteArray,
+            Type::Invalid => Type::Invalid,
             _ => ice!("{} is not valid basic type for arrays, but requested array type anyway", self),
         }
     }
