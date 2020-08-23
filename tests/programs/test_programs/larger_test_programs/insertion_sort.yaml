@@ -7,19 +7,7 @@ program: |
   }
 
   fn insertion_sort() : void {
-    let arr: int[10] = 0;
-
-    arr[0] = 8;
-    arr[1] = 2;
-    arr[2] = 9;
-    arr[3] = 3;
-    arr[4] = 0;
-    arr[5] = 1;
-    arr[6] = 7;
-    arr[7] = 4;
-    arr[8] = 5;
-    arr[9] = 6;
-
+    let arr: int[10] = { 8, 2, 9, 3, 0, 1, 7, 4, 5, 6 };
 
     let i: int = 1;
 
@@ -29,7 +17,7 @@ program: |
             let tmp: int = arr[j];
             arr[j] = arr[j-1];
             arr[j-1] = tmp;
-            j = j -1; 
+            j = j -1;
         }
         i = i + 1;
     }
@@ -42,7 +30,7 @@ program: |
   }
 
 link_with:
-  - tests/files/support/support.c 
+  - tests/files/support/support.c
 expect_stdout: |
   0
   1
