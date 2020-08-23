@@ -70,6 +70,8 @@ impl TACGenerator {
                 self.handle_variable_declaration(initialization_expression, declaration_info),
             AstNode::VariableAssignment{ref expression, ref name, ..} =>
                 self.handle_variable_assignment(expression, name),
+            AstNode::ArrayDeclaration{ref initialization_expression, dimensions, ref declaration_info} =>
+                self.handle_array_declaration(initialization_expression, dimensions, declaration_info),
             AstNode::ArrayAccess { index_expression, indexable_expression} => {
                 self.handle_array_access(indexable_expression, index_expression);
             },
@@ -264,35 +266,35 @@ impl TACGenerator {
             ice!("Const variable present in three-address-code generation - expected to be inlined");
         }
 
-        if info.variable_type.is_array() {
-            self.handle_array_declaration(child, info);
-        } else {
-            self.declaration_assignment_common(child, &info.name);
-        }
+        self.declaration_assignment_common(child, &info.name);
     }
 
     fn handle_array_declaration(
         &mut self,
         child: &AstNode,
+        dimensions: &Vec<AstNode>,
         info: &DeclarationInfo
     ) {
+
+        if info.attributes.contains(&VariableAttribute::Const) {
+            ice!("Const variable present in three-address-code generation - expected to be inlined");
+        }
+
         self.generate_tac(child);
         let (_, id) = self.get_variable_info_and_id(&info.name);
         let operand = self.operands.pop().unwrap_or_else(|| ice!("No initialization value provided for array"));
 
-        let length = if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = info.extra_info {
+        let length = {
             let mut length = 1 as u64;
-            for dim in dims.iter() {
+            for dim in dimensions.iter() {
                 match dim {
-                    AstNode::Integer{ value: AstInteger::Int(val), .. } => length *= *val as u64,
+                    AstNode::Integer { value: AstInteger::Int(val), .. } => length *= *val as u64,
                     _ => ice!("Invalid array dimension {:?}", dim),
                 }
             }
 
             ice_if!(length > std::i32::MAX as u64,"Array length exceeds maximum size");
             length as i32
-        } else {
-            ice!("Invalid extra declaration field {:?} for an array", info.extra_info);
         };
 
         self.store_array_length(id,
@@ -420,6 +422,7 @@ impl TACGenerator {
         &mut self,
         child: &AstNode,
         name: &String) {
+
         self.generate_tac(child);
 
         let (variable_info, id) = self.get_variable_info_and_id(name);

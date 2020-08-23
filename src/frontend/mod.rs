@@ -1,7 +1,7 @@
 
 mod lexer;
 mod parser;
-pub mod ast;
+mod ast;
 mod semcheck;
 mod tac_generator;
 

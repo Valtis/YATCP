@@ -257,73 +257,36 @@ impl Parser {
         self.expect(TokenType::Colon)?;
         let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
 
-        // Array parse & custom error handling for missing initialization
-        let mut next_token = self.lexer.peek_token();
-        let extra_info = match next_token.token_type {
-            TokenType::LBracket => {
-                self.lexer.next_token();
-                let dimension = match self.parse_array_declaration() {
-                    Ok(x) => x,
-                    Err(_) => {
-                        self.skip_to_first_of(
-                            vec![
-                                TokenType::SemiColon
-                            ]
-                        );
-                        return Err(());
-                    }
-                };
-                next_token = self.lexer.peek_token();
-
-                Some(ExtraDeclarationInfo::ArrayDimension(dimension))
+        let attribute = match variable_type.token_type {
+            TokenType::Const => {
+                Some(VariableAttribute::Const)
             },
-            _ => None,
+            TokenType::Val => {
+                Some(VariableAttribute::ReadOnly)
+            },
+            _ => None
         };
 
-
-        let is_array = if let Some(_) = extra_info {
-            true
-        } else {
-            false
+        // Array parse & custom error handling for missing initialization
+        let next_token = self.lexer.peek_token();
+        if next_token.token_type == TokenType::LBracket {
+                return self.parse_array_declaration(identifier, var_type, attribute);
         };
 
-        let mut declaration_info = DeclarationInfo::new_with_extra_info(
+        let mut declaration_info = DeclarationInfo::new(
             (&identifier).into(),
             (&identifier).into(),
             var_type.into(),
-            extra_info);
-
-        if is_array {
-            declaration_info.variable_type = match declaration_info.variable_type {
-                Type::Integer => Type::IntegerArray,
-                Type::Boolean => Type::BooleanArray,
-                Type::Byte => Type::ByteArray,
-                _ => {
-                    self.report_error(
-                        ReportKind::SyntaxError,
-                        declaration_info.span.clone(),
-                        format!("{} is not valid base type for an array", declaration_info.variable_type)
-                    );
-                    Type::Invalid
-                },
-            }
+        );
+        if let Some(attribute) = attribute {
+            declaration_info.attributes.insert(attribute);
         }
-
-        match variable_type.token_type {
-            TokenType::Const => {
-                declaration_info.attributes.insert(VariableAttribute::Const);
-            },
-            TokenType::Val => {
-                declaration_info.attributes.insert(VariableAttribute::ReadOnly);
-            },
-            _ => ()
-        };
 
         // Custom error handling for case where expression is missing
         let expression_node = match next_token.token_type {
             TokenType::Equals => {
                 self.lexer.next_token(); // pop the token we peeked before array handling
-                 self.parse_expression()?
+                self.parse_expression()?
             }, // ok
             TokenType::SemiColon => {
                 self.report_error(
@@ -348,13 +311,66 @@ impl Parser {
         Ok(declaration)
     }
 
-    fn parse_array_declaration(&mut self) -> Result<Vec<AstNode>, ()> {
+    fn parse_array_declaration(&mut self, identifier: Token, var_type: Token, attribute: Option<VariableAttribute>) -> Result<AstNode, ()> {
 
         // TODO: Support for multidimensional arrays
-        let size = self.parse_expression()?;
+        let mut dimensions = vec![];
+        self.expect(TokenType::LBracket)?;
+        dimensions.push(self.parse_expression()?);
         self.expect(TokenType::RBracket)?;
 
-        Ok(vec![size])
+        let array_type = match (&var_type).into() {
+            Type::Integer => Type::IntegerArray,
+            Type::Boolean => Type::BooleanArray,
+            Type::Byte => Type::ByteArray,
+            bad_type => {
+                self.report_error(
+                    ReportKind::SyntaxError,
+                    Span::from(var_type),
+                    format!("{} is not valid base type for an array", bad_type)
+                );
+                Type::Invalid
+            },
+        };
+
+        let mut declaration_info = DeclarationInfo::new(
+            (&identifier).into(),
+            (&identifier).into(),
+            array_type);
+
+        if let Some(attribute) = attribute {
+            declaration_info.attributes.insert(attribute);
+        }
+
+        let next_token = self.lexer.peek_token();
+        // Custom error handling for case where expression is missing
+        let expression_node = match next_token.token_type {
+            TokenType::Equals => {
+                self.lexer.next_token();
+                self.parse_expression()?
+            }, // ok
+            TokenType::SemiColon => {
+                self.report_error(
+                    ReportKind::SyntaxError,
+                    Span::new(identifier.line, identifier.column, identifier.length),
+                    format!("Variable declaration must be followed by initialization"));
+                AstNode::ErrorNode
+            },
+            _ => {
+                self.report_unexpected_token(
+                    TokenType::Equals,
+                    &next_token);
+                return Err(());
+            },
+        };
+
+        let declaration = AstNode::ArrayDeclaration{
+            initialization_expression: Box::new(expression_node),
+            dimensions,
+            declaration_info
+        };
+
+        Ok(declaration)
     }
 
     fn parse_function_call_or_assignment(&mut self) -> Result<AstNode, ()> {

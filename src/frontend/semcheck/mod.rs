@@ -108,9 +108,15 @@ impl SemanticsCheck {
                 if declaration_info.attributes.contains(&VariableAttribute::Const) {
                     *node = AstNode::EmptyNode;
                 }
-            }
+            },
             AstNode::VariableAssignment{expression, name, span} =>
                 self.handle_variable_assignment(expression, name, span),
+            AstNode::ArrayDeclaration { initialization_expression, dimensions, declaration_info } => {
+                self.handle_array_variable_declaration(initialization_expression, dimensions, declaration_info);
+                if declaration_info.attributes.contains(&VariableAttribute::Const) {
+                    *node = AstNode::EmptyNode;
+                }
+            },
             AstNode::ArrayAssignment {
                 index_expression,
                 assignment_expression,
@@ -476,88 +482,84 @@ impl SemanticsCheck {
     fn handle_variable_declaration(
         &mut self,
         child: &mut AstNode,
-        variable_info: &mut DeclarationInfo) {
+        declaration_info: &mut DeclarationInfo) {
 
-        match self.symbol_table.find_symbol(&variable_info.name) {
-            Some(symbol) => {
-                let (err_text, prev_line, prev_column, prev_length) =
-                    match symbol {
-                    Symbol::Function(fi) =>
-                        (format!(
-                            "Variable '{}' shadows a function",
-                            fi.name),
-                         fi.span.line,
-                         fi.span.column,
-                         fi.span.length,
-                        ),
-                    Symbol::Variable(vi, _) =>
-                        (format!("Redefinition of variable '{}'",
-                            vi.name),
-                         vi.span.line,
-                         vi.span.column,
-                         vi.span.length
-                        ),
-                };
-
-                self.report_error(
-                    ReportKind::NameError,
-                    variable_info.span.clone(),
-                    err_text);
-
-                self.report_error(
-                    ReportKind::Note,
-                    Span::new(prev_line, prev_column, prev_length),
-                    "Previously declared here".to_string());
-            },
-            None => {
-
-                self.check_constness_init(child, variable_info);
-
-                let id = self.get_next_id();
-                self.symbol_table.add_symbol(
-                    Symbol::Variable(variable_info.clone(), id));
-            },
-        }
+        self.check_declaration_validity(child, declaration_info);
 
         self.do_check(child);
         let child_type = self.get_type(child);
 
-        if variable_info.variable_type == Type::Void {
+        ice_if!(declaration_info.variable_type.is_array(), "Array present in non-array declaration");
+
+        if declaration_info.variable_type == Type::Void {
             self.report_error(
                 ReportKind::TypeError,
-                variable_info.span.clone(),
+                declaration_info.span.clone(),
                 "Variable may not have type 'Void'".to_string());
-        } else if variable_info.variable_type.is_array() {
+        } else if declaration_info.variable_type != child_type &&
+            child_type != Type::Invalid && declaration_info.variable_type != Type::Invalid {
 
-            if variable_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
+            let conversion_result =  self.perform_type_conversion(&declaration_info.variable_type, child);
+            if conversion_result == ConversionResult::Converted {
+                return;
+            }
+
+            self.report_type_error(declaration_info, child, child_type.clone());
+
+            if conversion_result == ConversionResult::CastRequired {
+                self.report_conversion_note(
+                    &declaration_info.variable_type,
+                    &child_type,
+                    &child.span());
+            }
+        }
+    }
+
+    fn handle_array_variable_declaration(
+        &mut self,
+        child: &mut AstNode,
+        dimensions: &mut Vec<AstNode>,
+        declaration_info: &mut DeclarationInfo) {
+
+        self.check_declaration_validity(child, declaration_info);
+        self.do_check(child);
+        let child_type = self.get_type(child);
+
+        if declaration_info.variable_type == Type::Invalid {
+            return;
+        }
+
+        ice_if!(!declaration_info.variable_type.is_array(), "Non-array type '{}' in array declaration", declaration_info.variable_type);
+
+        if declaration_info.variable_type == Type::Void {
+            self.report_error(
+                ReportKind::TypeError,
+                declaration_info.span.clone(),
+                "Array may not have type 'Void'".to_string());
+        } else {
+
+            if declaration_info.variable_type.get_array_basic_type() != child_type && child_type != Type::Invalid {
 
                 let conversion_result = self.perform_type_conversion(
-                    &variable_info.variable_type.get_array_basic_type(),  child);
+                    &declaration_info.variable_type.get_array_basic_type(),  child);
 
                 if conversion_result != ConversionResult::Converted {
                     self.report_error(
                         ReportKind::TypeError,
                         child.span(),
-                        format!("Expected '{}' but got '{}' instead", variable_info.variable_type.get_array_basic_type(), child_type.clone())
+                        format!("Expected '{}' but got '{}' instead", declaration_info.variable_type.get_array_basic_type(), child_type.clone())
                     );
 
                     if conversion_result == ConversionResult::CastRequired {
                         self.report_conversion_note(
-                            &variable_info.variable_type.get_array_basic_type(), &child_type, &child.span());
+                            &declaration_info.variable_type.get_array_basic_type(), &child_type, &child.span());
                     }
                 }
             }
 
+            let dimension_span = declaration_info.span.clone();
 
-            let dims = if let Some(ExtraDeclarationInfo::ArrayDimension(ref mut x)) = variable_info.extra_info {
-                x
-            } else {
-                ice!("Variable {} has type {}, which is an array type, but array dimension info is not set", variable_info.name, variable_info.variable_type);
-            };
-
-            let dimension_span = variable_info.span.clone();
-
-            for dim in dims.into_iter() {
+            for dim in dimensions.into_iter() {
                 if self.is_constant(dim) {
 
                     self.do_check(dim);
@@ -615,22 +617,52 @@ impl SemanticsCheck {
                 }
             }
 
-        } else if variable_info.variable_type != child_type &&
-            child_type != Type::Invalid && variable_info.variable_type != Type::Invalid {
+        }
+    }
 
-            let conversion_result =  self.perform_type_conversion(&variable_info.variable_type, child);
-            if conversion_result == ConversionResult::Converted {
-                return;
-            }
+    fn check_declaration_validity(
+        &mut self,
+        child: &mut AstNode,
+        declaration_info: &DeclarationInfo) {
+        match self.symbol_table.find_symbol(&declaration_info.name) {
+            Some(symbol) => {
+                let (err_text, prev_line, prev_column, prev_length) =
+                    match symbol {
+                    Symbol::Function(fi) =>
+                        (format!(
+                            "Variable '{}' shadows a function",
+                            fi.name),
+                         fi.span.line,
+                         fi.span.column,
+                         fi.span.length,
+                        ),
+                    Symbol::Variable(vi, _) =>
+                        (format!("Redefinition of variable '{}'",
+                            vi.name),
+                         vi.span.line,
+                         vi.span.column,
+                         vi.span.length
+                        ),
+                };
 
-            self.report_type_error(variable_info, child, child_type.clone());
+                self.report_error(
+                    ReportKind::NameError,
+                    declaration_info.span.clone(),
+                    err_text);
 
-            if conversion_result == ConversionResult::CastRequired {
-                self.report_conversion_note(
-                    &variable_info.variable_type,
-                    &child_type,
-                    &child.span());
-            }
+                self.report_error(
+                    ReportKind::Note,
+                    Span::new(prev_line, prev_column, prev_length),
+                    "Previously declared here".to_string());
+            },
+            None => {
+
+                self.check_constness_init(child, declaration_info);
+
+                let id = self.get_next_id();
+                self.symbol_table.add_symbol(
+                    Symbol::Variable(declaration_info.clone(), id));
+            },
         }
     }
 

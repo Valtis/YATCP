@@ -138,6 +138,7 @@ pub enum AstNode {
     ExternFunction{ function_info: FunctionInfo },
     FunctionCall{ arguments: Vec<AstNode>, function_name: Rc<String>, span: Span },
     VariableDeclaration{ initialization_expression: Box<AstNode>, declaration_info: DeclarationInfo },
+    ArrayDeclaration{ initialization_expression: Box<AstNode>, dimensions: Vec<AstNode>, declaration_info: DeclarationInfo },
     VariableAssignment{ expression: Box<AstNode>, name: Rc<String>, span: Span },
     ArrayAssignment{index_expression: Box<AstNode>, assignment_expression: Box<AstNode>, variable_name: Rc<String>, span: Span },
 
@@ -217,23 +218,14 @@ impl Display for AstNode {
             },
             AstNode::FunctionCall{ref function_name, ..} =>
                 format!("Call function {}", function_name),
-            AstNode::VariableDeclaration{ref declaration_info, ..} => {
-                match declaration_info.variable_type {
-                    _ if declaration_info.variable_type.is_array() => {
-                        let mut dim_str = "".to_owned();
-
-                        if let Some(ExtraDeclarationInfo::ArrayDimension(ref dims)) = declaration_info.extra_info {
-                            for dim in dims.iter() {
-                                dim_str = format!("{}[{}]", dim_str, dim);
-                            }
-                        } else {
-                            ice!("Non-array dimension information on array declaration");
-                        }
-
-                        format!("Variable declaration '{}' : {}{}", declaration_info.name, declaration_info.variable_type, dim_str)
-                    },
-                    _ => format!("Variable declaration '{}' : {}", declaration_info.name, declaration_info.variable_type),
-                }
+            AstNode::VariableDeclaration{ref declaration_info, ..} =>
+                format!("Variable declaration '{}' : {}", declaration_info.name, declaration_info.variable_type),
+            AstNode::ArrayDeclaration{dimensions, ref declaration_info, ..} => {
+                    let mut dim_str = "".to_owned();
+                    for dim in dimensions.iter() {
+                        dim_str = format!("{}[{}]", dim_str, dim);
+                    }
+                    format!("Variable declaration '{}' : {}{}", declaration_info.name, declaration_info.variable_type, dim_str)
             }
             AstNode::VariableAssignment{ ref name, .. } =>
                 format!("Variable assignment '{}'", name),
@@ -316,6 +308,8 @@ impl AstNode {
                 string = format!("{}{}", string, initialization_expression.print_impl(next_int)),
             AstNode::VariableAssignment{ref expression, ..} =>
                 string = format!("{}{}", string, expression.print_impl(next_int)),
+            AstNode::ArrayDeclaration{ref initialization_expression, ..} =>
+                string = format!("{}{}", string, initialization_expression.print_impl(next_int)),
             AstNode::ArrayAssignment {
                 index_expression: ref index,
                 assignment_expression: ref assign,
@@ -411,6 +405,7 @@ impl AstNode {
             AstNode::FunctionCall{span, ..} => *span,
             AstNode::VariableDeclaration{declaration_info, .. } => declaration_info.span,
             AstNode::VariableAssignment{ span, .. } => *span,
+            AstNode::ArrayDeclaration{declaration_info, .. } => declaration_info.span,
             AstNode::ArrayAssignment{ span, .. } => *span,
             AstNode::MemberAccess { span, .. } => *span,
             AstNode::BooleanAnd{ span, ..} |

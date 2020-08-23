@@ -3,9 +3,6 @@ use crate::common::{types::Type, variable_attributes::VariableAttribute};
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::frontend::ast::AstNode;
-
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Span {
     pub line: i32,
@@ -51,7 +48,6 @@ pub struct DeclarationInfo {
     pub name: Rc<String>,
     pub variable_type: Type,
     pub span: Span,
-    pub extra_info: Option<ExtraDeclarationInfo>,
     pub attributes: HashSet<VariableAttribute>,
 }
 
@@ -61,38 +57,10 @@ impl DeclarationInfo {
             name,
             variable_type,
             span,
-            extra_info: None,
-            attributes: HashSet::new(),
-        }
-    }
-
-    pub fn new_with_extra_info(
-        name: Rc<String>,
-        span: Span,
-        variable_type: Type,
-        extra_info: Option<ExtraDeclarationInfo>) -> DeclarationInfo {
-        DeclarationInfo {
-            name,
-            span,
-            variable_type,
-            extra_info,
             attributes: HashSet::new(),
         }
     }
 }
-
-#[derive(Clone, Debug)]
-pub enum ExtraDeclarationInfo {
-    ArrayDimension(Vec<AstNode>), // left-to-right, in declaration order
-}
-
-impl PartialEq for ExtraDeclarationInfo {
-    fn eq(&self, _other: &Self) -> bool {
-        true // FIXME - proper implementation
-    }
-}
-
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArithmeticInfo {
