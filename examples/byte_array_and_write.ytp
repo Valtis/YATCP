@@ -3,13 +3,6 @@ extern fn write(fd: int, buffer: byte[], length: int);
 const STDOUT_FD: int = 1;
 
 fn main() {
-	let buffer: byte[7] = 0;
-	buffer[0] = 'H';
-	buffer[1] = 'e';
-	buffer[2] = 'l';
-	buffer[3] = 'l';
-	buffer[4] = 'o';
-	buffer[5] = '!';
-	buffer[6] = '\n';
+	let buffer: byte[] = "Hello!\n";
 	write(STDOUT_FD, buffer, buffer.length);
 }

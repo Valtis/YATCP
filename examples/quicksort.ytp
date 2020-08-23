@@ -2,16 +2,7 @@ extern fn int_printer(value: int) : void;
 
 
 fn main() : int {
-	let array: int[10] = 0;
-	array[0] = 9;
-	array[1] = 4;
-	array[3] = 1;
-	array[4] = 4;
-	array[5] = 2;
-	array[6] = 15;
-	array[7] = 8;
-	array[8] = 5;
-	array[9] = 74;
+	let array: int[10] = { 9, 4, 0, 1, 4, 2, 15, 8, 5, 74 };
 
 	quicksort(array, 0, array.length-1);
 
