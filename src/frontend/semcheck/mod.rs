@@ -517,10 +517,38 @@ impl SemanticsCheck {
         child: &mut AstNode,
         declaration_info: &mut DeclarationInfo) {
 
-        self.check_declaration_validity(child, declaration_info);
-
         self.do_check(child);
         let child_type = self.get_type(child);
+
+        if declaration_info.variable_type == Type::Uninitialized {
+            ice_if!(child_type == Type::Uninitialized, "Uninitialized child type when performing type checks");
+
+            if child_type.is_invalid() {
+                declaration_info.variable_type = Type::Invalid;
+            } else {
+                if child_type.is_array() {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        child.span(),
+                        format!("'{}' is not a legal expression type for type inference", child_type));
+                    return;
+                }
+
+
+                if child_type == Type::IntegralNumber {
+                    declaration_info.variable_type = Type::Integer;
+                } else {
+                    if let Type::InitializerList(_) = child_type {
+                        ice!("Unexpected array initializer in variable declaration");
+                    } else {
+                        declaration_info.variable_type = child_type.clone();
+                    }
+                }
+            }
+        }
+
+        self.check_declaration_validity(child, declaration_info);
+
 
         ice_if!(declaration_info.variable_type.is_array(), "Array present in non-array declaration");
 
@@ -548,6 +576,7 @@ impl SemanticsCheck {
         }
     }
 
+
     fn handle_array_variable_declaration(
         &mut self,
         child: &mut AstNode,
@@ -555,11 +584,26 @@ impl SemanticsCheck {
         declaration_info: &mut DeclarationInfo) {
 
         self.do_check(child);
+
         let (mut child_type, original_is_initializer) = if let AstNode::InitializerList { list_type: Type::InitializerList(inner), ..} = child {
             (*inner.clone(), true)
         } else {
             (self.get_type(child), false)
         };
+
+        if declaration_info.variable_type == Type::Uninitialized {
+             ice_if!(child_type == Type::Uninitialized, "Uninitialized child type when performing type checks!");
+
+            if child_type == Type::IntegralNumber {
+                declaration_info.variable_type = Type::Array(Box::new(Type::Integer));
+            } else {
+                if let Type::InitializerList(_) = child_type {
+                    ice!("Unexpected array initializer, expected to be unwrapped already");
+                } else {
+                    declaration_info.variable_type = Type::Array(Box::new(child_type.clone()));
+                }
+            }
+        }
 
         // Syntactic sugar: If assigning string into byte array, convert string into byte initializer list
         if declaration_info.variable_type.get_array_basic_type() == Type::Byte && child_type == Type::String && !original_is_initializer {
@@ -715,6 +759,7 @@ impl SemanticsCheck {
             }
         }
     }
+
 
     fn check_declaration_validity(
         &mut self,

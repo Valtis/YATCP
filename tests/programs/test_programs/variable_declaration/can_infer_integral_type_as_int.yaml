@@ -1,0 +1,11 @@
+program: |
+    extern fn int_printer(a: int);
+    fn main() : int {
+        let a = 54;
+        int_printer(a);
+        return 0;
+    }
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+    54

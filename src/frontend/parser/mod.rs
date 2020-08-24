@@ -253,11 +253,6 @@ impl Parser {
     fn parse_variable_declaration(&mut self) -> Result<AstNode, ()> {
         let variable_type = self.expect_one_of(vec![TokenType::Let, TokenType::Const, TokenType::Val])?;
 
-
-        let identifier = self.expect(TokenType::Identifier)?;
-        self.expect(TokenType::Colon)?;
-        let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
-
         let attribute = match variable_type.token_type {
             TokenType::Const => {
                 Some(VariableAttribute::Const)
@@ -268,22 +263,35 @@ impl Parser {
             _ => None
         };
 
-        // Array parse & custom error handling for missing initialization
-        let next_token = self.lexer.peek_token();
-        if next_token.token_type == TokenType::LBracket {
-                return self.parse_array_declaration(identifier, var_type, attribute);
+
+        let identifier = self.expect(TokenType::Identifier)?;
+        let var_type = if self.lexer.peek_token().token_type == TokenType::Equals {
+            Type::Uninitialized
+        } else {
+            self.expect(TokenType::Colon)?;
+            let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
+            // Array parse & custom error handling for missing initialization
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::LBracket {
+                    return self.parse_array_declaration(identifier, var_type, attribute);
+            };
+
+            Type::from(var_type)
         };
+
+
 
         let mut declaration_info = DeclarationInfo::new(
             (&identifier).into(),
             (&identifier).into(),
-            var_type.into(),
+            var_type,
         );
         if let Some(attribute) = attribute {
             declaration_info.attributes.insert(attribute);
         }
 
         // Custom error handling for case where expression is missing
+        let next_token = self.lexer.peek_token();
         let expression_node = match next_token.token_type {
             TokenType::Equals => {
                 self.lexer.next_token(); // pop the token we peeked before array handling
@@ -305,14 +313,33 @@ impl Parser {
         };
 
         let declaration = AstNode::VariableDeclaration{
-            initialization_expression: Box::new(expression_node),
-            declaration_info
+            initialization_expression: Box::new(expression_node.clone()),
+            declaration_info: declaration_info.clone()
         };
+
+        let declaration = if let AstNode::InitializerList { .. } = expression_node {
+           if declaration_info.variable_type == Type::Uninitialized {
+              AstNode::ArrayDeclaration {
+                  initialization_expression: Box::new(expression_node),
+                  dimensions: vec![],
+                  declaration_info: declaration_info,
+              }
+           } else {
+               declaration
+           }
+        } else {
+            declaration
+        };
+
 
         Ok(declaration)
     }
 
-    fn parse_array_declaration(&mut self, identifier: Token, var_type: Token, attribute: Option<VariableAttribute>) -> Result<AstNode, ()> {
+    fn parse_array_declaration(
+        &mut self,
+        identifier: Token,
+        var_type: Token,
+        attribute: Option<VariableAttribute>) -> Result<AstNode, ()> {
 
         // TODO: Support for multidimensional arrays
         let mut dimensions = vec![];

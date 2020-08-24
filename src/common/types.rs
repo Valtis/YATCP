@@ -46,6 +46,16 @@ impl Type {
         }
     }
 
+    pub fn is_invalid(&self) -> bool {
+        match *self {
+            Type::Invalid => true,
+            Type::Array(ref x) => x.is_invalid(),
+            Type::Reference(ref x) => x.is_invalid(),
+            Type::InitializerList(ref x) => x.is_invalid(),
+            _ => false,
+        }
+    }
+
     pub fn is_reference(&self) -> bool {
         match *self {
             Type::Reference(_) => true,
