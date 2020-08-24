@@ -178,7 +178,7 @@ impl Parser {
                     self.expect(TokenType::RBracket)?;
 
                     // update type to array type
-                    decl.variable_type = Type::Reference(Box::new(decl.variable_type.get_array_type_from_basic_type()));
+                    decl.variable_type = Type::Reference(Box::new(Type::Array(Box::new(decl.variable_type))));
                 }
 
                 params.push(decl);
@@ -323,9 +323,9 @@ impl Parser {
         self.expect(TokenType::RBracket)?;
 
         let array_type = match (&var_type).into() {
-            Type::Integer => Type::IntegerArray,
-            Type::Boolean => Type::BooleanArray,
-            Type::Byte => Type::ByteArray,
+            var_type @ Type::Integer |
+            var_type @ Type::Boolean |
+            var_type @ Type::Byte => Type::Array(Box::new(var_type)),
             bad_type => {
                 self.report_error(
                     ReportKind::SyntaxError,

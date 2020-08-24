@@ -348,7 +348,7 @@ impl TACGenerator {
         // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
         // would fail with arrays with non-integer base type (e.g. boolean arrays)
         let mut init_length_into = variable_info.clone();
-        init_length_into.variable_type = Type::IntegerArray;
+        init_length_into.variable_type = Type::Array(Box::new(Type::Integer));
 
         self.current_function().statements.push(
             Statement::Assignment{
@@ -442,7 +442,7 @@ impl TACGenerator {
         // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
         // would fail with arrays with non-integer base type (e.g. boolean arrays)
         let mut init_length_into = variable_info.clone();
-        init_length_into.variable_type = Type::IntegerArray;
+        init_length_into.variable_type = Type::Array(Box::new(Type::Integer));
 
         self.current_function().statements.push(
             Statement::Assignment{

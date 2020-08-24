@@ -12,10 +12,8 @@ pub enum Type {
     Float,
     String,
     Void,
-    ByteArray, // TODO: Consider replacing with Array(Box<Type>)
-    IntegerArray,
-    BooleanArray,
     Uninitialized,
+    Array(Box<Type>),
     InitializerList(Box<Type>),
     Reference(Box<Type>),
     Invalid, // type error occurred
@@ -32,9 +30,7 @@ impl Type {
             Type::Float => 4,
             Type::String => unimplemented!(),
             Type::Void => ice!("Requesting size of a void type"),
-            Type::ByteArray => unimplemented!(), // TODO define semantics
-            Type::BooleanArray=> unimplemented!(), // TODO define semantics
-            Type::IntegerArray => unimplemented!(), // TODO define semantics
+            Type::Array(_) => unimplemented!(), // TODO define semantics
             Type::InitializerList(_) => ice!("Requesting size of an initializer list"),
             Type::Reference(_) => 8,
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
@@ -44,21 +40,9 @@ impl Type {
 
     pub fn is_array(&self) -> bool {
         match *self {
-            Type::IntegralNumber => false,
-            Type::Byte => false,
-            Type::Boolean => false,
-            Type::Integer => false,
-            Type::Double => false,
-            Type::Float => false,
-            Type::String => false,
-            Type::Void => false,
-            Type::IntegerArray => true,
-            Type::ByteArray => true,
-            Type::BooleanArray => true,
-            Type::Uninitialized => false,
+            Type::Array(_) => true,
             Type::Reference(ref x) => x.is_array(),
-            Type::InitializerList(_) => false,
-            Type::Invalid => false,
+            _ => false,
         }
     }
 
@@ -79,24 +63,13 @@ impl Type {
 
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
-            Type::BooleanArray => Type::Boolean,
-            Type::ByteArray => Type::Byte,
-            Type::IntegerArray => Type::Integer,
+            Type::Array(ref inner) => *inner.clone(),
             Type::Invalid => Type::Invalid,
             Type::Reference(ref x) if x.is_array() => x.get_array_basic_type(),
             _ => ice!("{} is not an array type but requested basic type anyway", self),
         }
     }
 
-    pub fn get_array_type_from_basic_type(&self) -> Type {
-        match *self {
-            Type::Integer => Type::IntegerArray,
-            Type::Boolean => Type::BooleanArray,
-            Type::Byte => Type::ByteArray,
-            Type::Invalid => Type::Invalid,
-            _ => ice!("{} is not valid basic type for arrays, but requested array type anyway", self),
-        }
-    }
 }
 
 impl Display for Type {
@@ -111,9 +84,7 @@ impl Display for Type {
             Type::Float => "Float".to_owned(),
             Type::String=> "String".to_owned(),
             Type::Void => "Void".to_owned(),
-            Type::ByteArray=> "Byte array".to_owned(),
-            Type::BooleanArray=> "Boolean array".to_owned(),
-            Type::IntegerArray => "Integer array".to_owned(),
+            Type::Array(ref inner) => format!("{} array", inner),
             Type::Reference(ref x) => format!("Reference to {}", x),
             Type::InitializerList(_) => "Initializer list".to_owned(),
             Type::Uninitialized => "Uninitialized".to_owned(),
