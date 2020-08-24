@@ -1,0 +1,17 @@
+program: |
+    fn main() : int {
+        let a: int[] = { 4, 5, 12 ;
+        let canary1: int = 4;
+        let canary2: int = 6;
+        let canary3: int = canary1 + canary2;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  2:31 Syntax error: Unexpected token ';' when '}' was expected
+      let a: int[] = { 4, 5, 12 ;
+                                ^
+  2:28 Note: Token likely missing here
+      let a: int[] = { 4, 5, 12 ;
+                             ^^
+  Terminating compilation due to 1 error
