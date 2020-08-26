@@ -1,6 +1,6 @@
 use super::lexer::Lexer;
 use super::lexer::token::{Token, TokenType, TokenAttribute};
-use super::ast::AstNode;
+use super::ast::{ AstNode, AstByte, AstInteger };
 
 use crate::common::{
     variable_attributes::VariableAttribute,
@@ -11,7 +11,6 @@ use crate::common::{
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::frontend::ast::AstByte;
 
 pub struct Parser {
     lexer: Box<dyn Lexer>,
@@ -1137,6 +1136,12 @@ impl Parser {
                            value: AstByte::from(i as i128),
                            span: Span::from(token),
                        })
+                    }
+                    Some(TokenAttribute::IntegerConstant(i)) => {
+                        Ok(AstNode::Integer{
+                            value: AstInteger::from(i as i128),
+                            span: Span::from(token),
+                        })
                     }
                     Some(TokenAttribute::ErrorValue) => {
                         Ok(AstNode::ErrorNode)

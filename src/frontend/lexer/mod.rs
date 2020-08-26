@@ -304,7 +304,7 @@ impl ReadLexer {
         let mut number_str = ch.to_string();
 
         if ch == '.' {
-            return self.handle_decimal_number(number_str);
+            return self.handle_decimal_number(number_str, 10);
         }
 
         let radix = if ch == '0' {
@@ -344,9 +344,9 @@ impl ReadLexer {
                     } else if ch == '.' {
                         number_str.push(ch);
                         self.next_char();
-                        return self.handle_decimal_number(number_str);
+                        return self.handle_decimal_number(number_str, radix);
                     } else if ch.is_alphabetic() {
-                        return self.handle_number_type_str(number_str);
+                        return self.handle_number_type_str(number_str, radix);
                     } else {
                         break;
                     }
@@ -396,7 +396,7 @@ impl ReadLexer {
         }
     }
 
-    fn handle_decimal_number(&mut self, mut number_str: String) -> Token {
+    fn handle_decimal_number(&mut self, mut number_str: String, radix: u32) -> Token {
         let mut separator_error = false;
         loop {
 
@@ -408,7 +408,7 @@ impl ReadLexer {
                         number_str.push(ch);
                         self.next_char();
                     } else if ch.is_alphabetic() {
-                        return self.handle_number_type_str(number_str);
+                        return self.handle_number_type_str(number_str, radix);
                     } else if ch == '.' {
                         if separator_error == false {
                             let (line, column) = (self.line, self.column);
@@ -438,7 +438,7 @@ impl ReadLexer {
         }
     }
 
-    fn handle_number_type_str(&mut self, number_str: String) -> Token {
+    fn handle_number_type_str(&mut self, number_str: String, radix: u32) -> Token {
         let mut type_str : String = String::new();
 
         loop {
@@ -455,8 +455,8 @@ impl ReadLexer {
             }
         }
 
-        if &type_str == "d" || &type_str == "f" {
-            self.create_number_token(type_str, number_str)
+        if &type_str == "d" || &type_str == "f" || &type_str == "i" {
+            self.create_number_token(type_str, number_str, radix)
         } else {
             let (line, column) = (self.line, self.column - type_str.len() as i32);
             self.report_error(
@@ -472,7 +472,7 @@ impl ReadLexer {
         }
     }
 
-    fn create_number_token(&mut self, type_str: String, number_str: String) -> Token {
+    fn create_number_token(&mut self, type_str: String, number_str: String, radix: u32) -> Token {
 
         if &type_str == "d" {
             match number_str.parse() {
@@ -487,6 +487,25 @@ impl ReadLexer {
                 Err(e) =>
                     ice!("Non-numeric characters in number token at {}:{} ({})",
                 self.line, self.column, e),
+            }
+        } else if &type_str == "i" {
+                match u128::from_str_radix(&number_str, radix) {
+                Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegerConstant(number)),
+                Err(e) => {
+                    if e.to_string().contains("too large to fit") {
+                        self.report_error(
+                            ReportKind::TokenError,
+                            self.line,
+                            self.token_start_column,
+                            (self.column - self.token_start_column) as usize,
+                            format!("Number does not fit inside 32 bit signed integer"),
+                        );
+
+                        return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);
+                    }
+
+                    ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
+                }
             }
         } else {
             ice!("Unexpected type string '{}'", type_str);
@@ -1840,6 +1859,30 @@ mod tests {
             lexer.next_token(),
             TokenType::NumberConstant,
             Some(TokenAttribute::IntegralConstant(113019)));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Eof,
+            None);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
+    #[test]
+    fn numbers_with_integer_type_letter_are_accepted() {
+        let (mut lexer, reporter) = create_lexer(r"
+            0i 15i
+        ");
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::IntegerConstant(0)));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::IntegerConstant(15)));
 
         assert_eq_token!(
             lexer.next_token(),

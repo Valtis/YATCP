@@ -190,6 +190,7 @@ pub enum TokenAttribute {
     // Generic integral constant, no type specified in constant
     IntegralConstant(u128),
     ByteConstant(u128),
+    IntegerConstant(u128),
     BooleanValue(bool),
     ErrorValue
 }
@@ -202,6 +203,7 @@ impl Display for TokenAttribute {
           TokenAttribute::DoubleConstant(value) => format!("{}d", value.to_string()),
           TokenAttribute::IntegralConstant(value) => value.to_string(),
           TokenAttribute::ByteConstant(value) => value.to_string(),
+          TokenAttribute::IntegerConstant(value) => value.to_string(),
           TokenAttribute::BooleanValue(value) => value.to_string(),
           TokenAttribute::ErrorValue => "<Invalid token>".to_string(),
     })
