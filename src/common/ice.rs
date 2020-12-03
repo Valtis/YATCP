@@ -1,6 +1,6 @@
 use std::io::Write;
 
-
+#[track_caller]
 pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
     let stdout = std::io::stdout();
     let stderr = std::io::stderr();
