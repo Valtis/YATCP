@@ -1439,10 +1439,14 @@ impl Parser {
             ];
             // if token is semicolon, we probably want to highlight the previous token as well
             if previous_note_tokens.contains(&token_type) && self.lexer.previous_token() != None {
+            
                 let prev_token = self.lexer.previous_token().unwrap();
+                let mut span = Span::from(prev_token);
+                span.column += span.length;
+                span.length = 1;
                 self.report_error(
                     ReportKind::Note,
-                    Span::from(prev_token),
+                    span,
                     "Token likely missing here".to_owned(),
                 );
             }

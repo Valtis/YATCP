@@ -9,7 +9,7 @@ expect_stderr: |
   1:24 Syntax error: Unexpected token ',' when ']' was expected
   fn main(a: int, b: int[, c: bool) {
                          ^
-  1:23 Note: Token likely missing here
+  1:24 Note: Token likely missing here
   fn main(a: int, b: int[, c: bool) {
-                        ^
+                         ^
   Terminating compilation due to 1 error

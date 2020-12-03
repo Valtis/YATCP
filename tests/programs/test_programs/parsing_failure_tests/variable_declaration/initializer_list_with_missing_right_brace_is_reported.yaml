@@ -11,7 +11,7 @@ expect_stderr: |
   2:31 Syntax error: Unexpected token ';' when '}' was expected
       let a: int[] = { 4, 5, 12 ;
                                 ^
-  2:28 Note: Token likely missing here
+  2:30 Note: Token likely missing here
       let a: int[] = { 4, 5, 12 ;
-                             ^^
+                               ^
   Terminating compilation due to 1 error
