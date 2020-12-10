@@ -591,16 +591,18 @@ impl SemanticsCheck {
             (self.get_type(child), false)
         };
 
+        // array declaration using the initializer list
         if declaration_info.variable_type == Type::Uninitialized {
              ice_if!(child_type == Type::Uninitialized, "Uninitialized child type when performing type checks!");
 
             if child_type == Type::IntegralNumber {
-                declaration_info.variable_type = Type::Array(Box::new(Type::Integer));
+                declaration_info.variable_type = Type::Array(Box::new(Type::Integer), vec![]);
             } else {
                 if let Type::InitializerList(_) = child_type {
                     ice!("Unexpected array initializer, expected to be unwrapped already");
                 } else {
-                    declaration_info.variable_type = Type::Array(Box::new(child_type.clone()));
+
+                    declaration_info.variable_type = Type::Array(Box::new(child_type.clone()), vec![]);
                 }
             }
         }
@@ -627,7 +629,6 @@ impl SemanticsCheck {
             child_type = Type::Byte;
         }
 
-        self.check_declaration_validity(child, declaration_info);
 
         if declaration_info.variable_type == Type::Invalid {
             return;
@@ -734,6 +735,7 @@ impl SemanticsCheck {
                     value: AstInteger::Int(values.len() as i32),
                     span: Span::new(0, 0, 0)
                 });
+                dimension_constants.push(values.len() as i32);
             } else if dimension_constants.len() == 1 {
                 if dimension_constants[0] != values.len() as i32 {
                     self.report_error(
@@ -747,8 +749,9 @@ impl SemanticsCheck {
                     );
                 }
             } else {
-                todo!()
+                todo!("Mutiple dimensions not supported")
             }
+
         } else {
                 if dimensions.is_empty() {
                 self.report_error(
@@ -758,6 +761,8 @@ impl SemanticsCheck {
                 )
             }
         }
+        declaration_info.variable_type = Type::Array(Box::new(declaration_info.variable_type.get_array_basic_type()), dimension_constants);
+        self.check_declaration_validity(child, declaration_info);
     }
 
 

@@ -13,7 +13,7 @@ pub enum Type {
     String,
     Void,
     Uninitialized,
-    Array(Box<Type>),
+    Array(Box<Type>, Vec<i32>),
     InitializerList(Box<Type>),
     Reference(Box<Type>),
     Invalid, // type error occurred
@@ -30,7 +30,7 @@ impl Type {
             Type::Float => 4,
             Type::String => unimplemented!(),
             Type::Void => ice!("Requesting size of a void type"),
-            Type::Array(_) => unimplemented!(), // TODO define semantics
+            Type::Array(_, _) => unimplemented!(), // TODO define semantics
             Type::InitializerList(_) => ice!("Requesting size of an initializer list"),
             Type::Reference(_) => 8,
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
@@ -40,7 +40,7 @@ impl Type {
 
     pub fn is_array(&self) -> bool {
         match *self {
-            Type::Array(_) => true,
+            Type::Array(_, _) => true,
             Type::Reference(ref x) => x.is_array(),
             _ => false,
         }
@@ -49,7 +49,7 @@ impl Type {
     pub fn is_invalid(&self) -> bool {
         match *self {
             Type::Invalid => true,
-            Type::Array(ref x) => x.is_invalid(),
+            Type::Array(ref x, _) => x.is_invalid(),
             Type::Reference(ref x) => x.is_invalid(),
             Type::InitializerList(ref x) => x.is_invalid(),
             _ => false,
@@ -73,10 +73,17 @@ impl Type {
 
     pub fn get_array_basic_type(&self) -> Type {
         match *self {
-            Type::Array(ref inner) => *inner.clone(),
+            Type::Array(ref inner, _) => *inner.clone(),
             Type::Invalid => Type::Invalid,
             Type::Reference(ref x) if x.is_array() => x.get_array_basic_type(),
             _ => ice!("{} is not an array type but requested basic type anyway", self),
+        }
+    }
+
+    pub fn get_array_dimensions(&self) -> Vec<i32> {
+        match *self {
+            Type::Array(_, ref dims) => dims.clone(),
+            _ => ice!("Requested length of non-array or referenced array '{}'", self),
         }
     }
 
@@ -94,7 +101,7 @@ impl Display for Type {
             Type::Float => "Float".to_owned(),
             Type::String=> "String".to_owned(),
             Type::Void => "Void".to_owned(),
-            Type::Array(ref inner) => format!("{} array", inner),
+            Type::Array(ref inner, _) => format!("{} array", inner),
             Type::Reference(ref x) => format!("Reference to {}", x),
             Type::InitializerList(_) => "Initializer list".to_owned(),
             Type::Uninitialized => "Uninitialized".to_owned(),

@@ -10,7 +10,6 @@ use crate::common::{
     types::Type,
     tac_code::*,
     node_info::*,
-    constants::ARRAY_LENGTH_SLOT_SIZE,
     symbol_table::{TableEntry, SymbolTable, Symbol},
 };
 
@@ -70,8 +69,8 @@ impl TACGenerator {
                 self.handle_variable_declaration(initialization_expression, declaration_info),
             AstNode::VariableAssignment{ref expression, ref name, ..} =>
                 self.handle_variable_assignment(expression, name),
-            AstNode::ArrayDeclaration{ref initialization_expression, dimensions, ref declaration_info} =>
-                self.handle_array_declaration(initialization_expression, dimensions, declaration_info),
+            AstNode::ArrayDeclaration{ref initialization_expression, dimensions: _, ref declaration_info} =>
+                self.handle_array_declaration(initialization_expression, declaration_info),
             AstNode::ArrayAccess { index_expression, indexable_expression} => {
                 self.handle_array_access(indexable_expression, index_expression);
             },
@@ -205,7 +204,6 @@ impl TACGenerator {
         args: &Vec<AstNode>,
         _info: &Span) {
 
-
         let (dest, params) = if let Some(sym) = self.symbol_table.find_symbol(name) {
             if let Symbol::Function(fi) = sym {
                 if fi.return_type == Type::Void {
@@ -231,23 +229,25 @@ impl TACGenerator {
             // handle auto referenced array args, generate mov address -> tmp reg and use reg as argument
             if let Operand::Variable(info, id ) = operand.clone() {
 
-                if info.variable_type.is_array() && !info.variable_type.is_reference() {
-                    if let Type::Reference(ref param) = params[i].variable_type {
-                        if param.is_array() {
-                            // arg is array, param is ref to array - generate address move code
-                            operand = self.get_temporary(params[i].variable_type.clone());
-                            self.current_function().statements.push(
-                                Statement::Assignment {
-                                    operator: None,
-                                    destination: Some(operand.clone()),
-                                    left_operand: None,
-                                    right_operand: Some(Operand::AddressOf { variable_info: info, id })
-                                });
-                        }
-                    }
+                if info.variable_type.is_array() {
 
+                    if  info.variable_type.is_reference() {
+
+                    } else {
+                        let dims = info.variable_type.get_array_dimensions();
+                        self.convert_array_to_ref(&params[i], &mut operand, info, id);
+                        function_operands.push(operand);
+                        // push N - 1 lengths into param list, leave last for the base push at the bottom of this loop
+                        for size in dims.iter().take(dims.len() - 1) {
+                            function_operands.push(Operand::Integer(*size));
+                        }
+                        operand = Operand::Integer(*dims.last().unwrap_or_else(|| ice!("Array '{:?}'has no dimension data available", arg)));
+                    }
                 }
             }
+
+
+            // if we use array, then push length(s)
 
             function_operands.push(operand);
         }
@@ -257,6 +257,22 @@ impl TACGenerator {
                 name.clone(),
                 function_operands,
                 dest));
+    }
+
+    fn convert_array_to_ref(&mut self, decl_info: &DeclarationInfo, operand: &mut Operand, info: DeclarationInfo, id: u32) {
+        if let Type::Reference(ref param) = decl_info.variable_type {
+            if param.is_array() {
+                // arg is array, param is ref to array - generate address move code
+                *operand = self.get_temporary(decl_info.variable_type.clone());
+                self.current_function().statements.push(
+                    Statement::Assignment {
+                        operator: None,
+                        destination: Some(operand.clone()),
+                        left_operand: None,
+                        right_operand: Some(Operand::AddressOf { variable_info: info, id })
+                    });
+            }
+        }
     }
 
     fn handle_variable_declaration(
@@ -274,7 +290,6 @@ impl TACGenerator {
     fn handle_array_declaration(
         &mut self,
         child: &AstNode,
-        dimensions: &Vec<AstNode>,
         info: &DeclarationInfo
     ) {
 
@@ -285,23 +300,11 @@ impl TACGenerator {
         self.generate_tac(child);
         let (_, id) = self.get_variable_info_and_id(&info.name);
 
-        let length = {
-            let mut length = 1 as u64;
-            for dim in dimensions.iter() {
-                match dim {
-                    AstNode::Integer { value: AstInteger::Int(val), .. } => length *= *val as u64,
-                    _ => ice!("Invalid array dimension {:?}", dim),
-                }
-            }
+        let length = info.variable_type.get_array_dimensions().iter().fold(0, |acc, dim| acc + dim);
 
-            ice_if!(length > std::i32::MAX as u64,"Array length exceeds maximum size");
-            length as i32
-        };
-
-
-        self.store_array_length(id,
-                                length,
-                                (length as u32)*info.variable_type.get_array_basic_type().size_in_bytes() + ARRAY_LENGTH_SLOT_SIZE);
+        self.allocate_space_for_array(id,
+                                      length,
+                                      (length as u32)*info.variable_type.get_array_basic_type().size_in_bytes());
 
         if let AstNode::InitializerList { .. } = child {
             self.emit_array_initialization_using_initializer_list(id, info, length);
@@ -311,10 +314,10 @@ impl TACGenerator {
         }
     }
 
-    fn store_array_length(&mut self,
-                          id: u32,
-                          length: i32,
-                          size_in_bytes: u32) {
+    fn allocate_space_for_array(&mut self,
+                                id: u32,
+                                length: i32,
+                                size_in_bytes: u32) {
         self.current_function().statements.push(Statement::Array{ id, length, size_in_bytes });
     }
 
@@ -325,6 +328,7 @@ impl TACGenerator {
         size: i32,
         ) {
 
+        // FIXME: Constant array should be a pointer to readonly data section, skip initialization in code
 
         for i in (0..size).rev() {
 
@@ -342,25 +346,6 @@ impl TACGenerator {
             );
         }
 
-
-        // init array length
-        // Dirtyish hack: To ensure that the indexing operatino correctly indexes with 4 byte length,
-        // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
-        // would fail with arrays with non-integer base type (e.g. boolean arrays)
-        let mut init_length_into = variable_info.clone();
-        init_length_into.variable_type = Type::Array(Box::new(Type::Integer));
-
-        self.current_function().statements.push(
-            Statement::Assignment{
-                operator: None,
-                destination: Some(Operand::ArrayIndex {
-                    id,
-                    variable_info: init_length_into,
-                    index_operand: Box::new(Operand::Integer(-1)),
-                }),
-                left_operand: None,
-                right_operand: Some(Operand::Integer(size))
-            });
     }
 
     fn emit_array_initialization_using_shorthand(
@@ -371,7 +356,7 @@ impl TACGenerator {
         operand: Operand) {
 
         // FIXME: Right now there is no runtime, so initialing the array is done like this. Replacing this with a call to memset would likely make more sense
-
+        // FIXME: Constant array should be a pointer to readonly data section, skip initialization in code
         /*
             i = 0;
             START:
@@ -387,7 +372,7 @@ impl TACGenerator {
 
         let start_label_id= self.get_label_id();
         let end_label_id = self.get_label_id();
-        let index_var = self.get_temporary(Type::Integer); // optimization opportunity - overlap this with array length field, would save 4 bytes of stack space
+        let index_var = self.get_temporary(Type::Integer);
         let cmp_result = self.get_temporary(Type::Boolean);
 
 
@@ -437,24 +422,6 @@ impl TACGenerator {
         self.current_function().statements.push(
             Statement::Label(end_label_id));
 
-        // init array length
-        // Dirtyish hack: To ensure that the indexing operatino correctly indexes with 4 byte length,
-        // we pretend that the array is an integer array. Otherwise the 'arr[-1] = length' operation
-        // would fail with arrays with non-integer base type (e.g. boolean arrays)
-        let mut init_length_into = variable_info.clone();
-        init_length_into.variable_type = Type::Array(Box::new(Type::Integer));
-
-        self.current_function().statements.push(
-            Statement::Assignment{
-                operator: None,
-                destination: Some(Operand::ArrayIndex {
-                    id,
-                    variable_info: init_length_into,
-                    index_operand: Box::new(Operand::Integer(-1)),
-                }),
-                left_operand: None,
-                right_operand: Some(Operand::Integer(size))
-            });
     }
 
     fn handle_variable_assignment(
@@ -580,26 +547,21 @@ impl TACGenerator {
         member: &AstNode) {
 
         if let AstNode::Identifier{name, ..} = object {
-            let (var_info, id) = self.get_variable_info_and_id(name);
-            ice_if!(!var_info.variable_type.is_array(), "Access not implemented for non-arrays");
+            let (decl_info, _id) = self.get_variable_info_and_id(name);
+            ice_if!(!decl_info.variable_type.is_array(), "Access not implemented for non-arrays");
 
             if let AstNode::Identifier{ name, ..} = member {
-
                 ice_if!(**name != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
 
-                let tmp = self.get_temporary(Type::Integer);
+                let operand =  if decl_info.variable_type.is_reference() {
+                    todo!("Not implemented for references")
+                } else {
+                    Operand::Integer(decl_info.variable_type.get_array_dimensions()[0])
+                };
 
-                self.current_function().statements.push(
-                    Statement::Assignment {
-                        operator: None,
-                        destination: Some(tmp.clone()),
-                        left_operand: None,
-                        right_operand: Some(Operand::ArrayLength { id, variable_info: var_info }),
-                    });
-
-                self.operands.push(tmp);
+                self.operands.push(operand);
             } else {
-                ice!("Member access TAC generation not impelmented for member: {:?}", member)
+                ice!("Member access TAC generation not implemented for member: {:?}", member)
             }
 
 

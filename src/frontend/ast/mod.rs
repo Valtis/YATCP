@@ -221,9 +221,9 @@ impl Display for AstNode {
                 format!("Call function {}", function_name),
             AstNode::VariableDeclaration{ref declaration_info, ..} =>
                 format!("Variable declaration '{}' : {}", declaration_info.name, declaration_info.variable_type),
-            AstNode::ArrayDeclaration{dimensions, ref declaration_info, ..} => {
+            AstNode::ArrayDeclaration{ref declaration_info, ..} => {
                     let mut dim_str = "".to_owned();
-                    for dim in dimensions.iter() {
+                    for dim in declaration_info.variable_type.get_array_dimensions().iter() {
                         dim_str = format!("{}[{}]", dim_str, dim);
                     }
                     format!("Variable declaration '{}' : {}{}", declaration_info.name, declaration_info.variable_type, dim_str)
