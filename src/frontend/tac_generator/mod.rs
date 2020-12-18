@@ -182,6 +182,23 @@ impl TACGenerator {
                     left_operand: None,
                     right_operand: Some(Operand::Initialized(param.variable_type.clone()))
                 });
+
+            // handle lengths
+            if param.variable_type.is_array() {
+                // FIXME: HANDLES ONE DIMENSIONAL ARRAYS ONLY!
+                // Move length variables into tmp
+
+                self.current_function().statements.push(
+                    Statement::Assignment{
+                        operator: None,
+                        destination: Some(Operand::Variable(
+                            DeclarationInfo::new(Rc::new("arraylen".to_string()), Span::new(0, 0, 0), Type::Integer),
+                            id+100000)),
+                        left_operand: None,
+                        right_operand: Some(Operand::Initialized(param.variable_type.clone()))
+                    });
+
+            }
         }
 
 
