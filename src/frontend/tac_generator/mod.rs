@@ -14,8 +14,10 @@ use crate::common::{
 };
 
 use std::rc::Rc;
+use std::collections::HashMap;
 
 pub const TMP_NAME : &'static str = ".tmp";
+pub const ARRAY_LENGTH_ID_OFFSET: u32 = 1000000;
 
 pub struct TACGenerator {
     functions: Vec<Function>,
@@ -24,7 +26,9 @@ pub struct TACGenerator {
     id_counter: u32,
     label_counter: u32,
     symbol_table: SymbolTable,
-    tmp_name: Rc<String>
+    tmp_name: Rc<String>,
+    array_length_param_data: HashMap<Rc<String>, (u32, DeclarationInfo)>
+
 }
 
 impl TACGenerator {
@@ -37,6 +41,7 @@ impl TACGenerator {
             label_counter: 0,
             symbol_table: SymbolTable::new(),
             tmp_name: Rc::new(TMP_NAME.to_string()),
+            array_length_param_data: HashMap::new(),
         }
     }
 
@@ -152,6 +157,7 @@ impl TACGenerator {
 
         let function = Function::new(info.clone());
         self.function_stack.push(function);
+        self.array_length_param_data.clear();
 
         // add mock initializations for function parameters, as later stages
         // always assume that variables are first assigned into before usage
@@ -183,24 +189,29 @@ impl TACGenerator {
                     right_operand: Some(Operand::Initialized(param.variable_type.clone()))
                 });
 
-            // handle lengths
+            // handle array length passing - push array length after ref to array
             if param.variable_type.is_array() {
                 // FIXME: HANDLES ONE DIMENSIONAL ARRAYS ONLY!
                 // Move length variables into tmp
+
+                let len_id = id + ARRAY_LENGTH_ID_OFFSET;
+                let decl_info = DeclarationInfo::new(
+                    Rc::new(format!("arraylength_of_{}", param.name)),
+                    Span::new(0, 0, 0),
+                    Type::Integer);
 
                 self.current_function().statements.push(
                     Statement::Assignment{
                         operator: None,
                         destination: Some(Operand::Variable(
-                            DeclarationInfo::new(Rc::new("arraylen".to_string()), Span::new(0, 0, 0), Type::Integer),
-                            id+100000)),
+                            decl_info.clone(),
+                            len_id)),
                         left_operand: None,
-                        right_operand: Some(Operand::Initialized(param.variable_type.clone()))
+                        right_operand: Some(Operand::Initialized(Type::Integer))
                     });
-
+                self.array_length_param_data.insert(param.name.clone(), (len_id, decl_info));
             }
         }
-
 
         self.generate_tac(child);
 
@@ -243,14 +254,25 @@ impl TACGenerator {
 
             let mut operand = self.get_operand(arg);
 
-            // handle auto referenced array args, generate mov address -> tmp reg and use reg as argument
+
+            // handle array length passing
             if let Operand::Variable(info, id ) = operand.clone() {
 
                 if info.variable_type.is_array() {
 
+
+
                     if  info.variable_type.is_reference() {
+                        // already a function param, find value variable
+                        // FIXME ONLY HANDLES ONE DIMENSIONAL ARRAY
+                        let (id, decl_info) = self.array_length_param_data
+                            .get(&info.name)
+                            .unwrap_or_else(|| ice!("No array length information stored for array '{}'", name));
+                        function_operands.push(operand);
+                        operand = Operand::Variable(decl_info.clone(), *id);
 
                     } else {
+                        // declared in this function, use known constants
                         let dims = info.variable_type.get_array_dimensions();
                         self.convert_array_to_ref(&params[i], &mut operand, info, id);
                         function_operands.push(operand);
@@ -567,11 +589,14 @@ impl TACGenerator {
             let (decl_info, _id) = self.get_variable_info_and_id(name);
             ice_if!(!decl_info.variable_type.is_array(), "Access not implemented for non-arrays");
 
-            if let AstNode::Identifier{ name, ..} = member {
-                ice_if!(**name != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
+            if let AstNode::Identifier{ name: prop, ..} = member {
+                ice_if!(**prop != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
 
                 let operand =  if decl_info.variable_type.is_reference() {
-                    todo!("Not implemented for references")
+                    let (id, declaration_info) = self.array_length_param_data
+                        .get(name)
+                        .unwrap_or_else(|| ice!("No array length information stored for array '{}'", name));
+                    Operand::Variable(declaration_info.clone(), *id)
                 } else {
                     Operand::Integer(decl_info.variable_type.get_array_dimensions()[0])
                 };
@@ -927,7 +952,6 @@ impl TACGenerator {
             Operand::ArrayIndex {index_operand: _, id: _, variable_info: ref var_info } => {
                 var_info.variable_type.get_array_basic_type()
             },
-            Operand::ArrayLength { id: _, variable_info: _, } => Type::Integer,
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }

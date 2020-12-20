@@ -19,7 +19,6 @@ use std::collections::HashMap;
 use crate::common::{
     function_attributes::FunctionAttribute,
     types::Type,
-    constants::ARRAY_LENGTH_SLOT_SIZE
 };
 
 #[derive(Debug, Clone)]
@@ -1109,7 +1108,7 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ByteCode::Lea(
                     UnaryOperation {
                         src: StackOffset {
-                            offset: src_stack_slot.offset + src_stack_slot.size - ARRAY_LENGTH_SLOT_SIZE,
+                            offset: src_stack_slot.offset + src_stack_slot.size,
                             size: PTR_SIZE, // not really used in this context, we care about the offset only
                         },
                         dest: PhysicalRegister(value_reg.clone()),

@@ -10,7 +10,6 @@ use crate::common::{
     function_attributes::FunctionAttribute,
     types::Type,
     tac_code::{Statement, Operator, Operand, Function as TACFunction},
-    constants::ARRAY_LENGTH_SLOT_SIZE,
 };
 
 pub struct ByteGenerator {
@@ -386,7 +385,7 @@ impl ByteGenerator {
                         Value::DynamicStackOffset {
                             id: *id,
                             index: Box::new(self.get_source(index_operand)),
-                            offset: ARRAY_LENGTH_SLOT_SIZE,
+                            offset: 0,
                             size,
                         }
                     }
@@ -395,31 +394,6 @@ impl ByteGenerator {
                 }
 
             },
-            Operand::ArrayLength{ id, variable_info }=> {
-                match &variable_info.variable_type {
-                    Type::Reference(ref x) if x.is_array() => {
-                        let base_reg = self.get_register_for(variable_info, *id);
-
-                        let size = ARRAY_LENGTH_SLOT_SIZE;
-                        Value::IndirectAddress {
-                            base: Box::new(base_reg),
-                            index: None,
-                            offset: Some(ARRAY_LENGTH_SLOT_SIZE),
-                            size: size,
-                        }
-                    }
-                    x if x.is_array() => {
-                        let size = ARRAY_LENGTH_SLOT_SIZE;
-                        Value::DynamicStackOffset {
-                            id: *id,
-                            index: Box::new(Value::IntegerConstant(-1)),
-                            offset: ARRAY_LENGTH_SLOT_SIZE,
-                            size,
-                        }
-                    },
-                    _ => ice!("Unexpected variable type {} for array length", variable_info.variable_type),
-                }
-            }
             x => panic!("Not implemented yet for {}", x),
         }
     }

@@ -35,10 +35,6 @@ pub enum Operand {
         index_operand: Box<Operand>,
         variable_info: DeclarationInfo,
     },
-    ArrayLength {
-        id: u32,
-        variable_info: DeclarationInfo,
-    },
     SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
     Byte(i8),
@@ -118,7 +114,7 @@ impl Display for Statement {
                         String::new(),
                         |acc, v| format!("{}, {}", acc, v))
                     .chars()
-                    .skip(1)
+                    .skip(2) // get rid of the leading spaces
                     .collect::<String>();
 
                 let dest_str = if let Some(ref op) = *dest {
@@ -163,7 +159,6 @@ impl Display for Operand {
             Operand::ArrayIndex { id, ref index_operand, ref variable_info} => {
                 format!("{}_{}[{}]", variable_info.name, id, index_operand)
             },
-            Operand::ArrayLength { id, ref variable_info } => format!("{}_{}.length", variable_info.name, id),
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
             Operand::AddressOf { ref variable_info, ref id } => format!("&{}_{}", variable_info.name, id),
             Operand::SSAVariable(ref info, id, ssa_id) =>
