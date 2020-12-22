@@ -17,4 +17,7 @@ expect_stderr: |
   2:15 Note: Corresponding parameter 'value', declared here, is mutable
   extern fn bar(value: int[]);
                 ^^^^^
+  5:7 Note: Array 'a', declared here, is immutable
+    val a: int[8] = 4;
+        ^
   Terminating compilation due to 1 error
