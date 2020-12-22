@@ -110,12 +110,9 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
     // 16 byte align the stack
 
     stack_map.stack_space_used = stack_map.stack_size;
+    align_slot_to_data_size(&mut stack_map, 16);
 
-    stack_map.stack_size = if stack_map.stack_size & 0b1111 == 0 {
-        stack_map.stack_size
-    } else {
-        (stack_map.stack_size | 0b1111) + 1
-    };
+
 
     stack_map
 }
@@ -155,10 +152,20 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
 fn add_location(map: &mut StackMap, data: &VirtualRegisterData) {
     if !map.reg_to_stack_slot.contains_key(&data.id) {
 
+        align_slot_to_data_size(map, data.size);
         ice_if!(!data.size.is_power_of_two(), "Virtual register {:?} has size which is not power of two!", data);
         map.stack_size += data.size;
         map.reg_to_stack_slot.insert(data.id, StackSlot{ offset: map.stack_size, size: data.size } );
     }
+}
+
+fn align_slot_to_data_size(stack_map: &mut StackMap, size: u32) {
+    ice_if!(!size.is_power_of_two(), "Stack must be aligned to power of two values, now aligning to {}", size);
+    stack_map.stack_size = if stack_map.stack_size & size == 0 {
+        stack_map.stack_size
+    } else {
+        (stack_map.stack_size | 0b1111) + 1
+    };
 }
 
 fn add_array_location(map: &mut StackMap, id: u32, size_in_bytes: u32) {
