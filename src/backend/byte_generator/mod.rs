@@ -61,6 +61,12 @@ impl ByteGenerator {
                         destination: Some(ref dest),
                         left_operand: None,
                         right_operand: Some(ref src @ Operand::AddressOf { variable_info: _, id: _ })} => self.emit_lea(src, dest),
+
+                    Statement::Assignment{
+                        operator: None,
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref src @ Operand::ArraySlice { .. }) } => self.handle_array_slice(src, dest),
                     Statement::Assignment{
                         operator: Some(ref op @ Operator::Plus),
                         destination: Some(ref dest),
@@ -193,6 +199,39 @@ impl ByteGenerator {
         };
 
         self.current_function().code.push(op);
+    }
+
+    fn handle_array_slice(&mut self, src: &Operand, dest: &Operand) {
+
+        if let Operand::ArraySlice { variable_info, start_operand, id, ..  } = src {
+            if variable_info.variable_type.is_reference() {
+
+                self.emit_binary_op(
+                    Operator::Multiply,
+                    start_operand,
+                    &Operand::Integer(variable_info.variable_type.get_array_basic_type().size_in_bytes() as i32),
+                    dest
+                );
+                let arr_ref = self.get_register_for(variable_info, *id);
+                let dest_value = self.get_source(dest);
+                self.current_function().code.push(
+                    ByteCode::Add(
+                        BinaryOperation {
+                            src1: dest_value.clone(),
+                            src2: arr_ref,
+                            dest: dest_value,
+                        }
+                    )
+                );
+
+              //  todo!();
+            } else {
+                self.emit_lea(src, dest);
+            }
+
+        } else {
+            ice!("Unexpected operand when ArraySlice was expected: {:?}", src);
+        }
     }
 
     fn emit_lea(&mut self, src: &Operand, dest: &Operand) {
@@ -350,6 +389,8 @@ impl ByteGenerator {
                 if variable_info.variable_type.is_array() {
                     Value::ArrayPtr {
                         id: *id,
+                        offset: None,
+                        array_size: variable_info.variable_type.get_array_basic_type().size_in_bytes(),
                     }
                 } else {
                     ice!("Not implemented for non-array-types, got {}: ", variable_info.variable_type);
@@ -392,7 +433,22 @@ impl ByteGenerator {
                     _ => ice!("Unexpected type for array indexing: {}", variable_info.variable_type),
 
                 }
-
+            },
+            Operand::ArraySlice{
+                start_operand,
+                variable_info,
+                id,
+                ..
+            } => {
+                if variable_info.variable_type.is_array() {
+                    Value::ArrayPtr {
+                        id: *id,
+                        offset: Some(Box::new(self.get_source(start_operand))),
+                        array_size: variable_info.variable_type.get_array_basic_type().size_in_bytes(),
+                    }
+                } else {
+                    ice!("Unexpected type for array slicing: {}", variable_info.variable_type);
+                }
             },
             x => panic!("Not implemented yet for {}", x),
         }

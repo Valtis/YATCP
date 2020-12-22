@@ -138,7 +138,6 @@ fn handle_comparison_op(comparison_op: &ComparisonOperation, stack_map: &mut Sta
 }
 
 fn add_if_register(value: &Value, stack_map: &mut StackMap) {
-
     match value {
         Value::VirtualRegister(src) => add_location(stack_map, src),
         Value::DynamicStackOffset {id: _,index, offset: _, size: _ } => add_if_register(index, stack_map),
@@ -148,6 +147,7 @@ fn add_if_register(value: &Value, stack_map: &mut StackMap) {
                 add_if_register(x, stack_map);
             }
         }
+        Value::ArrayPtr { offset: Some(value)  , ..} => add_if_register(value, stack_map),
         _ => (),
     }
 }
@@ -1096,7 +1096,7 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
         */
         UnaryOperation {
-            src: ArrayPtr { id },
+            src: ArrayPtr { id, offset: None, .. },
             dest: VirtualRegister(dest_vregdata)
         } => {
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
@@ -1126,6 +1126,90 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     }
                 ));
         },
+        UnaryOperation {
+            src: ArrayPtr { id, offset: Some(value), array_size },
+            dest: VirtualRegister(dest_vregdata)
+        } => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.array_to_stack_slot[&id];
+            let value_reg = get_register_for_size2(PTR_SIZE);
+
+            match **value {
+                Value::IntegerConstant(offset) => {
+                       updated_instructions.push(
+                           ByteCode::Lea(
+                               UnaryOperation {
+                                   src: StackOffset {
+                                       offset: src_stack_slot.offset + src_stack_slot.size - array_size*offset as u32,
+                                       size: PTR_SIZE, // not really used in this context, we care about the offset only
+                                   },
+                                   dest: PhysicalRegister(value_reg.clone()),
+                        }
+                    ));
+                },
+                Value::VirtualRegister(ref start_value_vregdata) => {
+                    let start_stack_slot = &stack_map.reg_to_stack_slot[&start_value_vregdata.id];
+                    updated_instructions.push(
+                        ByteCode::Lea(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    offset: src_stack_slot.offset + src_stack_slot.size,
+                                    size: PTR_SIZE, // not really used in this context, we care about the offset only
+                                },
+                                dest: PhysicalRegister(value_reg.clone()),
+                            }
+                        ));
+
+                    let tmp_reg = get_register_for_size3(start_stack_slot.size);
+
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    size: start_stack_slot.size,
+                                    offset: start_stack_slot.offset,
+                                },
+                                dest: PhysicalRegister(tmp_reg.clone()),
+                            }
+                        ));
+
+                    updated_instructions.push(
+                        ByteCode::Mul(
+                            BinaryOperation {
+                                src1: PhysicalRegister(tmp_reg.clone()),
+                                src2: IntegerConstant(*array_size as i32),
+                                dest: PhysicalRegister(tmp_reg.clone()),
+                            }
+                        ));
+
+                    updated_instructions.push(
+                        ByteCode::Add(
+                            BinaryOperation {
+                                src1: PhysicalRegister(value_reg.clone()),
+                                src2: PhysicalRegister(tmp_reg.get_alias_for_size(value_reg.size()).clone()),
+                                dest: PhysicalRegister(value_reg.clone()),
+                            }
+                        ));
+
+
+
+                },
+                _ => ice!("Unexpected value type {:?}", value),
+            }
+
+            updated_instructions.push(
+                ByteCode::Mov(
+                    UnaryOperation {
+                        src: PhysicalRegister(value_reg.clone()),
+                        dest: StackOffset {
+                            offset: dest_stack_slot.offset,
+                            size: dest_stack_slot.size,
+                        }
+                    }
+                ));
+        }
         _ => todo!("Not impemented for {:#?}", unary_op),
     }
 }

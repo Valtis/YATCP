@@ -30,11 +30,8 @@ pub enum Statement {
 pub enum Operand {
     Variable(DeclarationInfo, u32),
     AddressOf{ variable_info: DeclarationInfo, id: u32, },
-    ArrayIndex{
-        id: u32,
-        index_operand: Box<Operand>,
-        variable_info: DeclarationInfo,
-    },
+    ArrayIndex{ id: u32, index_operand: Box<Operand>, variable_info: DeclarationInfo, },
+    ArraySlice{ id: u32, start_operand: Box<Operand>, end_operand: Box<Operand>, variable_info: DeclarationInfo, },
     SSAVariable(DeclarationInfo, u32, u32),
     Integer(i32),
     Byte(i8),
@@ -158,6 +155,9 @@ impl Display for Operand {
         write!(formatter, "{}", match *self {
             Operand::ArrayIndex { id, ref index_operand, ref variable_info} => {
                 format!("{}_{}[{}]", variable_info.name, id, index_operand)
+            },
+            Operand::ArraySlice{ id, ref start_operand, ref end_operand, ref variable_info} => {
+                format!("{}_{}[{}:{}]", variable_info.name, id, start_operand, end_operand)
             },
             Operand::Variable(ref info, id) => format!("{}_{}", info.name, id),
             Operand::AddressOf { ref variable_info, ref id } => format!("&{}_{}", variable_info.name, id),

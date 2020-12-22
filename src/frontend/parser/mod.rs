@@ -1034,7 +1034,7 @@ impl Parser {
                 },
                 TokenType::LBracket => {
                     expr =
-                        self.parse_array_access(expr)?;
+                        self.parse_array_access_or_slice(expr)?;
                 }
                 _ => break,
             }
@@ -1043,9 +1043,23 @@ impl Parser {
         Ok(expr)
     }
 
-    fn parse_array_access(&mut self, indexable_expression: AstNode) -> Result<AstNode, ()> {
+    fn parse_array_access_or_slice(&mut self, indexable_expression: AstNode) -> Result<AstNode, ()> {
         self.expect(TokenType::LBracket)?;
         let index_expression = self.parse_expression()?;
+        if self.lexer.peek_token().token_type == TokenType::Colon {
+            self.expect(TokenType::Colon)?;
+
+            let end_expression = self.parse_expression()?;
+            self.expect(TokenType::RBracket)?;
+
+            return Ok(AstNode::ArraySlice{
+                start_expression: Box::new(index_expression),
+                end_expression: Box::new(end_expression),
+                array_expression: Box::new(indexable_expression),
+            });
+
+        }
+
         self.expect(TokenType::RBracket)?;
 
         Ok(AstNode::ArrayAccess {

@@ -77,7 +77,7 @@ pub enum Value {
     StackOffset{offset: u32, size: u32},
     DynamicStackOffset {index: Box<Value>, offset: u32, size: u32, id: u32 },
     IndirectAddress { base: Box<Value>, index: Option<Box<Value>>, offset: Option<u32>, size: u32, },
-    ArrayPtr{ id: u32 },
+    ArrayPtr{ id: u32, offset: Option<Box<Value>>, array_size: u32, },
     ReturnValue,
     FunctionParameter(Type, usize),
 }
@@ -245,7 +245,7 @@ impl Display for Value {
                          base,
                          if let Some(x) = index { x.clone() } else { Box::new(Value::IntegerConstant(0)) },
                          if let Some(x) = offset { *x } else { 0 }),
-            Value::ArrayPtr { id } => format!("Ptr to array {}", id),
+            Value::ArrayPtr { id, .. } => format!("Ptr to array {}", id),
         })
     }
 }

@@ -172,6 +172,8 @@ impl SemanticsCheck {
             },
             AstNode::ArrayAccess{ index_expression, indexable_expression } =>
                  self.handle_array_access(index_expression, indexable_expression),
+            AstNode::ArraySlice{ start_expression, end_expression, array_expression } =>
+                self.handle_array_slice(start_expression, end_expression, array_expression),
             AstNode::Cast{ expression, target_type, span } => {
                 self.handle_cast(expression, target_type, span);
             }
@@ -422,44 +424,86 @@ impl SemanticsCheck {
                                     x.get_array_basic_type() == arg_type.get_array_basic_type() {
 
                                     // constness checks
-                                    if let AstNode::Identifier{ ref name, ..} = arg {
+                                    match arg {
+                                        AstNode::Identifier { ref name, .. } => {
+                                            if let Some(Symbol::Variable(decl_info, _)) = self.symbol_table.find_symbol(name) {
 
-                                        if let Some(Symbol::Variable(decl_info, _)) = self.symbol_table.find_symbol(name) {
+                                                // unconditionally error on const arrays.
+                                                //
+                                                // This is primarily due to aggressive constant folding,
+                                                // const values do not actually exist and their values get folded into
+                                                // other expressions.
+                                                if decl_info.attributes.contains(&VariableAttribute::Const) {
+                                                    self.report_error(
+                                                        ReportKind::TypeError,
+                                                        arg.span(),
+                                                        "Cannot use const array as function argument".to_owned()
+                                                    );
 
-                                            // unconditionally error on const arrays.
-                                            //
-                                            // This is primarily due to aggressive constant folding,
-                                            // const values do not actually exist and their values get folded into
-                                            // other expressions.
-                                            if decl_info.attributes.contains(&VariableAttribute::Const) {
-                                                self.report_error(
-                                                    ReportKind::TypeError,
-                                                    arg.span(),
-                                                    "Cannot use const array as function argument".to_owned()
-                                                );
+                                                    self.report_error(
+                                                        ReportKind::Note,
+                                                        decl_info.span,
+                                                        format!("Array '{}', declared here, is const array", name)
+                                                    );
+                                                }
 
-                                                self.report_error(
-                                                    ReportKind::Note,
-                                                    decl_info.span,
-                                                    format!("Array '{}', declared here, is const array", name)
-                                                );
+
+                                                // report readonly array use when method parameter is not readonly
+
+                                                if decl_info.attributes.contains(&VariableAttribute::ReadOnly) &&
+                                                    !param.attributes.contains(&VariableAttribute::ReadOnly) {
+                                                    self.report_error(
+                                                        ReportKind::TypeError,
+                                                        arg.span(),
+                                                        "Cannot use readonly array here, mutability differs".to_owned()
+                                                    );
+
+                                                    self.report_error(
+                                                        ReportKind::Note,
+                                                        param.span,
+                                                        format!("Corresponding parameter '{}', declared here, is mutable", param.name)
+                                                    );
+                                                     self.report_error(
+                                                        ReportKind::Note,
+                                                        decl_info.span,
+                                                        format!("Array '{}', declared here, is immutable", decl_info.name)
+                                                    );
+                                                }
                                             }
+                                        },
+                                        AstNode::ArraySlice {
+                                            array_expression,
+                                            ..
+                                        } => {
 
-                                            if decl_info.attributes.contains(&VariableAttribute::ReadOnly) &&
-                                                !param.attributes.contains(&VariableAttribute::ReadOnly) {
-                                                self.report_error(
-                                                    ReportKind::TypeError,
-                                                    arg.span(),
-                                                    "Cannot use readonly array here, mutability differs".to_owned()
-                                                );
+                                            if let AstNode::Identifier { ref name, .. } = **array_expression {
+                                                if let Some(Symbol::Variable(decl_info, _)) = self.symbol_table.find_symbol(name) {
+                                                    // report error if underlying array we are slicing from is readonly but
+                                                    // corresponding parameter is not
+                                                    if decl_info.attributes.contains(&VariableAttribute::ReadOnly) &&
+                                                        !param.attributes.contains(&VariableAttribute::ReadOnly) {
+                                                        self.report_error(
+                                                            ReportKind::TypeError,
+                                                            arg.span(),
+                                                            "Cannot use readonly array slice here, mutability differs".to_owned()
+                                                        );
 
-                                                self.report_error(
-                                                    ReportKind::Note,
-                                                    param.span,
-                                                    format!("Corresponding parameter '{}', declared here, is mutable", param.name)
-                                                );
+                                                        self.report_error(
+                                                            ReportKind::Note,
+                                                            param.span,
+                                                            format!("Corresponding parameter '{}', declared here, is mutable", param.name)
+                                                        );
+                                                        self.report_error(
+                                                            ReportKind::Note,
+                                                            decl_info.span,
+                                                            format!("Array '{}', declared here, is immutable", decl_info.name)
+                                                        );
+                                                    }
+                                                }
                                             }
-                                        }
+                                        },
+
+                                        _ => ice!("Unexpectedly failed to match the correct AST node"),
                                     }
 
                                     continue;
@@ -1076,6 +1120,74 @@ impl SemanticsCheck {
             ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
         }
     }
+
+    fn handle_array_slice(
+        &mut self,
+        start_expression: &mut AstNode,
+        end_expression: &mut AstNode,
+        array_expression: &mut AstNode,
+    ) {
+
+        let array_span = array_expression.span();
+        self.do_check(start_expression);
+        self.do_check(end_expression);
+        self.do_check(array_expression);
+
+        let array_type  = self.get_type(array_expression);
+
+        if !array_type.is_array() && array_type!= Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                array_span,
+                format!("Cannot slice expression of type '{}', array type expected", array_type));
+            return;
+        }
+
+        let start_type = self.get_type(start_expression);
+        let end_type = self.get_type(end_expression);
+
+        if start_type != Type::Invalid && start_type != Type::Integer && start_type != Type::IntegralNumber {
+            self.report_error(
+                ReportKind::TypeError,
+                start_expression.span(),
+                format!(
+                    "Array slice start index must be an '{}', but got '{}' instead",
+                    Type::Integer, start_type));
+        }
+
+        if end_type != Type::Invalid && end_type != Type::Integer && end_type != Type::IntegralNumber {
+            self.report_error(
+                ReportKind::TypeError,
+                end_expression.span(),
+                format!(
+                    "Array slice end index must be an '{}', but got '{}' instead",
+                    Type::Integer, end_type));
+        }
+
+        if let AstNode::Identifier { name, .. } = array_expression {
+            if let Some(declaration_info) = self.symbol_table.get_declaration_info(&name) {
+                if declaration_info.attributes.contains(&VariableAttribute::Const) {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        array_expression.span(),
+                        "Cannot slice constant array".to_owned(),
+                    );
+                }
+            }
+
+        }
+
+        if start_type == Type::IntegralNumber {
+            let conversion_result = self.perform_type_conversion(&Type::Integer, start_expression);
+            ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
+        }
+
+        if end_type == Type::IntegralNumber {
+            let conversion_result = self.perform_type_conversion(&Type::Integer, end_expression);
+            ice_if!(conversion_result != ConversionResult::Converted, "Unexpected conversion failure");
+        }
+    }
+
 
     fn handle_initializer_list(
         &mut self,
@@ -1768,8 +1880,8 @@ impl SemanticsCheck {
             AstNode::BooleanOr { .. } |
             AstNode::BooleanNot { .. } => Type::Boolean,
             AstNode::ArrayAccess {
-                index_expression: _,
                 ref indexable_expression,
+                ..
             } => {
                 match **indexable_expression {
                     AstNode::Identifier{ref name, ..} => {
@@ -1784,6 +1896,26 @@ impl SemanticsCheck {
                         }
                     },
                     AstNode::FunctionCall{ .. } => todo!("Indexing function return value is not yet implemented"),
+                    _ => Type::Invalid,
+                }
+            },
+            AstNode::ArraySlice {
+                ref array_expression,
+                ..
+            } => {
+                match **array_expression {
+                    AstNode::Identifier{ref name, ..} => {
+                        if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                            if info.variable_type.is_array() {
+                                Type::Reference(Box::new(info.variable_type.clone()))
+                            } else {
+                                Type::Invalid
+                            }
+                        } else {
+                            Type::Invalid
+                        }
+                    },
+                    AstNode::FunctionCall{ .. } => todo!("Slicing function return value is not yet implemented"),
                     _ => Type::Invalid,
                 }
             },

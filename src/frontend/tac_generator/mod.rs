@@ -79,6 +79,9 @@ impl TACGenerator {
             AstNode::ArrayAccess { index_expression, indexable_expression} => {
                 self.handle_array_access(indexable_expression, index_expression);
             },
+            AstNode::ArraySlice { start_expression, end_expression, array_expression}=> {
+                self.handle_array_slice(start_expression, end_expression, array_expression);
+            },
             AstNode::ArrayAssignment { assignment_expression, index_expression, variable_name, span: _, } =>
                 self.handle_array_assignment(variable_name, index_expression, assignment_expression),
             AstNode::MemberAccess {
@@ -209,7 +212,7 @@ impl TACGenerator {
                         left_operand: None,
                         right_operand: Some(Operand::Initialized(Type::Integer))
                     });
-                self.array_length_param_data.insert(param.name.clone(), (len_id, decl_info));
+                self.array_length_param_data.insert(Rc::new(format!("{}_{}", param.name.clone(), id)), (len_id, decl_info));
             }
         }
 
@@ -259,15 +262,12 @@ impl TACGenerator {
             if let Operand::Variable(info, id ) = operand.clone() {
 
                 if info.variable_type.is_array() {
-
-
-
                     if  info.variable_type.is_reference() {
                         // already a function param, find value variable
                         // FIXME ONLY HANDLES ONE DIMENSIONAL ARRAY
                         let (id, decl_info) = self.array_length_param_data
-                            .get(&info.name)
-                            .unwrap_or_else(|| ice!("No array length information stored for array '{}'", name));
+                            .get(&format!("{}_{}", info.name, id))
+                            .unwrap_or_else(|| ice!("No array length information stored for array '{}'", info.name));
                         function_operands.push(operand);
                         operand = Operand::Variable(decl_info.clone(), *id);
 
@@ -550,6 +550,76 @@ impl TACGenerator {
         self.operands.push(dst);
     }
 
+    fn handle_array_slice(
+        &mut self,
+        start_expression: &AstNode,
+        end_expression: &AstNode,
+        array_expression: &AstNode,
+    ) {
+
+        let start_operand = self.get_operand(start_expression);
+        let end_operand = self.get_operand(end_expression);
+
+        let (array_type, name) = match array_expression {
+            AstNode::Identifier{ name, ..} => {
+                if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
+                    if info.variable_type.is_array() {
+                        (Type::Reference(Box::new(info.variable_type.clone())), name.clone())
+                    } else {
+                        ice!("Non-array type '{}' variable '{}'", info.variable_type, name)
+                    }
+                } else {
+                    ice!("Invalid symbol '{:?}'", self.symbol_table.find_symbol(name));
+                }
+            },
+            _ => ice!("Invalid AST node '{:?}'", array_expression),
+        };
+
+        let dst = self.get_temporary(array_type);
+
+        let (var_info, id) = self.get_variable_info_and_id(&name);
+
+        let length_dst = self.get_temporary(Type::Integer);
+
+        self.current_function().statements.push(
+            Statement::Assignment {
+                operator: Some(Operator::Minus),
+                destination: Some(length_dst.clone()),
+                left_operand: Some(end_operand.clone()),
+                right_operand: Some(start_operand.clone()),
+            });
+
+
+        match (&dst, &length_dst) {
+            (
+                Operand::Variable(dst_decl_info, dst_id),
+                Operand::Variable(length_dst_decl_info, length_dst_id),
+            )  => {
+                self.array_length_param_data.insert(
+                    Rc::new(format!("{}_{}", dst_decl_info.name, dst_id)),
+                    (*length_dst_id, length_dst_decl_info.clone()),
+                );
+            }
+            _ => ice!("Unexpected operands {:?} and {:?}", dst, length_dst)
+        }
+
+
+        self.current_function().statements.push(
+            Statement::Assignment {
+                operator: None,
+                destination: Some(dst.clone()),
+                left_operand: None,
+                right_operand: Some(Operand::ArraySlice {
+                    start_operand: Box::new(start_operand),
+                    end_operand: Box::new(end_operand),
+                    variable_info: var_info,
+                    id
+                })
+            });
+
+        self.operands.push(dst);
+    }
+
     fn handle_array_assignment(
         &mut self,
         variable_name: &str,
@@ -586,17 +656,17 @@ impl TACGenerator {
         member: &AstNode) {
 
         if let AstNode::Identifier{name, ..} = object {
-            let (decl_info, _id) = self.get_variable_info_and_id(name);
+            let (decl_info, array_id) = self.get_variable_info_and_id(name);
             ice_if!(!decl_info.variable_type.is_array(), "Access not implemented for non-arrays");
 
             if let AstNode::Identifier{ name: prop, ..} = member {
                 ice_if!(**prop != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
 
                 let operand =  if decl_info.variable_type.is_reference() {
-                    let (id, declaration_info) = self.array_length_param_data
-                        .get(name)
+                    let (length_id, declaration_info) = self.array_length_param_data
+                        .get(&format!("{}_{}", name, array_id))
                         .unwrap_or_else(|| ice!("No array length information stored for array '{}'", name));
-                    Operand::Variable(declaration_info.clone(), *id)
+                    Operand::Variable(declaration_info.clone(), *length_id)
                 } else {
                     Operand::Integer(decl_info.variable_type.get_array_dimensions()[0])
                 };
@@ -605,9 +675,6 @@ impl TACGenerator {
             } else {
                 ice!("Member access TAC generation not implemented for member: {:?}", member)
             }
-
-
-
 
         } else {
             todo!("Member access TAC generation not implemented for: {:?}", object)
@@ -951,6 +1018,9 @@ impl TACGenerator {
             Operand::Initialized(ref t) => t.clone(),
             Operand::ArrayIndex {index_operand: _, id: _, variable_info: ref var_info } => {
                 var_info.variable_type.get_array_basic_type()
+            },
+            Operand::ArraySlice{ ref variable_info, .. } => {
+                Type::Reference(Box::new(variable_info.variable_type.clone()))
             },
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),

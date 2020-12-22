@@ -173,7 +173,6 @@ pub enum AstNode {
 
     Cast { expression: Box<AstNode>, target_type: Type, span: Span},
 
-
     IntegralNumber{ value: i128, span: Span},
     // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
     Integer{ value: AstInteger, span: Span },
@@ -184,7 +183,7 @@ pub enum AstNode {
     Boolean { value: bool, span: Span},
     Identifier{ name: Rc<String>, span: Span },
     ArrayAccess{ index_expression: Box<AstNode>, indexable_expression: Box<AstNode> },
-
+    ArraySlice { start_expression: Box<AstNode>, end_expression: Box<AstNode>, array_expression: Box<AstNode> },
     ErrorNode,
     EmptyNode, // No-operation in later stages
 }
@@ -247,6 +246,7 @@ impl Display for AstNode {
             AstNode::Text{ value, .. } => format!("Text: {}", value ),
             AstNode::Identifier{ name, .. } => format!("Identifier: {}", name),
             AstNode::ArrayAccess{ .. }=> format!("Array access"),
+            AstNode::ArraySlice{ .. }=> format!("Array slice"),
             AstNode::Plus{ .. } => "Plus".to_string(),
             AstNode::Minus{ .. } => "Minus".to_string(),
             AstNode::Multiply {.. } => "Multiply".to_string(),
@@ -355,6 +355,11 @@ impl AstNode {
                 string = format!("{}{}", string, indexable_expression.print_impl(next_int));
                 string = format!("{}{}", string, index_expression.print_impl(next_int));
             },
+            AstNode::ArraySlice{ref start_expression, ref end_expression,  ref array_expression} => {
+                string = format!("{}{}", string, array_expression.print_impl(next_int));
+                string = format!("{}{}", string, start_expression.print_impl(next_int));
+                string = format!("{}{}", string, end_expression.print_impl(next_int));
+            },
             AstNode::ArithmeticShiftRight { ref value, shift_count: ref shift_amount, .. } |
             AstNode::LogicalShiftRight { ref value, shift_count: ref shift_amount, .. } |
             AstNode::LogicalShiftLeft {  ref value, shift_count: ref shift_amount, .. } => {
@@ -454,6 +459,7 @@ impl AstNode {
             AstNode::Text{ span, .. } => *span,
             AstNode::Identifier{ span, ..} => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
+            AstNode::ArraySlice { array_expression, ..} => array_expression.span(),
             AstNode::BooleanNot{ span, .. } => *span,
             AstNode::Cast{ span, .. } => *span,
             AstNode::EmptyNode |
@@ -503,6 +509,7 @@ impl AstNode {
             AstNode::Text { span, .. } => span,
             AstNode::Identifier { span, .. } => span,
             AstNode::ArrayAccess { indexable_expression, .. } => return indexable_expression.span_ref_mut(),
+            AstNode::ArraySlice { array_expression, ..} => return array_expression.span_ref_mut(),
             AstNode::BooleanNot { span, .. } => span,
             AstNode::Cast { span, .. } => span,
             AstNode::EmptyNode |
