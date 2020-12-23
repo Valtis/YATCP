@@ -1,0 +1,15 @@
+program: |
+    extern fn bar(a: int[]);
+
+    fn main() : int {
+      let a = {1, 2, 3};
+      bar(a[2:"hello" + "world"]);
+      return 0;
+    }
+    
+expect_compile_failure: true
+expect_stderr: |
+  5:19 Type error: Array slice end index must be an 'Integer', but got 'String' instead
+    bar(a[2:"hello" + "world"]);
+                    ^
+  Terminating compilation due to 1 error

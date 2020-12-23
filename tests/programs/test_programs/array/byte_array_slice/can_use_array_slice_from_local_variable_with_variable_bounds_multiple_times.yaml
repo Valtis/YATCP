@@ -1,0 +1,45 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let a = { 
+      100 as byte , 
+      101 as byte, 
+      102 as byte, 
+      103 as byte, 
+      104 as byte, 
+      105 as byte, 
+      106 as byte };
+    let low = 2;
+    let high = 5;
+    bar(a[low:high]);
+    low = 0;
+    high = 4;
+    bar(a[low:high]);
+    low = 5;
+    high = 6;
+    bar(a[low:high]);
+
+    return 0;
+  }
+
+  fn bar(a: byte[]) {
+    for let i = 0; i < a.length; i += 1 {
+      int_printer(a[i] as int);
+    }
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  102
+  103
+  104
+  100
+  101
+  102
+  103
+  105
+
+
+

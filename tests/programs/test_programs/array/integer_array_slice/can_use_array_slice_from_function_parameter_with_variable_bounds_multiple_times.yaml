@@ -1,0 +1,42 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let a = { 900, 901, 902, 903, 904, 905, 906 };
+    bar(a);
+
+    return 0;
+  }
+
+  fn bar(a: int[]) {
+    let low = 2;
+    let high = 5;
+    baz(a[low:high]);
+    low = 0;
+    high = 4;
+    baz(a[low:high]);
+    low = 5;
+    high = 6;
+    baz(a[low:high]);
+  }
+
+  fn baz(a: int[]) {
+    for let i = 0; i < a.length; i += 1 {
+      int_printer(a[i]);
+    }
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  902
+  903
+  904
+  900
+  901
+  902
+  903
+  905
+
+
+
