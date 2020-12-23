@@ -1923,7 +1923,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         offset: src_stack_slot.offset,
                         size: src_stack_slot.size
                     },
-                    dest: PhysicalRegister(reg),
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
                 })
             );
 
