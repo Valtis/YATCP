@@ -951,7 +951,7 @@ impl Parser {
 
     fn parse_bitwise_or(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::Pipe)?;
-        let expression = self.parse_expression()?;
+        let expression = self.parse_bitwise_xor_expressions()?;
 
         Ok(AstNode::BitwiseOr{
             left_expression: Box::new(node),
@@ -977,7 +977,7 @@ impl Parser {
 
     fn parse_bitwise_xor(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::Caret)?;
-        let expression = self.parse_expression()?;
+        let expression = self.parse_bitwise_and_expressions()?;
 
         Ok(AstNode::BitwiseXor{
             left_expression: Box::new(node),
@@ -1003,7 +1003,7 @@ impl Parser {
 
     fn parse_bitwise_and(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let token = self.expect(TokenType::Ampersand)?;
-        let expression = self.parse_expression()?;
+        let expression = self.parse_shift_expressions()?;
 
         Ok(AstNode::BitwiseAnd{
             left_expression: Box::new(node),
