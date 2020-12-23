@@ -224,7 +224,6 @@ impl ByteGenerator {
                     )
                 );
 
-              //  todo!();
             } else {
                 self.emit_lea(src, dest);
             }

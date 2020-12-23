@@ -290,7 +290,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: PhysicalRegister(ref reg),
             src: StackOffset {offset, size},
         } => {
-
+            ice_if!(reg.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", reg.size(), size);
             match size {
                 1 => emit_mov_byte_from_stack_to_reg(*reg, *offset, asm),
                 4 | 8 => emit_mov_integer_from_stack_to_reg(*reg, *offset, asm),
@@ -301,6 +301,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: StackOffset {offset, size},
             src: PhysicalRegister(ref reg)
         } => {
+            ice_if!(reg.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", reg.size(), size);
             match *size {
                 1 => emit_mov_byte_from_reg_to_stack(*reg, *offset, asm),
                 4 | 8 => emit_mov_integer_from_reg_to_stack(*reg, *offset, asm),
@@ -355,6 +356,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: DynamicStackOffset { id: _, index, offset, size, },
             src: PhysicalRegister(src)
         } => {
+            ice_if!(src.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", src.size(), size);
             match (&**index, size) {
                 (PhysicalRegister(reg), 4) => emit_mov_integer_register_to_stack_reg_indexed_with_offset(
                     reg.clone(),
@@ -373,7 +375,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: PhysicalRegister(dest),
             src: DynamicStackOffset { id: _, index, offset, size },
         } => {
-            // freaking amazing addressing, need second start to get boxed content only to immediately reference it
+            ice_if!(dest.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             match (&**index, *size) {
                 (PhysicalRegister(reg), 4) => emit_mov_integer_stack_reg_indexed_with_offset_to_register(
                     reg.clone(),
@@ -397,6 +399,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                 size,
             }
         } => {
+            ice_if!(dest.size()  as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
             } else {
@@ -418,6 +421,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                 size,
             }
         } => {
+            ice_if!(dest.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
             } else {
@@ -441,6 +445,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             },
             src: PhysicalRegister(dest),
         } => {
+            ice_if!(dest.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
             } else {
@@ -464,6 +469,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             },
             src: PhysicalRegister(src),
         } => {
+            ice_if!(src.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", src.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
             } else {
