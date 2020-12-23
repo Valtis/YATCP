@@ -159,6 +159,11 @@ pub enum AstNode {
     BooleanOr{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span },
     BooleanNot{ expression: Box<AstNode>, span: Span },
 
+    BitwiseAnd { left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    BitwiseOr { left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    BitwiseXor { left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+    BitwiseNot { expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
+
     Return{ return_value: Option<Box<AstNode>>, arithmetic_info: ArithmeticInfo },
 
     While{ condition_expression: Box<AstNode>, block: Box<AstNode>, span: Span },
@@ -257,6 +262,11 @@ impl Display for AstNode {
             AstNode::LogicalShiftLeft { .. } => "Logical Shift Left".to_string(),
             AstNode::BooleanAnd { .. } => "And".to_string(),
             AstNode::BooleanOr { .. } => "Or".to_string(),
+            AstNode::BooleanNot{ .. } => "Not".to_string(),
+            AstNode::BitwiseAnd{ .. } => "Bitwise And".to_string(),
+            AstNode::BitwiseOr { .. } => "Bitwise Or".to_string(),
+            AstNode::BitwiseXor { .. } => "Bitwise Xor".to_string(),
+            AstNode::BitwiseNot{ .. } => "Bitwise Not".to_string(),
             AstNode::Negate { .. }  => "Negate".to_string(),
             AstNode::Return{ .. } => "Return".to_string(),
             AstNode::While { .. }=> "While".to_string(),
@@ -267,7 +277,6 @@ impl Display for AstNode {
             AstNode::NotEquals { ..} => "NotEquals".to_string(),
             AstNode::GreaterOrEq { .. } => "GreaterOrEq".to_string(),
             AstNode::Greater { .. } => "Greater".to_string(),
-            AstNode::BooleanNot{ .. } => "Not".to_string(),
             AstNode::Cast { .. }  => "As".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
             AstNode::EmptyNode => "<empty node>".to_string(),
@@ -368,6 +377,9 @@ impl AstNode {
             },
             AstNode::BooleanAnd{ ref left_expression, ref right_expression, .. } |
             AstNode::BooleanOr{ ref left_expression, ref right_expression, .. } |
+            AstNode::BitwiseAnd{ ref left_expression, ref right_expression, .. } |
+            AstNode::BitwiseOr{ ref left_expression, ref right_expression, .. } |
+            AstNode::BitwiseXor { ref left_expression, ref right_expression, .. } |
             AstNode::Plus{ ref left_expression, ref right_expression, .. } |
             AstNode::Minus{ ref left_expression, ref right_expression, .. } |
             AstNode::Multiply{ ref left_expression, ref right_expression, .. } |
@@ -404,7 +416,9 @@ impl AstNode {
                 string = format!("{}{}", string, left_expression.print_impl(next_int));
                 string = format!("{}{}", string, right_expression.print_impl(next_int));
             }
-            AstNode::BooleanNot{ ref expression, .. } => {
+            AstNode::BooleanNot{ ref expression, .. } |
+            AstNode::BitwiseNot{ ref expression, .. }
+            => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
             AstNode::Cast{ ref expression, .. } => {
@@ -430,8 +444,11 @@ impl AstNode {
             AstNode::ArrayAssignment{ span, .. } => *span,
             AstNode::InitializerList{ span, .. } => *span,
             AstNode::MemberAccess { span, .. } => *span,
-            AstNode::BooleanAnd{ span, ..} |
-            AstNode::BooleanOr{ span, ..} => *span,
+            AstNode::BooleanAnd { span, ..} |
+            AstNode::BooleanOr { span, ..} => *span,
+            AstNode::BitwiseAnd { arithmetic_info, ..} |
+            AstNode::BitwiseOr { arithmetic_info, ..} |
+            AstNode::BitwiseXor { arithmetic_info, ..} |
             AstNode::Plus { arithmetic_info, .. } |
             AstNode::Minus { arithmetic_info, .. } |
             AstNode::Multiply { arithmetic_info, .. } |
@@ -460,7 +477,8 @@ impl AstNode {
             AstNode::Identifier{ span, ..} => *span,
             AstNode::ArrayAccess { indexable_expression, ..} => indexable_expression.span(),
             AstNode::ArraySlice { array_expression, ..} => array_expression.span(),
-            AstNode::BooleanNot{ span, .. } => *span,
+            AstNode::BooleanNot { span, .. } => *span,
+            AstNode::BitwiseNot {  arithmetic_info, .. } => arithmetic_info.span,
             AstNode::Cast{ span, .. } => *span,
             AstNode::EmptyNode |
             AstNode::ErrorNode => empty,
@@ -482,6 +500,9 @@ impl AstNode {
             AstNode::MemberAccess { span, .. } => span,
             AstNode::BooleanAnd { span, .. } |
             AstNode::BooleanOr { span, .. } => span,
+            AstNode::BitwiseAnd { arithmetic_info, .. } |
+            AstNode::BitwiseOr { arithmetic_info, .. } |
+            AstNode::BitwiseXor { arithmetic_info, .. } |
             AstNode::Plus { arithmetic_info, .. } |
             AstNode::Minus { arithmetic_info, .. } |
             AstNode::Multiply { arithmetic_info, .. } |
@@ -511,6 +532,7 @@ impl AstNode {
             AstNode::ArrayAccess { indexable_expression, .. } => return indexable_expression.span_ref_mut(),
             AstNode::ArraySlice { array_expression, ..} => return array_expression.span_ref_mut(),
             AstNode::BooleanNot { span, .. } => span,
+            AstNode::BitwiseNot { arithmetic_info, .. } => &mut arithmetic_info.span,
             AstNode::Cast { span, .. } => span,
             AstNode::EmptyNode |
             AstNode::ErrorNode => return None,

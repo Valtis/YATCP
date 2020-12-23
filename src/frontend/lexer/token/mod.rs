@@ -78,6 +78,9 @@ pub enum TokenType {
     DoubleArrowLeftEquals,
     DoubleArrowRightEquals,
     TripleArrowRightEquals,
+    AmpersandEquals,
+    PipeEquals,
+    CaretEquals,
 }
 
 impl TokenType {
@@ -164,7 +167,12 @@ impl Display for TokenType {
         TokenType::PercentageEquals => "%=",
         TokenType::DoubleArrowLeftEquals => "<<=",
         TokenType::DoubleArrowRightEquals => ">>=",
-        TokenType::TripleArrowRightEquals => ">>>="
+        TokenType::TripleArrowRightEquals => ">>>=",
+        TokenType::AmpersandEquals => "&=",
+        TokenType::PipeEquals => "|=",
+        TokenType::CaretEquals => "^=",
+
+
     })
   }
 }

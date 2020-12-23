@@ -157,6 +157,10 @@ impl SemanticsCheck {
                 self.check_boolean_and_or(left_expression, right_expression, span),
             AstNode::BooleanNot{expression, span} =>
                 self.check_boolean_not(expression, span),
+            AstNode::BitwiseAnd{ left_expression, right_expression, arithmetic_info } |
+            AstNode::BitwiseOr { left_expression, right_expression, arithmetic_info } |
+            AstNode::BitwiseXor { left_expression, right_expression, arithmetic_info } =>
+                self.check_bitwise_and_or_xor(left_expression, right_expression, arithmetic_info),
             AstNode::ArithmeticShiftRight{  value, shift_count, arithmetic_info } |
             AstNode::LogicalShiftLeft { value, shift_count, arithmetic_info  } |
             AstNode::LogicalShiftRight { value, shift_count, arithmetic_info } =>
@@ -176,10 +180,11 @@ impl SemanticsCheck {
                 self.handle_array_slice(start_expression, end_expression, array_expression),
             AstNode::Cast{ expression, target_type, span } => {
                 self.handle_cast(expression, target_type, span);
-            }
+            },
             AstNode::IntegralNumber { .. } |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
+            _ => todo!("Not implemented: {:?}", node),
         }
 
         if let Some(replacement_node) = self.propagate_constants(node) {
@@ -1496,28 +1501,7 @@ impl SemanticsCheck {
         if left_type == Type::Invalid || right_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;
         } else if left_type != right_type {
-
-            let (target_type, mut origin_node) = self.get_binary_node_types_for_conversion(left_child, right_child);
-            let conversion_result =  self.perform_type_conversion(&target_type, &mut origin_node);
-            if conversion_result == ConversionResult::Converted {
-                arith_info.node_type = target_type;
-                return;
-            }
-
-            arith_info.node_type = Type::Invalid;
-            self.report_error(
-                ReportKind::TypeError,
-                arith_info.span.clone(),
-                format!(
-                    "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
-
-            if conversion_result == ConversionResult::CastRequired {
-                self.report_conversion_note(
-                    &target_type,
-                    &self.get_type(&origin_node),
-                    &arith_info.span
-                );
-            }
+            self.check_binary_operand_casting(left_child, right_child, arith_info, left_type, right_type);
         } else {
             arith_info.node_type = left_type;
         }
@@ -1656,6 +1640,78 @@ impl SemanticsCheck {
             }
         }
 
+    }
+
+    fn check_bitwise_and_or_xor(&mut self, left_child: &mut AstNode, right_child: &mut AstNode, arithmetic_info: &mut ArithmeticInfo) {
+        self.do_check(left_child);
+        self.do_check(right_child);
+
+        let left_type = self.get_type(left_child);
+        let right_type = self.get_type(right_child);
+
+
+        let valid_types = [
+            Type::Integer,
+            Type::Byte,
+            Type::IntegralNumber,
+        ];
+
+        let mut bad_type = false;
+        if !valid_types.contains(&left_type) {
+             self.report_error(
+                ReportKind::TypeError,
+                left_child.span(),
+                format!("Operand of type '{}' is not valid for this operator",
+                        left_type));
+            bad_type = true;
+        }
+
+        if !valid_types.contains(&right_type) {
+            self.report_error(
+                ReportKind::TypeError,
+                right_child.span(),
+                format!("Operand of type '{}' is not valid for this operator",
+                        right_type));
+            bad_type = true;
+        }
+
+        if left_type == Type::Invalid || right_type == Type::Invalid || bad_type {
+            arithmetic_info.node_type = Type::Invalid;
+        } else if left_type != right_type {
+            self.check_binary_operand_casting(left_child, right_child, arithmetic_info, left_type, right_type)
+        } else {
+            arithmetic_info.node_type = left_type;
+        }
+
+    }
+
+    fn check_binary_operand_casting(&mut self,
+                                    left_child: &mut AstNode,
+                                    right_child: &mut AstNode,
+                                    arithmetic_info: &mut ArithmeticInfo,
+                                    left_type: Type,
+                                    right_type: Type) {
+        let (target_type, mut origin_node) = self.get_binary_node_types_for_conversion(left_child, right_child);
+        let conversion_result = self.perform_type_conversion(&target_type, &mut origin_node);
+        if conversion_result == ConversionResult::Converted {
+            arithmetic_info.node_type = target_type;
+            return;
+        }
+
+        arithmetic_info.node_type = Type::Invalid;
+        self.report_error(
+            ReportKind::TypeError,
+            arithmetic_info.span.clone(),
+            format!(
+                "Incompatible operand types '{}' and '{}' for this operation", left_type, right_type));
+
+        if conversion_result == ConversionResult::CastRequired {
+            self.report_conversion_note(
+                &target_type,
+                &self.get_type(&origin_node),
+                &arithmetic_info.span
+            );
+        }
     }
 
     fn check_boolean_not(&mut self, child: &mut AstNode, _span: &Span) {
@@ -1878,6 +1934,9 @@ impl SemanticsCheck {
             AstNode::BooleanAnd { .. } |
             AstNode::BooleanOr { .. } |
             AstNode::BooleanNot { .. } => Type::Boolean,
+            AstNode::BitwiseAnd {arithmetic_info, ..} |
+            AstNode::BitwiseOr { arithmetic_info, .. } |
+            AstNode::BitwiseXor { arithmetic_info, .. } =>  arithmetic_info.node_type.clone(),
             AstNode::ArrayAccess {
                 ref indexable_expression,
                 ..
@@ -1962,6 +2021,9 @@ impl SemanticsCheck {
 
             AstNode::BooleanAnd { left_expression, right_expression, .. } |
             AstNode::BooleanOr { left_expression, right_expression, .. } |
+            AstNode::BitwiseAnd {  left_expression, right_expression, .. } |
+            AstNode::BitwiseOr { left_expression, right_expression, .. } |
+            AstNode::BitwiseXor{ left_expression, right_expression, .. } |
             AstNode::Plus {
                 left_expression,
                 right_expression,
@@ -2049,7 +2111,61 @@ impl SemanticsCheck {
                     },
                     _ => self.get_constant_initializer_expression(&node),
                 }
-            }
+            },
+            AstNode::BitwiseAnd {
+                left_expression,
+                right_expression,
+                arithmetic_info,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1 & i2, span: arithmetic_info.span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1 & i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1 & i2), span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::BitwiseOr {
+                left_expression,
+                right_expression,
+                arithmetic_info,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1 | i2, span: arithmetic_info.span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1 | i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1 | i2), span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::BitwiseXor {
+                left_expression,
+                right_expression,
+                arithmetic_info,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::IntegralNumber { value: i1 ^ i2, span: arithmetic_info.span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
+                        AstNode::Integer { value: AstInteger::Int(i1 ^ i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1 ^ i2), span: arithmetic_info.span },
+                    _ => node.clone()
+                }
+            },
             AstNode::Plus {
                 left_expression,
                 right_expression,
@@ -2063,6 +2179,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: i1.wrapping_add(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_add(i2)), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
                         AstNode::Float { value: f1 + f2 , span: arithmetic_info.span },
                     (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
@@ -2085,6 +2203,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: i1.wrapping_sub(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_sub(i2)), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1.wrapping_sub(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
                         AstNode::Float { value: f1 - f2 , span: arithmetic_info.span },
                     (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
@@ -2106,6 +2226,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: i1.wrapping_mul(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_mul(i2)), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Byte { value: AstByte::Byte(i1.wrapping_mul(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
                         AstNode::Float { value: f1 * f2 , span: arithmetic_info.span },
                     (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
@@ -2126,6 +2248,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: i1.wrapping_div(i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 != 0  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_div(i2)), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
                         AstNode::Float { value: f1 / f2 , span: arithmetic_info.span },
                     (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
@@ -2147,6 +2271,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: i1 % i2, span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) if i2 != 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 % i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1 % i2), span: arithmetic_info.span },
 
                     _ => node.clone()
                 }
@@ -2160,6 +2286,8 @@ impl SemanticsCheck {
                         AstNode::IntegralNumber { value: value.wrapping_neg(), span: arithmetic_info.span },
                     AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_neg()), span: arithmetic_info.span },
+                    AstNode::Byte { value: AstByte::Byte(i1), .. }  =>
+                        AstNode::Byte { value: AstByte::Byte(i1.wrapping_neg()), span: arithmetic_info.span },
 
                     _ => node.clone()
                 }
@@ -2212,6 +2340,10 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 >> i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1 >> i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Integer{ value: AstInteger::Int(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1 >> i2 as i8), span: arithmetic_info.span },
                     _ => node.clone(),
                 }
             }
@@ -2222,6 +2354,10 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
+                      (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Integer{ value: AstInteger::Int(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },
                     _ => node.clone(),
                 }
             },
@@ -2232,6 +2368,10 @@ impl SemanticsCheck {
                 ) {
                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 >= 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 << i2), span: arithmetic_info.span },
+                      (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1 << i2), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Integer{ value: AstInteger::Int(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(i1 << i2 as i8), span: arithmetic_info.span },
                     _ => node.clone(),
                 }
             },

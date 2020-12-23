@@ -416,7 +416,10 @@ impl Parser {
             TokenType::PercentageEquals |
             TokenType::DoubleArrowRightEquals |
             TokenType::TripleArrowRightEquals |
-            TokenType::DoubleArrowLeftEquals => {
+            TokenType::DoubleArrowLeftEquals |
+            TokenType::CaretEquals |
+            TokenType::AmpersandEquals |
+            TokenType::PipeEquals => {
                 let node = self.parse_assignment_expression(identifier)?;
                 self.expect(TokenType::SemiColon)?;
                 return Ok(node);
@@ -440,6 +443,9 @@ impl Parser {
                         TokenType::DoubleArrowLeftEquals,
                         TokenType::DoubleArrowRightEquals,
                         TokenType::TripleArrowRightEquals,
+                        TokenType::AmpersandEquals,
+                        TokenType::PipeEquals,
+                        TokenType::CaretEquals,
                         TokenType::LParen,
                         TokenType::LBracket],
                     &token);
@@ -466,6 +472,9 @@ impl Parser {
             TokenType::DoubleArrowLeftEquals,
             TokenType::DoubleArrowRightEquals,
             TokenType::TripleArrowRightEquals,
+            TokenType::AmpersandEquals,
+            TokenType::PipeEquals,
+            TokenType::CaretEquals,
         ])?;
 
         let expression_node = self.parse_expression()?;
@@ -544,6 +553,9 @@ impl Parser {
             TokenType::TripleArrowRightEquals,
             TokenType::DoubleArrowLeftEquals,
             TokenType::DoubleArrowRightEquals,
+            TokenType::AmpersandEquals,
+            TokenType::PipeEquals,
+            TokenType::CaretEquals,
         ])?;
 
         let assignment_expression = self.parse_expression()?;
@@ -608,6 +620,21 @@ impl Parser {
             TokenType::TripleArrowRightEquals => AstNode::LogicalShiftRight {
                 value: left_expression,
                 shift_count: right_expression,
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
+            },
+            TokenType::AmpersandEquals => AstNode::BitwiseAnd {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
+            },
+            TokenType::PipeEquals => AstNode::BitwiseOr {
+                left_expression,
+                right_expression,
+                arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
+            },
+            TokenType::CaretEquals => AstNode::BitwiseXor {
+                left_expression,
+                right_expression,
                 arithmetic_info: ArithmeticInfo::new(Span::from(&op)),
             },
             TokenType::Equals => *right_expression,
@@ -885,7 +912,7 @@ impl Parser {
     }
 
     fn parse_arithmetic_expression_with_greater_less_comparisons(&mut self) -> Result<AstNode, ()> {
-        let mut node = self.parse_shift_expressions()?;
+        let mut node = self.parse_bitwise_or_expressions()?;
 
         loop {
             let next_token = self.lexer.peek_token();
@@ -905,6 +932,84 @@ impl Parser {
         }
 
         Ok(node)
+    }
+
+    fn parse_bitwise_or_expressions(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_bitwise_xor_expressions()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::Pipe {
+                node = self.parse_bitwise_or(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_bitwise_or(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let token = self.expect(TokenType::Pipe)?;
+        let expression = self.parse_expression()?;
+
+        Ok(AstNode::BitwiseOr{
+            left_expression: Box::new(node),
+            right_expression: Box::new(expression),
+            arithmetic_info: ArithmeticInfo::new(Span::from(token)),
+        })
+    }
+
+    fn parse_bitwise_xor_expressions(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_bitwise_and_expressions()?;
+
+       loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::Caret {
+                node = self.parse_bitwise_xor(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_bitwise_xor(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let token = self.expect(TokenType::Caret)?;
+        let expression = self.parse_expression()?;
+
+        Ok(AstNode::BitwiseXor{
+            left_expression: Box::new(node),
+            right_expression: Box::new(expression),
+            arithmetic_info: ArithmeticInfo::new(Span::from(token)),
+        })
+    }
+
+    fn parse_bitwise_and_expressions(&mut self) -> Result<AstNode, ()> {
+        let mut node = self.parse_shift_expressions()?;
+
+        loop {
+            let next_token = self.lexer.peek_token();
+            if next_token.token_type == TokenType::Ampersand {
+                node = self.parse_bitwise_and(node)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(node)
+    }
+
+    fn parse_bitwise_and(&mut self, node: AstNode) -> Result<AstNode, ()> {
+        let token = self.expect(TokenType::Ampersand)?;
+        let expression = self.parse_expression()?;
+
+        Ok(AstNode::BitwiseAnd{
+            left_expression: Box::new(node),
+            right_expression: Box::new(expression),
+            arithmetic_info: ArithmeticInfo::new(Span::from(token)),
+        })
     }
 
     fn parse_shift_expressions(&mut self) -> Result<AstNode, ()> {
@@ -943,7 +1048,7 @@ impl Parser {
             TokenType::TripleArrowRight => {
                 Ok(AstNode::LogicalShiftRight { value: Box::new(node),  shift_count: Box::new(shift_count), arithmetic_info: ArithmeticInfo::new(Span::from(&shift_token)) })
             },
-            _ => todo!(),
+            _ => ice!("Unexpected token {:?} when parsing shift expression", shift_token),
         }
 
     }

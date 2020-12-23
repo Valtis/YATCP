@@ -122,7 +122,10 @@ impl ReadLexer {
             ',' => self.create_token(TokenType::Comma),
             '.' => self.create_token(TokenType::Dot),
             ':' => self.create_token(TokenType::Colon),
-            '^' => self.create_token(TokenType::Caret),
+            '^' => self.multi_char_operator_helper(
+                ch, vec![
+                    ("^", TokenType::Caret),
+                    ("^=", TokenType::CaretEquals)]),
             '~' => self.create_token(TokenType::Tilde),
             '=' => self.multi_char_operator_helper(
                 ch, vec![
@@ -151,10 +154,12 @@ impl ReadLexer {
             '&' => self.multi_char_operator_helper(
                 ch, vec![
                     ("&&", TokenType::DoubleAmpersand),
+                    ("&=", TokenType::AmpersandEquals),
                     ("&", TokenType::Ampersand)]),
             '|' => self.multi_char_operator_helper(
                 ch, vec![
                     ("||", TokenType::DoublePipe),
+                    ("|=", TokenType::PipeEquals),
                     ("|", TokenType::Pipe)]),
             _ => ice!("Unexpected symbol '{}' passed to operator handler", ch),
         }
@@ -1120,7 +1125,8 @@ mod tests {
 
     #[test]
     fn operators_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"< <= == >= > ! != = + - * / & && | || ^ ~ % << >> >>> += -= *= /= %= <<= >>= >>>=");
+        let (mut lexer, reporter) = create_lexer(
+            r"< <= == >= > ! != = + - * / & && | || ^ ~ % << >> >>> += -= *= /= %= <<= >>= >>>= &= |= ^=");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1271,6 +1277,22 @@ mod tests {
             lexer.next_token(),
             TokenType::TripleArrowRightEquals,
             None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::AmpersandEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::PipeEquals,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::CaretEquals,
+            None);
+
 
         assert_eq_token!(
             lexer.next_token(),
