@@ -27,7 +27,7 @@ fn replace_boolean_not_on_constant_value(function: &mut Function) -> bool{
         match statement {
             // !true or !false
             Statement::Assignment {
-                operator: Some(Operator::Xor),
+                operator: Some(Operator::BitwiseXor),
                 destination: Some(ref var @ Operand::Variable(_, _)),
                 left_operand: Some(Operand::Boolean(bool_var)),
                 right_operand: Some(Operand::Integer(1)) } => {

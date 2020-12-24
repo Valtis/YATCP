@@ -122,6 +122,10 @@ impl TACGenerator {
             AstNode::BooleanNot{ expression, span} => {
                 self.handle_not(expression, span);
             },
+            AstNode::BitwiseAnd { ..} |
+            AstNode::BitwiseOr { ..} |
+            AstNode::BitwiseXor { ..} =>
+                self.handle_bitwise_node(node),
             AstNode::ArithmeticShiftRight { .. } |
             AstNode::LogicalShiftRight { .. } |
             AstNode::LogicalShiftLeft { .. } =>
@@ -940,13 +944,49 @@ impl TACGenerator {
         let tmp = self.get_temporary(Type::Boolean);
         self.current_function().statements.push(
             Statement::Assignment{
-                operator: Some(Operator::Xor),
+                operator: Some(Operator::BitwiseXor),
                 destination: Some(tmp.clone()),
                 left_operand: Some(operand),
                 right_operand: Some(Operand::Integer(1))
            });
 
         self.operands.push(tmp);
+    }
+
+    fn handle_bitwise_node(&mut self, node: &AstNode) {
+
+        let (operator, left_child, right_child) = match *node {
+            AstNode::BitwiseAnd{ref left_expression, ref right_expression, ..} =>
+                (Operator::BitwiseAnd, left_expression, right_expression),
+            AstNode::BitwiseOr{ref left_expression, ref right_expression, ..} =>
+                (Operator::BitwiseOr, left_expression, right_expression),
+            AstNode::BitwiseXor{ref left_expression, ref right_expression, ..} =>
+                (Operator::BitwiseXor, left_expression, right_expression),
+            _ => ice!("Invalid node '{}' passed when arithmetic node expected", node),
+        };
+
+        let left_op = self.get_operand(left_child);
+        let right_op = self.get_operand(right_child);
+
+
+        if self.get_type(&left_op) != self.get_type(&right_op) {
+            ice!(
+                "Left and right operand have differing types: '{}' vs '{}'",
+                self.get_type(&left_op),
+                self.get_type(&right_op));
+        }
+
+        let tmp_type = self.get_type(&left_op);
+        let temp = self.get_temporary(tmp_type);
+
+        self.current_function().statements.push(Statement::Assignment {
+            operator: Some(operator),
+            destination: Some(temp.clone()),
+            left_operand: Some(left_op),
+            right_operand: Some(right_op),
+        });
+
+        self.operands.push(temp)
     }
 
     fn handle_shift(&mut self, node: &AstNode) {

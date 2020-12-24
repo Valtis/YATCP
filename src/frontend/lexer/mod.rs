@@ -460,7 +460,7 @@ impl ReadLexer {
             }
         }
 
-        if &type_str == "d" || &type_str == "f" || &type_str == "i" {
+        if &type_str == "d" || &type_str == "f" || &type_str == "i" || &type_str == "b" {
             self.create_number_token(type_str, number_str, radix)
         } else {
             let (line, column) = (self.line, self.column - type_str.len() as i32);
@@ -503,7 +503,26 @@ impl ReadLexer {
                             self.line,
                             self.token_start_column,
                             (self.column - self.token_start_column) as usize,
-                            format!("Number does not fit inside 32 bit signed integer"),
+                            format!("Constant too large to be represented"),
+                        );
+
+                        return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);
+                    }
+
+                    ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
+                }
+            }
+        } else if &type_str == "b" {
+            match u128::from_str_radix(&number_str, radix) {
+                Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ByteConstant(number)),
+                Err(e) => {
+                    if e.to_string().contains("too large to fit") {
+                        self.report_error(
+                            ReportKind::TokenError,
+                            self.line,
+                            self.token_start_column,
+                            (self.column - self.token_start_column) as usize,
+                            format!("Constant too large to be represented"),
                         );
 
                         return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);

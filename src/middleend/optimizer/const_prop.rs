@@ -46,10 +46,12 @@ fn do_constant_folding(
                 Operator::NotEquals => Operand::Boolean(val != val2),
                 Operator::GreaterOrEq => Operand::Boolean(val >= val2),
                 Operator::Greater => Operand::Boolean(val > val2),
-                Operator::Xor => Operand::Integer(val ^ val2),
                 Operator::LogicalShiftLeft=> Operand::Integer(val << val2),
                 Operator::LogicalShiftRight => Operand::Integer(((val as u32) >> val2) as i32),
                 Operator::ArithmeticShiftRight => Operand::Integer(val >> val2),
+                Operator::BitwiseAnd=> Operand::Integer(val & val2),
+                Operator::BitwiseXor => Operand::Integer(val ^ val2),
+                Operator::BitwiseOr => Operand::Integer(val | val2),
                 Operator::Cast{..} => todo!(),
             };
             *s = Statement::Assignment{

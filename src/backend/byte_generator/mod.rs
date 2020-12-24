@@ -111,7 +111,17 @@ impl ByteGenerator {
                         right_operand: Some(ref op2)
                     } |
                     Statement::Assignment{
-                        operator: Some(ref op @ Operator::Xor),
+                        operator: Some(ref op @ Operator::BitwiseXor),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1 ),
+                        right_operand: Some(ref op2 )} |
+                    Statement::Assignment{
+                        operator: Some(ref op @ Operator::BitwiseAnd),
+                        destination: Some(ref dest),
+                        left_operand: Some(ref op1 ),
+                        right_operand: Some(ref op2 )} |
+                    Statement::Assignment{
+                        operator: Some(ref op @ Operator::BitwiseOr),
                         destination: Some(ref dest),
                         left_operand: Some(ref op1 ),
                         right_operand: Some(ref op2 )} => self.emit_binary_op(op.clone(), op1, op2, dest),
@@ -147,7 +157,7 @@ impl ByteGenerator {
                     Statement::JumpIfFalse(ref operand, id) => self.emit_conditional_not_equals_jump(operand, id),
                     Statement::Call(ref callee, ref args, ref retval) => self.emit_function_call(callee, args, retval),
                     Statement::Empty => (),
-                   _ => panic!("Not implemented: {:?}", s),
+                   _ => todo!("Not implemented: {:?}", s),
                 }
             }
 
@@ -478,7 +488,9 @@ impl ByteGenerator {
             Operator::Multiply => ByteCode::Mul(data),
             Operator::Divide => ByteCode::Div(data),
             Operator::Modulo => ByteCode::Mod(data),
-            Operator::Xor => ByteCode::Xor(data),
+            Operator::BitwiseXor => ByteCode::Xor(data),
+            Operator::BitwiseAnd => ByteCode::And(data),
+            Operator::BitwiseOr => ByteCode::Or(data),
             Operator::ArithmeticShiftRight => ByteCode::Sar(data),
             Operator::LogicalShiftRight => ByteCode::Shr(data),
             Operator::LogicalShiftLeft => ByteCode::Shl(data),

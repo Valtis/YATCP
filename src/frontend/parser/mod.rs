@@ -1122,6 +1122,21 @@ impl Parser {
             _ => (),
         }
 
+        let node = self.parse_bitwise_not()?;
+
+        Ok(node)
+    }
+
+    fn parse_bitwise_not(&mut self) -> Result<AstNode, ()>{
+
+        let next_token = self.lexer.peek_token();
+        match next_token.token_type {
+            TokenType::Tilde => {
+                return self.parse_bitwise_not_expression();
+            },
+            _ => (),
+        }
+
         let node = self.parse_factor_with_member_or_array_access()?;
 
         Ok(node)
@@ -1454,12 +1469,32 @@ impl Parser {
         let node = if next_token.token_type == TokenType::Exclamation {
             self.parse_boolean_not_expression()?
         } else {
-            self.parse_factor_with_member_or_array_access()?
+            self.parse_bitwise_not()?
         };
 
         let not_node = AstNode::BooleanNot {
             expression: Box::new(node),
             span: Span::new(token.line, token.column, token.length),
+        };
+
+        Ok(not_node)
+    }
+
+    fn parse_bitwise_not_expression(&mut self) -> Result<AstNode, ()> {
+
+        let token = self.expect(TokenType::Tilde)?;
+
+        let next_token = self.lexer.peek_token();
+
+        let node = if next_token.token_type == TokenType::Tilde {
+            self.parse_bitwise_not_expression()?
+        } else {
+            self.parse_factor_with_member_or_array_access()?
+        };
+
+        let not_node = AstNode::BitwiseNot {
+            expression: Box::new(node),
+            arithmetic_info: ArithmeticInfo::new(Span::new(token.line, token.column, token.length)),
         };
 
         Ok(not_node)

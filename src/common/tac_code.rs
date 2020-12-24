@@ -56,10 +56,12 @@ pub enum Operator {
     NotEquals,
     GreaterOrEq,
     Greater,
-    Xor,
     ArithmeticShiftRight,
     LogicalShiftRight,
     LogicalShiftLeft,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
     Cast{ from: Type, to: Type},
 }
 
@@ -188,10 +190,12 @@ impl Display for Operator {
             Operator::NotEquals => "!=".to_string(),
             Operator::GreaterOrEq => ">=".to_string(),
             Operator::Greater => ">".to_string(),
-            Operator::Xor => "^".to_string(),
             Operator::ArithmeticShiftRight => ">>".to_string(),
             Operator::LogicalShiftRight => ">>>".to_string(),
             Operator::LogicalShiftLeft => "<<".to_string(),
+            Operator::BitwiseAnd => "&".to_string(),
+            Operator::BitwiseOr => "|".to_string(),
+            Operator::BitwiseXor => "^".to_string(),
             Operator::Cast{ref from, ref to}=> format!("Cast({} to {})", from, to),
         })
     }
