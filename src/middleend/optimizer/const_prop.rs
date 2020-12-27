@@ -52,6 +52,7 @@ fn do_constant_folding(
                 Operator::BitwiseAnd=> Operand::Integer(val & val2),
                 Operator::BitwiseXor => Operand::Integer(val ^ val2),
                 Operator::BitwiseOr => Operand::Integer(val | val2),
+                Operator::BitwiseNot => ice!("Bitwise not is not binary operation"),
                 Operator::Cast{..} => todo!(),
             };
             *s = Statement::Assignment{

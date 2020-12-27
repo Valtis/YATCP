@@ -120,12 +120,14 @@ impl TACGenerator {
                 self.handle_boolean_or(left_expression, right_expression, span);
             },
             AstNode::BooleanNot{ expression, span} => {
-                self.handle_not(expression, span);
+                self.handle_boolean_not(expression, span);
             },
             AstNode::BitwiseAnd { ..} |
             AstNode::BitwiseOr { ..} |
             AstNode::BitwiseXor { ..} =>
                 self.handle_bitwise_node(node),
+            AstNode::BitwiseNot { expression, ..} =>
+                self.handle_bitwise_not(expression),
             AstNode::ArithmeticShiftRight { .. } |
             AstNode::LogicalShiftRight { .. } |
             AstNode::LogicalShiftLeft { .. } =>
@@ -939,7 +941,7 @@ impl TACGenerator {
             Statement::Label(out_label));
     }
 
-    fn handle_not(&mut self, node: &AstNode, _span: &Span) {
+    fn handle_boolean_not(&mut self, node: &AstNode, _span: &Span) {
         let operand = self.get_operand(node);
         let tmp = self.get_temporary(Type::Boolean);
         self.current_function().statements.push(
@@ -987,6 +989,22 @@ impl TACGenerator {
         });
 
         self.operands.push(temp)
+    }
+
+
+    fn handle_bitwise_not(&mut self, node: &AstNode) {
+
+        let operand = self.get_operand(node);
+        let tmp = self.get_temporary(self.get_type(&operand));
+        self.current_function().statements.push(
+            Statement::Assignment{
+                operator: Some(Operator::BitwiseNot),
+                destination: Some(tmp.clone()),
+                left_operand: None,
+                right_operand: Some(operand),
+           });
+
+        self.operands.push(tmp);
     }
 
     fn handle_shift(&mut self, node: &AstNode) {

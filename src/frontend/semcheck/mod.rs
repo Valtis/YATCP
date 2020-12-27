@@ -74,7 +74,7 @@ impl SemanticsCheck {
                     _ => (), // don't care right now
                 }
             }
-            // check parameters after all function decalrations, so that parameters shadowing a function that appears later
+            // check parameters after all function declarations, so that parameters shadowing a function that appears later
             // are reported correctly
             for statement in statements.iter_mut() {
                 match statement {
@@ -161,6 +161,8 @@ impl SemanticsCheck {
             AstNode::BitwiseOr { left_expression, right_expression, arithmetic_info } |
             AstNode::BitwiseXor { left_expression, right_expression, arithmetic_info } =>
                 self.check_bitwise_and_or_xor(left_expression, right_expression, arithmetic_info),
+            AstNode::BitwiseNot { expression, arithmetic_info } =>
+                self.check_bitwise_not(expression, arithmetic_info),
             AstNode::ArithmeticShiftRight{  value, shift_count, arithmetic_info } |
             AstNode::LogicalShiftLeft { value, shift_count, arithmetic_info  } |
             AstNode::LogicalShiftRight { value, shift_count, arithmetic_info } =>
@@ -184,7 +186,6 @@ impl SemanticsCheck {
             AstNode::IntegralNumber { .. } |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
-            _ => todo!("Not implemented: {:?}", node),
         }
 
         if let Some(replacement_node) = self.propagate_constants(node) {
@@ -1682,7 +1683,23 @@ impl SemanticsCheck {
         } else {
             arithmetic_info.node_type = left_type;
         }
+    }
 
+    fn check_bitwise_not(&mut self, child: &mut AstNode, arithmetic_info: &mut ArithmeticInfo) {
+        self.do_check(child);
+        let child_type = self.get_type(child);
+
+        if child_type != Type::IntegralNumber && child_type != Type::Integer && child_type != Type::Byte &&
+            child_type != Type::Invalid {
+            self.report_error(
+                ReportKind::TypeError,
+                child.span(),
+                format!(
+                    "Operand must be an integral value, got '{}' instead", child_type));
+        }
+
+
+        arithmetic_info.node_type = child_type;
     }
 
     fn check_binary_operand_casting(&mut self,
@@ -1936,7 +1953,8 @@ impl SemanticsCheck {
             AstNode::BooleanNot { .. } => Type::Boolean,
             AstNode::BitwiseAnd {arithmetic_info, ..} |
             AstNode::BitwiseOr { arithmetic_info, .. } |
-            AstNode::BitwiseXor { arithmetic_info, .. } =>  arithmetic_info.node_type.clone(),
+            AstNode::BitwiseXor { arithmetic_info, .. } |
+            AstNode::BitwiseNot { arithmetic_info, .. } =>  arithmetic_info.node_type.clone(),
             AstNode::ArrayAccess {
                 ref indexable_expression,
                 ..
@@ -2007,6 +2025,7 @@ impl SemanticsCheck {
             AstNode::Boolean { .. } => true,
             AstNode::Text { .. } => true,
             AstNode::BooleanNot { expression, .. } |
+            AstNode::BitwiseNot{ expression, .. } |
             AstNode::Negate { expression, .. } => self.is_constant(expression),
             AstNode::Identifier { name, .. } => {
                 if let Some(Symbol::Variable(ref info, _)) = self.symbol_table.find_symbol(name) {
@@ -2299,6 +2318,21 @@ impl SemanticsCheck {
                 match self.get_constant_initializer_expression(expression) {
                     AstNode::Boolean { value: boolean, .. }  =>
                         AstNode::Boolean { value: !boolean, span: *span },
+
+                    _ => node.clone()
+                }
+            },
+            AstNode::BitwiseNot {
+                expression,
+                arithmetic_info
+            } => {
+                match self.get_constant_initializer_expression(expression) {
+                    AstNode::IntegralNumber{ value, .. }  =>
+                        AstNode::IntegralNumber { value: !value, span: arithmetic_info.span },
+                    AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
+                        AstNode::Integer { value: AstInteger::Int(!i1), span: arithmetic_info.span },
+                    AstNode::Byte { value: AstByte::Byte(i1), .. }  =>
+                        AstNode::Byte { value: AstByte::Byte(!i1), span: arithmetic_info.span },
 
                     _ => node.clone()
                 }

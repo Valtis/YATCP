@@ -36,7 +36,6 @@ pub const SUB_REG_FROM_RM_8_BIT: u8 = 0x28;
 
 pub const SUB_OPCODE_EXT: u8 = 0x05;
 
-
 pub const SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_: u8 = 0x6B;
 pub const SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x69;
 pub const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
@@ -45,17 +44,41 @@ pub const SIGNED_DIV_RM_8_BIT: u8 = 0xF6;
 pub const SIGNED_DIV_RM_32_BIT: u8 = 0xF7;
 pub const DIV_OPCODE_EXT: u8 = 0x07;
 
+pub const AND_RM_8_BIT_WITH_REG: u8 = 0x22;
 pub const AND_RM_32_BIT_WITH_REG: u8 = 0x23;
 pub const AND_REG_WITH_RM_32_BIT: u8 = 0x21;
+pub const AND_REG_WITH_RM_8_BIT: u8 = 0x20;
 pub const AND_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
 pub const AND_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
 pub const AND_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
 
 pub const AND_OPCODE_EXT: u8 = 0x04;
 
+pub const OR_RM_8_BIT_WITH_REG: u8 = 0x0A;
+pub const OR_RM_32_BIT_WITH_REG: u8 = 0x0B;
+pub const OR_REG_WITH_RM_8_BIT: u8 = 0x08;
+pub const OR_REG_WITH_RM_32_BIT: u8 = 0x09;
+pub const OR_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
+pub const OR_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
+pub const OR_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
+
+pub const OR_OPCODE_EXT: u8 = 0x01;
+
+
+pub const XOR_RM_8_BIT_WITH_REG: u8 = 0x32;
+pub const XOR_RM_32_BIT_WITH_REG: u8 = 0x33;
+pub const XOR_REG_WITH_RM_8_BIT: u8 = 0x30;
+pub const XOR_REG_WITH_RM_32_BIT: u8 = 0x31;
 pub const XOR_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
+pub const XOR_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
 pub const XOR_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
 pub const XOR_OPCODE_EXT: u8 = 0x06;
+
+
+pub const NOT_RM_8_BIT: u8 = 0xF6;
+pub const NOT_RM_32_BIT: u8 = 0xF7;
+
+pub const NOT_OPCODE_EXT: u8 = 0x02;
 
 pub const SIGN_EXTEND_ACCUMULATOR : u8 = 0x99;
 

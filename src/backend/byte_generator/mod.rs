@@ -136,11 +136,17 @@ impl ByteGenerator {
                         left_operand: None,
                         right_operand: Some(ref src),
                     } => self.emit_move_with_casting(src, dest, from, to),
+
                     Statement::Assignment{
-                        operator: Some(Operator::Minus),
+                        operator: Some(ref op @ Operator::BitwiseNot),
                         destination: Some(ref dest),
                         left_operand: None,
-                        right_operand: Some(ref src)}=> self.emit_negate(dest, src),
+                        right_operand: Some(ref src)} |
+                    Statement::Assignment{
+                        operator: Some(ref op @ Operator::Minus),
+                        destination: Some(ref dest),
+                        left_operand: None,
+                        right_operand: Some(ref src)} => self.emit_unary_op(op,src, dest),
                     Statement::Assignment{
                         operator: Some(ref x),
                         destination: Some(ref dest),
@@ -157,7 +163,7 @@ impl ByteGenerator {
                     Statement::JumpIfFalse(ref operand, id) => self.emit_conditional_not_equals_jump(operand, id),
                     Statement::Call(ref callee, ref args, ref retval) => self.emit_function_call(callee, args, retval),
                     Statement::Empty => (),
-                   _ => todo!("Not implemented: {:?}", s),
+                   _ => todo!("Not implemented: {:#?}", s),
                 }
             }
 
@@ -175,11 +181,6 @@ impl ByteGenerator {
         };
 
         self.current_function().code.push(ByteCode::Ret(ret_val));
-    }
-
-    fn emit_negate(&mut self, dest: &Operand, src: &Operand) {
-        let data = self.form_unary_operation(src, dest);
-        self.current_function().code.push(ByteCode::Negate(data));
     }
 
     fn emit_move(&mut self, src: &Operand, dest: &Operand) {
@@ -369,6 +370,12 @@ impl ByteGenerator {
 
     }
 
+    fn emit_unary_op(&mut self, operator: &Operator, op: &Operand, dest: &Operand) {
+        let data = self.form_unary_operation(op, dest);
+        let code = self.form_unary_code(operator, data);
+        self.current_function().code.push(code);
+    }
+
     fn emit_binary_op(&mut self, operator: Operator, op1: &Operand, op2: &Operand, dest: &Operand) {
         let data = self.form_binary_operation(op1, op2, dest);
         let code = self.form_binary_code(operator, data);
@@ -478,6 +485,14 @@ impl ByteGenerator {
 
             self.variable_id_to_register.insert(variable, vregdata.clone());
             Value::VirtualRegister(vregdata)
+        }
+    }
+
+    fn form_unary_code(&mut self, operator: &Operator, data: UnaryOperation) -> ByteCode {
+        match operator {
+            Operator::Minus => ByteCode::Negate(data),
+            Operator::BitwiseNot => ByteCode::Not(data),
+            _ => ice!("Invalid operator '{}'", operator),
         }
     }
 

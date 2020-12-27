@@ -62,6 +62,7 @@ pub enum Operator {
     BitwiseAnd,
     BitwiseOr,
     BitwiseXor,
+    BitwiseNot,
     Cast{ from: Type, to: Type},
 }
 
@@ -196,6 +197,7 @@ impl Display for Operator {
             Operator::BitwiseAnd => "&".to_string(),
             Operator::BitwiseOr => "|".to_string(),
             Operator::BitwiseXor => "^".to_string(),
+            Operator::BitwiseNot => "~".to_string(),
             Operator::Cast{ref from, ref to}=> format!("Cast({} to {})", from, to),
         })
     }
