@@ -1,0 +1,173 @@
+program: |
+  extern fn write(file: int, val buffer: byte[]);
+
+  const STDOUT = 1;
+
+  fn main() : int {
+    let message1: byte[] = "";
+    let message2: byte[] = "a";
+    let message3: byte[] = "abc";
+    let message4: byte[] = "message digest";
+    let message5: byte[] = "abcdefghijklmnopqrstuvwxyz";
+    hash_and_print(message1);
+    hash_and_print(message2);
+    hash_and_print(message3);
+    hash_and_print(message4);
+    hash_and_print(message5);
+
+    return 0;
+  }
+
+
+  fn hash_and_print(message: byte[]) {
+    let buffer: byte[64] = 0;
+    for let i = 0; i < message.length; i += 1 {
+      buffer[i] = message[i];
+    }
+
+    let hash = { 0x67452301 as int, 0xefcdab89 as int, 0x98badcfe as int, 0x10325476 as int };  
+
+    pad_message(buffer, message.length);
+    hash_message(buffer, hash); 
+    print_hash(hash);
+
+  }
+
+  fn pad_message(message: byte[], read_bytes: int) {
+    message[read_bytes] = 0x80 as byte;
+
+    let length_in_bits = read_bytes*8;
+
+    message[56] = length_in_bits as byte; 
+    message[57] = (length_in_bits >> 8) as byte;  
+    message[58] = (length_in_bits >> 16) as byte; 
+    message[59] = (length_in_bits >> 24) as byte; 
+  }
+
+
+  fn hash_message(message: byte[], hash: int[]) {
+    val s = { 
+      7, 12, 17, 22, 
+      7, 12, 17, 22, 
+      7, 12, 17, 22,
+      7, 12, 17, 22,
+      5, 9, 14, 20,
+      5, 9, 14, 20,
+      5, 9, 14, 20,
+      5, 9, 14, 20,
+      4, 11, 16, 23,
+      4, 11, 16, 23,
+      4, 11, 16, 23,
+      4, 11, 16, 23,
+      6, 10, 15, 21,
+      6, 10, 15, 21,
+      6, 10, 15, 21,
+      6, 10, 15, 21 
+    };
+
+    val K = {
+      0xd76aa478 as int, 0xe8c7b756 as int, 0x242070db as int, 0xc1bdceee as int, 
+      0xf57c0faf as int, 0x4787c62a as int, 0xa8304613 as int, 0xfd469501 as int,
+      0x698098d8 as int, 0x8b44f7af as int, 0xffff5bb1 as int, 0x895cd7be as int,
+      0x6b901122 as int, 0xfd987193 as int, 0xa679438e as int, 0x49b40821 as int, 
+      0xf61e2562 as int, 0xc040b340 as int, 0x265e5a51 as int, 0xe9b6c7aa as int,
+      0xd62f105d as int, 0x02441453 as int, 0xd8a1e681 as int, 0xe7d3fbc8 as int,
+      0x21e1cde6 as int, 0xc33707d6 as int, 0xf4d50d87 as int, 0x455a14ed as int,
+      0xa9e3e905 as int, 0xfcefa3f8 as int, 0x676f02d9 as int, 0x8d2a4c8a as int,
+      0xfffa3942 as int, 0x8771f681 as int, 0x6d9d6122 as int, 0xfde5380c as int,
+      0xa4beea44 as int, 0x4bdecfa9 as int, 0xf6bb4b60 as int, 0xbebfbc70 as int,
+      0x289b7ec6 as int, 0xeaa127fa as int, 0xd4ef3085 as int, 0x04881d05 as int,
+      0xd9d4d039 as int, 0xe6db99e5 as int, 0x1fa27cf8 as int, 0xc4ac5665 as int,
+      0xf4292244 as int, 0x432aff97 as int, 0xab9423a7 as int, 0xfc93a039 as int,
+      0x655b59c3 as int, 0x8f0ccc92 as int, 0xffeff47d as int, 0x85845dd1 as int,
+      0x6fa87e4f as int, 0xfe2ce6e0 as int, 0xa3014314 as int, 0x4e0811a1 as int,
+      0xf7537e82 as int, 0xbd3af235 as int, 0x2ad7d2bb as int, 0xeb86d391 as int,
+    };
+
+    let A = hash[0];
+    let B = hash[1];
+    let C = hash[2];
+    let D = hash[3];
+
+    for let i = 0; i < 64; i += 1 {
+      let F = 0;
+      let g = 0;
+    
+      if i < 16 {
+        F = (B & C) | (~B & D);
+        g = i; 
+      } else if i < 32 {
+        F = (D & B) | (~D & C);
+        g = (5*i + 1) % 16;
+      } else if i < 48 {
+        F = B ^ C ^ D;
+        g = (3*i + 5) % 16;         
+      } else {
+        F = C ^ (B | ~D);
+        g = (7*i) % 16; 
+      }
+
+
+      let msg1 = message[g*4] as int;
+      msg1 = (msg1 & 0xff) ;
+
+      let msg2 = message[g*4+1] as int;
+      msg2 = (msg2 & 0xff) << 8;
+
+      let msg3 = message[g*4+2] as int;
+      msg3 = (msg3 & 0xff) << 16;
+
+      let msg4 = message[g*4+3] as int;
+      msg4 = (msg4 & 0xff) << 24;
+      let msg = msg1 | msg2 | msg3 | msg4;
+
+      F = F + A + K[i] + msg;
+      A = D;
+      D = C;
+      C = B;
+      B += leftrotate(F, s[i]);
+    }
+
+    hash[0] += A;
+    hash[1] += B;
+    hash[2] += C;
+    hash[3] += D;
+  }
+
+
+  fn leftrotate(val a: int, val b: int) : int {
+    return (a << b) | (a >>> (32-b));
+  }
+
+
+  fn print_hash(val hash: int[]) {
+    val chars = { 
+      '0', '1', '2', '3', '4', '5', '6', '7', 
+      '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+    let digest: byte[16] = 0;
+
+    for let i= 0; i < 4; i += 1 {
+      digest[i*4] = (hash[i] >> 0) as byte ;
+      digest[i*4+1] = (hash[i] >> 8) as byte;
+      digest[i*4+2] = (hash[i] >> 16) as byte; 
+      digest[i*4+3] = (hash[i] >> 24) as byte;
+    }
+
+    let buffer: byte[33] = '\n';
+    let buffer_index = 0;
+    for let i = 0; i < 16; i += 1 {
+      buffer[buffer_index] = chars[((digest[i] >>> 4) & 0x0F) as int];
+      buffer[buffer_index+1] = chars[(digest[i] & 0x0F) as int];
+      buffer_index += 2;
+    }
+
+    write(STDOUT, buffer);
+  }
+
+expect_stdout: |
+  d41d8cd98f00b204e9800998ecf8427e
+  0cc175b9c0f1b6a831c399e269772661
+  900150983cd24fb0d6963f7d28e17f72
+  f96b697d7cb7938d525a2f31aaf161d0
+  c3fcd3d76192e4007dfb496cca67e13b
