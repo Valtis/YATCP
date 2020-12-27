@@ -1,0 +1,7 @@
+
+
+
+fn foo(a: int, b: int) : int {
+	// undeclared variable gets reported with type 'invalid'
+        return (a << b) | (x>>(32-b));
+}
