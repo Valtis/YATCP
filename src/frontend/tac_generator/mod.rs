@@ -949,7 +949,7 @@ impl TACGenerator {
                 operator: Some(Operator::BitwiseXor),
                 destination: Some(tmp.clone()),
                 left_operand: Some(operand),
-                right_operand: Some(Operand::Integer(1))
+                right_operand: Some(Operand::Byte(1))
            });
 
         self.operands.push(tmp);
