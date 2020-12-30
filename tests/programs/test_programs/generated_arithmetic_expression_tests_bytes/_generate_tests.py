@@ -391,6 +391,266 @@ test_tuples = [
         "b",
         -5),
 
+
+    # bitwise AND
+    ("constant_constant_bitwise_and_works",
+        """
+        let a: byte = 101 & 87;
+        """,
+        "a",
+        69),
+
+    ("variable_constant_bitwise_and_works",
+        """
+        let a: byte = 101;
+        let b: byte = a & 87;
+        """,
+        "b",
+        69),
+
+    ("variable_constant_self_assignment_bitwise_and_works",
+        """
+        let a: byte = 101;
+        a = a & 87;
+        """,
+        "a",
+        69),
+
+    ("constant_variable_bitwise_and_works",
+        """
+        let a: byte = 87;
+        let b: byte = 101 & a;
+        """,
+        "b",
+        69),
+
+    ("constant_variable_self_assignment_bitwise_and_works",
+        """
+        let a: byte = 101;
+        a = 87 & a;
+        """,
+        "a",
+        69),
+
+    ("variable_variable_bitwise_and_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        let c: byte = a & b;
+        """,
+        "c",
+        69),
+
+    ("variable_variable_self_assignment_bitwise_and_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a = a & b;
+        """,
+        "a",
+        69),
+
+    ("variable_variable_self_assignment_rhs_bitwise_and_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        b = a & b;
+        """,
+        "b",
+        69),
+
+    # bitwise OR
+    ("constant_constant_bitwise_or_works",
+        """
+        let a: byte = 101 | 87;
+        """,
+        "a",
+        119),
+
+    ("variable_constant_bitwise_or_works",
+        """
+        let a: byte = 101;
+        let b: byte = a | 87;
+        """,
+        "b",
+        119),
+
+    ("variable_constant_self_assignment_bitwise_or_works",
+        """
+        let a: byte = 101;
+        a = a | 87;
+        """,
+        "a",
+        119),
+
+    ("constant_variable_bitwise_or_works",
+        """
+        let a: byte = 87;
+        let b: byte = 101 | a;
+        """,
+        "b",
+        119),
+
+    ("constant_variable_self_assignment_bitwise_or_works",
+        """
+        let a: byte = 101;
+        a = 87 | a;
+        """,
+        "a",
+        119),
+
+    ("variable_variable_bitwise_or_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        let c: byte = a | b;
+        """,
+        "c",
+        119),
+
+    ("variable_variable_self_assignment_bitwise_or_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a = a | b;
+        """,
+        "a",
+        119),
+
+    ("variable_variable_self_assignment_rhs_bitwise_or_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        b = a | b;
+        """,
+        "b",
+        119),
+
+
+    # bitwise XOR
+    ("constant_constant_bitwise_xor_works",
+        """
+        let a: byte = 101 ^ 87;
+        """,
+        "a",
+        50),
+
+    ("variable_constant_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        let b: byte = a ^ 87;
+        """,
+        "b",
+        50),
+
+    ("variable_constant_self_assignment_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        a = a ^ 87;
+        """,
+        "a",
+        50),
+
+    ("constant_variable_bitwise_xor_works",
+        """
+        let a: byte = 87;
+        let b: byte = 101 ^ a;
+        """,
+        "b",
+        50),
+
+    ("constant_variable_self_assignment_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        a = 87 ^ a;
+        """,
+        "a",
+        50),
+
+    ("variable_variable_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        let c: byte = a ^ b;
+        """,
+        "c",
+        50),
+
+    ("variable_variable_self_assignment_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a = a ^ b;
+        """,
+        "a",
+        50),
+
+    ("variable_variable_self_assignment_rhs_bitwise_xor_works",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        b = a ^ b;
+        """,
+        "b",
+        50),
+
+    # bitwise NOT
+    ("can_bitwise_not_constant",
+        """
+        let a: byte = ~105;
+        """,
+        "a",
+        -106),
+    ("can_bitwise_not_variable",
+        """
+        let a: byte = 105;
+        a = ~a;
+        """,
+        "a",
+        -106),
+    ("can_bitwise_not_negative_variable",
+        """
+        let a: byte = -106;
+        a = ~a;
+        """,
+        "a",
+        105),
+    ("can_bitwise_not_variable_when_assigning_to_another_variable",
+        """
+        let a: byte = 105;
+        let b: byte = ~a;
+        """,
+        "b",
+        -106),
+    ("can_bitwise_not_negative_variable_when_assigning_to_another_variable",
+        """
+        let a: byte = -106;
+        let b: byte = ~a;
+        """,
+        "b",
+        105),
+    ("can_bitwise_not_int_max",
+        f"""
+        let a: byte = {BYTE_MAX};
+        let b: byte = ~a;
+        """,
+        "b",
+        BYTE_MIN),
+    ("can_bitwise_not_int_min",
+        f"""
+        let a: byte = {BYTE_MIN};
+        let b: byte = ~a;
+        """,
+        "b",
+        BYTE_MAX),
+    ("can_bitwise_not_constant_variable",
+        f"""
+        const X: byte = 105;
+        let b: byte = ~X;
+        """,
+        "b",
+        -106),
+
     # +=
     ("self_addition_shorthand_works",
         f"""
@@ -537,6 +797,66 @@ test_tuples = [
         "a[0]",
         60),
 
+    # &=
+
+    ("self_bitwise_and_shorthand_works_with_self",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a &= b;
+        """,
+        "a",
+        69),
+
+    ("self_bitwise_and_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = 101;
+        let b: byte = 87;
+        a[0] &= b;
+        """,
+        "a[0]",
+        69),
+
+    # |=
+
+    ("self_bitwise_or_shorthand_works_with_self",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a |= b;
+        """,
+        "a",
+        119),
+
+    ("self_bitwise_or_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = 101;
+        let b: byte = 87;
+        a[0] |= b;
+        """,
+        "a[0]",
+        119),
+
+
+    # ^=
+
+    ("self_bitwise_xor_shorthand_works_with_self",
+        """
+        let a: byte = 101;
+        let b: byte = 87;
+        a ^= b;
+        """,
+        "a",
+        50),
+
+    ("self_bitwise_xor_shorthand_works_with_arrays",
+        """
+        let a: byte[4] = 101;
+        let b: byte = 87;
+        a[0] ^= b;
+        """,
+        "a[0]",
+        50),
 ]
 
 for t in test_tuples:
