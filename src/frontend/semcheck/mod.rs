@@ -1655,6 +1655,7 @@ impl SemanticsCheck {
             Type::Integer,
             Type::Byte,
             Type::IntegralNumber,
+            Type::Invalid, // reported in different context already
         ];
 
         let mut bad_type = false;

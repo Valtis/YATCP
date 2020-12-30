@@ -1,0 +1,19 @@
+program: |
+
+  fn main() : int {
+    let x: int = 4;
+    let y: byte = 8;
+    let a =  x ^ y;
+    return 0;
+  }
+
+expect_compile_failure: true
+expect_stderr: |
+
+  5:14 Type error: Incompatible operand types 'Integer' and 'Byte' for this operation
+    let a =  x ^ y;
+               ^
+  5:14 Note: Explicit cast is required to convert 'Byte' to 'Integer'
+    let a =  x ^ y;
+               ^
+  Terminating compilation due to 1 error
