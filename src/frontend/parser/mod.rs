@@ -1391,7 +1391,7 @@ impl Parser {
                 TokenType::ArrowRightEquals
             ]
         )?;
-        let n_node = self.parse_arithmetic_expression()?;
+        let n_node = self.parse_bitwise_or_expressions()?;
 
         match next_token.token_type {
             TokenType::ArrowLeft => {

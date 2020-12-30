@@ -1,0 +1,64 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let a = 4;
+    let b = 20;
+    let c = ~a*b; // should be (~a)*b
+    int_printer(c);
+
+
+    // bitwise and should bind tighter than xor, which should bind tighter than or
+    a = 105;
+    b = 100;
+    c = 20;
+
+    let d = a & b | c; // should be (a & b) | c
+    int_printer(d);
+
+    d = a & b ^ c; // should be (a & b) ^ c
+    int_printer(d); 
+
+    a = 128;
+    b = 64;
+    c = 128;
+
+    d = a | b ^ c; // should be a | (b ^ c);
+    int_printer(d); 
+
+    // shifts should bind tighter than bitwise and
+
+    a = 128;
+    b = 64;
+    c = 1;
+
+    d = a & b << c;
+    int_printer(d); 
+
+    b = 256;
+    d = a & b >> c;
+    int_printer(d); 
+    d = a & b >>> c;
+    int_printer(d); 
+
+    // comparison expression shoulds bind less tight
+
+    if a & b < c | d {
+      // empty block; if above is parsed as a & (b < c) | d, we get semcheck failure
+      // as integer + boolean is not valid combination for the operator 
+    }
+
+
+    return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  -100
+  116
+  116
+  192
+  128
+  128
+  128
