@@ -15,7 +15,8 @@ pub fn run_backend(
     print_bytecode: bool,
     print_bytecode_after_register_allocation: bool,
     print_stack_map: bool,
-    print_timings: bool) {
+    print_timings: bool,
+    generate_code: bool) {
 
 
     let timer = Timer::new();
@@ -36,11 +37,12 @@ pub fn run_backend(
 
     let asm_code = code_gen.generate_code(print_bytecode_after_register_allocation, print_stack_map, print_timings);
 
-    let timer = Timer::new();
-    generate_object_file(ObjectType::Elf(Architecture::X64), output, asm_code);
-
-    if print_timings {
-        println!("Object file creation took {}", timer.took());
+    if generate_code {
+        let timer = Timer::new();
+        generate_object_file(ObjectType::Elf(Architecture::X64), output, asm_code);
+        if print_timings {
+            println!("Object file creation took {}", timer.took());
+        }
     }
 }
 

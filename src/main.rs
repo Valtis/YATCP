@@ -88,9 +88,7 @@ fn main() {
 
     if let Some(functions) = opt_functions {
         if let Some(functions) = run_middleend(functions, optimize, print_tac, print_cfg, print_timings, error_reporter.clone()) {
-            if generate_code {
-                run_backend(output, functions, print_bytecode, print_bytecode_after_register_alloc, print_stack_map, print_timings);
-            }
+            run_backend(output, functions, print_bytecode, print_bytecode_after_register_alloc, print_stack_map, print_timings, generate_code);
         } else {
             std::process::exit(1);
         }
