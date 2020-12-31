@@ -165,7 +165,9 @@ fn compile_test_binary(compile_data: &CompileData, output_file_str: String, bina
 
 fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String, String), String> {
 
-    let output = Command::new(binary_out_str)
+    let output = Command::new("timeout")
+        .arg("5")
+        .arg(binary_out_str)
         .output()
         .unwrap_or_else(|err| {
             panic!("Failed to run the test binary {}: {}", binary_out_str, err);
