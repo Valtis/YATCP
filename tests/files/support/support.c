@@ -6,6 +6,9 @@ int INT_FUNCTION();
 #elif defined(BYTE_FUNCTION )
 char BYTE_FUNCTION();
 #define RUN printf("%d\n", (int)BYTE_FUNCTION());
+#elif defined(LONG_FUNCTION )
+long LONG_FUNCTION();
+#define RUN printf("%ld\n", LONG_FUNCTION());
 #elif defined(VOID_FUNCTION)
 void VOID_FUNCTION();
 #define RUN VOID_FUNCTION();
@@ -29,6 +32,10 @@ void c_printer(int a) {
 
 void int_printer(int a) {
     printf("%d\n", a);
+}
+
+void long_printer(long a) {
+    printf("%ld\n", a);
 }
 
 void byte_printer(char a) {

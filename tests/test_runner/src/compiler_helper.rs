@@ -18,6 +18,7 @@ const COMPILER_BINARY:&'static str = "../../target/debug/compiler";
 #[derive(Debug)]
 pub enum FunctionKind {
     VOID(String),
+    LONG(String),
     INT(String),
     BYTE(String),
 }
@@ -37,6 +38,7 @@ impl FunctionKind {
         match self {
             FunctionKind::VOID(_) => "VOID_FUNCTION",
             FunctionKind::INT(_) => "INT_FUNCTION",
+            FunctionKind::LONG(_) => "LONG_FUNCTION",
             FunctionKind::BYTE(_) => "BYTE_FUNCTION",
         }
     }
@@ -45,6 +47,7 @@ impl FunctionKind {
         match self {
             FunctionKind::VOID(ref name) |
             FunctionKind::BYTE(ref name) |
+            FunctionKind::LONG(ref name) |
             FunctionKind::INT(ref name) => name,
         }
     }

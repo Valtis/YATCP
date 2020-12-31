@@ -33,6 +33,7 @@ pub enum Operand {
     ArrayIndex{ id: u32, index_operand: Box<Operand>, variable_info: DeclarationInfo, },
     ArraySlice{ id: u32, start_operand: Box<Operand>, end_operand: Box<Operand>, variable_info: DeclarationInfo, },
     SSAVariable(DeclarationInfo, u32, u32),
+    Long(i64),
     Integer(i32),
     Byte(i8),
     Float(f32),
@@ -166,10 +167,11 @@ impl Display for Operand {
             Operand::AddressOf { ref variable_info, ref id } => format!("&{}_{}", variable_info.name, id),
             Operand::SSAVariable(ref info, id, ssa_id) =>
                 format!("{}_{}:{}", info.name, id, ssa_id),
-            Operand::Integer(v) => format!("{}i", v),
-            Operand::Byte(v) => format!("{}b", v),
-            Operand::Float(v) => format!("{}f", v),
-            Operand::Double(v) => format!("{}d", v),
+            Operand::Long(v) => format!("{}L", v),
+            Operand::Integer(v) => format!("{}I", v),
+            Operand::Byte(v) => format!("{}B", v),
+            Operand::Float(v) => format!("{}F", v),
+            Operand::Double(v) => format!("{}D", v),
             Operand::Boolean(v) => v.to_string(),
             Operand::Initialized(ref t) => format!(
                 "<initialized {} value>", t),

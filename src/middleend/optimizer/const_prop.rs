@@ -164,6 +164,7 @@ fn is_constant(var: &Operand) -> bool {
     match *var {
         Operand::Variable(_, _) => false,
         Operand::SSAVariable(_, _, _) => false,
+        Operand::Long(_) => true,
         Operand::Integer(_) => true,
         Operand::Byte(_) => true,
         Operand::Float(_) => true,

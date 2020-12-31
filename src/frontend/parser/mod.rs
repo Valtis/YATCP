@@ -1,6 +1,6 @@
 use super::lexer::Lexer;
 use super::lexer::token::{Token, TokenType, TokenAttribute};
-use super::ast::{ AstNode, AstByte, AstInteger };
+use super::ast::{ AstNode, AstByte, AstInteger, AstLong };
 
 use crate::common::{
     variable_attributes::VariableAttribute,
@@ -384,6 +384,7 @@ impl Parser {
         self.expect(TokenType::RBracket)?;
 
         let array_type = match (&var_type).into() {
+            var_type @ Type::Long |
             var_type @ Type::Integer |
             var_type @ Type::Boolean |
             var_type @ Type::Byte => Type::Array(Box::new(var_type), vec![]),
@@ -1307,6 +1308,12 @@ impl Parser {
                     Some(TokenAttribute::IntegerConstant(i)) => {
                         Ok(AstNode::Integer{
                             value: AstInteger::from(i as i128),
+                            span: Span::from(token),
+                        })
+                    }
+                    Some(TokenAttribute::LongConstant(i)) => {
+                        Ok(AstNode::Long {
+                            value: AstLong::from(i as i128),
                             span: Span::from(token),
                         })
                     }

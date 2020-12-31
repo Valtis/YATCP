@@ -97,6 +97,7 @@ impl TACGenerator {
             AstNode::Divide { .. } |
             AstNode::Modulo { .. } =>
                 self.handle_arithmetic_node(node),
+            AstNode::Long { .. } |
             AstNode::Integer{ .. } |
             AstNode::Byte{ .. } |
             AstNode::Boolean{ .. } => self.handle_constant(node),
@@ -749,6 +750,12 @@ impl TACGenerator {
 
     fn handle_constant(&mut self, node : &AstNode) {
         let operand = match node {
+            AstNode::Long { value, ..} => {
+                match value {
+                    AstLong::Long(val) => Operand::Long(*val),
+                    _ => ice!("Invalid integer type in three-address code generation: {}", value),
+                }
+            }
             AstNode::Integer{ value, ..} => {
                 match value {
                     AstInteger::Int(val) => Operand::Integer(*val),
@@ -1112,6 +1119,7 @@ impl TACGenerator {
             Operand::AddressOf { ref variable_info, id: _ } => {
               Type::Reference(Box::new(variable_info.variable_type.clone()))
             },
+            Operand::Long(_) => Type::Long,
             Operand::Integer(_) => Type::Integer,
             Operand::Byte(_) => Type::Byte,
             Operand::Float(_) => Type::Float,

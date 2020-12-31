@@ -1,4 +1,5 @@
-use super::ast::{AstNode, AstByte, AstInteger};
+use super::ast::{AstNode, AstByte, AstInteger, AstLong
+};
 
 use crate::common::{
     variable_attributes::VariableAttribute,
@@ -167,6 +168,7 @@ impl SemanticsCheck {
             AstNode::LogicalShiftLeft { value, shift_count, arithmetic_info  } |
             AstNode::LogicalShiftRight { value, shift_count, arithmetic_info } =>
                 self.handle_shift_expression(value, shift_count, arithmetic_info),
+            AstNode::Long{ value, span } => self.check_long_for_overflow(value, span),
             AstNode::Integer{ value, span } => self.check_integer_for_overflow(value, span),
             AstNode::Byte{ value, span } => self.check_byte_for_overflow(value, span),
             AstNode::Float{ .. } => (),
@@ -1417,6 +1419,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::Long,
                     Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
@@ -1431,6 +1434,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::Long,
                     Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
@@ -1450,6 +1454,7 @@ impl SemanticsCheck {
                 (vec![
                     Type::Byte,
                     Type::Integer,
+                    Type::Long,
                     Type::IntegralNumber,
                     Type::Float,
                     Type::Double,
@@ -1472,6 +1477,7 @@ impl SemanticsCheck {
                     Type::IntegralNumber,
                     Type::Byte,
                     Type::Integer,
+                    Type::Long,
                     Type::Invalid],
                  arithmetic_info)
             },
@@ -1833,6 +1839,31 @@ impl SemanticsCheck {
         }
     }
 
+    fn check_long_for_overflow(&mut self, long: &AstLong, span: &Span) {
+        let value = match long{
+            AstLong::Long(_) => return, // OK
+            AstLong::Invalid(value) => {
+              *value
+            },
+        };
+
+        self.report_error(
+            ReportKind::TokenError,
+            span.clone(),
+            format!("Type '{}' cannot represent value '{}'", Type::Long, value),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            format!("Value '{}' would be stored as '{}'", value, value as i64),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            "Use explicit 'as long' cast if this is wanted".to_owned(),
+        );
+    }
+
     fn check_integer_for_overflow(&mut self, integer: &AstInteger, span: &Span) {
         let value = match integer {
             AstInteger::Int(_) => return, // OK
@@ -1920,6 +1951,7 @@ impl SemanticsCheck {
     fn get_type(&self, node: &AstNode) -> Type {
         match node {
             AstNode::IntegralNumber { .. } => Type::IntegralNumber,
+            AstNode::Long { .. } => Type::Long,
             AstNode::Integer{ .. } => Type::Integer,
             AstNode::Byte{ .. } => Type::Byte,
             AstNode::Float{ .. } => Type::Float,
@@ -2025,6 +2057,7 @@ impl SemanticsCheck {
     fn is_constant(&self, node: &AstNode) -> bool {
         match node {
             AstNode::IntegralNumber { .. } => true,
+            AstNode::Long { .. } => true,
             AstNode::Integer { .. } => true,
             AstNode::Byte{ .. } => true,
             AstNode::Float { .. } => true,
@@ -2100,6 +2133,7 @@ impl SemanticsCheck {
         ice_if!(!self.is_constant(node), "Constant initializer requested for non-constant expression {}", node);
         match node {
             AstNode::IntegralNumber { .. } => node.clone(),
+            AstNode::Long { .. } => node.clone(),
             AstNode::Integer{ .. } => node.clone(),
             AstNode::Byte{ .. } => node.clone(),
             AstNode::Float{ .. } => node.clone() ,
@@ -2149,6 +2183,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1 & i2, span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. } ) =>
+                        AstNode::Long { value: AstLong::Long(i1 & i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1 & i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2167,6 +2203,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1 | i2, span: arithmetic_info.span },
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Long { value: AstLong::Long(i2), .. } ) =>
+                        AstNode::Long { value: AstLong::Long(i1 | i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1 | i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2185,6 +2223,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1 ^ i2, span: arithmetic_info.span },
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Long { value: AstLong::Long(i2), .. } ) =>
+                        AstNode::Long { value: AstLong::Long(i1 ^ i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1 ^ i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2203,6 +2243,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1.wrapping_add(i2), span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. } ) =>
+                        AstNode::Long { value: AstLong::Long(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2227,6 +2269,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1.wrapping_sub(i2), span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. } , AstNode::Long { value: AstLong::Long(i2), .. } ) =>
+                        AstNode::Long { value: AstLong::Long(i1.wrapping_sub(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_sub(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2250,6 +2294,8 @@ impl SemanticsCheck {
 
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
                         AstNode::IntegralNumber { value: i1.wrapping_mul(i2), span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Long { value: AstLong::Long(i1.wrapping_mul(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_mul(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
@@ -2272,6 +2318,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) if i2 != 0 =>
                         AstNode::IntegralNumber { value: i1.wrapping_div(i2), span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. }) if i2 != 0  =>
+                        AstNode::Long{ value: AstLong::Long(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 != 0  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
@@ -2295,6 +2343,8 @@ impl SemanticsCheck {
                 ) {
                     (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) if i2 != 0 =>
                         AstNode::IntegralNumber { value: i1 % i2, span: arithmetic_info.span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. } ) if i2 != 0 =>
+                        AstNode::Long { value: AstLong::Long(i1 % i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) if i2 != 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 % i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
@@ -2310,6 +2360,8 @@ impl SemanticsCheck {
                 match self.get_constant_initializer_expression(expression) {
                     AstNode::IntegralNumber{ value, .. }  =>
                         AstNode::IntegralNumber { value: value.wrapping_neg(), span: arithmetic_info.span },
+                    AstNode::Long { value: AstLong::Long(i1), .. }  =>
+                        AstNode::Long { value: AstLong::Long(i1.wrapping_neg()), span: arithmetic_info.span },
                     AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_neg()), span: arithmetic_info.span },
                     AstNode::Byte { value: AstByte::Byte(i1), .. }  =>
@@ -2336,6 +2388,8 @@ impl SemanticsCheck {
                 match self.get_constant_initializer_expression(expression) {
                     AstNode::IntegralNumber{ value, .. }  =>
                         AstNode::IntegralNumber { value: !value, span: arithmetic_info.span },
+                    AstNode::Long { value: AstLong::Long(i1), .. }  =>
+                        AstNode::Long { value: AstLong::Long(!i1), span: arithmetic_info.span },
                     AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
                         AstNode::Integer { value: AstInteger::Int(!i1), span: arithmetic_info.span },
                     AstNode::Byte { value: AstByte::Byte(i1), .. }  =>
@@ -2379,6 +2433,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(value),
                     self.get_constant_initializer_expression(shift_count),
                 ) {
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. }) if i2 < 32 && i2 >= 0 =>
+                        AstNode::Long { value: AstLong::Long(i1 >> i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 >> i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
@@ -2393,6 +2449,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(value),
                     self.get_constant_initializer_expression(shift_count),
                 ) {
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. }) if i2 < 32 && i2 >= 0 =>
+                        AstNode::Long { value: AstLong::Long((i1 as u64 >> i2) as i64), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
                       (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
@@ -2407,6 +2465,8 @@ impl SemanticsCheck {
                     self.get_constant_initializer_expression(value),
                     self.get_constant_initializer_expression(shift_count),
                 ) {
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. }) if i2 < 32 && i2 >= 0 =>
+                        AstNode::Long { value: AstLong::Long(i1 << i2), span: arithmetic_info.span },
                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 >= 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 << i2), span: arithmetic_info.span },
                       (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
@@ -2480,6 +2540,26 @@ impl SemanticsCheck {
         // report any cast that would be possible with explicit cast
         // reject otherwise
         match (origin_type, target_type) {
+            (Type::IntegralNumber, &Type::Long) => {
+               if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::IntegralNumber { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+                                AstNode::Long { value: AstLong::from(value as i64), span: span.clone() }
+                            } else {
+                                AstNode::Long { value: AstLong::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow check
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                   ice!("Integral number type should not appear as non-constant");
+                }
+            },
             (Type::IntegralNumber, &Type::Integer) => {
                if origin_is_constant {
                     match origin_node.clone() {
@@ -2519,6 +2599,62 @@ impl SemanticsCheck {
                    ice!("Integral number type should not appear as non-constant");
                 }
             },
+            (Type::Long, &Type::Integer) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Long { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+
+                                match value {
+                                    AstLong::Long(value) => {
+                                        AstNode::Integer { value: AstInteger::Int(value as i32), span: span.clone() }
+                                    }
+                                    AstLong::Invalid(value) => {
+                                        AstNode:: Integer{  value: AstInteger::Int(value as i32), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Integer{ value: AstInteger::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
+            (Type::Long, &Type::Byte) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Long { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+
+                                match value {
+                                    AstLong::Long(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                    AstLong::Invalid(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Byte { value: AstByte::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
             (Type::Integer, &Type::Byte) => {
                 if origin_is_constant {
                     match origin_node.clone() {
@@ -2552,6 +2688,36 @@ impl SemanticsCheck {
                     match origin_node.clone() {
                         AstNode::Byte{ value, span}   => {
                             *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                     ConversionResult::CastRequired
+                }
+            },
+            (Type::Byte, &Type::Long) => {
+                 if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Byte{ value, span}   => {
+                            *origin_node = AstNode::Long{ value: AstLong::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                     ConversionResult::CastRequired
+                }
+            },
+            (Type::Integer, &Type::Long) => {
+                 if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Integer{ value, span}   => {
+                            *origin_node = AstNode::Long{ value: AstLong::from(value), span: span.clone() };
 
                             self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
                             ConversionResult::Converted

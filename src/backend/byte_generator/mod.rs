@@ -412,6 +412,7 @@ impl ByteGenerator {
                     ice!("Not implemented for non-array-types, got {}: ", variable_info.variable_type);
                 }
             }
+            Operand::Long(val) => Value::LongConstant(*val),
             Operand::Integer(val) => Value::IntegerConstant(*val),
             Operand::Byte(val) => Value::ByteConstant(*val),
             Operand::Boolean(val) => Value::ByteConstant(if *val { 1 } else { 0 }),

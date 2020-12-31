@@ -13,16 +13,64 @@ use crate::common::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum AstLong {
+    Long(i64),
+    Invalid(i128),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AstInteger {
     Int(i32),
     Invalid(i128),
 }
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstByte {
     Byte(i8),
     Invalid(i128),
 }
+
+impl From<i128> for AstLong {
+    fn from(val: i128) -> AstLong {
+        if val <= i64::max_value() as i128 && val >= i64::min_value() as i128 {
+            AstLong::Long(val as i64)
+        } else {
+            AstLong::Invalid(val)
+        }
+    }
+}
+
+impl From<u64> for AstLong {
+    fn from(val: u64) -> AstLong {
+        AstLong::Long(val as i64)
+    }
+}
+
+
+impl From<i64> for AstLong {
+    fn from(val: i64) -> AstLong {
+        AstLong::Long(val)
+    }
+}
+
+
+impl From<i32> for AstLong {
+    fn from(val: i32) -> AstLong {
+        AstLong::Long(val as i64)
+    }
+}
+
+impl Display for AstLong {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstLong::Invalid(val) => format!("(Overflow, {} does not fit in i64)", val),
+                   AstLong::Long(val) => format!("{}", val),
+               })
+    }
+}
+
 
 impl From<i128> for AstInteger {
     fn from(val: i128) -> AstInteger {
@@ -97,6 +145,54 @@ impl From<AstByte> for AstInteger {
     }
 }
 
+impl From<AstByte> for AstLong {
+    fn from(value: AstByte) -> AstLong {
+        match value {
+            AstByte::Byte(value) => AstLong::Long(value as i64),
+            AstByte::Invalid(value ) => {
+                if value > i64::max_value() as i128 || value < i64::min_value() as i128 {
+                    AstLong::Invalid(value)
+                } else {
+                    AstLong::Long(value as i64)
+                }
+            }
+        }
+    }
+}
+
+impl From<AstInteger> for AstLong {
+    fn from(value: AstInteger) -> AstLong {
+        match value {
+            AstInteger::Int(value) => AstLong::Long(value as i64),
+            AstInteger::Invalid(value ) => {
+                if value > i64::max_value() as i128 || value < i64::min_value() as i128 {
+                    AstLong::Invalid(value)
+                } else {
+                    AstLong::Long(value as i64)
+                }
+            }
+        }
+    }
+}
+
+
+impl From<AstLong> for AstInteger {
+    fn from(value: AstLong ) -> AstInteger {
+        match value {
+            AstLong::Long(value) => {
+                if value > i32::max_value() as i64 || value < i32::min_value() as i64 {
+                    AstInteger::Invalid(value as i128)
+                } else {
+                    AstInteger::Int(value as i32)
+                }
+
+            },
+            AstLong::Invalid(x) => AstInteger::Invalid(x)
+        }
+    }
+}
+
+
 impl From<AstInteger> for AstByte {
     fn from(value: AstInteger) -> AstByte {
         match value {
@@ -109,6 +205,22 @@ impl From<AstInteger> for AstByte {
 
             },
             AstInteger::Invalid(x) => AstByte::Invalid(x)
+        }
+    }
+}
+
+impl From<AstLong> for AstByte {
+    fn from(value: AstLong ) -> AstByte {
+        match value {
+            AstLong::Long(value) => {
+                if value > i8::max_value() as i64 || value < i8::min_value() as i64 {
+                    AstByte::Invalid(value as i128)
+                } else {
+                    AstByte::Byte(value as i8)
+                }
+
+            },
+            AstLong::Invalid(x) => AstByte::Invalid(x)
         }
     }
 }
@@ -179,7 +291,8 @@ pub enum AstNode {
     Cast { expression: Box<AstNode>, target_type: Type, span: Span},
 
     IntegralNumber{ value: i128, span: Span},
-    // Signed integer, but we may need to store INT_MAX +1 while negation is still unresolved
+    // Signed long/integer/byte, but we may need to store INT_MAX +1 while negation is still unresolved
+    Long{ value: AstLong, span: Span },
     Integer{ value: AstInteger, span: Span },
     Byte { value: AstByte, span: Span },
     Float { value: f32, span: Span },
@@ -245,6 +358,7 @@ impl Display for AstNode {
             AstNode::InitializerList{..} => "Initializer list".to_owned(),
             AstNode::MemberAccess { .. } => "Member access".to_owned(),
             AstNode::IntegralNumber{value, ..} => format!("Integral number: {}", value),
+            AstNode::Long{ value, .. } => format!("Long: {}", value),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
             AstNode::Byte{ value, .. } => format!("Byte: {}", value),
             AstNode::Float{value , .. } => format!("Float: {}", value),
@@ -357,6 +471,7 @@ impl AstNode {
                 string = format!("{}{}", string, member.print_impl(next_int));
             }
             AstNode::IntegralNumber{ .. } |
+            AstNode::Long{ .. } |
             AstNode::Integer{ .. } |
             AstNode::Byte{ .. } |
             AstNode::Float{ .. }  |
@@ -429,7 +544,7 @@ impl AstNode {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
             AstNode::Break(_) |
-            AstNode:: Continue(_) |
+            AstNode::Continue(_) |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
         }
@@ -474,6 +589,7 @@ impl AstNode {
             AstNode::GreaterOrEq { span, .. } |
             AstNode::Greater { span, .. } => *span,
             AstNode::IntegralNumber{ span, .. } => *span,
+            AstNode::Long{ span, .. } => *span,
             AstNode::Integer{ span, .. } => *span,
             AstNode::Byte{ span, .. } => *span,
             AstNode::Float{ span, .. } => *span,
@@ -530,6 +646,7 @@ impl AstNode {
             AstNode::GreaterOrEq { span, .. } |
             AstNode::Greater { span, .. } => span,
             AstNode::IntegralNumber { span, .. } => span,
+            AstNode::Long{ span, .. } => span,
             AstNode::Integer { span, .. } => span,
             AstNode::Byte { span, .. } => span,
             AstNode::Float { span, .. } => span,

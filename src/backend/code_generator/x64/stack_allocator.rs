@@ -284,25 +284,53 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
            emit:
 
-           MOV A, constant
+           MOV A, constant IF constant fits in 32 bits
+
+           otherwise emit:
+           MOV tmp_reg, constant
+           MOV A, tmp_reg
 
         */
-        UnaryOperation{dest: VirtualRegister(ref vregdata), src: IntegerConstant(value)} => {
+        UnaryOperation{
+            dest: VirtualRegister(ref vregdata),
+            src: LongConstant(val)
+        }  => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+            ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
+
+            if *val <= i32::MAX as i64 && *val >= i32::MIN as i64 {
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    dest: StackOffset { offset: stack_slot.offset, size: vregdata.size },
+                    src: LongConstant(*val),
+                }));
+            } else {
+                let tmp_reg = get_register_for_size(vregdata.size);
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    dest: PhysicalRegister(tmp_reg),
+                    src: LongConstant(*val),
+                }));
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    dest: StackOffset { offset: stack_slot.offset, size: vregdata.size },
+                    src: PhysicalRegister(tmp_reg),
+                }));
+
+            }
+        },
+        UnaryOperation{
+            dest: VirtualRegister(ref vregdata),
+            src: val @ IntegerConstant(_)
+        } |
+        UnaryOperation{
+            dest: VirtualRegister(ref vregdata),
+            src: val @ ByteConstant(_)
+        } => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
             ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
             updated_instructions.push(ByteCode::Mov(UnaryOperation{
                dest: StackOffset{offset: stack_slot.offset, size: vregdata.size},
-               src: IntegerConstant(*value),
-            }));
-        },
-        UnaryOperation{dest: VirtualRegister(ref vregdata), src: ByteConstant(value)} => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-            ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
-            updated_instructions.push(ByteCode::Mov(UnaryOperation{
-                dest: StackOffset{offset: stack_slot.offset, size: vregdata.size},
-                src: ByteConstant(*value),
+               src: val.clone(),
             }));
         },
         /*
@@ -321,6 +349,8 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
             ice_if!(src_vregdata.size > src_stack_slot.size, "Attempt to read {} bytes from stack slot with size {}", src_vregdata.size, src_stack_slot.size);
             ice_if!(dest_vregdata.size > dest_stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", dest_vregdata.size, dest_stack_slot.size);
+
+            ice_if!(dest_vregdata.size != src_vregdata.size, "Stack slot sizes do not match: {} vs {}", dest_vregdata.size, src_vregdata.size);
 
             updated_instructions.push(ByteCode::Mov(UnaryOperation {
                 dest: PhysicalRegister(get_register_for_size(dest_vregdata.size)),
@@ -449,7 +479,106 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             }
         },
         UnaryOperation {
-            src: IntegerConstant(val),
+            src: LongConstant(value),
+            dest: DynamicStackOffset {
+                id,
+                size,
+                offset,
+                index,
+            }
+        } => {
+            let fits_in_32_bit = *value <= i32::MAX as i64 && *value >= i32::MIN as i64;
+            let array_stack = &stack_map.array_to_stack_slot[id];
+            match **index {
+                VirtualRegister(ref vregdata) => {
+                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                    let tmp_reg = get_register_for_size(*size);
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: StackOffset {
+                                    size: stack_slot.size,
+                                    offset: stack_slot.offset,
+                                },
+                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size as u8)),
+                            }
+                        ));
+
+                    let src = if fits_in_32_bit {
+                        LongConstant(*value)
+                    } else {
+                        let tmp2_reg =  get_register_for_size2(8);
+
+                        updated_instructions.push(
+                            ByteCode::Mov(
+                                UnaryOperation {
+                                    src: LongConstant(*value),
+                                    dest: PhysicalRegister(tmp2_reg),
+                                }
+                            ));
+
+
+                        PhysicalRegister(tmp2_reg)
+                    };
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src,
+                                dest: DynamicStackOffset {
+                                    id: *id,
+                                    size: *size,
+                                    offset: get_indexed_array_offset(*offset, array_stack),
+                                    index: Box::new(PhysicalRegister(tmp_reg)),
+                                }
+                            }
+                        ));
+
+                },
+                IntegerConstant(index) => {
+
+                    let src = if fits_in_32_bit {
+                        LongConstant(*value)
+                    } else {
+                        let tmp2_reg =  get_register_for_size2(8);
+
+                        updated_instructions.push(
+                            ByteCode::Mov(
+                                UnaryOperation {
+                                    src: LongConstant(*value),
+                                    dest: PhysicalRegister(tmp2_reg),
+                                }
+                            ));
+
+
+                        PhysicalRegister(tmp2_reg)
+                    };
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: src,
+                                dest: StackOffset {
+                                    size: *size,
+                                    offset: get_constant_array_offset(*offset, *size, index, &array_stack),
+                                }
+                            }
+                        ));
+                }
+                _ => ice!("Unexpected dynamic index {:?} ", index)
+            }
+        },
+        UnaryOperation {
+            src: val @ IntegerConstant(_),
+            dest: DynamicStackOffset {
+                id,
+                size,
+                offset,
+                index,
+            }
+        } |
+        UnaryOperation {
+            src: val @ ByteConstant(_),
             dest: DynamicStackOffset {
                 id,
                 size,
@@ -470,14 +599,14 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                     size: stack_slot.size,
                                     offset: stack_slot.offset,
                                 },
-                                dest: PhysicalRegister(tmp_reg.clone()),
+                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size as u8)),
                             }
                         ));
 
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: IntegerConstant(*val),
+                                src: val.clone(),
                                 dest: DynamicStackOffset {
                                     id: *id,
                                     size: *size,
@@ -492,7 +621,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     updated_instructions.push(
                         ByteCode::Mov(
                             UnaryOperation {
-                                src: IntegerConstant(*val),
+                                src: val.clone(),
                                 dest: StackOffset {
                                     size: *size,
                                     offset: get_constant_array_offset(*offset, *size, index, &array_stack),
@@ -520,61 +649,6 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                     MOV [stack_ptr + constant_offset], byte_constant
 
         */
-        UnaryOperation {
-            src: ByteConstant(val),
-            dest: DynamicStackOffset {
-                id,
-                size,
-                offset,
-                index,
-            }
-        } => {
-
-            let array_stack = &stack_map.array_to_stack_slot[id];
-            match **index {
-                VirtualRegister(ref vregdata) => {
-                    let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
-                    let tmp_reg = get_register_for_size(4); // index reg, should be integer
-                    updated_instructions.push(
-                        ByteCode::Mov(
-                            UnaryOperation {
-                                src: StackOffset {
-                                    size: stack_slot.size,
-                                    offset: stack_slot.offset,
-                                },
-                                dest: PhysicalRegister(tmp_reg.clone()),
-                            }
-                        ));
-
-                    updated_instructions.push(
-                        ByteCode::Mov(
-                            UnaryOperation {
-                                src: ByteConstant(*val),
-                                dest: DynamicStackOffset {
-                                    id: *id,
-                                    size: *size,
-                                    offset: get_indexed_array_offset(*offset, array_stack),
-                                    index: Box::new(PhysicalRegister(tmp_reg)),
-                                }
-                            }
-                        ));
-
-                },
-                IntegerConstant(index) => {
-                    updated_instructions.push(
-                        ByteCode::Mov(
-                            UnaryOperation {
-                                src: ByteConstant(*val),
-                                dest: StackOffset {
-                                    size: *size,
-                                    offset: get_constant_array_offset(*offset, *size, index, &array_stack),
-                                }
-                            }
-                        ));
-                }
-                _ => ice!("Unexpected dynamic index {:?} ", index)
-            }
-        },
         UnaryOperation {
             src: VirtualRegister(src_vregdata),
             dest: DynamicStackOffset {
@@ -902,98 +976,32 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ));
         },
         UnaryOperation {
-            src: ByteConstant(val),
+            src: val @ ByteConstant(_),
             dest: IndirectAddress {
                 base,
                 index,
                 offset,
                 size,
-            },
-        } => {
-
-            let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
-                vregdata
-            } else {
-                ice!("Base register is not a virtual register: {}", base);
-            };
-
-            let base_stack_slot= &stack_map.reg_to_stack_slot[&base_vregdata.id];
-            let base_register = get_register_for_size(base_stack_slot.size);
-
-            let value_register = get_register_for_size2(*size);
-
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
-                        src: StackOffset {
-                            size: base_stack_slot.size,
-                            offset: base_stack_slot.offset,
-                        },
-                        dest: PhysicalRegister(base_register.clone()),
-                    }
-                ));
-
-            let (index, offset) = match index {
-                // bit clunky as box can't be matched against directly
-                Some(boxed) => {
-                    match &**boxed {
-                        VirtualRegister(vreg_data) => {
-                            let stack_slot = &stack_map.reg_to_stack_slot[&vreg_data.id];
-                            let index_reg = get_register_for_size3(stack_slot.size);
-
-                            updated_instructions.push(
-                                ByteCode::Mov(
-                                    UnaryOperation {
-                                        src: StackOffset {
-                                            size: stack_slot.size,
-                                            offset: stack_slot.offset,
-                                        },
-                                        dest: PhysicalRegister(index_reg.clone()),
-                                    }
-                                ));
-
-                            (Some(Box::new(PhysicalRegister(index_reg.clone()))), *offset)
-                        },
-                        IntegerConstant(index) => {
-                            let index = (-(*index)*(*size as i32)) as u32;
-                            (None, Some(index))
-                        },
-                        _ => ice!("Unexpected index-operation {}", *boxed)
-                    }
-                },
-                None  => (None, *offset),
-            };
-
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
-                        src: ByteConstant(*val),
-                        dest: PhysicalRegister(value_register.clone()),
-                    }
-                ));
-
-            updated_instructions.push(
-                ByteCode::Mov(
-                    UnaryOperation {
-                        src: PhysicalRegister(value_register),
-                        dest: IndirectAddress {
-                            base: Box::new(Value::PhysicalRegister(base_register)),
-                            index: index,
-                            offset: offset.clone(),
-                            size: *size,
-                        } ,
-                    }
-                ));
-        },
+            }
+        } |
         UnaryOperation {
-            src: IntegerConstant(val),
+            src: val @ LongConstant (_),
             dest: IndirectAddress {
                 base,
                 index,
                 offset,
                 size,
-            },
-        } => {
+            }
+       } |
+        UnaryOperation {
+            src: val @ IntegerConstant (_),
+            dest: IndirectAddress {
+                base,
+                index,
+                offset,
+                size,
+            }
+       } => {
 
             let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
                 vregdata
@@ -1051,7 +1059,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             updated_instructions.push(
                 ByteCode::Mov(
                     UnaryOperation {
-                        src: IntegerConstant(*val),
+                        src: val.clone(),
                         dest: PhysicalRegister(value_register.clone()),
                     }
                 ));

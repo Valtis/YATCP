@@ -44,6 +44,7 @@ pub enum TokenType {
     Double,
     Byte,
     Integer,
+    Long,
     Boolean,
     Void,
     String,
@@ -88,6 +89,7 @@ pub enum TokenType {
 impl TokenType {
     pub fn get_type_tokens() -> Vec<TokenType> {
         vec![
+            TokenType::Long,
             TokenType::Integer,
             TokenType::Byte,
             TokenType::Boolean,
@@ -137,6 +139,7 @@ impl Display for TokenType {
         TokenType::Double => "double",
         TokenType::Byte => "byte",
         TokenType::Integer => "int",
+        TokenType::Long => "long",
         TokenType::Boolean => "bool",
         TokenType::Void => "void",
         TokenType::String => "string",
@@ -201,6 +204,7 @@ pub enum TokenAttribute {
     IntegralConstant(u128),
     ByteConstant(u128),
     IntegerConstant(u128),
+    LongConstant(u128),
     BooleanValue(bool),
     ErrorValue
 }
@@ -214,6 +218,7 @@ impl Display for TokenAttribute {
           TokenAttribute::IntegralConstant(value) => value.to_string(),
           TokenAttribute::ByteConstant(value) => value.to_string(),
           TokenAttribute::IntegerConstant(value) => value.to_string(),
+          TokenAttribute::LongConstant(value) => value.to_string(),
           TokenAttribute::BooleanValue(value) => value.to_string(),
           TokenAttribute::ErrorValue => "<Invalid token>".to_string(),
     })
@@ -300,6 +305,7 @@ impl From<&Token> for Span {
 impl From<&Token> for Type {
     fn from(variable_token: &Token) -> Type {
         match variable_token.token_type {
+            TokenType::Long=> Type::Long,
             TokenType::Integer => Type::Integer,
             TokenType::String => Type::String,
             TokenType::Float => Type::Float,
@@ -315,6 +321,7 @@ impl From<&Token> for Type {
 impl From<Token> for Type {
     fn from(variable_token: Token) -> Type {
         match variable_token.token_type {
+            TokenType::Long=> Type::Long,
             TokenType::Integer => Type::Integer,
             TokenType::String => Type::String,
             TokenType::Float => Type::Float,

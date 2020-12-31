@@ -74,6 +74,7 @@ pub struct ComparisonOperation {
 pub enum Value {
     VirtualRegister(VirtualRegisterData),
     PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
+    LongConstant(i64),
     IntegerConstant(i32),
     ByteConstant(i8),
     ComparisonResult(ComparisonType),
@@ -203,6 +204,7 @@ impl Display for Value {
         write!(formatter, "{}", match self {
             Value::ReturnValue => "<ARCHITECTURE/CALLING CONVENTION SPECIFIC RETURN VALUE LOCATION>".to_owned(),
             Value::FunctionParameter(_param_type, id) => format!("PARAMETER {}", id),
+            Value::LongConstant(i) => format!("0x{:X}", i),
             Value::IntegerConstant(i) => format!("0x{:X}", i),
             Value::ByteConstant(b) => format!("0x{:X}", b),
             Value::PhysicalRegister(reg) => format!("{:?}", reg),

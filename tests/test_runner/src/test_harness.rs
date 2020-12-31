@@ -249,6 +249,7 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
 
     let callable = if !return_type.is_empty() {
         match return_type.as_str() {
+            "long" => Some(FunctionKind::LONG(callable_function)),
             "int" => Some(FunctionKind::INT(callable_function)),
             "byte" => Some(FunctionKind::BYTE(callable_function)),
             "void" => Some(FunctionKind::VOID(callable_function)),
