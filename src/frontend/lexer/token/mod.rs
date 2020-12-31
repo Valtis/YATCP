@@ -81,6 +81,8 @@ pub enum TokenType {
     AmpersandEquals,
     PipeEquals,
     CaretEquals,
+    Break,
+    Continue,
 }
 
 impl TokenType {
@@ -171,8 +173,8 @@ impl Display for TokenType {
         TokenType::AmpersandEquals => "&=",
         TokenType::PipeEquals => "|=",
         TokenType::CaretEquals => "^=",
-
-
+        TokenType::Break => "break",
+        TokenType::Continue => "continue",
     })
   }
 }

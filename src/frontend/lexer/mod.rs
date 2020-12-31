@@ -282,6 +282,8 @@ impl ReadLexer {
             "void" => Some(self.create_token(TokenType::Void)),
             "string" => Some(self.create_token(TokenType::String)),
             "as" => Some(self.create_token(TokenType::As)),
+            "break" => Some(self.create_token(TokenType::Break)),
+            "continue" => Some(self.create_token(TokenType::Continue)),
             _ => None
         }
     }
@@ -984,7 +986,7 @@ mod tests {
     #[test]
     fn keywords_are_accepted() {
         let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class
-        public protected private extern int float double bool void string as");
+        public protected private extern int float double bool void string as break continue");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1084,6 +1086,16 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::As,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Break,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Continue,
             None);
 
         assert_eq_token!(

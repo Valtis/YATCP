@@ -166,7 +166,7 @@ pub enum AstNode {
 
     Return{ return_value: Option<Box<AstNode>>, arithmetic_info: ArithmeticInfo },
 
-    While{ condition_expression: Box<AstNode>, block: Box<AstNode>, span: Span },
+    Loop { condition_expression: Box<AstNode>, post_body_statements: Option<Vec<AstNode>>, block: Box<AstNode>, span: Span },
     If { condition_expression: Box<AstNode>, main_block: Box<AstNode>, else_block: Option<Box<AstNode>>, span: Span },
 
     Less { left_expression: Box<AstNode>, right_expression: Box<AstNode>, span: Span } ,
@@ -190,7 +190,9 @@ pub enum AstNode {
     ArrayAccess{ index_expression: Box<AstNode>, indexable_expression: Box<AstNode> },
     ArraySlice { start_expression: Box<AstNode>, end_expression: Box<AstNode>, array_expression: Box<AstNode> },
     ErrorNode,
-    EmptyNode, // No-operation in later stages
+    EmptyNode, // No-operation in later stages,
+    Break(Span),
+    Continue(Span),
 }
 
 impl Display for AstNode {
@@ -269,7 +271,7 @@ impl Display for AstNode {
             AstNode::BitwiseNot{ .. } => "Bitwise Not".to_string(),
             AstNode::Negate { .. }  => "Negate".to_string(),
             AstNode::Return{ .. } => "Return".to_string(),
-            AstNode::While { .. }=> "While".to_string(),
+            AstNode::Loop { .. }=> "While".to_string(),
             AstNode::If { .. }=> "If".to_string(),
             AstNode::Less { .. }=> "Less".to_string(),
             AstNode::LessOrEq { .. } => "LessOrEq".to_string(),
@@ -280,6 +282,8 @@ impl Display for AstNode {
             AstNode::Cast { .. }  => "As".to_string(),
             AstNode::ErrorNode => "<syntax error>".to_string(),
             AstNode::EmptyNode => "<empty node>".to_string(),
+            AstNode::Break(_) => "break".to_string(),
+            AstNode::Continue(_) => "continue".to_string(),
         })
     }
 }
@@ -396,7 +400,7 @@ impl AstNode {
                     string = format!("{}{}", string, child.print_impl(next_int))
                 }
             },
-            AstNode::While{ ref condition_expression, ref block, .. } => {
+            AstNode::Loop { ref condition_expression, ref block, .. } => {
                 string = format!("{}{}", string, condition_expression.print_impl(next_int));
                 string = format!("{}{}", string, block.print_impl(next_int));
             },
@@ -424,6 +428,8 @@ impl AstNode {
             AstNode::Cast{ ref expression, .. } => {
                 string = format!("{}{}", string, expression.print_impl(next_int));
             },
+            AstNode::Break(_) |
+            AstNode:: Continue(_) |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
         }
@@ -459,7 +465,7 @@ impl AstNode {
             AstNode::Modulo { arithmetic_info, .. } => arithmetic_info.span,
             AstNode::Negate{ arithmetic_info, ..} => arithmetic_info.span,
             AstNode::Return{ arithmetic_info, ..} => arithmetic_info.span,
-            AstNode::While{ span, .. } => *span,
+            AstNode::Loop { span, .. } => *span,
             AstNode::If{ span, .. } => *span,
             AstNode::Less { span, .. } |
             AstNode::LessOrEq { span, .. } |
@@ -480,6 +486,8 @@ impl AstNode {
             AstNode::BooleanNot { span, .. } => *span,
             AstNode::BitwiseNot {  arithmetic_info, .. } => arithmetic_info.span,
             AstNode::Cast{ span, .. } => *span,
+            AstNode::Break(span) |
+            AstNode::Continue(span) => *span,
             AstNode::EmptyNode |
             AstNode::ErrorNode => empty,
         };
@@ -513,7 +521,7 @@ impl AstNode {
             AstNode::Modulo { arithmetic_info, .. } => &mut arithmetic_info.span,
             AstNode::Negate { arithmetic_info, .. } => &mut arithmetic_info.span,
             AstNode::Return { arithmetic_info, .. } => &mut arithmetic_info.span,
-            AstNode::While { span, .. } => span,
+            AstNode::Loop { span, .. } => span,
             AstNode::If { span, .. } => span,
             AstNode::Less { span, .. } |
             AstNode::LessOrEq { span, .. } |
@@ -534,6 +542,8 @@ impl AstNode {
             AstNode::BooleanNot { span, .. } => span,
             AstNode::BitwiseNot { arithmetic_info, .. } => &mut arithmetic_info.span,
             AstNode::Cast { span, .. } => span,
+            AstNode::Break(span) |
+            AstNode::Continue(span) => span,
             AstNode::EmptyNode |
             AstNode::ErrorNode => return None,
         };

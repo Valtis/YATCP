@@ -140,8 +140,8 @@ impl SemanticsCheck {
                 self.handle_negation(expression, arithmetic_info),
             AstNode::Return{ return_value, arithmetic_info } =>
                 self.handle_return(return_value, arithmetic_info),
-            AstNode::While{ condition_expression, block, span} =>
-                self.handle_while(condition_expression, block, span),
+            AstNode::Loop { condition_expression, post_body_statements, block, span} =>
+                self.handle_loop(condition_expression, post_body_statements, block, span),
             AstNode::If{ condition_expression, main_block, else_block, span } =>
                 self.handle_if(condition_expression, main_block, else_block, span),
             AstNode::Less{ left_expression, right_expression, span} |
@@ -183,6 +183,8 @@ impl SemanticsCheck {
             AstNode::Cast{ expression, target_type, span } => {
                 self.handle_cast(expression, target_type, span);
             },
+            AstNode::Break(_) |
+            AstNode::Continue(_) |
             AstNode::IntegralNumber { .. } |
             AstNode::EmptyNode |
             AstNode::ErrorNode => (),
@@ -1355,24 +1357,28 @@ impl SemanticsCheck {
         }
     }
 
-    fn handle_while(
+    fn handle_loop(
         &mut self,
         expr: &mut AstNode,
+        post_body_statements: &mut Option<Vec<AstNode>>,
         body: &mut AstNode,
         _span: &Span) {
+        self.do_check(expr);
 
-       self.do_check(expr);
-       let expr_type = self.get_type(expr);
-
-       if expr_type != Type::Invalid && expr_type != Type::Boolean {
+        let expr_type = self.get_type(expr);
+        if expr_type != Type::Invalid && expr_type != Type::Boolean {
             self.report_error(
                 ReportKind::TypeError,
                 expr.span(),
                 format!("Expected '{}' for loop expression but was '{}'",
-                    Type::Boolean, expr_type));
-       }
-
-       self.do_check(body);
+                        Type::Boolean, expr_type));
+        }
+        if let Some(statements ) = post_body_statements {
+            for s in statements.into_iter() {
+                self.do_check(s);
+            }
+        }
+        self.do_check(body);
     }
 
     fn handle_if(

@@ -22,6 +22,7 @@ pub const ARRAY_LENGTH_ID_OFFSET: u32 = 1000000;
 pub struct TACGenerator {
     functions: Vec<Function>,
     function_stack: Vec<Function>,
+    loop_label_stack: Vec<(u32, u32)>,
     operands: Vec<Operand>,
     id_counter: u32,
     label_counter: u32,
@@ -36,6 +37,7 @@ impl TACGenerator {
         TACGenerator {
             functions: vec![],
             function_stack: vec![],
+            loop_label_stack: vec![],
             operands: vec![],
             id_counter: start_id,
             label_counter: 0,
@@ -101,8 +103,8 @@ impl TACGenerator {
             AstNode::Identifier { name, ..} =>
                 self.handle_identifier(name),
             AstNode::Return { return_value, .. } => self.handle_return(return_value),
-            AstNode::While{condition_expression, block, ..} =>
-                self.handle_while(condition_expression, block),
+            AstNode::Loop {condition_expression, post_body_statements, block, ..} =>
+                self.handle_loop(condition_expression, post_body_statements, block),
             AstNode::If { condition_expression, main_block, else_block, ..} =>
                 self.handle_if(condition_expression, main_block, else_block),
             AstNode::Less{ .. } |
@@ -138,6 +140,12 @@ impl TACGenerator {
                 self.handle_initializer_list(values),
             AstNode::EmptyNode => (),
             AstNode::ErrorNode => ice!("Error node present in three-address-code generation"),
+            AstNode::Continue(_) =>
+                self.handle_continue(),
+            AstNode::Break(_) =>
+                self.handle_break(),
+
+            x @ AstNode::IntegralNumber { .. } => ice!("Unexpected unspecified integral number {:?} in TAC generation", x),
             x => todo!("Three-address code generation not implemented for '{}'", x),
         }
     }
@@ -771,20 +779,40 @@ impl TACGenerator {
         self.current_function().statements.push(Statement::Return(operand));
     }
 
-    fn handle_while(&mut self, expr: &AstNode, block: &AstNode) {
+    fn handle_loop(&mut self, expr: &AstNode, post_body_statements: &Option<Vec<AstNode>>, block: &AstNode) {
         let comparison_label_id = self.get_label_id();
+        let post_body_label = self.get_label_id();
         let block_label_id = self.get_label_id();
+        let end_label_id = self.get_label_id();
+
+        self.loop_label_stack.push((post_body_label, end_label_id));
 
         self.current_function().statements.push(
             Statement::Jump(comparison_label_id));
         self.current_function().statements.push(
             Statement::Label(block_label_id));
         self.generate_tac(block);
+
+
+        self.current_function().statements.push(
+            Statement::Label(post_body_label));
+        if let Some(statements) = post_body_statements {
+            for s in statements.into_iter() {
+                self.generate_tac(s);
+            }
+        }
+
         self.current_function().statements.push(
             Statement::Label(comparison_label_id));
         let operand = self.get_operand(expr);
         self.current_function().statements.push(
             Statement::JumpIfTrue(operand, block_label_id));
+
+        self.current_function().statements.push(
+            Statement::Label(end_label_id)
+        );
+
+        self.loop_label_stack.pop();
     }
 
 
@@ -1057,6 +1085,22 @@ impl TACGenerator {
 
         self.operands.push(destination);
     }
+
+    fn handle_continue(&mut self) {
+        let (start_label, _) = *self.loop_label_stack.last().unwrap_or_else(|| ice!("Loop label stack is empty"));
+        self.current_function().statements.push(
+                Statement::Jump(start_label)
+
+        );
+    }
+
+    fn handle_break(&mut self) {
+        let (_, end_label) = *self.loop_label_stack.last().unwrap_or_else(|| ice!("Loop label stack is empty"));
+        self.current_function().statements.push(
+            Statement::Jump(end_label)
+        );
+    }
+
 
     fn handle_initializer_list(&mut self, values: &Vec<AstNode>) {
         values.iter().for_each(|node| self.generate_tac(node));

@@ -15,6 +15,7 @@ use std::rc::Rc;
 pub struct Parser {
     lexer: Box<dyn Lexer>,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
+    loop_depth: i32,
 }
 
 impl Parser {
@@ -24,6 +25,7 @@ impl Parser {
         Parser {
             lexer,
             error_reporter,
+            loop_depth: 0,
         }
     }
 
@@ -236,6 +238,10 @@ impl Parser {
                     self.parse_for_statement(),
                 TokenType::If =>
                     self.parse_if_statement(),
+                TokenType::Break =>
+                    self.handle_break(),
+                TokenType::Continue =>
+                    self.handle_continue(),
                 _ => return Ok(nodes)
             };
 
@@ -247,6 +253,35 @@ impl Parser {
                         TokenType::RBrace]),
             }
         }
+    }
+
+    fn handle_break(&mut self) -> Result<AstNode,()> {
+        let break_token = self.expect(TokenType::Break)?;
+        if self.loop_depth == 0 {
+            self.report_error(
+                ReportKind::SyntaxError,
+                Span::from(&break_token),
+                "Break statement outside loop body".to_owned(),
+
+            );
+            return Err(());
+        }
+
+        Ok(AstNode::Break(Span::from(&break_token)))
+    }
+
+    fn handle_continue(&mut self) -> Result<AstNode, ()>  {
+        let continue_token = self.expect(TokenType::Continue)?;
+        if self.loop_depth == 0 {
+            self.report_error(
+                ReportKind::SyntaxError,
+                Span::from(&continue_token),
+                "Continue statement outside loop body".to_owned(),
+
+            );
+            return Err(());
+        }
+        Ok(AstNode::Continue(Span::from(&continue_token)))
     }
 
     fn parse_variable_declaration(&mut self) -> Result<AstNode, ()> {
@@ -663,10 +698,13 @@ impl Parser {
     fn parse_while_statement(&mut self) -> Result<AstNode, ()> {
         let while_node = self.expect(TokenType::While)?;
         let expr = self.parse_expression()?;
+        self.loop_depth += 1;
         let block = self.parse_block()?;
+        self.loop_depth -= 1;
 
-        Ok(AstNode::While{
+        Ok(AstNode::Loop {
             condition_expression: Box::new(expr),
+            post_body_statements: None,
             block: Box::new(block),
             span: Span::from(while_node)})
     }
@@ -807,19 +845,14 @@ impl Parser {
             }
         }
 
-        let mut while_block = self.parse_block()?;
-
-        if let AstNode::Block{ref mut statements, .. } = while_block {
-            for s in post_statements {
-                statements.push(s);
-            }
-        } else {
-            ice!("Non-block statement {} when block statement expected", while_block);
-        }
+        self.loop_depth += 1;
+        let while_block = self.parse_block()?;
+        self.loop_depth -= 1;
 
         statements.push(
-            AstNode::While{
+            AstNode::Loop {
                 condition_expression: Box::new(cond_expression),
+                post_body_statements: Some(post_statements),
                 block: Box::new(while_block),
                 span: Span::from(for_node)});
 

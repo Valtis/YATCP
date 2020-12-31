@@ -1,0 +1,24 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+
+    let i = 0;
+    while i < 4 {
+      int_printer(i);
+      break;
+      int_printer(i*10);
+      i += 1;
+    }
+
+    return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  0
+
+
+
+
