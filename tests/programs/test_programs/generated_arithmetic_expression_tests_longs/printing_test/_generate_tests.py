@@ -70,6 +70,55 @@ test_tuples = [
         a = a + b;""",
         "a",
         12000000000000),
+
+    # subtraction
+    ("large_long_constant_constant_subtraction_works",
+        "let a = 5000000000000l - 7000000000000l;",
+        "a",
+        -2000000000000),
+
+    ("large_long_variable_constant_subtraction_works",
+        """
+        let a = 5000000000000l;
+        let b = a - 7000000000000l;""",
+        "b",
+        -2000000000000),
+    ("large_long_variable_constant_self_subtraction_works",
+        """
+        let a = 5000000000000l;
+        a = a - 7000000000000l;""",
+        "a",
+        -2000000000000),
+
+    ("large_long_constant_variable_subtraction_works",
+        """
+        let a = 5000000000000l;
+        let b = 7000000000000l - a;""",
+        "b",
+        2000000000000),
+    ("large_long_constant_variable_self_subtraction_works",
+        """
+        let a = 5000000000000l;
+        a = 7000000000000l - a;""",
+        "a",
+        2000000000000),
+
+
+    ("large_long_varible_variable_subtraction_works",
+        """
+        let a = 5000000000000l;
+        let b = 7000000000000l;
+        let c = a - b;
+        """,
+        "c",
+        -2000000000000),
+    ("large_long_variable_variable_self_subtraction_works",
+        """
+        let a = 5000000000000l;
+        let b = 7000000000000l;
+        a = a - b;""",
+        "a",
+        -2000000000000),
 ]
 
 for t in test_tuples:
