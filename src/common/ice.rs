@@ -1,4 +1,5 @@
 use std::io::Write;
+use backtrace::Backtrace;
 
 #[track_caller]
 pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
@@ -14,8 +15,10 @@ pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
                                 msg).as_bytes()).unwrap();
 
     stderr_handle.write(format!("Issue occurred in file {} at line {}\n", file, column).as_bytes()).unwrap();
-    stderr_handle.write("This is a bug in the compiler, not in the source file.\n\n\n".as_bytes()).unwrap();
-    panic!()
+    stderr_handle.write("This is a bug in the compiler, not in the source file.\n\n".as_bytes()).unwrap();
+
+    stderr_handle.write(format!("Stacktrace:\n{:?}\n", Backtrace::new()).as_bytes()).unwrap();
+    std::process::exit(255);
 }
 
 
