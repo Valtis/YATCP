@@ -1,0 +1,92 @@
+extern fn write(val fd: int, val buffer: byte[]) : void;
+const STDOUT = 1;
+
+fn main() : int {
+    let array = { 9, 4, 0, 1, 4, 2, 15, 8, 5, 74 };
+    quicksort(array);
+
+    for let i: int = 0; i < array.length; i += 1 {
+        write_int(array[i]);
+    }
+    return 0;
+}
+
+fn quicksort(arr: int[]) : void {
+    if arr.length > 0 { 
+        let p = partition(arr); 
+        quicksort(arr[0:p]);
+        quicksort(arr[p+1:arr.length]);
+    }
+}
+
+fn partition(arr: int[]) : int {
+    let pivot = arr[arr.length-1];
+    let i = 0;
+    
+    for let j = 0; j < arr.length; j += 1 {
+        if arr[j] < pivot {
+            let tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+            i += 1;
+        }
+    }
+
+    let tmp = arr[i];
+    arr[i] = arr[arr.length-1];
+    arr[arr.length-1] = tmp;
+    
+    return i;
+}
+
+
+fn write_int(value: int) {
+    let buffer: byte[12] = 0;
+    let index = 0;
+    
+    let is_negative = false;
+    if value == 0 {
+        buffer[0] = '0';
+        index += 1;
+    } else if value < 0 {
+        is_negative = true;
+    }
+    
+    while value != 0 {
+        buffer[index] = '0' + abs((value % 10)) as byte;
+        value /= 10;
+        index += 1;     
+    }
+        
+    
+    if is_negative {
+        buffer[index] = '-';
+        index += 1;
+    }
+    
+    reverse_buffer(buffer[0:index]);
+    
+    buffer[index] = '\n';
+    index += 1;
+    
+    write(STDOUT, buffer[0:index]);
+}
+
+fn abs(value: int) : int {
+    if value < 0 {
+        return -value;
+    }
+    return value;
+}
+
+fn reverse_buffer(buffer: byte[]) {
+    let end = buffer.length / 2;
+    for let i = 0; i < end; i +=1 {
+        let tmp = buffer[i];
+        let end_index = buffer.length - 1 - i;
+        buffer[i] = buffer[end_index];
+        buffer[end_index] = tmp;
+    }   
+}
+
+
