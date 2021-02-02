@@ -1,0 +1,14 @@
+
+program: |
+
+    extern fn long_printer(value: long);
+    fn main() : int {
+        let a = 5000000000000l + 7000000000000l;
+        long_printer(a);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    12000000000000
+    

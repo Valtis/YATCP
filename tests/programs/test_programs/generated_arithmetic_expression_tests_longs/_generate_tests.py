@@ -659,7 +659,7 @@ test_tuples = [
         165),
 
 
-    # bitwise OR 
+    # bitwise OR
     ("constant_constant_bitwise_or_works",
         """
         let a: long = 167 | 181;
@@ -726,7 +726,7 @@ test_tuples = [
         "b",
         183),
 
-    # bitwise XOR 
+    # bitwise XOR
     ("constant_constant_bitwise_xor_works",
         """
         let a: long = 167 ^ 181;
@@ -1074,7 +1074,3 @@ expect_stdout: |
     '''
     with open(f"{t[0]}.yaml", "w") as f:
         f.write(out)
-
-
-
-

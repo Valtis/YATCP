@@ -1370,6 +1370,41 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src2: IntegerConstant(*src2_val),
             }));
         },
+        /*
+            A = A + long_constant
+
+            no support for imm64, so:
+
+            * emit as integer-constant, if fits imm32
+            * emit extra move to r64 otherwise
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: LongConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64  {
+                updated_instructions.push(ByteCode::Add(BinaryOperation{
+                    dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                    src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                    src2: IntegerConstant(*src2_val as i32),
+                }));
+            } else {
+                let tmp = get_register_for_size(8);
+
+                updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                    dest: PhysicalRegister(tmp),
+                    src: LongConstant(*src2_val),
+                }));
+
+                updated_instructions.push(ByteCode::Add(BinaryOperation{
+                    dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                    src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                    src2: PhysicalRegister(tmp),
+                }));
+            }
+        },
         BinaryOperation{
             dest: VirtualRegister(ref dest_vregdata),
             src1: VirtualRegister(ref src_vregdata),
@@ -1388,11 +1423,27 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             A = integer_constant + somereg
 
             swap constants around and call this function recursively
-
         */
         BinaryOperation{
             dest: VirtualRegister(_),
             src1: IntegerConstant(_),
+            src2: VirtualRegister(_)} => {
+
+            handle_add_allocation(&BinaryOperation {
+                dest: binary_op.dest.clone(),
+                src1: binary_op.src2.clone(),
+                src2: binary_op.src1.clone(),
+            },
+            updated_instructions,
+            stack_map);
+        }
+        /*
+            A = integer_constant + somereg
+            swap constants around and call this function recursively
+        */
+        BinaryOperation{
+            dest: VirtualRegister(_),
+            src1: LongConstant(_),
             src2: VirtualRegister(_)} => {
 
             handle_add_allocation(&BinaryOperation {
@@ -1437,6 +1488,65 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
                 src2: IntegerConstant(*src2_val),
             }));
+        },
+        /*
+            A = B + integer_constant
+
+            cannot encode directly, so emit:
+
+            if constant fits in 32 bit immediate:
+
+            mov tmp_reg, stack_slot_b
+            mov stack_slot_a, tmp_reg
+            add stack_slot_a, constant
+
+            else:
+
+            mov tmp_reg, stack_slot_b
+            mov stack_slot_a, tmp_reg
+            mov tmp_reg, constant
+            add stack_slot_a, reg
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: LongConstant(src2_val)} if dest_vregdata.id != src_vregdata.id => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg= get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
+            }));
+
+            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64 {
+                updated_instructions.push(ByteCode::Add(BinaryOperation{
+                    dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                    src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                    src2: IntegerConstant(*src2_val as i32),
+                }));
+            } else {
+                let tmp = get_register_for_size(8);
+                updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                    dest: PhysicalRegister(tmp),
+                    src: LongConstant(*src2_val),
+                }));
+
+                updated_instructions.push(ByteCode::Add(BinaryOperation{
+                    dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                    src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                    src2: PhysicalRegister(tmp),
+                }));
+
+            }
         },
 
         /*
@@ -4042,6 +4152,18 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
         // register arguments
         if i < 6 {
             match value {
+                LongConstant(val) => {
+                    let dest = get_destination_for_integer_and_pointer_argument(i, 8);
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: LongConstant(*val),
+                                dest,
+                            }
+                        )
+                    )
+                },
                 IntegerConstant(val) => {
                     let dest = get_destination_for_integer_and_pointer_argument(i, 4);
 
