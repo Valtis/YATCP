@@ -4745,6 +4745,9 @@ fn emit_instruction(
 fn emit_ret(value: &Option<Value>, stack_size: u32, args: u32, asm: &mut Vec<u8>) {
 
     match value {
+        Some(LongConstant(value)) => {
+            emit_mov_long_to_register(*value, X64Register::RAX, asm)
+        }
         Some(IntegerConstant(value)) => {
             emit_mov_integer_to_register(*value, X64Register::EAX, asm)
         }
