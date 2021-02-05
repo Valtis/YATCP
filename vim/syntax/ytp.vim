@@ -3,7 +3,7 @@ if exists("b:current_syntax")
 endif
 
 syn keyword ytpKeywords if else let while fn return extern const val as continue break
-syn keyword ytpTypes int float string void bool byte
+syn keyword ytpTypes long int float string void bool byte
 syn keyword ytpBooleanConstant true false 
 
 
