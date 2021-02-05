@@ -149,8 +149,6 @@ fn generate_code_for_function(function: &ByteCodeFunction, stack_size: u32) -> (
     (function.clone(), asm, calls_requiring_updates)
 }
 
-// Comment out pending rewrite/fixes, as ByteCode representation is undergoing large changes
-
 fn emit_nop(asm: &mut Vec<u8>) {
     asm.push(NOP);
 }

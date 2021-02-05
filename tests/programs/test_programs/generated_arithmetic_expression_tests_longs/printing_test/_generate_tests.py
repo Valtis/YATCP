@@ -119,6 +119,156 @@ test_tuples = [
         a = a - b;""",
         "a",
         -2000000000000),
+
+
+
+    # multiplication
+    ("large_long_constant_constant_multiplication_works",
+        "let a = 2l*7000000000000l;",
+        "a",
+        14000000000000),
+
+    ("large_long_variable_constant_multiplication_works",
+        """
+        let a = 2l;
+        let b = a*7000000000000l;""",
+        "b",
+        14000000000000),
+    ("large_long_variable_constant_self_multiplication_works",
+        """
+        let a = 2l;
+        a = a*7000000000000l;""",
+        "a",
+        14000000000000),
+
+    ("large_long_constant_variable_multiplication_works",
+        """
+        let a = 2l;
+        let b = 7000000000000l*a;""",
+        "b",
+        14000000000000),
+    ("large_long_constant_variable_self_multiplication_works",
+        """
+        let a = 2l;
+        a = 7000000000000l*a;""",
+        "a",
+        14000000000000),
+
+
+    ("large_long_varible_variable_multiplication_works",
+        """
+        let a = 2l;
+        let b = 7000000000000l;
+        let c = a*b;
+        """,
+        "c",
+        14000000000000),
+    ("large_long_variable_variable_self_multiplication_works",
+        """
+        let a = 2l;
+        let b = 7000000000000l;
+        a = a*b;""",
+        "a",
+        14000000000000),
+
+
+    # division
+    ("large_long_constant_constant_division_works",
+        "let a = 14000000000000l/7000000000000l;",
+        "a",
+        2),
+
+    ("large_long_variable_constant_division_works",
+        """
+        let a = 14000000000000l;
+        let b = a/7000000000000l;""",
+        "b",
+        2),
+    ("large_long_variable_constant_self_division_works",
+        """
+        let a = 14000000000000l;
+        a = a/7000000000000l;""",
+        "a",
+        2),
+
+    ("large_long_constant_variable_division_works",
+        """
+        let a = 7000000000000l;
+        let b = 14000000000000/a;""",
+        "b",
+        2),
+    ("large_long_constant_variable_self_division_works",
+        """
+        let a = 7000000000000l;
+        a = 14000000000000/a;""",
+        "a",
+        2),
+
+
+    ("large_long_varible_variable_division_works",
+        """
+        let a = 14000000000000l;
+        let b = 7000000000000l;
+        let c = a/b;
+        """,
+        "c",
+        2),
+    ("large_long_variable_variable_self_division_works",
+        """
+        let a = 14000000000000l;
+        let b = 7000000000000l;
+        a = a/b;""",
+        "a",
+        2),
+
+    # modulo
+    ("large_long_constant_constant_modulo_works",
+        "let a = 14000000000001l%7000000000000l;",
+        "a",
+        1),
+
+    ("large_long_variable_constant_modulo_works",
+        """
+        let a = 14000000000001l;
+        let b = a%7000000000000l;""",
+        "b",
+        1),
+    ("large_long_variable_constant_self_modulo_works",
+        """
+        let a = 14000000000001l;
+        a = a%7000000000000l;""",
+        "a",
+        1),
+
+    ("large_long_constant_variable_modulo_works",
+        """
+        let a = 7000000000000l;
+        let b = 14000000000001l%a;""",
+        "b",
+        1),
+    ("large_long_constant_variable_self_modulo_works",
+        """
+        let a = 7000000000000l;
+        a = 14000000000001l%a;""",
+        "a",
+        1),
+
+
+    ("large_long_varible_variable_modulo_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        let c = a%b;
+        """,
+        "c",
+        1),
+    ("large_long_variable_variable_self_modulo_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        a = a%b;""",
+        "a",
+        1),
 ]
 
 for t in test_tuples:
