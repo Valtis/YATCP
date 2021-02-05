@@ -120,6 +120,7 @@ pub const NEGATE_RM_32_BIT: u8 = 0xF7;
 pub const NEGATE_OPCODE_EXT: u8 = 0x03;
 
 pub const COMPARE_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
+pub const COMPARE_RM_32_BIT_WITH_REG: u8 = 0x39;
 pub const COMPARE_REG_WITH_RM_32_BIT: u8 = 0x3B;
 
 pub const COMPARE_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;

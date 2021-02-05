@@ -4288,6 +4288,46 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
 
         */
         ComparisonOperation{
+            src1: LongConstant(val1),
+            src2: LongConstant(val2)
+        } => {
+
+            let reg = get_register_for_size(8);
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: LongConstant(*val1),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            if *val2 >= i32::min_value as i64 && *val2 <= i32::max_value as i64 {
+                updated_instructions.push(
+                    ByteCode::Compare(
+                        ComparisonOperation {
+                            src1: PhysicalRegister(reg),
+                            src2: IntegerConstant(*val2 as i32),
+                        }
+                    )
+                );
+            } else {
+                let reg2 = get_register_for_size2(8);
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: LongConstant(*val2),
+                        dest: PhysicalRegister(reg2),
+                    }
+                ));
+                updated_instructions.push(
+                    ByteCode::Compare(
+                        ComparisonOperation {
+                            src1: PhysicalRegister(reg),
+                            src2: PhysicalRegister(reg2),
+                        }
+                    ));
+            }
+
+        },
+        ComparisonOperation{
             src1: IntegerConstant(val1),
             src2: IntegerConstant(val2)
         } => {
@@ -4310,6 +4350,29 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             );
 
         },
+        ComparisonOperation{
+            src1: ByteConstant(val1),
+            src2: ByteConstant(val2)
+        } => {
+
+            let reg = get_register_for_size(1);
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: ByteConstant(*val1),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: ByteConstant(*val2),
+                    }
+                )
+            );
+
+        },
         /*
             A CMP constant
 
@@ -4317,6 +4380,45 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             CMP a, constant
 
         */
+        ComparisonOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(val),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            if *val >= i32::min_value as i64 && *val <= i32::max_value as i64 {
+                updated_instructions.push(
+                    ByteCode::Compare(
+                        ComparisonOperation {
+                            src1: StackOffset {
+                                offset: stack_slot.offset,
+                                size: stack_slot.size,
+                            },
+                            src2: IntegerConstant(*val as i32),
+                        }
+                    )
+                )
+            } else {
+                let reg = get_register_for_size(8);
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: LongConstant(*val),
+                        dest: PhysicalRegister(reg),
+                    }
+                ));
+                updated_instructions.push(
+                    ByteCode::Compare(
+                        ComparisonOperation {
+                            src1: StackOffset {
+                                offset: stack_slot.offset,
+                                size: stack_slot.size,
+                            },
+                            src2: PhysicalRegister(reg),
+                        }
+                    )
+                )
+            }
+        },
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
             src2: IntegerConstant(val),
@@ -4335,20 +4437,11 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 )
             )
         },
-        /*
-             A CMP byte_constant
-
-             emit:
-             CMP A, byte_constant
-
-         */
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
-            src2: constant @ ByteConstant(_),
-        } | ComparisonOperation {
-            src1: constant @ ByteConstant(_),
-            src2: VirtualRegister(src_vregdata)
+            src2: ByteConstant(val),
         } => {
+
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             updated_instructions.push(
                 ByteCode::Compare(
@@ -4357,11 +4450,10 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                             offset: stack_slot.offset,
                             size: stack_slot.size,
                         },
-                        src2: constant.clone()
+                        src2: ByteConstant(*val),
                     }
                 )
             )
-
         },
         /*
             constant CMP A
@@ -4370,6 +4462,34 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             MOV tmp_reg, constant
             CMP tmp_reg, A
         */
+        ComparisonOperation {
+            src1: LongConstant(val),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let reg = get_register_for_size(stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: LongConstant(*val),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        }
+                    }
+                )
+            );
+
+        },
         ComparisonOperation {
             src1: IntegerConstant(val),
             src2: VirtualRegister(src_vregdata),
@@ -4398,14 +4518,40 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             );
 
         },
+        ComparisonOperation {
+            src1: ByteConstant(val),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let reg = get_register_for_size(stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: ByteConstant(*val),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        }
+                    }
+                )
+            );
+
+        },
         /*
             A CMP B
 
             emit:
             MOV tmp_reg, A
             CMP tmp_reg, B
-
-
 
         */
         ComparisonOperation {

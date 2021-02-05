@@ -1565,6 +1565,7 @@ impl SemanticsCheck {
 
         let mut accepted_types = vec![
             Type::IntegralNumber,
+            Type::Long,
             Type::Integer,
             Type::Byte,
             Type::Float,
