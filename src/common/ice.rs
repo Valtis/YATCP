@@ -24,15 +24,15 @@ pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
 
     // filter out non-compiler frames - don't care about Rust stdlib internals
     // also skip this function
-    'out:
-    for (i, frame) in bt.frames().iter().skip(1).enumerate() {
+    let mut i = 0;
+    for frame in bt.frames().iter() {
 
         for symbol in frame.symbols().iter() {
             let name = if let Some(name) = symbol.name() {
                 let name = name.to_string();
 
-                if !name.starts_with("compiler") {
-                    break 'out;
+                if !name.starts_with("compiler") || name.contains("print_and_panic") {
+                    continue;
                 }
 
                 let mut split_name = name.split("::").peekable();
@@ -93,8 +93,9 @@ pub fn print_and_panic(msg: &str, file: &str, column: u32) -> !  {
 
             stderr_handle.write(format!("   {}: {}\n", i, name).as_bytes()).unwrap();
             stderr_handle.write(format!("\t     at {}:{}:{}\n", file, line, column).as_bytes()).unwrap();
+            i += 1;
         }
-    };
+    }
 
     std::process::exit(255);
 }
