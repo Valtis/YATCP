@@ -190,7 +190,8 @@ fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             src: StackOffset { size, offset },
         } => {
             match (dest_reg.size(), size) {
-                (4, 1) => emit_mov_sign_extend_byte_to_integer_stack(*dest_reg, *offset, *size, asm),
+                (4, 1) | (8, 1) => emit_mov_sign_extend_byte_stack_to_integer_register(*dest_reg, *offset, *size, asm),
+                (8, 4) => emit_mov_sign_extend_integer_stack_to_long_register(*dest_reg, *offset, *size, asm),
                 _ => ice!("Invalid register {:?} and size {}", dest_reg, size),
             }
         }
@@ -198,7 +199,7 @@ fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     }
 }
 
-fn emit_mov_sign_extend_byte_to_integer_stack(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_mov_sign_extend_byte_stack_to_integer_register(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
     ice_if!(dest.size() < 4, "Invalid register: {:?}", dest);
     ice_if!(size != 1, "Invalid size {}", size);
 
@@ -215,7 +216,31 @@ fn emit_mov_sign_extend_byte_to_integer_stack(dest: X64Register, offset: u32, si
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(MOV_SIGN_EXTEND_8_BIT_TO_32_BIT),
+        SizedOpCode::from(MOV_SIGN_EXTEND_RM_8_BIT_TO_REG_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn emit_mov_sign_extend_integer_stack_to_long_register(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() != 8, "Invalid register: {:?}", dest);
+    ice_if!(size != 4, "Invalid size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_SIGN_EXTEND_RM_32_BIT_TO_REG_32_BIT),
         Some(modrm),
         sib,
         None,
@@ -254,7 +279,7 @@ fn emit_mov_zero_extend_byte_to_integer_stack(dest: X64Register, offset: u32, si
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(MOV_ZERO_EXTEND_8_BIT_TO_32_BIT),
+        SizedOpCode::from(MOV_ZERO_EXTEND_RM_8_BIT_TO_REG_32_BIT),
         Some(modrm),
         sib,
         None,
@@ -655,7 +680,7 @@ fn emit_mov_long_to_stack_reg_indexed_with_offset(index: X64Register, displaceme
 
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(Scale::Eight),
             Some(X64Register::RBP),
             Some(index),
             Some(displacement));
@@ -756,10 +781,16 @@ fn emit_mov_byte_to_stack_reg_indexed_with_offset(index: X64Register, displaceme
     immediate: no
 */
 fn emit_mov_integer_register_to_stack_reg_indexed_with_offset(index: X64Register, displacement: u32, src: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(src.size() < 4, "Invalid src register {:?}", src);
+
+    let scale = match src.size() {
+        4 => Scale::Four,
+        8 => Scale::Eight,
+        _ => ice!("Invalid register size {}, reg {:?}", src.size(), src),
+    };
+
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(scale),
             Some(X64Register::RBP),
             Some(index),
             Some(displacement));
@@ -828,10 +859,15 @@ Rex prefix: If 64 bit regs used
     immediate: no
 */
 fn emit_mov_integer_stack_reg_indexed_with_offset_to_register(index: X64Register, displacement: u32, dest: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(dest.size() < 4, "Invalid dest register {:?}", dest);
+
+    let scale = match dest.size() {
+        4 => Scale::Four,
+        8 => Scale::Eight,
+        _ => ice!("Invalid register size {}, reg {:?}", dest.size(), dest),
+    };
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(scale),
             Some(X64Register::RBP),
             Some(index),
             Some(displacement));
@@ -1203,11 +1239,15 @@ fn emit_mov_indirect_byte_to_register(base_reg: X64Register, offset: u32, dest: 
 
 fn emit_mov_indirect_integer_indexed_to_reg(base: X64Register, index: X64Register, dest: X64Register, asm: &mut Vec<u8>) {
 
-    ice_if!(!dest.size() < 4, "Invalid register {:?}", dest);
+    let scale = match dest.size() {
+        4 => Scale::Four,
+        8 => Scale::Eight,
+        _ => ice!("Invalid register size {}, reg {:?}", dest.size(), dest),
+    };
 
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(scale),
             Some(base),
             Some(index),
             None);
@@ -1227,8 +1267,8 @@ fn emit_mov_indirect_integer_indexed_to_reg(base: X64Register, index: X64Registe
         sib,
         None,
     );
-}
 
+}
 
 fn emit_mov_indirect_byte_indexed_to_reg(base: X64Register, index: X64Register, dest: X64Register, asm: &mut Vec<u8>) {
 
@@ -1305,11 +1345,16 @@ fn emit_mov_reg_to_indirect_byte(base_reg: X64Register, offset: u32, src: X64Reg
 
 
 fn emit_mov_reg_to_indirect_integer_indexed(base: X64Register, index: X64Register, src: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(src.size() < 4, "Invalid register {:?}", src);
+    let scale = match src.size() {
+        4 => Scale::Four,
+        8 => Scale::Eight,
+        _ => ice!("Invalid register size {}, reg {:?}", src.size(), src),
+    };
+
 
     let (addressing_mode, sib) =
         get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
-            Some(Scale::Four),
+            Some(scale),
             Some(base),
             Some(index),
             None);

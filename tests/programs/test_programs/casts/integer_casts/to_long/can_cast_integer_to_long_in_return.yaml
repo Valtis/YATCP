@@ -1,0 +1,18 @@
+program: |
+    extern fn long_printer(value: long);
+
+    fn main() : int {
+        long_printer(long_returner());
+        return 0;
+    }
+
+    fn long_returner() : long {
+      let a: int = 4;
+      return a as long;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    4
+

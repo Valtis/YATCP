@@ -1,0 +1,12 @@
+program: |
+    extern fn long_printer(value: long);
+
+    fn main() : int {
+        let x: long = 100 as long;
+        long_printer(x);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    100

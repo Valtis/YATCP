@@ -1,0 +1,11 @@
+program: |
+    extern fn long_printer(value: long);
+
+    fn main() : int {
+        long_printer(40b as long);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  40

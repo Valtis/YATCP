@@ -1,0 +1,17 @@
+program: |
+    extern fn byte_printer(value: byte);
+
+    fn main() : int {
+        byte_printer(long_returner() as byte);
+        return 0;
+    }
+
+    fn long_returner() : long {
+        return 124;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    124
+
