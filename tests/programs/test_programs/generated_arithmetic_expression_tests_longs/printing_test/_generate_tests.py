@@ -269,6 +269,160 @@ test_tuples = [
         a = a%b;""",
         "a",
         1),
+
+    # bitwise AND
+
+    ("large_long_constant_constant_bitwise_and_works",
+        "let a = 14000000000001l & 7000000000000l;",
+        "a",
+        4507568332800),
+
+    ("large_long_variable_constant_bitwise_and_works",
+        """
+        let a = 14000000000001l;
+        let b = a & 7000000000000l;""",
+        "b",
+        4507568332800),
+    ("large_long_variable_constant_self_bitwise_and_works",
+        """
+        let a = 14000000000001l;
+        a = a & 7000000000000l;""",
+        "a",
+        4507568332800),
+
+    ("large_long_constant_variable_bitwise_and_works",
+        """
+        let a = 7000000000000l;
+        let b = 14000000000001l & a;""",
+        "b",
+        4507568332800),
+    ("large_long_constant_variable_self_bitwise_and_works",
+        """
+        let a = 7000000000000l;
+        a = 14000000000001l & a;""",
+        "a",
+        4507568332800),
+
+
+    ("large_long_varible_variable_bitwise_and_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        let c = a & b;
+        """,
+        "c",
+        4507568332800),
+    ("large_long_variable_variable_self_bitwise_and_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        a = a & b;""",
+        "a",
+        4507568332800),
+
+    # bitwise OR
+
+    ("large_long_constant_constant_bitwise_or_works",
+        "let a = 14000000000001l | 7000000000000l;",
+        "a",
+        16492431667201),
+
+    ("large_long_variable_constant__bitwise_or_works",
+        """
+        let a = 14000000000001l;
+        let b = a | 7000000000000l;""",
+        "b",
+        16492431667201),
+    ("large_long_variable_constant_self_bitwise_or_works",
+        """
+        let a = 14000000000001l;
+        a = a | 7000000000000l;""",
+        "a",
+        16492431667201),
+
+    ("large_long_constant_variable_bitwise_or_works",
+        """
+        let a = 7000000000000l;
+        let b = 14000000000001l | a;""",
+        "b",
+        16492431667201),
+    ("large_long_constant_variable_self_bitwise_or_works",
+        """
+        let a = 7000000000000l;
+        a = 14000000000001l | a;""",
+        "a",
+        16492431667201),
+
+
+    ("large_long_varible_variable_bitwise_or_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        let c = a | b;
+        """,
+        "c",
+        16492431667201),
+    ("large_long_variable_variable_self_bitwise_or_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        a = a | b;""",
+        "a",
+        16492431667201),
+
+
+
+    # bitwise XOR
+
+    ("large_long_constant_constant_bitwise_xor_works",
+        "let a = 14000000000001l ^ 7000000000000l;",
+        "a",
+        11984863334401),
+
+    ("large_long_variable_constant_bitwise_xor_works",
+        """
+        let a = 14000000000001l;
+        let b = a ^ 7000000000000l;""",
+        "b",
+        11984863334401),
+    ("large_long_variable_constant_self_bitwise_xor_works",
+        """
+        let a = 14000000000001l;
+        a = a ^ 7000000000000l;""",
+        "a",
+        11984863334401),
+
+    ("large_long_constant_variable_bitwise_xor_works",
+        """
+        let a = 7000000000000l;
+        let b = 14000000000001l ^ a;""",
+        "b",
+        11984863334401),
+    ("large_long_constant_variable_self_bitwise_xor_works",
+        """
+        let a = 7000000000000l;
+        a = 14000000000001l ^ a;""",
+        "a",
+        11984863334401),
+
+
+    ("large_long_varible_variable_bitwise_xor_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        let c = a ^ b;
+        """,
+        "c",
+        11984863334401),
+    ("large_long_variable_variable_self_bitwise_xor_works",
+        """
+        let a = 14000000000001l;
+        let b = 7000000000000l;
+        a = a ^ b;""",
+        "a",
+        11984863334401),
+
+
 ]
 
 for t in test_tuples:

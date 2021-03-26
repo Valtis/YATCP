@@ -2680,6 +2680,20 @@ fn emit_and(operands: &BinaryOperation, asm: &mut Vec<u8>) {
         BinaryOperation {
             dest: PhysicalRegister(dest_reg),
             src1: PhysicalRegister(src_reg),
+            src2: PhysicalRegister(src_reg2),
+        } => {
+            ice_if!(dest_reg != src_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operands);
+
+            match dest_reg.size() {
+                // not implemented for bytes for now
+                4 | 8 => emit_and_integer_reg_with_reg(*dest_reg, *src_reg2, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src_reg),
             src2: IntegerConstant(immediate),
         } => {
             ice_if!(dest_reg != src_reg,
@@ -2747,6 +2761,39 @@ fn emit_and(operands: &BinaryOperation, asm: &mut Vec<u8>) {
         },
         _ => ice!("Invalid operand encoding for AND: {:#?}", operands),
     }
+}
+
+/*
+    AND dst_reg, src_reg
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct register addressing
+    SIB: byte not used, struct used to pass displacement
+    Immediate: Not used
+*/
+
+fn emit_and_integer_reg_with_reg(dest_reg: X64Register, src_reg: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
+    ice_if!(src_reg.size() < 4, "Invalid register {:?}", src_reg);
+    ice_if!(dest_reg.size() != src_reg.size(), "Invalid register sizes {:?} vs {:?}", dest_reg, src_reg);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        rm_field: RmField::Register(src_reg),
+        reg_field: RegField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.size() == 8, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(AND_RM_32_BIT_WITH_REG),
+        Some(modrm),
+        None,
+        None,
+    );
 }
 
 /*
@@ -3654,18 +3701,6 @@ fn emit_shl(operands: &BinaryOperation, asm: &mut Vec<u8>) {
     match operands {
         BinaryOperation {
             src1: PhysicalRegister(src_reg),
-            src2: ByteConstant(immediate),
-            dest: PhysicalRegister(dest_reg),
-        } if dest_reg == src_reg => {
-            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
-            match dest_reg.size() {
-                1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate as i32, asm),
-                4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate as i32, asm),
-                _ => ice!("Invalid size {}", dest_reg.size()),
-            }
-        },
-        BinaryOperation {
-            src1: PhysicalRegister(src_reg),
             src2: IntegerConstant(immediate),
             dest: PhysicalRegister(dest_reg),
         } if dest_reg == src_reg => {
@@ -3673,18 +3708,6 @@ fn emit_shl(operands: &BinaryOperation, asm: &mut Vec<u8>) {
             match dest_reg.size() {
                 1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate, asm),
                 4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate, asm),
-                _ => ice!("Invalid size {}", dest_reg.size()),
-            }
-        },
-        BinaryOperation {
-            src1: PhysicalRegister(src_reg),
-            src2: LongConstant(immediate),
-            dest: PhysicalRegister(dest_reg),
-        } if dest_reg == src_reg => {
-            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
-            match dest_reg.size() {
-                1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate as i32, asm),
-                4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate as i32, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },

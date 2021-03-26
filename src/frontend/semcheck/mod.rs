@@ -1666,6 +1666,7 @@ impl SemanticsCheck {
 
 
         let valid_types = [
+            Type::Long,
             Type::Integer,
             Type::Byte,
             Type::IntegralNumber,
