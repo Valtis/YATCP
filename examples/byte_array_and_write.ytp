@@ -1,8 +1,8 @@
-extern fn write(fd: int, buffer: byte[], length: int);
+extern fn write(fd: int, buffer: byte[]);
 
 const STDOUT_FD: int = 1;
 
 fn main() {
 	let buffer: byte[] = "Hello!\n";
-	write(STDOUT_FD, buffer, buffer.length);
+	write(STDOUT_FD, buffer);
 }
