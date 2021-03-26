@@ -1258,6 +1258,15 @@ impl Parser {
                     AstNode::IntegralNumber{ value, span } => {
                         Ok(AstNode::IntegralNumber{value: -value, span: span.clone() })
                     },
+                    AstNode::Byte{ value: AstByte::Invalid(x), span } if x == (i8::MAX as i128) + 1 => {
+                        Ok(AstNode::Byte{value: AstByte::Byte(i8::MIN), span: span.clone() })
+                    },
+                    AstNode::Integer{ value: AstInteger::Invalid(x), span } if x == (i32::MAX as i128) + 1 => {
+                        Ok(AstNode::Integer{value: AstInteger::Int(i32::MIN), span: span.clone() })
+                    },
+                    AstNode::Long{ value: AstLong::Invalid(x), span } if x == (i64::MAX as i128) + 1 => {
+                        Ok(AstNode::Long{value: AstLong::Long(i64::MIN), span: span.clone() })
+                    },
                     _ => {
                         Ok(AstNode::Negate{
                             expression: Box::new(node),

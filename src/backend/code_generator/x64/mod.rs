@@ -3654,6 +3654,18 @@ fn emit_shl(operands: &BinaryOperation, asm: &mut Vec<u8>) {
     match operands {
         BinaryOperation {
             src1: PhysicalRegister(src_reg),
+            src2: ByteConstant(immediate),
+            dest: PhysicalRegister(dest_reg),
+        } if dest_reg == src_reg => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
+            match dest_reg.size() {
+                1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate as i32, asm),
+                4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate as i32, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            src1: PhysicalRegister(src_reg),
             src2: IntegerConstant(immediate),
             dest: PhysicalRegister(dest_reg),
         } if dest_reg == src_reg => {
@@ -3661,6 +3673,18 @@ fn emit_shl(operands: &BinaryOperation, asm: &mut Vec<u8>) {
             match dest_reg.size() {
                 1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate, asm),
                 4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation {
+            src1: PhysicalRegister(src_reg),
+            src2: LongConstant(immediate),
+            dest: PhysicalRegister(dest_reg),
+        } if dest_reg == src_reg => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
+            match dest_reg.size() {
+                1 => emit_shl_byte_reg_with_immediate(*dest_reg, *immediate as i32, asm),
+                4 | 8 => emit_shl_integer_reg_with_immediate(*dest_reg, *immediate as i32, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },

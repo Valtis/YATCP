@@ -392,6 +392,210 @@ test_tuples = [
         -5),
 
 
+    # logical shift left
+    ("constant_constant_shl_works",
+        """
+        let a: byte = 4b << 2;
+        """,
+        "a",
+        16),
+
+    ("variable_constant_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = a << 2b;
+        """,
+        "b",
+        16),
+
+    ("variable_constant_self_assignment_shl_works",
+        """
+        let a: byte = 4;
+        a = a << 2;
+        """,
+        "a",
+        16),
+
+    ("constant_variable_shl_works",
+        """
+        let a: byte = 2b;
+        let b: byte = 4b << a;
+        """,
+        "b",
+        16),
+
+    ("constant_variable_self_assignment_shl_works",
+        """
+        let a: byte = 2;
+        a = 4b << a;
+        """,
+        "a",
+        16),
+
+    ("variable_variable_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = 2;
+        let c: byte = a << b;
+        """,
+        "c",
+        16),
+
+    ("variable_variable_self_assignment_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = 2;
+         a = a << b;
+        """,
+        "a",
+        16),
+
+    ("variable_variable_self_assignment_rhs_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = 2;
+        b = a << b;
+        """,
+        "b",
+        16),
+
+    # logical shift right
+
+    ("constant_constant_shr_works",
+        """
+        let a: byte = -128b >>> 1b;
+        """,
+        "a",
+        64),
+
+    ("variable_constant_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >>> 1;
+        """,
+        "b",
+        64),
+
+    ("variable_constant_self_assignment_shr_works",
+        """
+        let a: byte = -128;
+        a = a >>> 1;
+        """,
+        "a",
+        64),
+
+    ("constant_variable_shr_works",
+        """
+        let a: byte = 1;
+        let b: byte = -128b >>> a;
+        """,
+        "b",
+        64),
+
+    ("constant_variable_self_assignment_shr_works",
+        """
+        let a: byte = 1;
+        a = -128b >>> a;
+        """,
+        "a",
+        64),
+
+    ("variable_variable_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+        let c: byte = a >>> b;
+        """,
+        "c",
+        64),
+
+    ("variable_variable_self_assignment_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+        a = a >>> b;
+        """,
+        "a",
+        64),
+
+    ("variable_variable_self_assignment_rhs_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+        b = a >>> b;
+        """,
+        "b",
+        64),
+
+
+    # arithmetic shift right
+
+    ("constant_constant_sar_works",
+        """
+        let a: byte = -128b >> 1b;
+        """,
+        "a",
+        -64),
+
+    ("variable_constant_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >> 1;
+        """,
+        "b",
+        -64),
+
+    ("variable_constant_self_assignment_sar_works",
+        """
+        let a: byte = -128;
+        a = a >> 1;
+        """,
+        "a",
+        -64),
+
+    ("constant_variable_sar_works",
+        """
+        let a: byte = 1;
+        let b: byte = -128b >> a;
+        """,
+        "b",
+        -64),
+
+    ("constant_variable_self_assignment_sar_works",
+        """
+        let a: byte = 1;
+        a = -128b >> a;
+        """,
+        "a",
+        -64),
+
+    ("variable_variable_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+        let c: byte = a >> b;
+        """,
+        "c",
+        -64),
+
+    ("variable_variable_self_assignment_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+         a = a >> b;
+        """,
+        "a",
+        -64),
+
+    ("variable_variable_self_assignment_rhs_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = 1;
+        b = a >> b;
+        """,
+        "b",
+        -64),
+
     # bitwise AND
     ("constant_constant_bitwise_and_works",
         """

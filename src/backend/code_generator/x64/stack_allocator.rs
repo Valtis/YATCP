@@ -300,23 +300,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
             ice_if!(vregdata.size > stack_slot.size, "Attempt to store {} bytes into stack slot with size {}", vregdata.size, stack_slot.size);
 
-            if *val <= i32::MAX as i64 && *val >= i32::MIN as i64 {
-                updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                    dest: StackOffset { offset: stack_slot.offset, size: vregdata.size },
-                    src: LongConstant(*val),
-                }));
-            } else {
-                let tmp_reg = get_register_for_size(vregdata.size);
-                updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                    dest: PhysicalRegister(tmp_reg),
-                    src: LongConstant(*val),
-                }));
-                updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                    dest: StackOffset { offset: stack_slot.offset, size: vregdata.size },
-                    src: PhysicalRegister(tmp_reg),
-                }));
-
-            }
+            mov_long_constant_to_stack(updated_instructions, val, stack_slot)
         },
         UnaryOperation{
             dest: VirtualRegister(ref vregdata),
@@ -1079,6 +1063,25 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ));
         },
         _ => unimplemented!("Not implemented for {:#?}", unary_op),
+    }
+}
+
+fn mov_long_constant_to_stack(updated_instructions: &mut Vec<ByteCode>, val: &i64, stack_slot: &StackSlot) {
+    if *val <= i32::MAX as i64 && *val >= i32::MIN as i64 {
+        updated_instructions.push(ByteCode::Mov(UnaryOperation {
+            dest: StackOffset { offset: stack_slot.offset, size: 8 },
+            src: LongConstant(*val),
+        }));
+    } else {
+        let tmp_reg = get_register_for_size(8);
+        updated_instructions.push(ByteCode::Mov(UnaryOperation {
+            dest: PhysicalRegister(tmp_reg),
+            src: LongConstant(*val),
+        }));
+        updated_instructions.push(ByteCode::Mov(UnaryOperation {
+            dest: StackOffset { offset: stack_slot.offset, size: 8 },
+            src: PhysicalRegister(tmp_reg),
+        }));
     }
 }
 
@@ -2956,6 +2959,44 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: ByteConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+            }));
+        },
+
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
             src2: IntegerConstant(count)
         } if dest_vregdata.id != src_vregdata.id => {
 
@@ -2990,6 +3031,44 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     },
             }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: LongConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+            }));
+        },
+
         /*
             x = x << constant
 
@@ -2997,6 +3076,24 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             shl [x], count
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: ByteConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
@@ -3016,6 +3113,25 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: stack_offset,
                 }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: LongConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         /*
             x = constant << x
             OR
@@ -3029,6 +3145,45 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             shl [x], cl
 
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: ByteConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+             updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*count),
+                    dest: stack_offset.clone(),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: IntegerConstant(count),
@@ -3067,6 +3222,43 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     src2: PhysicalRegister(X64Register::CL),
                     dest: stack_offset,
                 }));
+        },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: LongConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+
+            mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot);
+
+            updated_instructions.push(
+                ByteCode::Shl(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+
+            let x: i32 = 4;
         },
 
         BinaryOperation {
@@ -3117,7 +3309,6 @@ fn handle_shl_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             }
 
-
             updated_instructions.push(
                 ByteCode::Shl(BinaryOperation{
                     src1: dest_slot.clone(),
@@ -3141,6 +3332,43 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             sar reg, count
             mov y, reg
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: ByteConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+            }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
@@ -3178,6 +3406,43 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     },
             }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: LongConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+            }));
+        },
         /*
             x = x >> constant
 
@@ -3185,6 +3450,25 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             sar [x], count
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: ByteConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
@@ -3204,6 +3488,25 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: stack_offset,
                 }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: LongConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         /*
             x = constant >> x
             OR
@@ -3217,6 +3520,46 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             sar [x], cl
 
         */
+       BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: ByteConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+             updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*count),
+                    dest: stack_offset.clone(),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+        },
+
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: IntegerConstant(count),
@@ -3256,6 +3599,42 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: stack_offset,
                 }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: LongConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+
+            mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot);
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+        },
+
 
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
@@ -3333,6 +3712,43 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: ByteConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+                }));
+        },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
             src2: IntegerConstant(count)
         } if dest_vregdata.id != src_vregdata.id => {
 
@@ -3367,6 +3783,43 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     },
                 }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: LongConstant(*count),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+                }));
+        },
         /*
             x = x >>> constant
 
@@ -3374,6 +3827,25 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             shr [x], count
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: ByteConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
@@ -3393,6 +3865,25 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: stack_offset,
                 }));
         },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: LongConstant(*count),
+                    dest: stack_offset,
+                }));
+        },
         /*
             x = constant >>> x
             OR
@@ -3406,6 +3897,45 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             shr [x], cl
 
         */
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: ByteConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*count),
+                    dest: stack_offset.clone(),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+        },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: IntegerConstant(count),
@@ -3437,6 +3967,40 @@ fn handle_shr_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: stack_offset.clone(),
                 }));
 
+
+            updated_instructions.push(
+                ByteCode::Shr(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(X64Register::CL),
+                    dest: stack_offset,
+                }));
+        },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: LongConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let cl_reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot);
 
             updated_instructions.push(
                 ByteCode::Shr(BinaryOperation{

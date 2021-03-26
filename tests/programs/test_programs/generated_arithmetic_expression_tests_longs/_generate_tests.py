@@ -14,22 +14,22 @@ test_tuples = [
     # constant
     ("positive_constant_expression_works",
         "",
-        "4",
+        "4l",
         4),
     ("negative_constant_expression_works",
         "",
-        "-4",
+        "-4l",
         -4),
 
 
     # addition
     ("constant_constant_addition_works",
         "",
-        "2 + 9",
+        "2l + 9l",
         11),
     ("constant_constant_addition_with_negative_number_works",
         "",
-        "10 + (-5)",
+        "10l + (-5l)",
         5),
     ("variable_constant_addition_works",
         "let a: long = 24;",
@@ -390,7 +390,7 @@ test_tuples = [
 
     ("constant_constant_shl_works",
         """
-        let a: long = 4 << 2;
+        let a: long = 4l << 2l;
         """,
         "a",
         16),
@@ -411,10 +411,26 @@ test_tuples = [
         "a",
         16),
 
-    ("constant_variable_shl_works",
+    ("constant_variable_shl_long_works",
         """
         let a: long = 2;
-        let b: long = 4 << a;
+        let b: long = 4l << a;
+        """,
+        "b",
+        16),
+
+    ("constant_variable_shl_int_works",
+        """
+        let a: int = 2;
+        let b: long = 4l << a;
+        """,
+        "b",
+        16),
+
+    ("constant_variable_shl_byte_works",
+        """
+        let a: int = 2;
+        let b: long = 4l << a;
         """,
         "b",
         16),
@@ -422,7 +438,7 @@ test_tuples = [
     ("constant_variable_self_assignment_shl_works",
         """
         let a: long = 2;
-        a = 4 << a;
+        a = 4l << a;
         """,
         "a",
         16),
@@ -457,139 +473,139 @@ test_tuples = [
     # logical shift right
 
     ("constant_constant_shr_works",
-        """
-        let a: long = -2147483648 >>> 1;
+        f"""
+        let a: long =  {LONG_MIN}l >>> 1;
         """,
         "a",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("variable_constant_shr_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = a >>> 1;
         """,
         "b",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("variable_constant_self_assignment_shr_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         a = a >>> 1;
         """,
         "a",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("constant_variable_shr_works",
-        """
+        f"""
         let a: long = 1;
-        let b: long = -2147483648 >>> a;
+        let b: long = {LONG_MIN}l >>> a;
         """,
         "b",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("constant_variable_self_assignment_shr_works",
-        """
+        f"""
         let a: long = 1;
-        a = -2147483648 >>> a;
+        a = {LONG_MIN}l >>> a;
         """,
         "a",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("variable_variable_shr_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
         let c: long = a >>> b;
         """,
         "c",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("variable_variable_self_assignment_shr_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
          a = a >>> b;
         """,
         "a",
-        1073741824),
+        LONG_MAX//2+1),
 
     ("variable_variable_self_assignment_rhs_shr_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
         b = a >>> b;
         """,
         "b",
-        1073741824),
+        LONG_MAX//2+1),
 
 
     # arithmetic shift right
 
     ("constant_constant_sar_works",
-        """
-        let a: long = -2147483648 >> 1;
+        f"""
+        let a: long = {LONG_MIN}l >> 1;
         """,
         "a",
-        -1073741824),
+        LONG_MIN//2),
 
     ("variable_constant_sar_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = a >> 1;
         """,
         "b",
-        -1073741824),
+        LONG_MIN//2),
 
     ("variable_constant_self_assignment_sar_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         a = a >> 1;
         """,
         "a",
-        -1073741824),
+        LONG_MIN//2),
 
     ("constant_variable_sar_works",
-        """
+        f"""
         let a: long = 1;
-        let b: long = -2147483648 >> a;
+        let b: long = {LONG_MIN}l >> a;
         """,
         "b",
-        -1073741824),
+        LONG_MIN//2),
 
     ("constant_variable_self_assignment_sar_works",
-        """
+        f"""
         let a: long = 1;
-        a = -2147483648 >> a;
+        a = {LONG_MIN}l >> a;
         """,
         "a",
-        -1073741824),
+         LONG_MIN//2),
 
     ("variable_variable_sar_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
         let c: long = a >> b;
         """,
         "c",
-        -1073741824),
+         LONG_MIN//2),
 
     ("variable_variable_self_assignment_sar_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
          a = a >> b;
         """,
         "a",
-        -1073741824),
+         LONG_MIN//2),
 
     ("variable_variable_self_assignment_rhs_sar_works",
-        """
-        let a: long = -2147483648;
+        f"""
+        let a: long = {LONG_MIN}l;
         let b: long = 1;
         b = a >> b;
         """,
         "b",
-        -1073741824),
+         LONG_MIN//2),
 
     # bitwise AND
     ("constant_constant_bitwise_and_works",
@@ -985,7 +1001,7 @@ test_tuples = [
         a >>>= 2;
         """,
         "a",
-        1073741820),
+        4611686018427387900),
 
 
     ("self_shr_shorthand_works_with_arrays",
@@ -994,7 +1010,7 @@ test_tuples = [
         a[0] >>>= 2;
         """,
         "a[0]",
-        1073741820),
+        4611686018427387900),
 
     # &=
 
