@@ -149,7 +149,7 @@ mod tests {
         types::Type,
     };
 
-    use super::super::super::cfg::{Adj, basic_block::BasicBlock};
+    use super::super::super::cfg::{Adjacency, basic_block::BasicBlock};
 
     use std::rc::Rc;
 
@@ -210,7 +210,7 @@ mod tests {
                 },
             ],
             adjacency_list: vec![
-                vec![Adj::End],
+                vec![Adjacency::End],
             ],
             dominance_frontier: vec![],
             immediate_dominators: vec![],
@@ -239,7 +239,7 @@ mod tests {
             f.statements[1]);
 
         assert_eq!(1, cfg.adjacency_list.len());
-        assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+        assert_eq!(vec![Adjacency::End], cfg.adjacency_list[0]);
     }
 
 
@@ -282,7 +282,7 @@ mod tests {
                 },
             ],
             adjacency_list: vec![
-                vec![Adj::End],
+                vec![Adjacency::End],
             ],
             dominance_frontier: vec![],
             immediate_dominators: vec![],
@@ -315,7 +315,7 @@ mod tests {
             f.statements[1]);
 
         assert_eq!(1, cfg.adjacency_list.len());
-        assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+        assert_eq!(vec![Adjacency::End], cfg.adjacency_list[0]);
     }
 
     #[test]
@@ -367,7 +367,7 @@ mod tests {
                 },
             ],
             adjacency_list: vec![
-                vec![Adj::End],
+                vec![Adjacency::End],
             ],
             dominance_frontier: vec![],
             immediate_dominators: vec![],
@@ -404,7 +404,7 @@ mod tests {
             f.statements[2]);
 
         assert_eq!(1, cfg.adjacency_list.len());
-        assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+        assert_eq!(vec![Adjacency::End], cfg.adjacency_list[0]);
     }
 
     #[test]
@@ -440,7 +440,7 @@ mod tests {
                 },
             ],
             adjacency_list: vec![
-                vec![Adj::End],
+                vec![Adjacency::End],
             ],
             dominance_frontier: vec![],
             immediate_dominators: vec![],
@@ -469,6 +469,6 @@ mod tests {
             f.statements[1]);
 
         assert_eq!(1, cfg.adjacency_list.len());
-        assert_eq!(vec![Adj::End], cfg.adjacency_list[0]);
+        assert_eq!(vec![Adjacency::End], cfg.adjacency_list[0]);
     }
 }

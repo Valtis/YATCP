@@ -1,0 +1,26 @@
+program: |
+  extern fn boolean_printer(value: bool) : void;
+
+  fn test_function() : int {
+
+    return 124;
+    let a: bool[10] = false;
+
+    let i: int = 0;
+    while i < 10 {
+        boolean_printer(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c
+callable: test_function
+returns: int
+expect_stdout: |
+  124
+
+
+

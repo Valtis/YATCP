@@ -1,5 +1,5 @@
 use super::CFG;
-use super::{Adj};
+use super::{Adjacency};
 
 use crate::common::{
     function_attributes::FunctionAttribute,
@@ -40,7 +40,7 @@ fn check_function(
     let mut insert_positions = vec![];
 
     for (pos, adjacencies) in cfg.adjacency_list.iter().enumerate() {
-        if adjacencies.contains(&Adj::End) {
+        if adjacencies.contains(&Adjacency::End) {
 
             let bb = &cfg.basic_blocks[pos];
             match function.statements[bb.end-1] {

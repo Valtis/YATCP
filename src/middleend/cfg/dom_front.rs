@@ -1,4 +1,4 @@
-use super::super::cfg::{CFG, Adj};
+use super::super::cfg::{CFG, Adjacency};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -188,7 +188,7 @@ fn depth_first_search(
         visited.insert(node);
 
         for child in cfg.adjacency_list[node].iter() {
-            if let Adj::Block(id) = *child {
+            if let Adjacency::Block(id) = *child {
                 if !visited.contains(&id) {
                     depth_first_search(id, visited, post_order, cfg);
                 }

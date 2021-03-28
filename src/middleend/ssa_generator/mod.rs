@@ -1,4 +1,4 @@
-use super::cfg::{CFG, Adj};
+use super::cfg::{CFG, Adjacency};
 use super::cfg::basic_block::BasicBlock;
 
 use crate::common::{
@@ -215,7 +215,7 @@ fn search(
 
     // add variables to the phi-functions in child blocks
     for child in cfg.adjacency_list[block].iter() {
-        if let Adj::Block(block) = *child {
+        if let Adjacency::Block(block) = *child {
             for i in cfg.basic_blocks[block].start..cfg.basic_blocks[block].end {
                 match function.statements[i] {
                     Statement::PhiFunction(Operand::Variable(_, var_id), ref mut operands) |
