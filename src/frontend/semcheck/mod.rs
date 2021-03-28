@@ -880,7 +880,11 @@ impl SemanticsCheck {
             let last = self.constant_initializer_stack.len() - 1;
             self.constant_initializer_stack[last]
                 .insert(declaration_info.name.to_string(), init_expression.clone());
-
+        } else if self.get_type(init_expression) == Type::Invalid {
+            ice_if!(self.constant_initializer_stack.len() == 0, "Empty constant initializer stack");
+            let last = self.constant_initializer_stack.len() - 1;
+            self.constant_initializer_stack[last]
+                .insert(declaration_info.name.to_string(), AstNode::ErrorNode);
         } else {
             self.report_error(
                ReportKind::TypeError,
@@ -2087,6 +2091,7 @@ impl SemanticsCheck {
             },
             AstNode::InitializerList { values, ..} =>
                 values.iter().all(|value| self.is_constant(value) ),
+            AstNode::ErrorNode => true,
             _ => false,
         }
     }
@@ -2478,6 +2483,7 @@ impl SemanticsCheck {
                 *expression.clone()
             },
             node @ AstNode::InitializerList { .. }  => node.clone(),
+            AstNode::ErrorNode => AstNode::ErrorNode,
             _ => ice!("Non-constant node {}", node),
         }
     }
