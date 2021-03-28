@@ -50,8 +50,6 @@ impl TACGenerator {
     pub fn generate_tac_functions(mut self, node: &AstNode) -> Vec<Function> {
         self.generate_tac(node);
 
-        ice_if!(!self.operands.is_empty(), "Not all temporary operands were consumed");
-
         for function in self.functions.iter_mut() {
             if function.statements.is_empty() {
                function.statements.push(Statement::Empty); // Makes CFG generation easier, if we don't have completely empty function bodies
@@ -232,6 +230,7 @@ impl TACGenerator {
         }
 
         self.generate_tac(child);
+        self.operands.clear();
 
         self.functions.push(
             self.function_stack.pop().unwrap_or_else(

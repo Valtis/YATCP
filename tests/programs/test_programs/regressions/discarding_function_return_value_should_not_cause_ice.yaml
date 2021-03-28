@@ -1,0 +1,20 @@
+program: |
+  fn test_function() : int {
+          bar();
+          return 556;
+
+  }
+
+
+  fn bar() : int {
+          return 0;
+  }
+link_with:
+  - tests/files/support/support.c
+callable: test_function
+returns: int
+expect_stdout: |
+  556
+
+
+
