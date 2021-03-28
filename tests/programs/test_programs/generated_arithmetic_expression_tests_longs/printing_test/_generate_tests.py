@@ -423,6 +423,50 @@ test_tuples = [
         11984863334401),
 
 
+    # bitwise NOT
+    ("can_bitwise_not_constant",
+        """
+        let a: long = ~14000000000001l;
+        """,
+        "a",
+        -14000000000002),
+    ("can_bitwise_not_variable",
+        """
+        let a: long = 14000000000001l;
+        a = ~a;
+        """,
+        "a",
+        -14000000000002),
+    ("can_bitwise_not_negative_variable",
+        """
+        let a: long = -14000000000001l;
+        a = ~a;
+        """,
+        "a",
+        14000000000000),
+    ("can_bitwise_not_variable_when_assigning_to_another_variable",
+        """
+        let a: long = 14000000000001l;
+        let b: long = ~a;
+        """,
+        "b",
+        -14000000000002),
+    ("can_bitwise_not_negative_variable_when_assigning_to_another_variable",
+        """
+        let a: long = -14000000000001l;
+        let b: long = ~a;
+        """,
+        "b",
+        14000000000000),
+    ("can_bitwise_not_constant_variable",
+        f"""
+        const X: long = 14000000000001l;
+        let b: long = ~X;
+        """,
+        "b",
+        -14000000000002),
+
+
 ]
 
 for t in test_tuples:

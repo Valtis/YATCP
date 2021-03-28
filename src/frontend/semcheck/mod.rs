@@ -1416,30 +1416,20 @@ impl SemanticsCheck {
         let (ref valid_types, ref mut arithmetic_info) = match *node {
             AstNode::Plus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
-                (vec![
-                    Type::Byte,
-                    Type::Integer,
-                    Type::Long,
-                    Type::IntegralNumber,
-                    Type::Float,
-                    Type::Double,
-                    Type::String,
-                    Type::Invalid],
-                 arithmetic_info)
+                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                acceptable_types.push(Type::Invalid);
+                acceptable_types.push(Type::String);
+
+                (acceptable_types, arithmetic_info)
             },
             AstNode::Minus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } |
             AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
-                (vec![
-                    Type::Byte,
-                    Type::Integer,
-                    Type::Long,
-                    Type::IntegralNumber,
-                    Type::Float,
-                    Type::Double,
-                    Type::Invalid],
-                    arithmetic_info)
+                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                acceptable_types.push(Type::Invalid);
+
+                (acceptable_types, arithmetic_info)
             },
             AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
@@ -1451,15 +1441,11 @@ impl SemanticsCheck {
                            "Division by zero".to_owned(),
                        )
                 };
-                (vec![
-                    Type::Byte,
-                    Type::Integer,
-                    Type::Long,
-                    Type::IntegralNumber,
-                    Type::Float,
-                    Type::Double,
-                    Type::Invalid],
-                    arithmetic_info)
+
+                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                acceptable_types.push(Type::Invalid);
+
+                (acceptable_types, arithmetic_info)
 
             },
             AstNode::Modulo{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
@@ -1473,13 +1459,10 @@ impl SemanticsCheck {
                             "Division by zero".to_owned(),
                         )
                 };
-                (vec![
-                    Type::IntegralNumber,
-                    Type::Byte,
-                    Type::Integer,
-                    Type::Long,
-                    Type::Invalid],
-                 arithmetic_info)
+
+                let mut acceptable_types = Type::get_integral_types().to_vec();
+                acceptable_types.push(Type::Invalid);
+                (acceptable_types, arithmetic_info)
             },
             _ => ice!(
                 "Incorrect node passed to arithmetic node type checking: {}",
@@ -1533,17 +1516,12 @@ impl SemanticsCheck {
         // if type has non-arithmetic type, report it and set type to invalid
         // otherwise just set the type to the type of the child
 
-        let valid_types = vec![
-            Type::Long,
-            Type::IntegralNumber,
-            Type::Integer,
-            Type::Byte,
-            Type::Float,
-            Type::Double];
+        const VALID_TYPES: [Type; 6] = Type::get_numeric_types();
+
 
         if child_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;
-        } else if !valid_types.iter().any(|t| *t == child_type) {
+        } else if !VALID_TYPES.contains(&child_type) {
             arith_info.node_type = Type::Invalid;
             self.report_error(
                 ReportKind::TypeError,
@@ -1563,14 +1541,7 @@ impl SemanticsCheck {
         let left_type = self.get_type(left_child);
         let right_type = self.get_type(right_child);
 
-        let mut accepted_types = vec![
-            Type::IntegralNumber,
-            Type::Long,
-            Type::Integer,
-            Type::Byte,
-            Type::Float,
-            Type::Double,
-        ];
+        let mut accepted_types = Type::get_numeric_types().to_vec();
 
         if equality_comparison {
             accepted_types.push(Type::Boolean);
@@ -1665,16 +1636,10 @@ impl SemanticsCheck {
         let right_type = self.get_type(right_child);
 
 
-        let valid_types = [
-            Type::Long,
-            Type::Integer,
-            Type::Byte,
-            Type::IntegralNumber,
-            Type::Invalid, // reported in different context already
-        ];
+        const VALID_TYPES: [Type; 4] = Type::get_integral_types();
 
         let mut bad_type = false;
-        if !valid_types.contains(&left_type) {
+        if !VALID_TYPES.contains(&left_type) && left_type != Type::Invalid {
              self.report_error(
                 ReportKind::TypeError,
                 left_child.span(),
@@ -1683,7 +1648,7 @@ impl SemanticsCheck {
             bad_type = true;
         }
 
-        if !valid_types.contains(&right_type) {
+        if !VALID_TYPES.contains(&right_type) && right_type != Type::Invalid {
             self.report_error(
                 ReportKind::TypeError,
                 right_child.span(),
@@ -1705,8 +1670,7 @@ impl SemanticsCheck {
         self.do_check(child);
         let child_type = self.get_type(child);
 
-        if child_type != Type::IntegralNumber && child_type != Type::Integer && child_type != Type::Byte &&
-            child_type != Type::Invalid {
+        if !child_type.is_integral() && child_type != Type::Invalid {
             self.report_error(
                 ReportKind::TypeError,
                 child.span(),
@@ -1769,15 +1733,9 @@ impl SemanticsCheck {
         let value_type = self.get_type(value);
         let shift_type = self.get_type(shift_count);
 
-        let accepted_shift_types = vec![
-            Type::Long,
-            Type::Integer,
-            Type::IntegralNumber,
-            Type::Byte,
-            Type::Invalid,
-        ];
+        const ACCEPTED_SHIFT_TYPES: [Type; 4] = Type::get_integral_types();
 
-        if !accepted_shift_types.contains(&value_type) {
+        if !ACCEPTED_SHIFT_TYPES.contains(&value_type) && value_type != Type::Invalid {
             self.report_error(
                 ReportKind::TypeError,
                 value.span(),
@@ -1795,7 +1753,7 @@ impl SemanticsCheck {
             arithmetic_info.node_type = value_type;
         }
 
-        if !accepted_shift_types.contains(&shift_type) {
+        if !ACCEPTED_SHIFT_TYPES.contains(&shift_type)  && shift_type != Type::Invalid {
             self.report_error(
                 ReportKind::TypeError,
                 shift_count.span(),

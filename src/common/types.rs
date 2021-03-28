@@ -40,7 +40,7 @@ impl Type {
         }
     }
 
-    pub fn is_array(&self) -> bool {
+    pub const fn is_array(&self) -> bool {
         match *self {
             Type::Array(_, _) => true,
             Type::Reference(ref x) => x.is_array(),
@@ -48,7 +48,7 @@ impl Type {
         }
     }
 
-    pub fn is_invalid(&self) -> bool {
+    pub const fn is_invalid(&self) -> bool {
         match *self {
             Type::Invalid => true,
             Type::Array(ref x, _) => x.is_invalid(),
@@ -58,19 +58,41 @@ impl Type {
         }
     }
 
-    pub fn is_reference(&self) -> bool {
+    pub const fn is_reference(&self) -> bool {
         match *self {
             Type::Reference(_) => true,
             _ => false,
         }
     }
 
-    pub fn is_integral(&self) -> bool {
+    pub const fn is_integral(&self) -> bool {
         match *self {
+            Type::Long => true,
             Type::Integer => true,
             Type::Byte => true,
+            Type::IntegralNumber => true,
             _ => false,
         }
+    }
+
+    // common enough in type checks that this gets its own utility function
+    pub const fn get_integral_types() -> [Type; 4] {
+        [
+            Type::Long,
+            Type::Integer,
+            Type::Byte,
+            Type::IntegralNumber ]
+    }
+
+    pub const fn get_numeric_types() -> [Type; 6] {
+        [
+            Type::Long,
+            Type::IntegralNumber,
+            Type::Integer,
+            Type::Byte,
+            Type::Float,
+            Type::Double
+        ]
     }
 
     pub fn get_array_basic_type(&self) -> Type {
