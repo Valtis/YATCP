@@ -4462,7 +4462,108 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
 
 
         },
+        /*
+            long
 
+            a = b and constant OR a = constant AND b; commutative
+
+            not directly encodable, emit:
+
+            mov tmp_reg, b
+            and tmp_reg, constant
+            mov a, tmp_reg
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: LongConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id != dest_vregdata.id => {
+
+            let src_offset = offset_for_reg(stack_map, src_vregdata.id);
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+            let tmp_reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: src_offset.clone(),
+                dest: PhysicalRegister(tmp_reg),
+            }));
+
+            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+                updated_instructions.push(ByteCode::Or(BinaryOperation {
+                    src1: PhysicalRegister(tmp_reg),
+                    src2: IntegerConstant(*immediate as i32),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+            } else {
+                let tmp_reg2 = get_register_for_size2(dest_vregdata.size);
+
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    src: LongConstant(*immediate),
+                    dest: PhysicalRegister(tmp_reg2),
+                }));
+
+                updated_instructions.push(ByteCode::Or(BinaryOperation {
+                    src1: PhysicalRegister(tmp_reg),
+                    src2: PhysicalRegister(tmp_reg2),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+            }
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: PhysicalRegister(tmp_reg),
+                dest: dest_offset,
+            }));
+        },
+        /*
+            long
+            a = a and constant OR a = constant AND a; commutative
+
+            // directly encodable, emit:
+            and a, immediate
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: LongConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id == dest_vregdata.id => {
+
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+
+
+            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+                updated_instructions.push(ByteCode::Or(BinaryOperation {
+                    src1: dest_offset.clone(),
+                    src2: IntegerConstant(*immediate as i32),
+                    dest: dest_offset,
+                }));
+            } else {
+                let tmp_reg = get_register_for_size(dest_vregdata.size);
+
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    src: LongConstant(*immediate),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+
+                updated_instructions.push(ByteCode::Or(BinaryOperation {
+                    src1: dest_offset.clone(),
+                    src2: PhysicalRegister(tmp_reg),
+                    dest: dest_offset,
+                }));
+            }
+
+        },
         /*
             integers
 
@@ -4612,6 +4713,109 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
 
 fn handle_xor_allocation(binary_op: &BinaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
     match binary_op {
+
+        /*
+            long
+
+            a = b and constant OR a = constant AND b; commutative
+
+            not directly encodable, emit:
+
+            mov tmp_reg, b
+            and tmp_reg, constant
+            mov a, tmp_reg
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: LongConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id != dest_vregdata.id => {
+
+            let src_offset = offset_for_reg(stack_map, src_vregdata.id);
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+            let tmp_reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: src_offset.clone(),
+                dest: PhysicalRegister(tmp_reg),
+            }));
+
+            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+                updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                    src1: PhysicalRegister(tmp_reg),
+                    src2: IntegerConstant(*immediate as i32),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+            } else {
+                let tmp_reg2 = get_register_for_size2(dest_vregdata.size);
+
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    src: LongConstant(*immediate),
+                    dest: PhysicalRegister(tmp_reg2),
+                }));
+
+                updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                    src1: PhysicalRegister(tmp_reg),
+                    src2: PhysicalRegister(tmp_reg2),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+            }
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: PhysicalRegister(tmp_reg),
+                dest: dest_offset,
+            }));
+        },
+        /*
+            long
+            a = a and constant OR a = constant AND a; commutative
+
+            // directly encodable, emit:
+            and a, immediate
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: LongConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: LongConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id == dest_vregdata.id => {
+
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+
+
+            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+                updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                    src1: dest_offset.clone(),
+                    src2: IntegerConstant(*immediate as i32),
+                    dest: dest_offset,
+                }));
+            } else {
+                let tmp_reg = get_register_for_size(dest_vregdata.size);
+
+                updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                    src: LongConstant(*immediate),
+                    dest: PhysicalRegister(tmp_reg),
+                }));
+
+                updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                    src1: dest_offset.clone(),
+                    src2: PhysicalRegister(tmp_reg),
+                    dest: dest_offset,
+                }));
+            }
+
+        },
 
         /*
         integers

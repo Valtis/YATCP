@@ -953,42 +953,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn creating_new_block_out_of_bounds_panics() {
-
-        let mut cfg = CFG {
-            basic_blocks: vec![
-                BasicBlock{
-                    start: 0,
-                    end: 2,
-                },
-                BasicBlock{
-                    start: 2,
-                    end: 5,
-                },
-                BasicBlock{
-                    start: 5,
-                    end: 8,
-                },
-                BasicBlock{
-                    start: 8,
-                    end: 10,
-                },
-            ],
-            adjacency_list: vec![
-                vec![Adj::Block(2)],
-                vec![Adj::Block(3)],
-                vec![Adj::Block(1), Adj::Block(3)],
-                vec![Adj::End],
-            ],
-            dominance_frontier: vec![],
-            immediate_dominators: vec![],
-        };
-
-        cfg.create_block(5);
-    }
-
-    #[test]
     fn inserting_statement_into_nonzero_block_updates_bb_info_correctly_and_inserts_the_statement() {
         let statements = vec![
             // block 1
