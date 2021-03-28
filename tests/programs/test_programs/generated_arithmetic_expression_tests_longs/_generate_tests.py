@@ -411,6 +411,37 @@ test_tuples = [
         "a",
         16),
 
+    ("variable_long_constant_shl_works",
+        """
+        let a: long = 4;
+        let b: long = a << 2l;
+        """,
+        "b",
+        16),
+
+    ("variable_long_constant_self_assignment_shl_works",
+        """
+        let a: long = 4;
+        a = a << 2l;
+        """,
+        "a",
+        16),
+    ("variable_byte_constant_shl_works",
+        """
+        let a: long = 4;
+        let b: long = a << 2b;
+        """,
+        "b",
+        16),
+
+    ("variable_byte_constant_self_assignment_shl_works",
+        """
+        let a: long = 4;
+        a = a << 2b;
+        """,
+        "a",
+        16),
+
     ("constant_variable_shl_long_works",
         """
         let a: long = 2;
@@ -435,10 +466,26 @@ test_tuples = [
         "b",
         16),
 
-    ("constant_variable_self_assignment_shl_works",
+    ("long_constant_variable_self_assignment_shl_works",
         """
         let a: long = 2;
         a = 4l << a;
+        """,
+        "a",
+        16),
+
+    ("constant_variable_self_assignment_shl_works",
+        """
+        let a: long = 2;
+        a = (4 << a) as long;
+        """,
+        "a",
+        16),
+
+    ("byte_constant_variable_self_assignment_shl_works",
+        """
+        let a: long = 2;
+        a = (4b << a) as long;
         """,
         "a",
         16),

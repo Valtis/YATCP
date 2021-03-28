@@ -1058,7 +1058,14 @@ impl TACGenerator {
         };
 
         let value = self.get_operand(value);
-        let shift_count = self.get_operand(shift_count);
+        // treat constant byte and long values as integer values for shift count - simplifies later stages
+        let shift_count = match self.get_operand(shift_count) {
+            Operand::Byte(value) => Operand::Integer(value as i32),
+            Operand::Long(value) => Operand::Integer(value as i32),
+            other => other,
+        };
+
+        println!("{:?}", shift_count);
 
         let destination = self.get_temporary(arithmetic_info.node_type.clone());
 

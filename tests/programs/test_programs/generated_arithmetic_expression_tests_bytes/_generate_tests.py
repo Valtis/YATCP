@@ -403,7 +403,7 @@ test_tuples = [
     ("variable_constant_shl_works",
         """
         let a: byte = 4;
-        let b: byte = a << 2b;
+        let b: byte = a << 2;
         """,
         "b",
         16),
@@ -416,10 +416,43 @@ test_tuples = [
         "a",
         16),
 
+    ("variable_byte_constant_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = a << 2b;
+        """,
+        "b",
+        16),
+
+    ("variable_byte_constant_self_assignment_shl_works",
+        """
+        let a: byte = 4;
+        a = a << 2b;
+        """,
+        "a",
+        16),
+
+    ("variable_long_constant_shl_works",
+        """
+        let a: byte = 4;
+        let b: byte = a << 2l;
+        """,
+        "b",
+        16),
+
+    ("variable_long_constant_self_assignment_shl_works",
+        """
+        let a: byte = 4;
+        a = a << 2l;
+        """,
+        "a",
+        16),
+
+
     ("constant_variable_shl_works",
         """
         let a: byte = 2b;
-        let b: byte = 4b << a;
+        let b: byte = (4 << a) as byte;
         """,
         "b",
         16),
@@ -427,7 +460,39 @@ test_tuples = [
     ("constant_variable_self_assignment_shl_works",
         """
         let a: byte = 2;
+        a = (4 << a) as byte;
+        """,
+        "a",
+        16),
+
+    ("byte_constant_variable_shl_works",
+        """
+        let a: byte = 2b;
+        let b: byte = 4b << a;
+        """,
+        "b",
+        16),
+
+    ("byte_constant_variable_self_assignment_shl_works",
+        """
+        let a: byte = 2;
         a = 4b << a;
+        """,
+        "a",
+        16),
+
+    ("long_constant_variable_shl_works",
+        """
+        let a: byte = 2b;
+        let b: byte = (4l << a) as byte;
+        """,
+        "b",
+        16),
+
+    ("long_constant_variable_self_assignment_shl_works",
+        """
+        let a: byte = 2;
+        a = (4l << a) as byte;
         """,
         "a",
         16),
@@ -484,7 +549,40 @@ test_tuples = [
         "a",
         64),
 
-    ("constant_variable_shr_works",
+    ("variable_byte_constant_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >>> 1b;
+        """,
+        "b",
+        64),
+
+    ("variable_byte_constant_self_assignment_shr_works",
+        """
+        let a: byte = -128;
+        a = a >>> 1b;
+        """,
+        "a",
+        64),
+
+    ("variable_long_constant_shr_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >>> 1l;
+        """,
+        "b",
+        64),
+
+    ("variable_long_constant_self_assignment_shr_works",
+        """
+        let a: byte = -128l;
+        a = a >>> 1;
+        """,
+        "a",
+        64),
+
+
+    ("byte_constant_variable_shr_works",
         """
         let a: byte = 1;
         let b: byte = -128b >>> a;
@@ -492,13 +590,45 @@ test_tuples = [
         "b",
         64),
 
-    ("constant_variable_self_assignment_shr_works",
+    ("byte_constant_byte_variable_self_assignment_shr_works",
         """
         let a: byte = 1;
         a = -128b >>> a;
         """,
         "a",
         64),
+
+    ("constant_variable_shr_works",
+        """
+        let a: byte = 1;
+        let b: byte = (-128 >>> a) as byte;
+        """,
+        "b",
+        -64),
+
+    ("constant_variable_self_assignment_shr_works",
+        """
+        let a: byte = 1;
+        a = (-128 >>> a) as byte;
+        """,
+        "a",
+        -64),
+
+    ("long_constant_variable_shr_works",
+        """
+        let a: byte = 1;
+        let b: byte = (-128l >>> a) as byte;
+        """,
+        "b",
+        -64),
+
+    ("long_constant_variable_self_assignment_shr_works",
+        """
+        let a: byte = 1;
+        a = (-128l >>> a) as byte;
+        """,
+        "a",
+        -64),
 
     ("variable_variable_shr_works",
         """
@@ -553,7 +683,39 @@ test_tuples = [
         "a",
         -64),
 
-    ("constant_variable_sar_works",
+    ("variable_byte_constant_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >> 1b;
+        """,
+        "b",
+        -64),
+
+    ("variable_byte_constant_self_assignment_sar_works",
+        """
+        let a: byte = -128;
+        a = a >> 1;
+        """,
+        "a",
+        -64),
+
+    ("variable_long_constant_sar_works",
+        """
+        let a: byte = -128;
+        let b: byte = a >> 1l;
+        """,
+        "b",
+        -64),
+
+    ("variable_long_constant_self_assignment_sar_works",
+        """
+        let a: byte = -128;
+        a = a >> 1l;
+        """,
+        "a",
+        -64),
+
+    ("byte_constant_variable_sar_works",
         """
         let a: byte = 1;
         let b: byte = -128b >> a;
@@ -561,10 +723,42 @@ test_tuples = [
         "b",
         -64),
 
-    ("constant_variable_self_assignment_sar_works",
+    ("byte_constant_variable_self_assignment_sar_works",
         """
         let a: byte = 1;
         a = -128b >> a;
+        """,
+        "a",
+        -64),
+
+    ("constant_variable_sar_works",
+        """
+        let a: byte = 1;
+        let b: byte = (-128 >> a) as byte;
+        """,
+        "b",
+        -64),
+
+    ("constant_variable_self_assignment_sar_works",
+        """
+        let a: byte = 1;
+        a = (-128 >> a) as byte;
+        """,
+        "a",
+        -64),
+
+    ("long_constant_variable_sar_works",
+        """
+        let a: byte = 1;
+        let b: byte = (-128l >> a) as byte;
+        """,
+        "b",
+        -64),
+
+    ("long_constant_variable_self_assignment_sar_works",
+        """
+        let a: byte = 1;
+        a = (-128l >> a) as byte;
         """,
         "a",
         -64),
