@@ -16,7 +16,6 @@ use crate::common::{
 use std::rc::Rc;
 use std::collections::HashMap;
 
-pub const TMP_NAME : &'static str = ".tmp";
 pub const ARRAY_LENGTH_ID_OFFSET: u32 = 1000000;
 
 pub struct TACGenerator {
@@ -42,7 +41,7 @@ impl TACGenerator {
             id_counter: start_id,
             label_counter: 0,
             symbol_table: SymbolTable::new(),
-            tmp_name: Rc::new(TMP_NAME.to_string()),
+            tmp_name: Rc::new(".tmp".to_string()),
             array_length_param_data: HashMap::new(),
         }
     }
@@ -1151,11 +1150,13 @@ impl TACGenerator {
     fn get_temporary(&mut self, var_type: Type) -> Operand {
         let id = self.get_next_id();
 
+        let mut info = DeclarationInfo::new(
+            self.tmp_name.clone(),
+            Span::new(0,0,0),
+            var_type);
+        info.attributes.insert(VariableAttribute::Synthetic);
         Operand::Variable(
-            DeclarationInfo::new(
-                self.tmp_name.clone(),
-                Span::new(0,0,0),
-                var_type),
+            info,
             id)
     }
 

@@ -1,8 +1,8 @@
 use crate::common::tac_code::{Function, Statement, Operand, Operator };
 
-use super::TMP_NAME;
-
 use std::collections::HashMap;
+use crate::common::variable_attributes::VariableAttribute;
+
 // removes some inefficiencies in the generated three-address code
 pub fn optimize(functions: &mut Vec<Function>) {
 
@@ -138,8 +138,7 @@ fn remove_unnecessary_temporaries(function: &mut Function) {
                 right_operand: Some(Operand::Variable(ref tmp_info, ref tmp_id))
             } => {
 
-                // TODO: Figure a more elegant way to detect temporarires
-                if !(**tmp_info.name == *TMP_NAME && **var_info.name != *TMP_NAME) {
+                if !(tmp_info.attributes.contains(&VariableAttribute::Synthetic) && !var_info.attributes.contains(&VariableAttribute::Synthetic)) {
                     continue;
                 }
 
@@ -154,7 +153,7 @@ fn remove_unnecessary_temporaries(function: &mut Function) {
                             // if this is the same temporary than in the previous,
                             // update the var info & prev id and add the
                             // current instruction to the deletion list
-                            if **prev_info.name == *TMP_NAME && prev_id == tmp_id {
+                            if prev_info.attributes.contains(&VariableAttribute::Synthetic) && prev_id == tmp_id {
                                 *prev_info = var_info.clone();
                                 *prev_id = *var_id;
                                 remove_list.push(i);
