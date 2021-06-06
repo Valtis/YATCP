@@ -43,6 +43,7 @@ pub enum TokenType {
     Float,
     Double,
     Byte,
+    Short,
     Integer,
     Long,
     Boolean,
@@ -89,9 +90,10 @@ pub enum TokenType {
 impl TokenType {
     pub fn get_type_tokens() -> Vec<TokenType> {
         vec![
-            TokenType::Long,
-            TokenType::Integer,
             TokenType::Byte,
+            TokenType::Short,
+            TokenType::Integer,
+            TokenType::Long,
             TokenType::Boolean,
             TokenType::Void,
             TokenType::String,
@@ -138,6 +140,7 @@ impl Display for TokenType {
         TokenType::Float => "float",
         TokenType::Double => "double",
         TokenType::Byte => "byte",
+        TokenType::Short => "short",
         TokenType::Integer => "int",
         TokenType::Long => "long",
         TokenType::Boolean => "bool",
@@ -203,6 +206,7 @@ pub enum TokenAttribute {
     // Generic integral constant, no type specified in constant
     IntegralConstant(u128),
     ByteConstant(u128),
+    ShortConstant(u128),
     IntegerConstant(u128),
     LongConstant(u128),
     BooleanValue(bool),
@@ -217,6 +221,7 @@ impl Display for TokenAttribute {
           TokenAttribute::DoubleConstant(value) => format!("{}d", value.to_string()),
           TokenAttribute::IntegralConstant(value) => value.to_string(),
           TokenAttribute::ByteConstant(value) => value.to_string(),
+          TokenAttribute::ShortConstant(value) => value.to_string(),
           TokenAttribute::IntegerConstant(value) => value.to_string(),
           TokenAttribute::LongConstant(value) => value.to_string(),
           TokenAttribute::BooleanValue(value) => value.to_string(),
@@ -230,6 +235,7 @@ impl Display for TokenAttribute {
 pub struct Token {
   pub token_type: TokenType,
   pub attribute: Option<TokenAttribute>,
+  // Todo: Replace with Span
   pub line: i32,
   pub column: i32,
   pub length: i32,
@@ -305,13 +311,14 @@ impl From<&Token> for Span {
 impl From<&Token> for Type {
     fn from(variable_token: &Token) -> Type {
         match variable_token.token_type {
-            TokenType::Long=> Type::Long,
+            TokenType::Byte => Type::Byte,
+            TokenType::Short => Type::Short,
             TokenType::Integer => Type::Integer,
+            TokenType::Long=> Type::Long,
             TokenType::String => Type::String,
             TokenType::Float => Type::Float,
             TokenType::Double => Type::Double,
             TokenType::Boolean => Type::Boolean,
-            TokenType::Byte => Type::Byte,
             TokenType::Void => Type::Void,
             _ => ice!("Expected type but was '{}' instead", variable_token),
         }
@@ -321,13 +328,14 @@ impl From<&Token> for Type {
 impl From<Token> for Type {
     fn from(variable_token: Token) -> Type {
         match variable_token.token_type {
-            TokenType::Long=> Type::Long,
+            TokenType::Byte => Type::Byte,
+            TokenType::Short => Type::Short,
             TokenType::Integer => Type::Integer,
+            TokenType::Long=> Type::Long,
             TokenType::String => Type::String,
             TokenType::Float => Type::Float,
             TokenType::Double => Type::Double,
             TokenType::Boolean => Type::Boolean,
-            TokenType::Byte => Type::Byte,
             TokenType::Void => Type::Void,
             _ => ice!("Expected type but was '{}' instead", variable_token),
         }

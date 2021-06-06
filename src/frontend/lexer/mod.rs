@@ -274,11 +274,12 @@ impl ReadLexer {
             "extern" => Some(self.create_token(TokenType::Extern)),
             "true" => Some(self.create_token_with_attribute(TokenType::BooleanConstant, TokenAttribute::BooleanValue(true))),
             "false" => Some(self.create_token_with_attribute(TokenType::BooleanConstant, TokenAttribute::BooleanValue(false))),
+            "byte" => Some(self.create_token(TokenType::Byte)),
             "int" => Some(self.create_token(TokenType::Integer)),
+            "short" => Some(self.create_token(TokenType::Short)),
             "long" => Some(self.create_token(TokenType::Long)),
             "float" => Some(self.create_token(TokenType::Float)),
             "double" => Some(self.create_token(TokenType::Double)),
-            "byte" => Some(self.create_token(TokenType::Byte)),
             "bool" => Some(self.create_token(TokenType::Boolean)),
             "void" => Some(self.create_token(TokenType::Void)),
             "string" => Some(self.create_token(TokenType::String)),
@@ -478,8 +479,9 @@ impl ReadLexer {
 
         if &type_str.to_ascii_lowercase() == "d" ||
             &type_str.to_ascii_lowercase() == "f" ||
-            &type_str.to_ascii_lowercase() == "i" ||
             &type_str.to_ascii_lowercase() == "b" ||
+            &type_str.to_ascii_lowercase() == "s" ||
+            &type_str.to_ascii_lowercase() == "i" ||
             &type_str.to_ascii_lowercase() == "l" {
             self.create_number_token(type_str, number_str, radix)
         } else {
@@ -570,6 +572,26 @@ impl ReadLexer {
                     ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
                 }
             }
+        } else if &type_str.to_ascii_lowercase() == "s" {
+            match u128::from_str_radix(&number_str, radix) {
+                Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ShortConstant(number)),
+                Err(e) => {
+                    if e.to_string().contains("too large to fit") {
+                        self.report_error(
+                            ReportKind::TokenError,
+                            self.line,
+                            self.token_start_column,
+                            (self.column - self.token_start_column) as usize,
+                            format!("Constant too large to be represented"),
+                        );
+
+                        return self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ErrorValue);
+                    }
+
+                    ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
+                }
+            }
+
         }
         else {
             ice!("Unexpected type string '{}'", type_str);
@@ -1065,6 +1087,33 @@ mod tests {
         assert_eq!(reporter.borrow().errors(), 0);
     }
 
+
+    #[test]
+    fn valid_short_constants_are_accepted() {
+        let (mut lexer, reporter) = create_lexer(r"0s 123s 127S");
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::ShortConstant(0)));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::ShortConstant(123)));
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::ShortConstant(127)));
+
+        assert_eq_token!(lexer.next_token(),
+            TokenType::Eof,
+            None);
+
+        assert_eq!(reporter.borrow().errors(), 0);
+    }
+
     #[test]
     fn valid_floats_are_accepted() {
         let (mut lexer, reporter) = create_lexer(r"123f 456.78f .99f 23F");
@@ -1125,7 +1174,7 @@ mod tests {
     #[test]
     fn keywords_are_accepted() {
         let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class
-        public protected private extern byte int long float double bool void string as break continue");
+        public protected private extern byte short int long float double bool void string as break continue");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1195,6 +1244,11 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Byte,
+            None);
+
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Short,
             None);
 
         assert_eq_token!(
