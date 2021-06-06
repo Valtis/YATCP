@@ -3,8 +3,8 @@ if exists("b:current_syntax")
 endif
 
 syn keyword ytpKeywords if else let while fn return extern const val as continue break
-syn keyword ytpTypes long int float string void bool byte
-syn keyword ytpBooleanConstant true false 
+syn keyword ytpTypes long int float string void bool byte short
+syn keyword ytpBooleanConstant true false
 
 
 syn match ytpIdentifiers '[_A-Za-z][0-9a-zA-Z_]*'
