@@ -1520,8 +1520,7 @@ impl SemanticsCheck {
         // if type has non-arithmetic type, report it and set type to invalid
         // otherwise just set the type to the type of the child
 
-        const VALID_TYPES: [Type; 6] = Type::get_numeric_types();
-
+        const VALID_TYPES: [Type; 7] = Type::get_numeric_types();
 
         if child_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;
@@ -1640,7 +1639,7 @@ impl SemanticsCheck {
         let right_type = self.get_type(right_child);
 
 
-        const VALID_TYPES: [Type; 4] = Type::get_integral_types();
+        const VALID_TYPES: [Type; 5] = Type::get_integral_types();
 
         let mut bad_type = false;
         if !VALID_TYPES.contains(&left_type) && left_type != Type::Invalid {
@@ -1737,7 +1736,7 @@ impl SemanticsCheck {
         let value_type = self.get_type(value);
         let shift_type = self.get_type(shift_count);
 
-        const ACCEPTED_SHIFT_TYPES: [Type; 4] = Type::get_integral_types();
+        const ACCEPTED_SHIFT_TYPES: [Type; 5] = Type::get_integral_types();
 
         if !ACCEPTED_SHIFT_TYPES.contains(&value_type) && value_type != Type::Invalid {
             self.report_error(

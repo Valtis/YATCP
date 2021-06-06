@@ -4,11 +4,12 @@ use std::fmt::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Type {
-    Byte,
     Boolean,
     IntegralNumber,
-    Long,
+    Byte,
+    Short,
     Integer,
+    Long,
     Double,
     Float,
     String,
@@ -26,6 +27,7 @@ impl Type {
             Type::IntegralNumber => ice!("Generic integral number has no size"),
             Type::Boolean => 1,
             Type::Byte => 1,
+            Type::Short => 2,
             Type::Integer => 4,
             Type::Long => 8,
             Type::Double => 8,
@@ -67,29 +69,32 @@ impl Type {
 
     pub const fn is_integral(&self) -> bool {
         match *self {
-            Type::Long => true,
-            Type::Integer => true,
             Type::Byte => true,
+            Type::Short => true,
+            Type::Integer => true,
+            Type::Long => true,
             Type::IntegralNumber => true,
             _ => false,
         }
     }
 
     // common enough in type checks that this gets its own utility function
-    pub const fn get_integral_types() -> [Type; 4] {
+    pub const fn get_integral_types() -> [Type; 5] {
         [
-            Type::Long,
-            Type::Integer,
             Type::Byte,
+            Type::Short,
+            Type::Integer,
+            Type::Long,
             Type::IntegralNumber ]
     }
 
-    pub const fn get_numeric_types() -> [Type; 6] {
+    pub const fn get_numeric_types() -> [Type; 7] {
         [
+            Type::Byte,
+            Type::Short,
+            Type::Integer,
             Type::Long,
             Type::IntegralNumber,
-            Type::Integer,
-            Type::Byte,
             Type::Float,
             Type::Double
         ]
@@ -117,11 +122,12 @@ impl Display for Type {
   fn fmt(&self, formatter: &mut Formatter) -> Result {
         Display::fmt( &match *self {
             // For printing purposes, we treat integral numbers as integers
-            Type::IntegralNumber => "Integer".to_owned(),
-            Type::Byte=> "Byte".to_owned(),
             Type::Boolean => "Boolean".to_owned(),
+            Type::Byte=> "Byte".to_owned(),
+            Type::Short=> "Short".to_owned(),
             Type::Integer => "Integer".to_owned(),
             Type::Long => "Long".to_owned(),
+            Type::IntegralNumber => "Integer".to_owned(),
             Type::Double => "Double".to_owned(),
             Type::Float => "Float".to_owned(),
             Type::String=> "String".to_owned(),
