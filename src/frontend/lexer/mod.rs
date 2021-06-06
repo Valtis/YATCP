@@ -476,7 +476,11 @@ impl ReadLexer {
             }
         }
 
-        if &type_str == "d" || &type_str == "f" || &type_str == "i" || &type_str == "b" || &type_str == "l" {
+        if &type_str.to_ascii_lowercase() == "d" ||
+            &type_str.to_ascii_lowercase() == "f" ||
+            &type_str.to_ascii_lowercase() == "i" ||
+            &type_str.to_ascii_lowercase() == "b" ||
+            &type_str.to_ascii_lowercase() == "l" {
             self.create_number_token(type_str, number_str, radix)
         } else {
             let (line, column) = (self.line, self.column - type_str.len() as i32);
@@ -495,21 +499,21 @@ impl ReadLexer {
 
     fn create_number_token(&mut self, type_str: String, number_str: String, radix: u32) -> Token {
 
-        if &type_str == "d" {
+        if &type_str.to_ascii_lowercase() == "d" {
             match number_str.parse() {
                 Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::DoubleConstant(number)),
                 Err(e) =>
                     ice!("Non-numeric characters in number token at {}:{} ({})",
               self.line, self.column, e),
             }
-        } else if &type_str == "f" {
+        } else if &type_str.to_ascii_lowercase() == "f" {
             match number_str.parse() {
                 Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::FloatConstant(number)),
                 Err(e) =>
                     ice!("Non-numeric characters in number token at {}:{} ({})",
                 self.line, self.column, e),
             }
-        } else if &type_str == "i" {
+        } else if &type_str.to_ascii_lowercase() == "i" {
                 match u128::from_str_radix(&number_str, radix) {
                 Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::IntegerConstant(number)),
                 Err(e) => {
@@ -528,7 +532,7 @@ impl ReadLexer {
                     ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
                 }
             }
-        } else if &type_str == "b" {
+        } else if &type_str.to_ascii_lowercase() == "b" {
             match u128::from_str_radix(&number_str, radix) {
                 Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::ByteConstant(number)),
                 Err(e) => {
@@ -547,7 +551,7 @@ impl ReadLexer {
                     ice!("Non-numeric characters in number token at {}:{} ({})", self.line, self.column, e)
                 }
             }
-        } else if &type_str == "l" {
+        } else if &type_str.to_ascii_lowercase() == "l" {
             match u128::from_str_radix(&number_str, radix) {
                 Ok(number) => self.create_token_with_attribute(TokenType::NumberConstant, TokenAttribute::LongConstant(number)),
                 Err(e) => {
@@ -975,7 +979,7 @@ mod tests {
 
     #[test]
     fn valid_long_constants_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"0l 111222l 99887766l");
+        let (mut lexer, reporter) = create_lexer(r"0l 111222l 99887766l 98765L");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -992,6 +996,11 @@ mod tests {
             TokenType::NumberConstant,
             Some(TokenAttribute::LongConstant(99887766)));
 
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::LongConstant(98765)));
+
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
             None);
@@ -1001,7 +1010,7 @@ mod tests {
 
     #[test]
     fn valid_integer_constants_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"0i 111222i 99887766i");
+        let (mut lexer, reporter) = create_lexer(r"0i 111222i 99887766i 367I");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1018,6 +1027,11 @@ mod tests {
             TokenType::NumberConstant,
             Some(TokenAttribute::IntegerConstant(99887766)));
 
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::IntegerConstant(367)));
+
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
             None);
@@ -1027,7 +1041,7 @@ mod tests {
 
     #[test]
     fn valid_byte_constants_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"0b 123b");
+        let (mut lexer, reporter) = create_lexer(r"0b 123b 127B");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1039,6 +1053,11 @@ mod tests {
             TokenType::NumberConstant,
             Some(TokenAttribute::ByteConstant(123)));
 
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::ByteConstant(127)));
+
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
             None);
@@ -1048,7 +1067,7 @@ mod tests {
 
     #[test]
     fn valid_floats_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"123f 456.78f .99f");
+        let (mut lexer, reporter) = create_lexer(r"123f 456.78f .99f 23F");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1064,6 +1083,10 @@ mod tests {
             Some(TokenAttribute::FloatConstant(0.99 as f32)));
 
         assert_eq_token!(lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::FloatConstant(23 as f32)));
+
+        assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
             None);
 
@@ -1072,7 +1095,7 @@ mod tests {
 
     #[test]
     fn valid_doubles_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"123d 456.78 .99");
+        let (mut lexer, reporter) = create_lexer(r"123d 456.78 .99 876D");
 
         assert_eq_token!(
             lexer.next_token(),
@@ -1086,6 +1109,10 @@ mod tests {
         assert_eq_token!(lexer.next_token(),
             TokenType::NumberConstant,
             Some(TokenAttribute::DoubleConstant(0.99 as f64)));
+
+        assert_eq_token!(lexer.next_token(),
+            TokenType::NumberConstant,
+            Some(TokenAttribute::DoubleConstant(876 as f64)));
 
         assert_eq_token!(lexer.next_token(),
             TokenType::Eof,
