@@ -343,7 +343,7 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             ice_if!(reg.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", reg.size(), size);
             match *size {
                 1 => emit_mov_byte_from_reg_to_stack(*reg, *offset, asm),
-                4 | 8 => emit_mov_integer_from_reg_to_stack(*reg, *offset, asm),
+                2 | 4 | 8 => emit_mov_integer_from_reg_to_stack(*reg, *offset, asm),
                 _ => ice!("Unexpected stack slot size {}", size),
             }
         },
@@ -1161,7 +1161,7 @@ fn emit_mov_byte_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut Vec
 
 
 /*
-    MOV QWORD/DWORD PTR [RBP - offset], reg
+    MOV QWORD/DWORD/WORD PTR [RBP - offset], reg
 
     Rex prefix: If 64 bit regs used, if extended regs are used
     opcode: 1 byte,
@@ -1171,7 +1171,7 @@ fn emit_mov_byte_from_stack_to_reg(dest: X64Register, offset: u32, asm: &mut Vec
 */
 fn emit_mov_integer_from_reg_to_stack(src: X64Register, offset: u32, asm: &mut Vec<u8>) {
 
-    ice_if!(src.size() < 4, "Invalid register: {:?}", src);
+    ice_if!(src.size() < 2, "Invalid register: {:?}", src);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -1576,6 +1576,20 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
         BinaryOperation{
             dest: StackOffset{offset: dest_offset, size: dest_size },
             src1: StackOffset{offset: src_offset, size: src_size },
+            src2: ShortConstant(value)
+        } => {
+            ice_if!(
+                dest_offset != src_offset || dest_size != src_size,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+
+            match src_size {
+                2 => emit_add_short_immediate_to_stack(*dest_offset, *dest_size, *value, asm),
+                _ => ice!("Invalid size {}", src_size),
+            }
+        },
+        BinaryOperation{
+            dest: StackOffset{offset: dest_offset, size: dest_size },
+            src1: StackOffset{offset: src_offset, size: src_size },
             src2: ByteConstant(value)
         } => {
             ice_if!(
@@ -1597,7 +1611,7 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 operands not in two address form: {:#?}", operand);
             match src_size {
                 1 => emit_add_byte_reg_to_stack(*reg, *dest_offset, asm),
-                4 | 8 => emit_add_integer_reg_to_stack(*reg, *dest_offset, asm),
+                2 | 4 | 8 => emit_add_integer_reg_to_stack(*reg, *dest_offset, asm),
                 _ => ice!("Invalid size {}", src_size)
             }
         },
@@ -1612,7 +1626,7 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
             match size {
                 1 => emit_add_stack_to_byte_reg(*dest_register, *offset,  asm),
-                4 | 8 => emit_add_stack_to_integer_reg(*dest_register, *offset,  asm),
+                2 | 4 | 8 => emit_add_stack_to_integer_reg(*dest_register, *offset,  asm),
                 _ => ice!("Invalid size {}", size),
             }
 
@@ -1693,6 +1707,41 @@ fn emit_add_integer_immediate_to_stack(offset: u32, size: u32, immediate: i32, a
 }
 
 /*
+    ADD WORD PTR [RBP-offset], imm32
+
+    REX: yes, RBP reg used
+    opcode: 8 bits
+    modrm: indirect register addressing with one or four byte displacement, depending if offset <= 128
+    sib: byte not used, struct used to pass displacement
+    immediate: the 32 bit immediate value
+
+*/
+fn emit_add_short_immediate_to_stack(offset: u32, size: u32, immediate: i16, asm: &mut Vec<u8>) {
+    ice_if!(size != 2, "Invalid stack slot size {}", size);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::OpcodeExtension(ADD_OPCODE_EXT),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+
+    let rex = create_rex_prefix(false, Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(ADD_IMMEDIATE_32_BIT_TO_RM),
+        Some(modrm),
+        sib,
+        Some(Immediate::from(immediate)),
+    );
+}
+
+
+/*
     ADD BYTE PTR [RBP-offset], imm32
 
     REX: yes, RBP reg used
@@ -1726,18 +1775,16 @@ fn emit_add_byte_immediate_to_stack(offset: u32, size: u32, immediate: i8, asm: 
 }
 
 /*
-    ADD reg, DWORD/QWORD PTR [RBP-offset]
+    ADD reg, WORD/DWORD/QWORD PTR [RBP-offset]
 
     REX: yes, rbp used.
     opcode: 8 bits
     modrm: indirect register addressing with one or four byte displacement, depending if offset <= 128. Destination reg encoded
     sib: byte not used, struct used to pass displacement
     immediate: no
-
-
 */
 fn emit_add_stack_to_integer_reg(dest: X64Register, offset: u32, asm: &mut Vec<u8>) {
-    ice_if!(dest.size() < 4, "Invalid register {:?}", dest);
+    ice_if!(dest.size() < 2, "Invalid register {:?}", dest);
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
@@ -1831,7 +1878,7 @@ fn emit_add_stack_to_byte_reg(dest: X64Register, offset: u32, asm: &mut Vec<u8>)
 }
 
 /*
-    ADD <ptr_size> PTR [RBP-offset], reg
+    ADD QWORD/DWORD/WORD PTR [RBP-offset], reg
 
     REX: yes, rbp used.
     opcode: 8 bits
@@ -1839,10 +1886,9 @@ fn emit_add_stack_to_byte_reg(dest: X64Register, offset: u32, asm: &mut Vec<u8>)
     sib: byte not used, struct used to pass displacement
     immediate: no
 
-
 */
 fn emit_add_integer_reg_to_stack(src: X64Register, offset: u32, asm: &mut Vec<u8>) {
-    ice_if!(src.size() < 4, "Invalid register {:?}", src);
+    ice_if!(src.size() < 2, "Invalid register {:?}", src);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -5045,7 +5091,7 @@ fn emit_instruction(
             }
         }
     }
-    
+
     if override_size {
         asm.push(OPERAND_SIZE_OVERRIDE);
     }

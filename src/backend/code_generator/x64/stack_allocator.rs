@@ -1425,6 +1425,18 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src2: ByteConstant(*src2_val),
             }));
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ShortConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
+                src2: ShortConstant(*src2_val),
+            }));
+        },
 
 
         /*
@@ -1432,6 +1444,19 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             swap constants around and call this function recursively
         */
+         BinaryOperation{
+            dest: VirtualRegister(_),
+            src1: ShortConstant(_),
+            src2: VirtualRegister(_)} => {
+
+            handle_add_allocation(&BinaryOperation {
+                dest: binary_op.dest.clone(),
+                src1: binary_op.src2.clone(),
+                src2: binary_op.src1.clone(),
+            },
+            updated_instructions,
+            stack_map);
+        }
         BinaryOperation{
             dest: VirtualRegister(_),
             src1: IntegerConstant(_),
@@ -1611,6 +1636,32 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src2: ByteConstant(*src2_val),
             }));
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: ShortConstant(src2_val)} if dest_vregdata.id != src_vregdata.id => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+
+            let reg= get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: PhysicalRegister(reg),
+                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Add(BinaryOperation{
+                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
+                src2: ShortConstant(*src2_val),
+            }));
+        }
         /*
             A = A + B
             not directly encodable, as A and B are both memory operands, need to use tmp reg
@@ -5622,6 +5673,7 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
 fn get_register_for_size(size: u32) -> X64Register {
     match size {
         1 => X64Register::AL,
+        2 => X64Register::AX,
         4 => X64Register::EAX,
         8 => X64Register::RAX,
         _ => ice!("Invalid register size {}", size),
@@ -5631,6 +5683,7 @@ fn get_register_for_size(size: u32) -> X64Register {
 fn get_register_for_size2(size: u32) -> X64Register {
     match size {
         1 => X64Register::BL,
+        2 => X64Register::BX,
         4 => X64Register::EBX,
         8 => X64Register::RBX,
         _ => ice!("Invalid register size {}", size),
@@ -5640,6 +5693,7 @@ fn get_register_for_size2(size: u32) -> X64Register {
 fn get_register_for_size3(size: u32) -> X64Register {
     match size {
         1 => X64Register::CL,
+        2 => X64Register::CX,
         4 => X64Register::ECX,
         8 => X64Register::RCX,
         _ => ice!("Invalid register size {}", size),
@@ -5649,6 +5703,7 @@ fn get_register_for_size3(size: u32) -> X64Register {
 fn get_register_for_size_for_division(size: u32) -> X64Register {
     match size {
         1 => X64Register::BL,
+        2 => X64Register::BX,
         4 => X64Register::EBX,
         8 => X64Register::RBX,
         _ => ice!("Invalid register size {}", size),
@@ -5658,6 +5713,7 @@ fn get_register_for_size_for_division(size: u32) -> X64Register {
 fn get_return_value_register_for_size(size: u32) -> X64Register {
     match size {
         1 => X64Register::AL,
+        2 => X64Register::AX,
         4 => X64Register::EAX,
         8 => X64Register::RAX,
         _ => ice!("Invalid register size {}", size),

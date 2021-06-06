@@ -1942,7 +1942,7 @@ impl SemanticsCheck {
             AstNode::IntegralNumber { .. } => Type::IntegralNumber,
             AstNode::Long { .. } => Type::Long,
             AstNode::Integer{ .. } => Type::Integer,
-            AstNode::Short{ .. } => Type::Integer,
+            AstNode::Short{ .. } => Type::Short,
             AstNode::Byte{ .. } => Type::Byte,
             AstNode::Float{ .. } => Type::Float,
             AstNode::Double{ .. } => Type::Double,
@@ -2240,6 +2240,8 @@ impl SemanticsCheck {
                         AstNode::Long { value: AstLong::Long(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_add(i2)), span: arithmetic_info.span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Short{ value: AstShort::Short(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
                         AstNode::Byte { value: AstByte::Byte(i1.wrapping_add(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
