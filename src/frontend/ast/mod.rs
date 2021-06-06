@@ -12,28 +12,17 @@ use crate::common::{
     symbol_table,
 };
 
+/*** AstLong ***/
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum AstLong {
     Long(i64),
     Invalid(i128),
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum AstInteger {
-    Int(i32),
-    Invalid(i128),
-}
-
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum AstByte {
-    Byte(i8),
-    Invalid(i128),
-}
-
 impl From<i128> for AstLong {
     fn from(val: i128) -> AstLong {
-        if val <= i64::max_value() as i128 && val >= i64::min_value() as i128 {
+        if val <= i64::MAX as i128 && val >= i64::MIN as i128 {
             AstLong::Long(val as i64)
         } else {
             AstLong::Invalid(val)
@@ -61,87 +50,9 @@ impl From<i32> for AstLong {
     }
 }
 
-impl Display for AstLong {
-    fn fmt(&self, formatter: &mut Formatter) -> Result {
-        write!(formatter, "{}",
-               match self {
-                   AstLong::Invalid(val) => format!("(Overflow, {} does not fit in i64)", val),
-                   AstLong::Long(val) => format!("{}", val),
-               })
-    }
-}
-
-
-impl From<i128> for AstInteger {
-    fn from(val: i128) -> AstInteger {
-        if val <= i32::max_value() as i128 && val >= i32::min_value() as i128 {
-            AstInteger::Int(val as i32)
-        } else {
-            AstInteger::Invalid(val)
-        }
-    }
-}
-
-impl From<u64> for AstInteger {
-    fn from(val: u64) -> AstInteger {
-        if val <= i32::max_value() as u64 {
-            AstInteger::Int(val as i32)
-        } else {
-            AstInteger::Invalid(val as i128)
-        }
-    }
-}
-
-
-impl From<i128> for AstByte {
-    fn from(val: i128) -> AstByte {
-        if val <= i8::max_value() as i128 && val >= i8::min_value() as i128  {
-            AstByte::Byte(val as i8)
-        } else {
-            AstByte::Invalid(val)
-        }
-    }
-}
-
-impl From<u64> for AstByte {
-    fn from(val: u64) -> AstByte {
-        if val <= i8::max_value() as u64 {
-            AstByte::Byte(val as i8)
-        } else {
-            AstByte::Invalid(val as i128)
-        }
-    }
-}
-
-impl From<i32> for AstInteger {
-    fn from(val: i32) -> AstInteger {
-        AstInteger::Int(val)
-    }
-}
-
-impl Display for AstInteger {
-    fn fmt(&self, formatter: &mut Formatter) -> Result {
-        write!(formatter, "{}",
-               match self {
-                   AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in i32)", val),
-                   AstInteger::Int(val) => format!("{}", val),
-               })
-    }
-}
-
-
-impl From<AstByte> for AstInteger {
-    fn from(value: AstByte) -> AstInteger {
-        match value {
-            AstByte::Byte(value) => AstInteger::Int(value as i32),
-            AstByte::Invalid(value ) => {
-                if value > i32::max_value() as i128 || value < i32::min_value() as i128 {
-                    AstInteger::Invalid(value)
-                } else {
-                    AstInteger::Int(value as i32)
-                }
-            }
-        }
+impl From<i16> for AstLong {
+    fn from(val: i16) -> AstLong {
+        AstLong::Long(val as i64)
     }
 }
 
@@ -150,7 +61,22 @@ impl From<AstByte> for AstLong {
         match value {
             AstByte::Byte(value) => AstLong::Long(value as i64),
             AstByte::Invalid(value ) => {
-                if value > i64::max_value() as i128 || value < i64::min_value() as i128 {
+                if value > i64::MAX as i128 || value < i64::MIN as i128 {
+                    AstLong::Invalid(value)
+                } else {
+                    AstLong::Long(value as i64)
+                }
+            }
+        }
+    }
+}
+
+impl From<AstShort> for AstLong {
+    fn from(value: AstShort) -> AstLong {
+        match value {
+            AstShort::Short(value) => AstLong::Long(value as i64),
+            AstShort::Invalid(value ) => {
+                if value > i64::MAX as i128 || value < i64::MIN as i128 {
                     AstLong::Invalid(value)
                 } else {
                     AstLong::Long(value as i64)
@@ -165,7 +91,7 @@ impl From<AstInteger> for AstLong {
         match value {
             AstInteger::Int(value) => AstLong::Long(value as i64),
             AstInteger::Invalid(value ) => {
-                if value > i64::max_value() as i128 || value < i64::min_value() as i128 {
+                if value > i64::MAX as i128 || value < i64::MIN as i128 {
                     AstLong::Invalid(value)
                 } else {
                     AstLong::Long(value as i64)
@@ -175,12 +101,95 @@ impl From<AstInteger> for AstLong {
     }
 }
 
+impl Display for AstLong {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstLong::Invalid(val) => format!("(Overflow, {} does not fit in 'long')", val),
+                   AstLong::Long(val) => format!("{}", val),
+               })
+    }
+}
+
+
+
+
+
+/*** AstInteger ***/
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AstInteger {
+    Int(i32),
+    Invalid(i128),
+}
+
+impl From<i128> for AstInteger {
+    fn from(val: i128) -> AstInteger {
+        if val <= i32::MAX as i128 && val >= i32::MIN as i128 {
+            AstInteger::Int(val as i32)
+        } else {
+            AstInteger::Invalid(val)
+        }
+    }
+}
+
+impl From<u64> for AstInteger {
+    fn from(val: u64) -> AstInteger {
+        if val <= i32::MAX as u64 {
+            AstInteger::Int(val as i32)
+        } else {
+            AstInteger::Invalid(val as i128)
+        }
+    }
+}
+
+impl From<i32> for AstInteger {
+    fn from(val: i32) -> AstInteger {
+        AstInteger::Int(val)
+    }
+}
+
+impl From<i16> for AstInteger {
+    fn from(val: i16) -> AstInteger {
+        AstInteger::Int(val as i32)
+    }
+}
+
+impl From<AstByte> for AstInteger {
+    fn from(value: AstByte) -> AstInteger {
+        match value {
+            AstByte::Byte(value) => AstInteger::Int(value as i32),
+            AstByte::Invalid(value ) => {
+                if value > i32::MAX as i128 || value < i32::MIN as i128 {
+                    AstInteger::Invalid(value)
+                } else {
+                    AstInteger::Int(value as i32)
+                }
+            }
+        }
+    }
+}
+
+impl From<AstShort> for AstInteger {
+    fn from(value: AstShort) -> AstInteger {
+        match value {
+            AstShort::Short(value) => AstInteger::Int(value as i32),
+            AstShort::Invalid(value ) => {
+                if value > i32::MAX as i128 || value < i32::MIN as i128 {
+                    AstInteger::Invalid(value)
+                } else {
+                    AstInteger::Int(value as i32)
+                }
+            }
+        }
+    }
+}
 
 impl From<AstLong> for AstInteger {
     fn from(value: AstLong ) -> AstInteger {
         match value {
             AstLong::Long(value) => {
-                if value > i32::max_value() as i64 || value < i32::min_value() as i64 {
+                if value > i32::MAX as i64 || value < i32::MIN as i64 {
                     AstInteger::Invalid(value as i128)
                 } else {
                     AstInteger::Int(value as i32)
@@ -192,12 +201,200 @@ impl From<AstLong> for AstInteger {
     }
 }
 
+impl Display for AstInteger {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstInteger::Invalid(val) => format!("(Overflow, {} does not fit in 'int'", val),
+                   AstInteger::Int(val) => format!("{}", val),
+               })
+    }
+}
+
+
+
+
+
+
+/*** AstShort ***/
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AstShort {
+    Short(i16),
+    Invalid(i128),
+}
+
+impl From<i128> for AstShort {
+    fn from(val: i128) -> AstShort {
+        if val <= i16::MAX as i128 && val >= i16::MIN as i128 {
+            AstShort::Short(val as i16)
+        } else {
+            AstShort::Invalid(val)
+        }
+    }
+}
+
+impl From<u64> for AstShort {
+    fn from(val: u64) -> AstShort {
+        if val <= i16::MAX as u64 {
+            AstShort::Short(val as i16)
+        } else {
+            AstShort::Invalid(val as i128)
+        }
+    }
+}
+
+impl From<i32> for AstShort {
+    fn from(val: i32) -> AstShort {
+        if val <= i16::MAX as i32 && val >= i16::MIN as i32 {
+            AstShort::Short(val as i16)
+        } else {
+            AstShort::Invalid(val as i128)
+        }
+    }
+}
+
+impl From<i16> for AstShort {
+    fn from(val: i16) -> AstShort {
+        AstShort::Short(val)
+    }
+}
+
+impl From<i8> for AstShort {
+    fn from(val: i8) -> AstShort {
+        AstShort::Short(val as i16)
+    }
+}
+
+impl From<AstByte> for AstShort {
+    fn from(value: AstByte) -> AstShort {
+        match value {
+            AstByte::Byte(value) => AstShort::Short(value as i16),
+            AstByte::Invalid(value ) => {
+                if value > i16::MAX as i128 || value < i16::MIN as i128 {
+                    AstShort::Invalid(value)
+                } else {
+                    AstShort::Short(value as i16)
+                }
+            }
+        }
+    }
+}
+
+
+impl From<AstInteger> for AstShort {
+    fn from(value: AstInteger ) -> AstShort {
+        match value {
+            AstInteger::Int(value) => {
+                if value > i16::MAX as i32 || value < i16::MIN as i32 {
+                    AstShort::Invalid(value as i128)
+                } else {
+                    AstShort::Short(value as i16)
+                }
+            },
+            AstInteger::Invalid(x) => AstShort::Invalid(x)
+        }
+    }
+}
+
+impl From<AstLong> for AstShort {
+    fn from(value: AstLong ) -> AstShort {
+        match value {
+            AstLong::Long(value) => {
+                if value > i16::MAX as i64 || value < i16::MIN as i64 {
+                    AstShort::Invalid(value as i128)
+                } else {
+                    AstShort::Short(value as i16)
+                }
+
+            },
+            AstLong::Invalid(x) => AstShort::Invalid(x)
+        }
+    }
+}
+
+impl Display for AstShort {
+    fn fmt(&self, formatter: &mut Formatter) -> Result {
+        write!(formatter, "{}",
+               match self {
+                   AstShort::Invalid(val) => format!("(Overflow, {} does not fit in 'short')", val),
+                   AstShort::Short(val) => format!("{}", val),
+               })
+    }
+}
+
+
+
+
+
+
+/***  AstByte  ***/
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AstByte {
+    Byte(i8),
+    Invalid(i128),
+}
+
+impl From<i128> for AstByte {
+    fn from(val: i128) -> AstByte {
+        if val <= i8::MAX as i128 && val >= i8::MIN as i128  {
+            AstByte::Byte(val as i8)
+        } else {
+            AstByte::Invalid(val)
+        }
+    }
+}
+
+impl From<u64> for AstByte {
+    fn from(val: u64) -> AstByte {
+        if val <= i8::MAX as u64 {
+            AstByte::Byte(val as i8)
+        } else {
+            AstByte::Invalid(val as i128)
+        }
+    }
+}
+
+
+impl From<i16> for AstByte {
+    fn from(val: i16) -> AstByte {
+        if val <= i8::MAX as i16 && val >= i8::MIN as i16  {
+            AstByte::Byte(val as i8)
+        } else {
+            AstByte::Invalid(val as i128)
+        }
+    }
+}
+
+impl From<i8> for AstByte {
+    fn from(val: i8) -> AstByte {
+        AstByte::Byte(val)
+    }
+}
+
+impl From<AstShort> for AstByte {
+    fn from(value: AstShort) -> AstByte {
+        match value {
+            AstShort::Short(value) => {
+                if value > i8::MAX as i16 || value < i8::MIN as i16 {
+                    AstByte::Invalid(value as i128)
+                } else {
+                    AstByte::Byte(value as i8)
+                }
+            },
+            AstShort::Invalid(x) => AstByte::Invalid(x)
+        }
+    }
+}
+
 
 impl From<AstInteger> for AstByte {
     fn from(value: AstInteger) -> AstByte {
         match value {
             AstInteger::Int(value) => {
-                if value > i8::max_value() as i32 || value < i8::min_value() as i32 {
+                if value > i8::MAX as i32 || value < i8::MIN as i32 {
                     AstByte::Invalid(value as i128)
                 } else {
                     AstByte::Byte(value as i8)
@@ -213,7 +410,7 @@ impl From<AstLong> for AstByte {
     fn from(value: AstLong ) -> AstByte {
         match value {
             AstLong::Long(value) => {
-                if value > i8::max_value() as i64 || value < i8::min_value() as i64 {
+                if value > i8::MAX as i64 || value < i8::MIN as i64 {
                     AstByte::Invalid(value as i128)
                 } else {
                     AstByte::Byte(value as i8)
@@ -229,16 +426,9 @@ impl Display for AstByte {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
         write!(formatter, "{}",
                match self {
-                   AstByte::Invalid(val) => format!("(Overflow, {} does not fit in i8)", val),
+                   AstByte::Invalid(val) => format!("(Overflow, {} does not fit in 'byte')", val),
                    AstByte::Byte(val) => format!("{}", val),
                })
-    }
-}
-
-
-impl From<i8> for AstByte {
-    fn from(val: i8) -> AstByte {
-        AstByte::Byte(val)
     }
 }
 
@@ -292,9 +482,10 @@ pub enum AstNode {
 
     IntegralNumber{ value: i128, span: Span},
     // Signed long/integer/byte, but we may need to store INT_MAX +1 while negation is still unresolved
-    Long{ value: AstLong, span: Span },
-    Integer{ value: AstInteger, span: Span },
     Byte { value: AstByte, span: Span },
+    Short { value: AstShort, span: Span },
+    Integer{ value: AstInteger, span: Span },
+    Long{ value: AstLong, span: Span },
     Float { value: f32, span: Span },
     Double{ value: f64, span: Span },
     Text { value: Rc<String>, span: Span } ,
@@ -360,6 +551,7 @@ impl Display for AstNode {
             AstNode::IntegralNumber{value, ..} => format!("Integral number: {}", value),
             AstNode::Long{ value, .. } => format!("Long: {}", value),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
+            AstNode::Short{ value, .. } => format!("Short: {}", value),
             AstNode::Byte{ value, .. } => format!("Byte: {}", value),
             AstNode::Float{value , .. } => format!("Float: {}", value),
             AstNode::Double{ value, .. } => format!("Double: {}", value),
@@ -473,6 +665,7 @@ impl AstNode {
             AstNode::IntegralNumber{ .. } |
             AstNode::Long{ .. } |
             AstNode::Integer{ .. } |
+            AstNode::Short{ .. } |
             AstNode::Byte{ .. } |
             AstNode::Float{ .. }  |
             AstNode::Double{ .. }  => {},
@@ -591,6 +784,7 @@ impl AstNode {
             AstNode::IntegralNumber{ span, .. } => *span,
             AstNode::Long{ span, .. } => *span,
             AstNode::Integer{ span, .. } => *span,
+            AstNode::Short{ span, .. } => *span,
             AstNode::Byte{ span, .. } => *span,
             AstNode::Float{ span, .. } => *span,
             AstNode::Double{  span, .. } => *span,
@@ -648,6 +842,7 @@ impl AstNode {
             AstNode::IntegralNumber { span, .. } => span,
             AstNode::Long{ span, .. } => span,
             AstNode::Integer { span, .. } => span,
+            AstNode::Short{ span, .. } => span,
             AstNode::Byte { span, .. } => span,
             AstNode::Float { span, .. } => span,
             AstNode::Double { span, .. } => span,

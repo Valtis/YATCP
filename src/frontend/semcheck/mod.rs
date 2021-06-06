@@ -1,5 +1,4 @@
-use super::ast::{AstNode, AstByte, AstInteger, AstLong
-};
+use super::ast::{AstNode, AstByte, AstShort, AstInteger, AstLong};
 
 use crate::common::{
     variable_attributes::VariableAttribute,
@@ -170,6 +169,7 @@ impl SemanticsCheck {
                 self.handle_shift_expression(value, shift_count, arithmetic_info),
             AstNode::Long{ value, span } => self.check_long_for_overflow(value, span),
             AstNode::Integer{ value, span } => self.check_integer_for_overflow(value, span),
+            AstNode::Short{ value, span } => self.check_short_for_overflow(value, span),
             AstNode::Byte{ value, span } => self.check_byte_for_overflow(value, span),
             AstNode::Float{ .. } => (),
             AstNode::Double{ .. }  => (),
@@ -1854,6 +1854,31 @@ impl SemanticsCheck {
         );
     }
 
+    fn check_short_for_overflow(&mut self, short: &AstShort, span: &Span) {
+        let value = match short {
+            AstShort::Short(_) => return, // OK
+            AstShort::Invalid(value) => {
+              *value
+            },
+        };
+
+        self.report_error(
+            ReportKind::TokenError,
+            span.clone(),
+            format!("Type '{}' cannot represent value '{}'", Type::Short, value),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            format!("Value '{}' would be stored as '{}'", value, value as i16),
+        );
+        self.report_error(
+            ReportKind::Note,
+            span.clone(),
+            "Use explicit 'as short' cast if this is wanted".to_owned(),
+        );
+    }
+
     fn check_byte_for_overflow(&mut self, byte: &AstByte, span: &Span) {
         let value = match byte {
             AstByte::Byte(_) => return, // OK
@@ -1918,6 +1943,7 @@ impl SemanticsCheck {
             AstNode::IntegralNumber { .. } => Type::IntegralNumber,
             AstNode::Long { .. } => Type::Long,
             AstNode::Integer{ .. } => Type::Integer,
+            AstNode::Short{ .. } => Type::Integer,
             AstNode::Byte{ .. } => Type::Byte,
             AstNode::Float{ .. } => Type::Float,
             AstNode::Double{ .. } => Type::Double,

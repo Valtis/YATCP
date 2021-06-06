@@ -1,6 +1,6 @@
 use super::lexer::Lexer;
 use super::lexer::token::{Token, TokenType, TokenAttribute};
-use super::ast::{ AstNode, AstByte, AstInteger, AstLong };
+use super::ast::{ AstNode, AstByte, AstShort, AstInteger, AstLong };
 
 use crate::common::{
     variable_attributes::VariableAttribute,
@@ -1311,6 +1311,12 @@ impl Parser {
                     Some(TokenAttribute::ByteConstant(i)) => {
                        Ok(AstNode::Byte {
                            value: AstByte::from(i as i128),
+                           span: Span::from(token),
+                       })
+                    }
+                    Some(TokenAttribute::ShortConstant(i)) => {
+                       Ok(AstNode::Short {
+                           value: AstShort::from(i as i128),
                            span: Span::from(token),
                        })
                     }
