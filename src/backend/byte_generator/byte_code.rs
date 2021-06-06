@@ -76,6 +76,7 @@ pub enum Value {
     PhysicalRegister(X64Register), // FIXME Not arch agnostic, assumes X64
     LongConstant(i64),
     IntegerConstant(i32),
+    ShortConstant(i16),
     ByteConstant(i8),
     ComparisonResult(ComparisonType),
     StackOffset{offset: u32, size: u32},
@@ -206,6 +207,7 @@ impl Display for Value {
             Value::FunctionParameter(_param_type, id) => format!("PARAMETER {}", id),
             Value::LongConstant(i) => format!("0x{:X}", i),
             Value::IntegerConstant(i) => format!("0x{:X}", i),
+            Value::ShortConstant(i) => format!("0x{:X}", i),
             Value::ByteConstant(b) => format!("0x{:X}", b),
             Value::PhysicalRegister(reg) => format!("{:?}", reg),
             Value::VirtualRegister(vregdata) => format!("VR{}", vregdata.id),

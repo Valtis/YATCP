@@ -96,6 +96,7 @@ impl TACGenerator {
                 self.handle_arithmetic_node(node),
             AstNode::Long { .. } |
             AstNode::Integer{ .. } |
+            AstNode::Short{ .. } |
             AstNode::Byte{ .. } |
             AstNode::Boolean{ .. } => self.handle_constant(node),
             AstNode::Identifier { name, ..} =>
@@ -760,6 +761,12 @@ impl TACGenerator {
                     _ => ice!("Invalid integer type in three-address code generation: {}", value),
                 }
             }
+            AstNode::Short{ value, ..} => {
+                match value {
+                    AstShort::Short(val) => Operand::Short(*val),
+                    _ => ice!("Invalid integer type in three-address code generation: {}", value),
+                }
+            }
             AstNode::Boolean{ value, ..} => Operand::Boolean(*value),
             AstNode::Byte { value, .. } => {
                 if let AstByte::Byte(b) = value {
@@ -1126,6 +1133,7 @@ impl TACGenerator {
             },
             Operand::Long(_) => Type::Long,
             Operand::Integer(_) => Type::Integer,
+            Operand::Short(_) => Type::Short,
             Operand::Byte(_) => Type::Byte,
             Operand::Float(_) => Type::Float,
             Operand::Double(_) => Type::Double,

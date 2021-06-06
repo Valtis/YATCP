@@ -59,6 +59,7 @@ pub enum Displacement {
 pub enum Immediate {
     Byte(u8),
     ByteSigned(i8),
+    TwoByteSigned(i16),
     FourByteSigned(i32),
     FourByte(u32),
     EightByteSigned(i64),
@@ -99,6 +100,12 @@ impl From<i8> for Immediate {
     }
 }
 
+impl From<i16> for Immediate {
+    fn from(val: i16) -> Immediate {
+        Immediate::TwoByteSigned(val)
+    }
+}
+
 impl From<u32> for Immediate {
     fn from(val: u32) -> Immediate {
         Immediate::FourByte(val)
@@ -125,6 +132,13 @@ impl Immediate {
             },
             Immediate::ByteSigned(val) => {
                 write_buffer.push(*val as u8);
+            },
+            Immediate::TwoByteSigned(val) => {
+                let mut buffer = [0; 2];
+                LittleEndian::write_i16(&mut buffer, *val);
+                for i in 0..buffer.len() {
+                    write_buffer.push(buffer[i]);
+                }
             },
             Immediate::FourByte(val) => {
                 let mut buffer = [0; 4];

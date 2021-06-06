@@ -1937,7 +1937,6 @@ impl SemanticsCheck {
         None
     }
 
-
     fn get_type(&self, node: &AstNode) -> Type {
         match node {
             AstNode::IntegralNumber { .. } => Type::IntegralNumber,
@@ -2050,6 +2049,7 @@ impl SemanticsCheck {
             AstNode::IntegralNumber { .. } => true,
             AstNode::Long { .. } => true,
             AstNode::Integer { .. } => true,
+            AstNode::Short{ .. } => true,
             AstNode::Byte{ .. } => true,
             AstNode::Float { .. } => true,
             AstNode::Double { .. } => true,
@@ -2127,6 +2127,7 @@ impl SemanticsCheck {
             AstNode::IntegralNumber { .. } => node.clone(),
             AstNode::Long { .. } => node.clone(),
             AstNode::Integer{ .. } => node.clone(),
+            AstNode::Short{ .. } => node.clone(),
             AstNode::Byte{ .. } => node.clone(),
             AstNode::Float{ .. } => node.clone() ,
             AstNode::Double{ .. } => node.clone() ,
@@ -2598,6 +2599,25 @@ impl SemanticsCheck {
                                 AstNode::Integer { value: AstInteger::from(value as i32), span: span.clone() }
                             } else {
                                 AstNode::Integer { value: AstInteger::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow check
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                   ice!("Integral number type should not appear as non-constant");
+                }
+            },
+            (Type::IntegralNumber, &Type::Short) => {
+               if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::IntegralNumber { value, span}   => {
+                            *origin_node = if allow_constant_overflow {
+                                AstNode::Short { value: AstShort::from(value as i16), span: span.clone() }
+                            } else {
+                                AstNode::Short { value: AstShort::from(value), span: span.clone() }
                             };
                             self.do_check(origin_node); // overflow check
 

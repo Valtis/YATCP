@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub const OPERAND_SIZE_OVERRIDE: u8 = 0x66;
+
 pub const MOV_IMMEDIATE_32_BIT_TO_REG_BASE: u8 = 0xB8; // register encoding will be binary OR'ed into opcode
 pub const MOV_IMMEDIATE_32_BIT_TO_RM: u8 = 0xC7;
 pub const MOV_REG_TO_RM_32_BIT: u8 = 0x89;

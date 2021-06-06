@@ -308,6 +308,10 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } |
         UnaryOperation{
             dest: VirtualRegister(ref vregdata),
+            src: val @ ShortConstant(_)
+        } |
+        UnaryOperation{
+            dest: VirtualRegister(ref vregdata),
             src: val @ ByteConstant(_)
         } => {
 
@@ -5555,7 +5559,7 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
                                     }
                                 ));
                         },
-                        4 | 8 => {
+                        2 | 4 | 8 => {
                             let dest = get_destination_for_integer_and_pointer_argument(i, vregdata.size);
                             let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
                             updated_instructions.push(
@@ -5663,6 +5667,17 @@ fn get_return_value_register_for_size(size: u32) -> X64Register {
 fn get_destination_for_integer_and_pointer_argument(position: usize, size: u32) -> Value {
 
     match size {
+        2 => {
+            match position {
+                0 => PhysicalRegister(X64Register::DI),
+                1 => PhysicalRegister(X64Register::SI),
+                2 => PhysicalRegister(X64Register::DX),
+                3 => PhysicalRegister(X64Register::CX),
+                4 => PhysicalRegister(X64Register::R8w),
+                5 => PhysicalRegister(X64Register::R9w),
+                _ => ice!("No register for position {}", position),
+            }
+        },
         4 => {
             match position {
                 0 => PhysicalRegister(X64Register::EDI),

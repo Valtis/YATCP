@@ -414,6 +414,7 @@ impl ByteGenerator {
             }
             Operand::Long(val) => Value::LongConstant(*val),
             Operand::Integer(val) => Value::IntegerConstant(*val),
+            Operand::Short(val) => Value::ShortConstant(*val),
             Operand::Byte(val) => Value::ByteConstant(*val),
             Operand::Boolean(val) => Value::ByteConstant(if *val { 1 } else { 0 }),
             Operand::Initialized(value_type) => {
