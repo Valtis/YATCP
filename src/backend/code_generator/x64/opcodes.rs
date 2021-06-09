@@ -16,6 +16,7 @@ pub const MOV_SIGN_EXTEND_RM_8_BIT_TO_REG_32_BIT: u16 = 0x0FBE;
 pub const MOV_SIGN_EXTEND_RM_32_BIT_TO_REG_32_BIT: u8 = 0x63; // with REX, turns to 32bit -> 64bit
 
 pub const MOV_ZERO_EXTEND_RM_8_BIT_TO_REG_32_BIT: u16 = 0x0FB6;
+pub const MOV_ZERO_EXTEND_RM_16_BIT_TO_REG_32_BIT: u16 = 0x0FB7;
 
 pub const LEA_ADDR_TO_REG_64_BIT: u8 = 0x8D;
 

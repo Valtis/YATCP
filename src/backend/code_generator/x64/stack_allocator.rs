@@ -2404,6 +2404,46 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation{
             dest: VirtualRegister(ref dest_vregdata),
             src1: VirtualRegister(ref src_vregdata),
+            src2: ShortConstant(constant),
+        } |
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: ShortConstant(constant),
+            src2: VirtualRegister(ref src_vregdata),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+
+            let reg = get_register_for_size(dest_stack_slot.size);
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset {
+                        offset: src_stack_slot.offset,
+                        size: src_stack_slot.size
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation{
+                        dest: PhysicalRegister(reg),
+                        src1: PhysicalRegister(reg),
+                        src2: ShortConstant(*constant),
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
             src2: ByteConstant(constant),
         } |
         BinaryOperation{
@@ -2506,19 +2546,14 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             dest: VirtualRegister(ref dest_vregdata),
             src1: VirtualRegister(ref src1_vregdata),
             src2: VirtualRegister(ref src2_vregdata),
-        } if dest_vregdata.size == 1 => {
+        } if dest_vregdata.size <= 2 => {
 
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
             let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
 
-            // FIXME: Replace below MOVs with MOVZX - Move with zero extend
-            // For now reuse existing code, even if less efficient
-
-            // zero regs as 8 bit movs leave high bits untouched
-
             let dword_reg1 = get_register_for_size(4);
-            let byte_reg1 = get_register_for_size(1);
+            let dest_reg = get_register_for_size(dest_vregdata.size);
 
             let dword_reg2 = get_register_for_size2(4);
 
@@ -2554,7 +2589,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
-                    src: PhysicalRegister(byte_reg1),
+                    src: PhysicalRegister(dest_reg),
                     dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
                 })
             );
