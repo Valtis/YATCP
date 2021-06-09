@@ -361,6 +361,12 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         },
         UnaryOperation {
             dest: PhysicalRegister(ref reg),
+            src: ShortConstant(value),
+        } => {
+            emit_mov_short_to_register(*value, *reg, asm);
+        },
+        UnaryOperation {
+            dest: PhysicalRegister(ref reg),
             src: ByteConstant(value),
         } => {
             emit_mov_byte_to_register(*value, *reg, asm);
@@ -1020,6 +1026,42 @@ fn emit_mov_integer_to_register(immediate: i32, register: X64Register, asm: &mut
     let rex = create_rex_prefix(false, Some(rex_modrm), None);
 
 
+
+    let immediate = Immediate::from(immediate);
+
+    // register encoded in the opcode itself
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_IMMEDIATE_32_BIT_TO_REG_BASE | register.encoding()),
+        None,
+        None,
+        Some(immediate),
+    )
+}
+
+/* MOV r16, imm16
+    Rex prefix: if extended registers are used
+    opcode: 1 byte, dst reg encoded in low bits
+    modrm: no
+    sib: no
+    immediate: the 32 bit immediate
+
+    Uses operand size override prefix
+*/
+fn emit_mov_short_to_register(immediate: i16, register: X64Register, asm: &mut Vec<u8>)  {
+    /*
+        Modrm is not really used by this instruction, just used to get correct reg encoding in REX
+        prefix
+        */
+
+    let rex_modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing, // not used
+        reg_field: RegField::Unused,
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(false, Some(rex_modrm), None);
 
     let immediate = Immediate::from(immediate);
 
@@ -5193,12 +5235,16 @@ fn emit_ret(value: &Option<Value>, stack_size: u32, args: u32, asm: &mut Vec<u8>
         Some(IntegerConstant(value)) => {
             emit_mov_integer_to_register(*value, X64Register::EAX, asm)
         }
+        Some(ShortConstant(value)) => {
+            emit_mov_short_to_register(*value, X64Register::AX, asm)
+        }
         Some(ByteConstant(value)) => {
             emit_mov_byte_to_register(*value, X64Register::EAX, asm)
         }
         Some(StackOffset {offset, size}) => {
             match *size {
                 1 => emit_mov_byte_from_stack_to_reg(X64Register::AL, *offset, asm),
+                2 => emit_mov_integer_from_stack_to_reg(X64Register::AX, *offset, asm),
                 4 => emit_mov_integer_from_stack_to_reg(X64Register::EAX, *offset, asm),
                 8 => emit_mov_integer_from_stack_to_reg(X64Register::RAX, *offset, asm),
                 _ => ice!("Not implemented for size {} !", size),

@@ -251,6 +251,7 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
         match return_type.as_str() {
             "long" => Some(FunctionKind::LONG(callable_function)),
             "int" => Some(FunctionKind::INT(callable_function)),
+            "short" => Some(FunctionKind::SHORT(callable_function)),
             "byte" => Some(FunctionKind::BYTE(callable_function)),
             "void" => Some(FunctionKind::VOID(callable_function)),
             _ => panic!("Unexpected return type in {}: {} ", path.to_str().unwrap(), return_type),

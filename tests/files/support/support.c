@@ -6,7 +6,7 @@ int INT_FUNCTION();
 #elif defined(BYTE_FUNCTION )
 char BYTE_FUNCTION();
 #define RUN printf("%d\n", (int)BYTE_FUNCTION());
-#elif defined(LONG_FUNCTION )
+#elif defined(LONG_FUNCTION)
 long LONG_FUNCTION();
 #define RUN printf("%ld\n", LONG_FUNCTION());
 #elif defined(VOID_FUNCTION)
@@ -14,6 +14,8 @@ void VOID_FUNCTION();
 #define RUN VOID_FUNCTION();
 #elif defined(no_callable)
 #define RUN 
+#elif defined(SHORT_FUNCTION)
+#define RUN printf("%hd\n", SHORT_FUNCTION());
 #else
 #define RUN 
 #error Appropriate function type not defined
@@ -28,6 +30,10 @@ int main() {
 
 void c_printer(int a) {
     printf("External C function call: %d\n", a);
+}
+
+void short_printer(short a) {
+    printf("%d\n", a);
 }
 
 void int_printer(int a) {

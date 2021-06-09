@@ -75,6 +75,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::Jump(_) |
             ByteCode::Ret(Some(LongConstant(_))) |
             ByteCode::Ret(Some(IntegerConstant(_))) |
+            ByteCode::Ret(Some(ShortConstant(_))) |
             ByteCode::Ret(Some(ByteConstant(_))) |
             ByteCode::Ret(Some(ComparisonResult(_))) |
             ByteCode::Ret(None) |
@@ -5189,6 +5190,7 @@ fn handle_return_value_allocation(value: &Option<Value>, updated_instructions: &
             ));
         },
         Some(ByteConstant(_)) |
+        Some(ShortConstant(_)) |
         Some(IntegerConstant(_)) |
         Some(LongConstant(_)) => {
             updated_instructions.push(ByteCode::Ret(value.clone()));
