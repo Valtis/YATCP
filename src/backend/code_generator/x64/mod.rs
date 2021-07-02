@@ -2598,7 +2598,8 @@ fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
             src2: PhysicalRegister(ref reg),
         } => {
             match reg.size() {
-                4 | 8 => emit_integer_div_with_reg(*reg, asm),
+                1 => emit_byte_div_with_reg(*reg, asm),
+                2 | 4 | 8 => emit_integer_div_with_reg(*reg, asm),
                 _ => ice!("Invalid size {}", reg.size()),
             }
         },
@@ -2620,7 +2621,7 @@ fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 }
 
 fn emit_integer_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(divisor.size() < 4, "Invalid register {:?}", divisor);
+    ice_if!(divisor.size() < 2, "Invalid register {:?}", divisor);
 
     let modrm = ModRM {
         addressing_mode: AddressingMode::DirectRegisterAddressing,
@@ -2639,6 +2640,28 @@ fn emit_integer_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
         None,
     );
 }
+
+fn emit_byte_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(divisor.size() != 1, "Invalid register {:?}", divisor);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(DIV_OPCODE_EXT),
+        rm_field: RmField::Register(divisor),
+    };
+
+    let rex = create_rex_prefix(divisor.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SIGNED_DIV_RM_8_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
 
 fn emit_integer_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
 

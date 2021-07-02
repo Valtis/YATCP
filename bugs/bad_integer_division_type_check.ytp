@@ -1,6 +1,0 @@
-
-fn main() {
-
-	// complains that types are not compatible
-	let a = 3/0;
-}

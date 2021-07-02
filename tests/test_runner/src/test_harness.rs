@@ -233,6 +233,7 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
     let callable_function = doc["callable"].as_str().unwrap_or("").to_owned();
     let return_type = doc["returns"].as_str().unwrap_or("").to_owned();
     let expect_compile_failure = doc["expect_compile_failure"].as_bool().unwrap_or(false).to_owned();
+    let expect_runtime_failure = doc["expect_runtime_failure"].as_bool().unwrap_or(false).to_owned();
 
     let link_with: Vec<PathBuf> = doc["link_with"].as_vec()
         .map(|vec|
@@ -266,6 +267,7 @@ fn load_values_from_yaml(path: &Path) -> CompileData {
         expected_stdout,
         expected_stderr,
         expect_compile_failure,
+        expect_runtime_failure,
         link_with,
     }
 }

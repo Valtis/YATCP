@@ -31,6 +31,7 @@ pub struct CompileData {
     pub expected_stdout: String,
     pub expected_stderr: String,
     pub expect_compile_failure: bool,
+    pub expect_runtime_failure: bool,
     pub link_with: Vec<PathBuf>,
 }
 
@@ -55,8 +56,6 @@ impl FunctionKind {
         }
     }
 }
-
-
 
 
 pub fn compile_and_run(compile_data: &CompileData, optimize: bool) -> Result<(String, String, String), String> {
@@ -89,7 +88,7 @@ pub fn compile_and_run(compile_data: &CompileData, optimize: bool) -> Result<(St
 
 
 
-    run_test_binary(&output_file_str, &binary_out_str)
+    run_test_binary(&output_file_str, &binary_out_str, compile_data.expect_runtime_failure)
 }
 
 fn write_program_into_tmp_file(program: &str, ctr: i32) -> String {
@@ -169,7 +168,7 @@ fn compile_test_binary(compile_data: &CompileData, output_file_str: String, bina
     }
 }
 
-fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String, String), String> {
+fn run_test_binary(object: &str, binary_out_str: &str, expect_runtime_failure: bool) -> Result<(String, String, String), String> {
 
     let output = Command::new("timeout")
         .arg("5")
@@ -179,8 +178,13 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String
             panic!("Failed to run the test binary {}: {}", binary_out_str, err);
         });
 
+    if output.status.success() && expect_runtime_failure {
 
-    if !output.status.success() {
+        return Err("Expected runtime failure but executable ran successfully".to_owned());
+    }
+
+
+    if !output.status.success() && !expect_runtime_failure  {
 
         let indent = &" ".repeat(8);
 
@@ -233,7 +237,6 @@ fn run_test_binary(object: &str, binary_out_str: &str) -> Result<(String, String
     let stderr_cow = String::from_utf8_lossy(&output.stderr);
 
     Ok((stdout_cow.into_owned(), stderr_cow.into_owned(), binary_out_str.to_owned()))
-
 }
 
 fn objdump_binary(binary: &str) -> Result<String, String> {

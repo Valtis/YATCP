@@ -2612,7 +2612,30 @@ impl SemanticsCheck {
 
                             ConversionResult::Converted
                         },
-                        _ => return ConversionResult::NotPossible,
+                        // special case handling for division with zero: this will not get folded, for obvious reasons
+                        // convert the integral nubmers inside to integers
+                        AstNode::Divide{
+                            mut left_expression,
+                            mut right_expression,
+                            arithmetic_info } => {
+
+                            //if let (AstNode::IntegralNumber{ value: _, span: _}, AstNode::IntegralNumber{ value: 0, span: _}) = (*left_expression, *right_expression) {
+                            let lresult = self.perform_type_conversion(&Type::Integer, &mut left_expression);
+                            let rresult = self.perform_type_conversion(&Type::Integer, &mut right_expression);
+
+                            if lresult == ConversionResult::Converted && rresult == ConversionResult::Converted {
+                                *origin_node = AstNode::Divide{
+                                    left_expression,
+                                    right_expression,
+                                    arithmetic_info
+                                };
+                                ConversionResult::Converted
+                            } else {
+                                ConversionResult::NotPossible
+                            }
+
+                        },
+                        _ => ConversionResult::NotPossible,
                     }
                 } else {
                    ice!("Integral number type should not appear as non-constant");
@@ -2631,7 +2654,7 @@ impl SemanticsCheck {
 
                             ConversionResult::Converted
                         },
-                        _ => return ConversionResult::NotPossible,
+                        _ => ConversionResult::NotPossible,
                     }
                 } else {
                    ice!("Integral number type should not appear as non-constant");
