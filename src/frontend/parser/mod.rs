@@ -1261,6 +1261,9 @@ impl Parser {
                     AstNode::Byte{ value: AstByte::Invalid(x), span } if x == (i8::MAX as i128) + 1 => {
                         Ok(AstNode::Byte{value: AstByte::Byte(i8::MIN), span: span.clone() })
                     },
+                    AstNode::Short{ value: AstShort::Invalid(x), span } if x == (i16::MAX as i128) + 1 => {
+                        Ok(AstNode::Short{value: AstShort::Short(i16::MIN), span: span.clone() })
+                    },
                     AstNode::Integer{ value: AstInteger::Invalid(x), span } if x == (i32::MAX as i128) + 1 => {
                         Ok(AstNode::Integer{value: AstInteger::Int(i32::MIN), span: span.clone() })
                     },

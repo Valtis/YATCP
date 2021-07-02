@@ -2845,7 +2845,7 @@ fn emit_neg(operands: &UnaryOperation, asm: &mut Vec<u8>) {
             ice_if!(src_size != dest_size, "Source and destination sizes are different");
             match src_size {
                 1 => emit_neg_byte_stack(*src_offset, *src_size, asm),
-                4 | 8 => emit_neg_integer_stack(*src_offset, *src_size, asm),
+                2 | 4 | 8 => emit_neg_integer_stack(*src_offset, *src_size, asm),
                 _ => ice!("Invalid size {}", src_size),
             }
         },
@@ -2854,7 +2854,7 @@ fn emit_neg(operands: &UnaryOperation, asm: &mut Vec<u8>) {
 }
 
 fn emit_neg_integer_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
-    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(size < 2, "Invalid size {}", size);
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
