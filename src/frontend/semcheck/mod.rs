@@ -2476,6 +2476,8 @@ impl SemanticsCheck {
                         AstNode::Long { value: AstLong::Long((i1 as u64 >> i2) as i64), span: arithmetic_info.span },
                     (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Integer{ value: AstInteger::Int(i2), .. }) if i2 < 64 && i2 >= 0 =>
                         AstNode::Long { value: AstLong::Long((i1 as u64 >> i2) as i64), span: arithmetic_info.span },
+                    (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. }) if i2 < 64 && i2 >= 0 =>
+                        AstNode::Long { value: AstLong::Long((i1 as u64 >> i2) as i64), span: arithmetic_info.span },
                     (AstNode::Long { value: AstLong::Long(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. }) if i2 < 64 && i2 >= 0 =>
                         AstNode::Long { value: AstLong::Long((i1 as u64 >> i2) as i64), span: arithmetic_info.span },
 
@@ -2483,12 +2485,26 @@ impl SemanticsCheck {
                         AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Short { value: AstShort::Short(i2), .. }) if i2 < 32 && i2 > 0 =>
+                        AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 32 && i2 > 0 =>
                         AstNode::Integer { value: AstInteger::Int((i1 as u32 >> i2) as i32), span: arithmetic_info.span },
+
+                    (AstNode::Short { value: AstShort::Short(i1), .. } , AstNode::Long { value: AstLong::Long(i2), .. }) if i2 < 16 && i2 > 0 =>
+                        AstNode::Short { value: AstShort::Short((i1 as u16 >> i2) as i16), span: arithmetic_info.span },
+                    (AstNode::Short { value: AstShort::Short(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 < 16 && i2 > 0 =>
+                        AstNode::Short { value: AstShort::Short((i1 as u16 >> i2) as i16), span: arithmetic_info.span },
+                    (AstNode::Short { value: AstShort::Short(i1), .. } , AstNode::Short { value: AstShort::Short(i2), .. }) if i2 < 16 && i2 > 0 =>
+                        AstNode::Short { value: AstShort::Short((i1 as u16 >> i2) as i16), span: arithmetic_info.span },
+                    (AstNode::Short { value: AstShort::Short(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 16 && i2 > 0 =>
+                        AstNode::Short { value: AstShort::Short((i1 as u16 >> i2) as i16), span: arithmetic_info.span },
+
 
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Long{ value: AstLong::Long(i2), .. }) if i2 < 8 && i2 > 0 =>
                         AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Integer{ value: AstInteger::Int(i2), .. }) if i2 < 8 && i2 > 0 =>
+                        AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. }) if i2 < 8 && i2 > 0 =>
                         AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
                         AstNode::Byte { value: AstByte::Byte(((i1 as u8) >> i2) as i8), span: arithmetic_info.span },

@@ -4718,7 +4718,7 @@ fn emit_shr(operands: &BinaryOperation, asm: &mut Vec<u8>) {
             ice_if!(dest_reg.size() != src_reg.size(), "Source and destination sizes are different");
             match dest_reg.size() {
                 1 => emit_shr_byte_reg_with_immediate(*dest_reg, *immediate, asm),
-                4 | 8 => emit_shr_integer_reg_with_immediate(*dest_reg, *immediate, asm),
+                2 | 4 | 8 => emit_shr_integer_reg_with_immediate(*dest_reg, *immediate, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },
@@ -4731,7 +4731,7 @@ fn emit_shr(operands: &BinaryOperation, asm: &mut Vec<u8>) {
 
             match dest_size {
                 1 => emit_shr_byte_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
-                4 | 8 => emit_shr_integer_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
+                2 | 4 | 8 => emit_shr_integer_stack_with_immediate(*dest_offset, *dest_size, *immediate, asm),
                 _ => ice!("Invalid size {}", dest_size),
             }
         },
@@ -4745,7 +4745,7 @@ fn emit_shr(operands: &BinaryOperation, asm: &mut Vec<u8>) {
 
             match dest_size {
                 1 => emit_shr_byte_stack_with_reg(*dest_offset, *dest_size, asm),
-                4 | 8 => emit_shr_integer_stack_with_reg(*dest_offset, *dest_size, asm),
+                2 | 4 | 8 => emit_shr_integer_stack_with_reg(*dest_offset, *dest_size, asm),
                 _ => ice!("Invalid size {}", dest_size),
             }
         },
@@ -4765,7 +4765,7 @@ fn emit_shr(operands: &BinaryOperation, asm: &mut Vec<u8>) {
     Immediate: Used if immediate != 1
 */
 fn emit_shr_integer_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
-    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
+    ice_if!(dest_reg.size() < 2, "Invalid register '{:?}'", dest_reg);
     ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
 
     let (opcode, shift_count)  = if immediate == 1 {
@@ -4844,7 +4844,7 @@ fn emit_shr_byte_reg_with_immediate(dest_reg: X64Register, immediate: i32, asm: 
 */
 
 fn emit_shr_integer_stack_with_immediate(offset: u32, size: u32, immediate: i32, asm: &mut Vec<u8>) {
-    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(size < 2, "Invalid size {}", size);
     ice_if!(immediate > 255 || immediate < 0, "Invalid shift count {}", immediate);
 
     let (opcode, shift_count)  = if immediate == 1 {
@@ -4862,6 +4862,9 @@ fn emit_shr_integer_stack_with_immediate(offset: u32, size: u32, immediate: i32,
 
     let rex = create_rex_prefix(size == 8, Some(modrm), sib);
 
+    if size == 2 {
+        asm.push(OPERAND_SIZE_OVERRIDE);
+    }
 
     emit_instruction(
         asm,
@@ -4926,7 +4929,7 @@ fn emit_shr_byte_stack_with_immediate(offset: u32, size: u32, immediate: i32, as
 */
 
 fn emit_shr_integer_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
-    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(size < 2, "Invalid size {}", size);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
     let modrm = ModRM {
@@ -4937,6 +4940,9 @@ fn emit_shr_integer_stack_with_reg(offset: u32, size: u32, asm: &mut Vec<u8>) {
 
     let rex = create_rex_prefix(size == 8, Some(modrm), sib);
 
+    if size == 2 {
+        asm.push(OPERAND_SIZE_OVERRIDE);
+    }
 
     emit_instruction(
         asm,
