@@ -1,0 +1,11 @@
+
+fn main() : short {
+
+        let x = 4S;
+        val y = 4S;
+        const z = x << y;
+        short_printer(z);
+
+        return 0;
+}
+
