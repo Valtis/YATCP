@@ -1438,12 +1438,18 @@ impl SemanticsCheck {
             AstNode::Divide{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
-                if let AstNode::Integer{value: AstInteger::Int(0), ..} = **right_expression {
+                match **right_expression {
+                    AstNode::IntegralNumber{value: 0, ..} |
+                    AstNode::Long{value: AstLong::Long(0), ..} |
+                    AstNode::Integer{value: AstInteger::Int(0), ..} |
+                    AstNode::Short {value: AstShort::Short(0), .. } |
+                    AstNode::Byte { value: AstByte::Byte(0), .. } =>
                        self.report_error(
                            ReportKind::Warning,
                            arithmetic_info.span.clone(),
                            "Division by zero".to_owned(),
-                       )
+                       ),
+                    _ => (),
                 };
 
                 let mut acceptable_types = Type::get_numeric_types().to_vec();
@@ -2321,6 +2327,8 @@ impl SemanticsCheck {
                         AstNode::Long{ value: AstLong::Long(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. }) if i2 != 0  =>
                         AstNode::Integer { value: AstInteger::Int(i1.wrapping_div(i2)), span: arithmetic_info.span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) if i2 != 0 =>
+                        AstNode::Short { value: AstShort::Short(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
                         AstNode::Byte { value: AstByte::Byte(i1.wrapping_div(i2)), span: arithmetic_info.span },
                     (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
@@ -2346,6 +2354,8 @@ impl SemanticsCheck {
                         AstNode::Long { value: AstLong::Long(i1 % i2), span: arithmetic_info.span },
                     (AstNode::Integer { value: AstInteger::Int(i1), .. } , AstNode::Integer { value: AstInteger::Int(i2), .. } ) if i2 != 0 =>
                         AstNode::Integer { value: AstInteger::Int(i1 % i2), span: arithmetic_info.span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short { value: AstShort::Short(i2), .. } ) if i2 != 0 =>
+                        AstNode::Short { value: AstShort::Short(i1 % i2), span: arithmetic_info.span },
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) if i2 != 0 =>
                         AstNode::Byte { value: AstByte::Byte(i1 % i2), span: arithmetic_info.span },
 

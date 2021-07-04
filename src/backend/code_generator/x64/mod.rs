@@ -161,8 +161,11 @@ fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: PhysicalRegister(ref dest_reg)
         } => {
             // sign extension extend ax/eax/rax into dx/edx/rdx, we have no say over this.
-            ice_if!(!(*src_reg == X64Register::EAX || *src_reg == X64Register::RAX) ||
-                !(*dest_reg == X64Register::EDX || *dest_reg == X64Register::RDX),
+
+            let correct_regs = src_reg.get_alias_for_size(4) == X64Register::EAX && dest_reg.get_alias_for_size(4) == X64Register::EDX;
+            let matching_sizes = src_reg.size() == dest_reg.size();
+
+            ice_if!(!correct_regs || !matching_sizes,
                 "Invalid operand encoding for sign extension: {:#?}", operands);
 
             (src_reg, dest_reg)
@@ -172,6 +175,13 @@ fn emit_sign_extension(operands: &UnaryOperation, asm: &mut Vec<u8>) {
 
 
     let rex = create_rex_prefix(src.is_64_bit_register() || dest.is_64_bit_register(), None, None);
+
+    match src.size() {
+        1 => ice!("No matching extension for 8 bit register"),
+        2 => asm.push(OPERAND_SIZE_OVERRIDE),
+        4 | 8 => (), // do nothing
+        _ => ice!("Bad register size {}", src.size())
+    };
 
     emit_instruction(
         asm,
@@ -2612,7 +2622,7 @@ fn emit_div(operand: &BinaryOperation, asm: &mut Vec<u8>) {
             }
         } => {
             match size {
-                4 | 8 => emit_integer_div_with_stack(*offset, *size, asm),
+                2 | 4 | 8 => emit_integer_div_with_stack(*offset, *size, asm),
                 _ => ice!("Invalid size {}", size),
             }
         },
@@ -2665,7 +2675,7 @@ fn emit_byte_div_with_reg(divisor: X64Register, asm: &mut Vec<u8>) {
 
 fn emit_integer_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
 
-    ice_if!(size < 4, "Invalid size {}", size);
+    ice_if!(size < 2, "Invalid size {}", size);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -2676,6 +2686,10 @@ fn emit_integer_div_with_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
     };
 
     let rex = create_rex_prefix(size == 8, Some(modrm), sib);
+
+    if size == 2 {
+        asm.push(OPERAND_SIZE_OVERRIDE);
+    }
 
     emit_instruction(
         asm,
@@ -5238,6 +5252,7 @@ fn emit_function_call(name: &str, calls_requiring_updates: &mut Vec<CallPatch>, 
         Some(Immediate::from(placeholder))
     );
 }
+
 
 fn emit_instruction(
     asm: &mut Vec<u8>,
