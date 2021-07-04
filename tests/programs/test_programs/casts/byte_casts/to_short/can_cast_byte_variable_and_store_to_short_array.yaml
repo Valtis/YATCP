@@ -1,0 +1,13 @@
+program: |
+    extern fn short_printer(value: short);
+
+    fn main() : short {
+        let a: byte = -1;
+        let x: short[8] = a as short;
+        short_printer(x[0]);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  -1

@@ -1,0 +1,18 @@
+program: |
+    extern fn int_printer(value: int);
+
+    fn main() : int {
+        int_printer(int_returner());
+        return 0;
+    }
+
+    fn int_returner() : int {
+      let a: short = 4;
+      return a as int;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    4
+

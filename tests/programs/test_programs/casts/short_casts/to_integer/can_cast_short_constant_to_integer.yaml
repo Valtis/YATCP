@@ -1,12 +1,12 @@
 program: |
-    extern fn byte_printer(value: byte);
+    extern fn int_printer(value: int);
 
     fn main() : int {
-        let x: byte = (200I + 2I) as byte;
-        byte_printer(x);
+        let x: int = 12345s as int;
+        int_printer(x);
         return 0;
     }
 link_with:
     - tests/files/support/support.c
 expect_stdout: |
-    -54
+    12345

@@ -5918,6 +5918,18 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
                         )
                     )
                 },
+                ShortConstant(val) => {
+                    let dest = get_destination_for_integer_and_pointer_argument(i, 2);
+
+                    updated_instructions.push(
+                        ByteCode::Mov(
+                            UnaryOperation {
+                                src: ShortConstant(*val),
+                                dest,
+                            }
+                        )
+                    )
+                },
                 ByteConstant(val) => {
                     // most registers don't have 8 bit aliases (looking at you, RDI...)
                     // move to TMP register instead, then move TMP to proper reg

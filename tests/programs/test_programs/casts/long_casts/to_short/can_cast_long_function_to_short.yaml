@@ -1,0 +1,17 @@
+program: |
+    extern fn short_printer(value: short);
+
+    fn main() : int {
+        short_printer(long_returner() as short);
+        return 0;
+    }
+
+    fn long_returner() : long {
+        return 12345;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    12345
+

@@ -1,0 +1,13 @@
+program: |
+    extern fn int_printer(value: int);
+
+    fn main() : int {
+        let a: short = 12345;
+        let x: int = a as int;
+        int_printer(x);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    12345

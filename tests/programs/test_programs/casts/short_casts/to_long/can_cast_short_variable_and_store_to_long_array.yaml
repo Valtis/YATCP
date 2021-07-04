@@ -1,0 +1,13 @@
+program: |
+    extern fn long_printer(value: long);
+
+    fn main() : int {
+        let a: short = 120;
+        let x: long[10] = a as long;
+        long_printer(x[5]);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    120

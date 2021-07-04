@@ -2717,6 +2717,34 @@ impl SemanticsCheck {
                     ConversionResult::CastRequired
                 }
             },
+            (Type::Long, &Type::Short) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Long { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+
+                                match value {
+                                    AstLong::Long(value) => {
+                                        AstNode::Short { value: AstShort::Short(value as i16), span: span.clone() }
+                                    }
+                                    AstLong::Invalid(value) => {
+                                        AstNode::Short{  value: AstShort::Short(value as i16), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Short{ value: AstShort::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
             (Type::Long, &Type::Byte) => {
                 if origin_is_constant {
                     match origin_node.clone() {
@@ -2734,6 +2762,49 @@ impl SemanticsCheck {
                                 }
                             } else {
                                 AstNode::Byte { value: AstByte::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
+            (Type::Integer, &Type::Long) => {
+                 if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Integer{ value, span}   => {
+                            *origin_node = AstNode::Long{ value: AstLong::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                     ConversionResult::CastRequired
+                }
+            },
+            (Type::Integer, &Type::Short) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Integer { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+
+                                match value {
+                                    AstInteger::Int(value) => {
+                                        AstNode::Short { value: AstShort::Short(value as i16), span: span.clone() }
+                                    }
+                                    AstInteger::Invalid(value) => {
+                                        AstNode::Short { value: AstShort::Short(value as i16), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Short { value: AstShort::from(value), span: span.clone() }
                             };
                             self.do_check(origin_node); // overflow checks
 
@@ -2773,11 +2844,11 @@ impl SemanticsCheck {
                     ConversionResult::CastRequired
                 }
             },
-            (Type::Byte, &Type::Integer) => {
+            (Type::Short, &Type::Long) => {
                  if origin_is_constant {
                     match origin_node.clone() {
-                        AstNode::Byte{ value, span}   => {
-                            *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
+                        AstNode::Short{ value, span}   => {
+                            *origin_node = AstNode::Long{ value: AstLong::from(value), span: span.clone() };
 
                             self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
                             ConversionResult::Converted
@@ -2786,6 +2857,48 @@ impl SemanticsCheck {
                     }
                 } else {
                      ConversionResult::CastRequired
+                }
+            },
+            (Type::Short, &Type::Integer) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Short{ value, span}   => {
+                            *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
+                }
+            },
+            (Type::Short, &Type::Byte) => {
+                if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Short { value, span}   => {
+
+                            *origin_node = if allow_constant_overflow {
+                                match value {
+                                    AstShort::Short(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                    AstShort::Invalid(value) => {
+                                        AstNode::Byte { value: AstByte::Byte(value as i8), span: span.clone() }
+                                    }
+                                }
+                            } else {
+                                AstNode::Byte { value: AstByte::from(value), span: span.clone() }
+                            };
+                            self.do_check(origin_node); // overflow checks
+
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                    ConversionResult::CastRequired
                 }
             },
             (Type::Byte, &Type::Long) => {
@@ -2803,11 +2916,26 @@ impl SemanticsCheck {
                      ConversionResult::CastRequired
                 }
             },
-            (Type::Integer, &Type::Long) => {
+            (Type::Byte, &Type::Integer) => {
                  if origin_is_constant {
                     match origin_node.clone() {
-                        AstNode::Integer{ value, span}   => {
-                            *origin_node = AstNode::Long{ value: AstLong::from(value), span: span.clone() };
+                        AstNode::Byte{ value, span}   => {
+                            *origin_node = AstNode::Integer{ value: AstInteger::from(value), span: span.clone() };
+
+                            self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
+                            ConversionResult::Converted
+                        },
+                        _ => return ConversionResult::NotPossible,
+                    }
+                } else {
+                     ConversionResult::CastRequired
+                }
+            },
+            (Type::Byte, &Type::Short) => {
+                 if origin_is_constant {
+                    match origin_node.clone() {
+                        AstNode::Byte{ value, span}   => {
+                            *origin_node = AstNode::Short{ value: AstShort::from(value), span: span.clone() };
 
                             self.do_check(origin_node); // overflow check. Should not trigger unless there's a bug somewhere
                             ConversionResult::Converted

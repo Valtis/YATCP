@@ -200,7 +200,8 @@ fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             src: StackOffset { size, offset },
         } => {
             match (dest_reg.size(), size) {
-                (4, 1) | (8, 1) => emit_mov_sign_extend_byte_stack_to_integer_register(*dest_reg, *offset, *size, asm),
+                (2, 1) | (4, 1) | (8, 1) => emit_mov_sign_extend_byte_stack_to_integer_register(*dest_reg, *offset, *size, asm),
+                (4, 2) | (8, 2) => emit_mov_sign_extend_short_stack_to_integer_or_long_register(*dest_reg, *offset, *size, asm),
                 (8, 4) => emit_mov_sign_extend_integer_stack_to_long_register(*dest_reg, *offset, *size, asm),
                 _ => ice!("Invalid register {:?} and size {}", dest_reg, size),
             }
@@ -209,9 +210,9 @@ fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     }
 }
 
-fn emit_mov_sign_extend_byte_stack_to_integer_register(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+fn emit_mov_sign_extend_short_stack_to_integer_or_long_register(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
     ice_if!(dest.size() < 4, "Invalid register: {:?}", dest);
-    ice_if!(size != 1, "Invalid size {}", size);
+    ice_if!(size != 2, "Invalid size {}", size);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -222,6 +223,31 @@ fn emit_mov_sign_extend_byte_stack_to_integer_register(dest: X64Register, offset
     };
 
     let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), sib);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_SIGN_EXTEND_RM_16_BIT_TO_REG_32_BIT),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
+fn emit_mov_sign_extend_byte_stack_to_integer_register(dest: X64Register, offset: u32, size: u32, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() < 2, "Invalid register: {:?}", dest);
+    ice_if!(size != 1, "Invalid size {}", size);
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(X64Register::RBP)
+    };
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), sib);
+
 
     emit_instruction(
         asm,
@@ -459,7 +485,8 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             ice_if!(src.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", src.size(), size);
             match (&**index, size) {
                 (PhysicalRegister(reg), 8) |
-                (PhysicalRegister(reg), 4) => emit_mov_integer_register_to_stack_reg_indexed_with_offset(
+                (PhysicalRegister(reg), 4) |
+                (PhysicalRegister(reg), 2) => emit_mov_integer_register_to_stack_reg_indexed_with_offset(
                     reg.clone(),
                     *offset,
                     *src,
@@ -480,6 +507,11 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             match (&**index, *size) {
                 (PhysicalRegister(reg), 8) |
                 (PhysicalRegister(reg), 4) => emit_mov_integer_stack_reg_indexed_with_offset_to_register(
+                    reg.clone(),
+                    *offset,
+                    *dest,
+                    asm),
+                (PhysicalRegister(reg), 2) => emit_mov_integer_stack_reg_indexed_with_offset_to_register(
                     reg.clone(),
                     *offset,
                     *dest,
@@ -861,6 +893,7 @@ fn emit_mov_byte_to_stack_reg_indexed_with_offset(index: X64Register, displaceme
 fn emit_mov_integer_register_to_stack_reg_indexed_with_offset(index: X64Register, displacement: u32, src: X64Register, asm: &mut Vec<u8>) {
 
     let scale = match src.size() {
+        2 => Scale::Two,
         4 => Scale::Four,
         8 => Scale::Eight,
         _ => ice!("Invalid register size {}, reg {:?}", src.size(), src),
@@ -939,6 +972,7 @@ Rex prefix: If 64 bit regs used
 fn emit_mov_integer_stack_reg_indexed_with_offset_to_register(index: X64Register, displacement: u32, dest: X64Register, asm: &mut Vec<u8>) {
 
     let scale = match dest.size() {
+        2 => Scale::Two,
         4 => Scale::Four,
         8 => Scale::Eight,
         _ => ice!("Invalid register size {}, reg {:?}", dest.size(), dest),

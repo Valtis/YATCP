@@ -2,11 +2,17 @@ program: |
     extern fn byte_printer(value: byte);
 
     fn main() : int {
-        let x: byte = (200I + 2I) as byte;
-        byte_printer(x);
+        byte_printer(byte_returner());
         return 0;
     }
+
+    fn byte_returner() : byte {
+      let a: short = 4;
+      return a as byte;
+    }
+
 link_with:
     - tests/files/support/support.c
 expect_stdout: |
-    -54
+    4
+

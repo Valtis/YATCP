@@ -1,0 +1,19 @@
+program: |
+    extern fn short_printer(value: short);
+
+    fn main() : int {
+        let a: int = 128;
+        short_printer(short_returner());
+        return 0;
+    }
+
+    fn short_returner() : short {
+      let a: int = 4;
+      return a as short;
+    }
+
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+    4
+

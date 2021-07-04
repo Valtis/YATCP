@@ -386,6 +386,7 @@ impl Parser {
         let array_type = match (&var_type).into() {
             var_type @ Type::Long |
             var_type @ Type::Integer |
+            var_type @ Type::Short |
             var_type @ Type::Boolean |
             var_type @ Type::Byte => Type::Array(Box::new(var_type), vec![]),
             bad_type => {
