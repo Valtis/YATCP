@@ -1070,8 +1070,6 @@ impl TACGenerator {
             other => other,
         };
 
-        println!("{:?}", shift_count);
-
         let destination = self.get_temporary(arithmetic_info.node_type.clone());
 
         self.current_function().statements.push(

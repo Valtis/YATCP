@@ -1,4 +1,4 @@
-SHORT_MAX = 2**16-1
+SHORT_MAX = 2**15-1
 SHORT_MIN = -SHORT_MAX-1
 
 
@@ -455,7 +455,7 @@ test_tuples = [
     ("constant_variable_self_assignment_shl_works",
         """
         let a: short = 2;
-        a = 4 << a;
+        a = 4S << a;
         """,
         "a",
         16),
@@ -609,7 +609,7 @@ test_tuples = [
     ("long_constant_variable_shr_works",
         f"""
         let a: short = 1;
-        let b: short = ({SHORT_MIN} >>> a) as short;
+        let b: short = ({SHORT_MIN}L >>> a) as short;
         """,
         "b",
         -1073741824),
@@ -624,7 +624,7 @@ test_tuples = [
 
     ("variable_variable_shr_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
         let c: short = a >>> b;
         """,
@@ -633,7 +633,7 @@ test_tuples = [
 
     ("variable_variable_self_assignment_shr_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
          a = a >>> b;
         """,
@@ -642,7 +642,7 @@ test_tuples = [
 
     ("variable_variable_self_assignment_rhs_shr_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
         b = a >>> b;
         """,
@@ -654,14 +654,14 @@ test_tuples = [
 
     ("constant_constant_sar_works",
         f"""
-        let a: short = {SHORT_MIN} >> 1;
+        let a: short = {SHORT_MIN}S >> 1;
         """,
         "a",
         -1073741824),
 
     ("variable_constant_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = a >> 1;
         """,
         "b",
@@ -669,7 +669,7 @@ test_tuples = [
 
     ("variable_constant_self_assignment_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         a = a >> 1;
         """,
         "a",
@@ -677,7 +677,7 @@ test_tuples = [
 
     ("variable_byte_constant_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = a >> 1b;
         """,
         "b",
@@ -685,7 +685,7 @@ test_tuples = [
 
     ("variable_byte_constant_self_assignment_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         a = a >> 1b;
         """,
         "a",
@@ -693,7 +693,7 @@ test_tuples = [
 
     ("variable_long_constant_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = a >> 1l;
         """,
         "b",
@@ -701,7 +701,7 @@ test_tuples = [
 
     ("variable_long_constant_self_assignment_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         a = a >> 1l;
         """,
         "a",
@@ -710,7 +710,7 @@ test_tuples = [
     ("constant_variable_sar_works",
         f"""
         let a: short = 1;
-        let b: short = {SHORT_MIN} >> a;
+        let b: short = {SHORT_MIN}S >> a;
         """,
         "b",
         -1073741824),
@@ -718,7 +718,7 @@ test_tuples = [
     ("constant_variable_self_assignment_sar_works",
         f"""
         let a: short = 1;
-        a = {SHORT_MIN} >> a;
+        a = {SHORT_MIN}S >> a;
         """,
         "a",
         -1073741824),
@@ -758,7 +758,7 @@ test_tuples = [
 
     ("variable_variable_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
         let c: short = a >> b;
         """,
@@ -767,7 +767,7 @@ test_tuples = [
 
     ("variable_variable_self_assignment_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
          a = a >> b;
         """,
@@ -776,7 +776,7 @@ test_tuples = [
 
     ("variable_variable_self_assignment_rhs_sar_works",
         f"""
-        let a: short = {SHORT_MIN};
+        let a: short = {SHORT_MIN}S;
         let b: short = 1;
         b = a >> b;
         """,
