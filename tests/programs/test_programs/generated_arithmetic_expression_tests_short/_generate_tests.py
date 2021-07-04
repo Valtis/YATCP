@@ -657,7 +657,7 @@ test_tuples = [
         let a: short = {SHORT_MIN}S >> 1;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("variable_constant_sar_works",
         f"""
@@ -665,7 +665,7 @@ test_tuples = [
         let b: short = a >> 1;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     ("variable_constant_self_assignment_sar_works",
         f"""
@@ -673,7 +673,7 @@ test_tuples = [
         a = a >> 1;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("variable_byte_constant_sar_works",
         f"""
@@ -681,7 +681,7 @@ test_tuples = [
         let b: short = a >> 1b;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     ("variable_byte_constant_self_assignment_sar_works",
         f"""
@@ -689,7 +689,7 @@ test_tuples = [
         a = a >> 1b;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("variable_long_constant_sar_works",
         f"""
@@ -697,7 +697,7 @@ test_tuples = [
         let b: short = a >> 1l;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     ("variable_long_constant_self_assignment_sar_works",
         f"""
@@ -705,7 +705,7 @@ test_tuples = [
         a = a >> 1l;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("constant_variable_sar_works",
         f"""
@@ -713,7 +713,7 @@ test_tuples = [
         let b: short = {SHORT_MIN}S >> a;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     ("constant_variable_self_assignment_sar_works",
         f"""
@@ -721,7 +721,7 @@ test_tuples = [
         a = {SHORT_MIN}S >> a;
         """,
         "a",
-        -1073741824),
+        -16384),
 
 
     ("byte_constant_variable_sar_works",
@@ -746,7 +746,7 @@ test_tuples = [
         let b: short = ({SHORT_MIN}l >> a) as short;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     ("long_constant_variable_self_assignment_sar_works",
         f"""
@@ -754,7 +754,7 @@ test_tuples = [
         a = ({SHORT_MIN}l >> a) as short;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("variable_variable_sar_works",
         f"""
@@ -763,7 +763,7 @@ test_tuples = [
         let c: short = a >> b;
         """,
         "c",
-        -1073741824),
+        -16384),
 
     ("variable_variable_self_assignment_sar_works",
         f"""
@@ -772,7 +772,7 @@ test_tuples = [
          a = a >> b;
         """,
         "a",
-        -1073741824),
+        -16384),
 
     ("variable_variable_self_assignment_rhs_sar_works",
         f"""
@@ -781,7 +781,7 @@ test_tuples = [
         b = a >> b;
         """,
         "b",
-        -1073741824),
+        -16384),
 
     # bitwise AND
     ("constant_constant_bitwise_and_works",

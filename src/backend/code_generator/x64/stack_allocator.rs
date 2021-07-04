@@ -3851,7 +3851,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
-            src2: ByteConstant(count)
+            src2: LongConstant(count)
         } if dest_vregdata.id != src_vregdata.id => {
 
             let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
@@ -3872,7 +3872,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: PhysicalRegister(reg),
-                    src2: ByteConstant(*count),
+                    src2: IntegerConstant(*count as i32),
                     dest: PhysicalRegister(reg),
                 }));
 
@@ -3925,7 +3925,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
-            src2: LongConstant(count)
+            src2: ShortConstant(count)
         } if dest_vregdata.id != src_vregdata.id => {
 
             let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
@@ -3946,7 +3946,44 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: PhysicalRegister(reg),
-                    src2: LongConstant(*count),
+                    src2: IntegerConstant(*count as i32),
+                    dest: PhysicalRegister(reg),
+                }));
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: PhysicalRegister(reg),
+                    dest: StackOffset {
+                        size: dest_stack_slot.size,
+                        offset: dest_stack_slot.offset
+                    },
+            }));
+        },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id != src_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(dest_vregdata.size);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src1_stack_slot.size,
+                        offset: src1_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src1_stack_slot.size as u8)),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: PhysicalRegister(reg),
+                    src2: IntegerConstant(*count as i32),
                     dest: PhysicalRegister(reg),
                 }));
 
@@ -3969,7 +4006,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
-            src2: ByteConstant(count)
+            src2: LongConstant(count)
         } if dest_vregdata.id == src_vregdata.id => {
 
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
@@ -3981,7 +4018,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: stack_offset.clone(),
-                    src2: ByteConstant(*count),
+                    src2: IntegerConstant(*count as i32),
                     dest: stack_offset,
                 }));
         },
@@ -4007,7 +4044,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: VirtualRegister(src_vregdata),
-            src2: LongConstant(count)
+            src2: ShortConstant(count)
         } if dest_vregdata.id == src_vregdata.id => {
 
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
@@ -4019,7 +4056,26 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: stack_offset.clone(),
-                    src2: LongConstant(*count),
+                    src2: IntegerConstant(*count as i32),
+                    dest: stack_offset,
+                }));
+        },
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: VirtualRegister(src_vregdata),
+            src2: ByteConstant(count)
+        } if dest_vregdata.id == src_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: IntegerConstant(*count as i32),
                     dest: stack_offset,
                 }));
         },
@@ -4036,15 +4092,15 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             sar [x], cl
 
         */
-       BinaryOperation {
+        BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
-            src1: ByteConstant(count),
+            src1: LongConstant(count),
             src2: VirtualRegister(src_vregdata),
         } => {
 
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let cl_reg = X64Register::CL;
+            let reg = X64Register::CL;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
@@ -4052,30 +4108,25 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         size: src_stack_slot.size,
                         offset: src_stack_slot.offset,
                     },
-                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
                 }));
 
+
+
+            mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot);
 
             let stack_offset = StackOffset {
                 size: dest_stack_slot.size,
                 offset: dest_stack_slot.offset,
             };
 
-             updated_instructions.push(
-                ByteCode::Mov(UnaryOperation{
-                    src: ByteConstant(*count),
-                    dest: stack_offset.clone(),
-                }));
-
-
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: stack_offset.clone(),
-                    src2: PhysicalRegister(X64Register::CL),
+                    src2: PhysicalRegister(reg.get_alias_for_size(1)),
                     dest: stack_offset,
                 }));
         },
-
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
             src1: IntegerConstant(count),
@@ -4084,7 +4135,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let cl_reg = X64Register::CL;
+            let reg = X64Register::CL;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
@@ -4092,7 +4143,7 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         size: src_stack_slot.size,
                         offset: src_stack_slot.offset,
                     },
-                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
                 }));
 
 
@@ -4111,19 +4162,19 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: stack_offset.clone(),
-                    src2: PhysicalRegister(X64Register::CL),
+                    src2: PhysicalRegister(reg.get_alias_for_size(1)),
                     dest: stack_offset,
                 }));
         },
         BinaryOperation {
             dest: VirtualRegister(dest_vregdata),
-            src1: LongConstant(count),
+            src1: ShortConstant(count),
             src2: VirtualRegister(src_vregdata),
         } => {
 
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let cl_reg = X64Register::CL;
+            let reg = X64Register::CL;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
@@ -4131,25 +4182,70 @@ fn handle_sar_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         size: src_stack_slot.size,
                         offset: src_stack_slot.offset,
                     },
-                    dest: PhysicalRegister(cl_reg.get_alias_for_size(src_stack_slot.size as u8)),
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
                 }));
 
-
-
-            mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot);
 
             let stack_offset = StackOffset {
                 size: dest_stack_slot.size,
                 offset: dest_stack_slot.offset,
             };
 
+             updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ShortConstant(*count),
+                    dest: stack_offset.clone(),
+                }));
+
+
             updated_instructions.push(
                 ByteCode::Sar(BinaryOperation{
                     src1: stack_offset.clone(),
-                    src2: PhysicalRegister(X64Register::CL),
+                    src2: PhysicalRegister(reg.get_alias_for_size(1)),
                     dest: stack_offset,
                 }));
         },
+
+        BinaryOperation {
+            dest: VirtualRegister(dest_vregdata),
+            src1: ByteConstant(count),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = X64Register::CL;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: StackOffset{
+                        size: src_stack_slot.size,
+                        offset: src_stack_slot.offset,
+                    },
+                    dest: PhysicalRegister(reg.get_alias_for_size(src_stack_slot.size as u8)),
+                }));
+
+
+            let stack_offset = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+             updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: ByteConstant(*count),
+                    dest: stack_offset.clone(),
+                }));
+
+
+            updated_instructions.push(
+                ByteCode::Sar(BinaryOperation{
+                    src1: stack_offset.clone(),
+                    src2: PhysicalRegister(reg.get_alias_for_size(1)),
+                    dest: stack_offset,
+                }));
+        },
+
 
 
         BinaryOperation {
