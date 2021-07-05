@@ -5694,6 +5694,38 @@ fn handle_xor_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             }));
         },
         /*
+        shorts
+        a = a XOR constant, a = constant XOR a
+
+        directly encodable, just emit:
+
+        XOR stack_slot, constant
+
+        */
+        BinaryOperation {
+            src1: constant @ ShortConstant(_),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } |
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: constant @ ShortConstant(_),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id == dest_vregdata.id => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let stack = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                src1: stack.clone(),
+                src2: constant.clone(),
+                dest: stack,
+            }));
+        },
+        /*
         bytes
         a = a XOR constant, a = constant XOR a
 
@@ -5777,6 +5809,59 @@ fn handle_xor_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 dest: dest_stack,
             }));
         },
+        /*
+        shorts
+        a = b XOR constant, a = constant XOR b
+
+        not directly encodable,  emit:
+
+        MOV tmp_reg, b
+        MOV a, tmp_reg
+        XOR a, constant
+
+        */
+        BinaryOperation {
+            src1: constant @ ShortConstant(_),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } |
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: constant @ ShortConstant(_),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id != dest_vregdata.id => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let reg = get_register_for_size(src1_stack_slot.size);
+
+            let src_stack = StackOffset {
+                size: src1_stack_slot.size,
+                offset: src1_stack_slot.offset,
+            };
+
+            let dest_stack = StackOffset {
+                size: dest_stack_slot.size,
+                offset: dest_stack_slot.offset,
+            };
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: src_stack,
+                dest: PhysicalRegister(reg),
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: PhysicalRegister(reg),
+                dest: dest_stack.clone(),
+            }));
+
+            updated_instructions.push(ByteCode::Xor(BinaryOperation {
+                src1: dest_stack.clone(),
+                src2: constant.clone(),
+                dest: dest_stack,
+            }));
+        },
+
         /*
         bytes
         a = b XOR constant, a = constant XOR b
