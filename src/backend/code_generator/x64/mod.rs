@@ -2744,7 +2744,7 @@ fn emit_not(operands: &UnaryOperation, asm: &mut Vec<u8>) {
             ice_if!(src_reg.size() != dest_reg.size(), "Source and destination sizes are different, {:#?}", operands);
             match src_reg.size() {
                 1 => emit_not_byte_reg(*dest_reg, asm),
-                4 | 8 => emit_not_integer_reg(*dest_reg, asm),
+                2 | 4 | 8 => emit_not_integer_reg(*dest_reg, asm),
                 _ => ice!("Invalid size {}", src_reg.size()),
             }
 
@@ -2756,7 +2756,7 @@ fn emit_not(operands: &UnaryOperation, asm: &mut Vec<u8>) {
             ice_if!(src_size != dest_size, "Source and destination sizes are different, {:#?}", operands);
             match src_size {
                 1 => emit_not_byte_stack(*dest_offset, *dest_size, asm),
-                4 | 8 => emit_not_integer_stack(*dest_offset, *dest_size,  asm),
+                2 | 4 | 8 => emit_not_integer_stack(*dest_offset, *dest_size,  asm),
                 _ => ice!("Invalid size {}", src_size),
             }
 
@@ -2808,7 +2808,7 @@ fn emit_not_byte_reg(reg: X64Register, asm: &mut Vec<u8>) {
 */
 
 fn emit_not_integer_reg(reg: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(reg.size() < 4, "Invalid register {:#?}", reg);
+    ice_if!(reg.size() < 2, "Invalid register {:#?}", reg);
 
        let modrm = ModRM {
         addressing_mode: AddressingMode::DirectRegisterAddressing,
@@ -2876,7 +2876,7 @@ fn emit_not_byte_stack(offset: u32, size: u32 , asm: &mut Vec<u8>) {
 
 fn emit_not_integer_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
 
-    ice_if!(size < 4, "Invalid sizxe {:#?}", size);
+    ice_if!(size < 2, "Invalid sizxe {:#?}", size);
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
 
@@ -2888,6 +2888,10 @@ fn emit_not_integer_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
     };
 
     let rex = create_rex_prefix(size == 8,Some(modrm), sib);
+
+    if size == 2 {
+        asm.push(OPERAND_SIZE_OVERRIDE);
+    }
 
     emit_instruction(
         asm,

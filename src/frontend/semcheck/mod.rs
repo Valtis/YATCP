@@ -2409,6 +2409,8 @@ impl SemanticsCheck {
                         AstNode::Long { value: AstLong::Long(!i1), span: arithmetic_info.span },
                     AstNode::Integer { value: AstInteger::Int(i1), .. }  =>
                         AstNode::Integer { value: AstInteger::Int(!i1), span: arithmetic_info.span },
+                    AstNode::Short{ value: AstShort::Short(i1), .. }  =>
+                        AstNode::Short { value: AstShort::Short(!i1), span: arithmetic_info.span },
                     AstNode::Byte { value: AstByte::Byte(i1), .. }  =>
                         AstNode::Byte { value: AstByte::Byte(!i1), span: arithmetic_info.span },
 
