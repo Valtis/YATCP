@@ -1099,8 +1099,12 @@ impl Parser {
                     ReportKind::SyntaxError,
                     Span::new(next_token.line, next_token.column, next_token.length),
                     format!(
-                        "Unexpected token '{}'. Missing operator?",
+                        "Unexpected token '{}'",
                         next_token.token_type));
+                self.report_error(
+                    ReportKind::Note,
+                    node.span(),
+                    format!("Either semicolon or operator is missing after this token"));
 
                 // consume the token
                 self.lexer.next_token();
