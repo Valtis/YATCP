@@ -5409,6 +5409,75 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
                 dest: dest_offset,
             }));
         },
+        /*
+            short
+            a = b or constant OR a = constant or b; commutative
+
+            not directly encodable, emit:
+
+            MOV tmp_reg, b
+            OR tmp_reg, constant
+            MOV a, tmp_reg
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: ShortConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: ShortConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id != dest_vregdata.id => {
+
+            let src_offset = offset_for_reg(stack_map, src_vregdata.id);
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+            let tmp_reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: src_offset.clone(),
+                dest: PhysicalRegister(tmp_reg),
+            }));
+
+            updated_instructions.push(ByteCode::Or(BinaryOperation {
+                src1: PhysicalRegister(tmp_reg),
+                src2: ShortConstant(*immediate),
+                dest: PhysicalRegister(tmp_reg),
+            }));
+
+            updated_instructions.push(ByteCode::Mov ( UnaryOperation {
+                src: PhysicalRegister(tmp_reg),
+                dest: dest_offset,
+            }));
+        },
+        /*
+           short
+            a = a or constant OR a = constant or a; commutative
+
+            // directly encodable, emit:
+            OR a, immediate
+
+        */
+        BinaryOperation {
+            src1: VirtualRegister(src_vregdata),
+            src2: ShortConstant(immediate),
+            dest: VirtualRegister(dest_vregdata)
+        } |
+        BinaryOperation {
+            src1: ShortConstant(immediate),
+            src2: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata),
+        } if src_vregdata.id == dest_vregdata.id => {
+
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+
+            updated_instructions.push(ByteCode::Or(BinaryOperation {
+                src1: dest_offset.clone(),
+                src2: ShortConstant(*immediate),
+                dest: dest_offset,
+            }));
+        },
          /*
             byte
             a = b or constant OR a = constant or b; commutative
@@ -5452,7 +5521,7 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
             }));
         },
         /*
-            integer
+            byte
             a = a or constant OR a = constant or a; commutative
 
             // directly encodable, emit:
