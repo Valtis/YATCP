@@ -231,7 +231,7 @@ test_tuples = [
         "a*b*c*d*10",
        2880),
     ("positive_multiplication_result_can_overflow",
-        f"let a: ishortnt = {SHORT_MAX};",
+        f"let a: short = {SHORT_MAX};",
         "a*2",
         -2),
     ("negative_multiplication_result_can_overflow",
@@ -1186,7 +1186,7 @@ test_tuples = [
         a[0] >>>= 2s;
         """,
         "a[0]",
-        1073741820),
+        16380),
 
     # &=
 
