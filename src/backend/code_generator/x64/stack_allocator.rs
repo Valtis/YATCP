@@ -6167,6 +6167,29 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
 
         },
         ComparisonOperation{
+            src1: ShortConstant(val1),
+            src2: ShortConstant(val2)
+        } => {
+
+            let reg = get_register_for_size(2);
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: ShortConstant(*val1),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+            
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: ShortConstant(*val2),
+                    }
+                )
+            );
+
+        },
+        ComparisonOperation{
             src1: ByteConstant(val1),
             src2: ByteConstant(val2)
         } => {
@@ -6255,6 +6278,24 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
         },
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
+            src2: ShortConstant(val),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        },
+                        src2: ShortConstant(*val),
+                    }
+                )
+            )
+        },
+        ComparisonOperation {
+            src1: VirtualRegister(src_vregdata),
             src2: ByteConstant(val),
         } => {
 
@@ -6317,6 +6358,34 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             updated_instructions.push(ByteCode::Mov(
                 UnaryOperation {
                     src: IntegerConstant(*val),
+                    dest: PhysicalRegister(reg),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: PhysicalRegister(reg),
+                        src2: StackOffset {
+                            offset: stack_slot.offset,
+                            size: stack_slot.size,
+                        }
+                    }
+                )
+            );
+
+        },
+        ComparisonOperation {
+            src1: ShortConstant(val),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let reg = get_register_for_size(stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: ShortConstant(*val),
                     dest: PhysicalRegister(reg),
                 }
             ));
