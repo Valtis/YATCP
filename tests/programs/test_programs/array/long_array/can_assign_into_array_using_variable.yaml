@@ -1,0 +1,35 @@
+program: |
+  extern fn long_printer(value: long) : void;
+
+  fn main() : int {
+    let init: long= 5;
+    let a: long[5] = init;
+
+
+    let j: long = 0;
+
+    while j < 5 {
+      a[j as int] = j*2+1;
+      j = j + 1;
+    }
+
+    let i: int = 0;
+    while i < 5 {
+        long_printer(a[i]);
+        i = i + 1;
+    }
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  1
+  3
+  5
+  7
+  9
+
+
+

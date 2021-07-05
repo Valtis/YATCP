@@ -1,0 +1,45 @@
+program: |
+  extern fn long_printer(value: long) : void;
+  extern fn int_printer(value: int) : void;
+
+
+  fn main() : int {
+    let canary1: int = 2147483647;
+    let arr: long[4] = 0;
+    let canary2: int = -2147483648;
+    foo(arr);
+
+    let i: int = 0;
+    while i < arr.length {
+      long_printer(arr[i]);
+      i = i + 1;
+    }
+    
+    int_printer(canary1);
+    int_printer(canary2);
+    return 0;
+  }
+
+  fn foo(arr: long[]) : void {
+    arr[0] = 91;
+    arr[1] = 6789123;
+    bar(arr);
+  }
+
+  fn bar(arr: long[]) : void {
+    arr[2] = 2000000001;
+    arr[3] = -531;
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  91
+  6789123
+  2000000001
+  -531
+  2147483647
+  -2147483648
+
+
+
+

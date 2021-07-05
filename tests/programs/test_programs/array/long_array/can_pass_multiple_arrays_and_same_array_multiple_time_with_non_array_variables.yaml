@@ -1,0 +1,65 @@
+program: |
+  extern fn int_printer(value: int) : void;
+  extern fn long_printer(value: long) : void;
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+    let arr: long[25] = 0;
+    let arr2: long[20] = -5;
+
+    arr[4] = 9999;
+    arr2[4] = 12345;
+
+    let a: int = 5;
+    let b: int = 5345;
+    let c: bool = false;
+
+    foo(a, arr, b, arr, c, arr2);
+    boolean_printer(c);
+    long_printer(arr[4]);
+    long_printer(arr2[4]);
+    return 0;
+  }
+
+  fn foo(a: int, arr: long[], b: int, arr2: long[], c: bool, arr3: long[]) : void {
+    boolean_printer(c);
+    c = true;
+    boolean_printer(c);
+    int_printer(a);
+    int_printer(b);
+
+    long_printer(arr[4]);
+    long_printer(arr2[4]);
+    long_printer(arr3[4]);
+
+    arr[4] = 100;
+    arr3[4] = 12;
+
+    long_printer(arr[4]);
+    long_printer(arr2[4]);
+    long_printer(arr3[4]);
+  }
+
+  
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  true
+  5
+  5345
+  9999
+  9999
+  12345
+  100
+  100
+  12
+  false
+  100
+  12
+
+  
+  
+
+
+

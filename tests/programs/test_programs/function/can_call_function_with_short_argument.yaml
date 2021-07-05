@@ -1,0 +1,14 @@
+program: |
+  extern fn short_printer(value: short);
+  fn main() : int {
+    bar(30s);
+    return 0;
+  }
+
+  fn bar(a: short) {
+    short_printer(a);
+  }
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  30

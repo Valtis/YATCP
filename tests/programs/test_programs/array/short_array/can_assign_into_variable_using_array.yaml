@@ -1,0 +1,26 @@
+program: |
+  extern fn short_printer(value: short) : void;
+
+  fn main() : int {
+    let init: short = 5;
+    let a: short[2] = init;
+    a[1] = 15;
+    let b: short = 0;
+
+    b = a[0];
+    short_printer(b);
+    b = a[1];
+    short_printer(b);
+
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  15
+
+
+

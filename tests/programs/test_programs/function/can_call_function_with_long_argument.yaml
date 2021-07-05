@@ -1,0 +1,14 @@
+program: |
+  extern fn long_printer(value: long);
+  fn main() : int {
+    bar(30L);
+    return 0;
+  }
+
+  fn bar(a: long) {
+    long_printer(a);
+  }
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  30

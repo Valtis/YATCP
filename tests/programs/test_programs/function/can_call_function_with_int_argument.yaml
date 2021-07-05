@@ -1,14 +1,14 @@
 program: |
-  fn test_function() : int {
-    return bar();
+  extern fn int_printer(value: int);
+  fn main() : int {
+    bar(30);
+    return 0;
   }
 
-  fn bar() : int {
-    return 5;
+  fn bar(a: int) {
+    int_printer(a);
   }
 link_with:
   - tests/files/support/support.c 
-callable: test_function
-returns: int
 expect_stdout: |
-  5
+  30

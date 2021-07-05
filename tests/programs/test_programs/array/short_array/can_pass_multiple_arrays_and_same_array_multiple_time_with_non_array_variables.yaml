@@ -1,0 +1,64 @@
+program: |
+  extern fn short_printer(value: short) : void;
+  extern fn boolean_printer(value: bool) : void;
+
+  fn main() : int {
+    let arr: short[25] = 0;
+    let arr2: short[20] = -5;
+
+    arr[4] = 99;
+    arr2[4] = 123;
+
+    let a: short = 5;
+    let b: short = -53;
+    let c: bool = false;
+
+    foo(a, arr, b, arr, c, arr2);
+    boolean_printer(c);
+    short_printer(arr[4]);
+    short_printer(arr2[4]);
+    return 0;
+  }
+
+  fn foo(a: short, arr: short[], b: short, arr2: short[], c: bool, arr3: short[]) : void {
+    boolean_printer(c);
+    c = true;
+    boolean_printer(c);
+    short_printer(a);
+    short_printer(b);
+
+    short_printer(arr[4]);
+    short_printer(arr2[4]);
+    short_printer(arr3[4]);
+
+    arr[4] = 100;
+    arr3[4] = 12;
+
+    short_printer(arr[4]);
+    short_printer(arr2[4]);
+    short_printer(arr3[4]);
+  }
+
+  
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  false
+  true
+  5
+  -53
+  99
+  99
+  123
+  100
+  100
+  12
+  false
+  100
+  12
+
+  
+  
+
+
+

@@ -1,0 +1,132 @@
+program: |
+  extern fn int_printer(value: int) : void;
+  extern fn short_printer(value: short) : void;
+  // Test that we do not accidentally overwrite values in previous stack frames
+
+  fn main() : int {
+    // canary variable
+    let canary: int = 20;
+    func_1();
+    int_printer(canary);
+    return 0;
+  }
+
+  fn func_1() : void {
+    let init: short = 5;
+    let a: short[30] = init;
+
+    let i: int = 0;
+    while i < 30 {
+        short_printer(a[i]);
+        i = i + 1;
+    }
+    
+    func_2();
+
+    // func 1 should not have overwritten anything here
+    i = 0;
+    while i < 30 {
+        short_printer(a[i]);
+        i = i + 1;
+    }
+    
+    short_printer(init);
+  }
+
+  fn func_2() : void {
+    let a: short[20] = 8;
+
+    let i: int = 0;
+    while i < 20 {
+        short_printer(a[i]);
+        i = i + 1;
+    }
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  8
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  5
+  20
+
+

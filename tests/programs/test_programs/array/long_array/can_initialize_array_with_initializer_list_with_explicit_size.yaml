@@ -1,0 +1,27 @@
+program: |
+  extern fn long_printer(value: long) : void;
+
+  fn main() : int {
+    let array: long[5] = {0L, 1L, 2L, 3L, 4L };
+
+    for let i: int = 0; i < array.length; i += 1 {
+      long_printer(array[i]);
+    }
+
+    return 0;
+  }
+
+
+link_with:
+  - tests/files/support/support.c
+expect_stdout: |
+  0
+  1
+  2
+  3
+  4
+
+
+
+
+

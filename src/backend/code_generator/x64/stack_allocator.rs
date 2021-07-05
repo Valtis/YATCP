@@ -398,7 +398,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } => {
             match param_type {
                 // integers, and integer-like values like pointers
-                Type::Integer | Type::Boolean | Type::Byte | Type::Reference(_) => {
+                Type::Long | Type::Integer | Type::Short | Type::Boolean | Type::Byte | Type::Reference(_) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
                     if *pos < 6 {
 
@@ -477,7 +477,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 index,
             }
         } => {
-            let fits_in_32_bit = *value <= i32::MAX as i64 && *value >= i32::MIN as i64;
+            let fits_in_32_bit = i64_fits_in_i32(*value);
             let array_stack = &stack_map.array_to_stack_slot[id];
             match **index {
                 VirtualRegister(ref vregdata) => {
@@ -560,6 +560,15 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         },
         UnaryOperation {
             src: val @ IntegerConstant(_),
+            dest: DynamicStackOffset {
+                id,
+                size,
+                offset,
+                index,
+            }
+        } |
+        UnaryOperation {
+            src: val @ ShortConstant(_),
             dest: DynamicStackOffset {
                 id,
                 size,
@@ -991,6 +1000,15 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 offset,
                 size,
             }
+       } |
+       UnaryOperation {
+            src: val @ ShortConstant (_),
+            dest: IndirectAddress {
+                base,
+                index,
+                offset,
+                size,
+            }
        } => {
 
             let base_vregdata = if let VirtualRegister(ref vregdata) = **base {
@@ -1072,7 +1090,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 }
 
 fn mov_long_constant_to_stack(updated_instructions: &mut Vec<ByteCode>, val: &i64, stack_slot: &StackSlot) {
-    if *val <= i32::MAX as i64 && *val >= i32::MIN as i64 {
+    if i64_fits_in_i32(*val) {
         updated_instructions.push(ByteCode::Mov(UnaryOperation {
             dest: StackOffset { offset: stack_slot.offset, size: 8 },
             src: LongConstant(*val),
@@ -1393,7 +1411,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             src2: LongConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64  {
+            if i64_fits_in_i32(*src2_val)  {
                 updated_instructions.push(ByteCode::Add(BinaryOperation{
                     dest: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
                     src1: StackOffset{offset: stack_slot.offset, size: stack_slot.size},
@@ -1561,7 +1579,7 @@ fn handle_add_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src: PhysicalRegister(reg),
             }));
 
-            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64 {
+            if i64_fits_in_i32(*src2_val) {
                 updated_instructions.push(ByteCode::Add(BinaryOperation{
                     dest: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
                     src1: StackOffset{offset: dest_stack_slot.offset, size: dest_stack_slot.size},
@@ -1810,7 +1828,7 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             src2: LongConstant(src2_val)} if dest_vregdata.id == src_vregdata.id => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64 {
+            if i64_fits_in_i32(*src2_val) {
                 updated_instructions.push(ByteCode::Sub(BinaryOperation {
                     dest: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
                     src1: StackOffset { offset: stack_slot.offset, size: stack_slot.size },
@@ -1908,7 +1926,7 @@ fn handle_sub_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 src: PhysicalRegister(reg),
             }));
 
-            if *src2_val >= i32::min_value as i64 && *src2_val <= i32::max_value as i64 {
+            if i64_fits_in_i32(*src2_val) {
                 updated_instructions.push(ByteCode::Sub(BinaryOperation {
                     dest: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
                     src1: StackOffset { offset: dest_stack_slot.offset, size: dest_stack_slot.size },
@@ -2316,7 +2334,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 })
             );
 
-            if *constant >= i32::min_value as i64 && *constant <= i32::max_value as i64 {
+            if i64_fits_in_i32(*constant) {
                 updated_instructions.push(
                     ByteCode::Mul(
                         BinaryOperation {
@@ -4882,7 +4900,7 @@ fn handle_and_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 dest: PhysicalRegister(tmp_reg),
             }));
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::And(BinaryOperation {
                     src1: PhysicalRegister(tmp_reg),
                     src2: IntegerConstant(*immediate as i32),
@@ -4924,13 +4942,13 @@ fn handle_and_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
         BinaryOperation {
             src1: LongConstant(immediate),
             src2: VirtualRegister(src_vregdata),
-            dest: VirtualRegister(dest_vregdata),
+            dest: VirtualRegister(dest_vregdata ),
         } if src_vregdata.id == dest_vregdata.id => {
 
             let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
 
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::And(BinaryOperation {
                     src1: dest_offset.clone(),
                     src2: IntegerConstant(*immediate as i32),
@@ -5269,7 +5287,7 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
                 dest: PhysicalRegister(tmp_reg),
             }));
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::Or(BinaryOperation {
                     src1: PhysicalRegister(tmp_reg),
                     src2: IntegerConstant(*immediate as i32),
@@ -5317,7 +5335,7 @@ fn handle_or_allocation(binary_op: &BinaryOperation, updated_instructions: &mut 
             let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
 
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::Or(BinaryOperation {
                     src1: dest_offset.clone(),
                     src2: IntegerConstant(*immediate as i32),
@@ -5590,7 +5608,7 @@ fn handle_xor_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 dest: PhysicalRegister(tmp_reg),
             }));
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::Xor(BinaryOperation {
                     src1: PhysicalRegister(tmp_reg),
                     src2: IntegerConstant(*immediate as i32),
@@ -5638,7 +5656,7 @@ fn handle_xor_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
 
 
-            if *immediate <= i32::MAX as i64 && *immediate >= i32::MIN as i64 {
+            if i64_fits_in_i32(*immediate) {
                 updated_instructions.push(ByteCode::Xor(BinaryOperation {
                     src1: dest_offset.clone(),
                     src2: IntegerConstant(*immediate as i32),
@@ -6098,7 +6116,7 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 }
             ));
 
-            if *val2 >= i32::min_value as i64 && *val2 <= i32::max_value as i64 {
+            if i64_fits_in_i32(*val2) {
                 updated_instructions.push(
                     ByteCode::Compare(
                         ComparisonOperation {
@@ -6184,7 +6202,7 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
         } => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            if *val >= i32::min_value as i64 && *val <= i32::max_value as i64 {
+            if i64_fits_in_i32(*val) {
                 updated_instructions.push(
                     ByteCode::Compare(
                         ComparisonOperation {
@@ -6672,4 +6690,9 @@ fn offset_for_reg(map: &StackMap, id: u32) -> Value{
         size: reg.size,
         offset: reg.offset,
     }
+}
+
+
+fn i64_fits_in_i32(val: i64) -> bool {
+    val >= i32::MIN as i64 && val <= i32::MAX as i64
 }

@@ -1,0 +1,26 @@
+program: |
+  extern fn long_printer(value: long) : void;
+
+  fn main() : int {
+    let init: long = 5;
+    let a: long[2] = init;
+    a[1] = 15;
+    let b: long = 0;
+
+    b = a[0];
+    long_printer(b);
+    b = a[1];
+    long_printer(b);
+
+
+    return 0;
+     
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  5
+  15
+
+
+

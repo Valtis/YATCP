@@ -1,0 +1,18 @@
+program: |
+  extern fn int_printer(value: int) : void;
+
+  fn main() : int {
+    let arr: long[25] = 0;
+    foo(arr);
+    return 0;
+  }
+
+  fn foo(arr: long[]) : void {
+    int_printer(arr.length);
+  }
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  25
+
+
