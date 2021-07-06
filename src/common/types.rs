@@ -18,7 +18,7 @@ pub enum Type {
     Array(Box<Type>, Vec<i32>),
     InitializerList(Box<Type>),
     Reference(Box<Type>),
-    Struct(String),
+    UserDefined(String),
     Invalid, // type error occurred
 }
 
@@ -38,7 +38,7 @@ impl Type {
             Type::Array(_, _) => unimplemented!(), // TODO define semantics
             Type::InitializerList(_) => ice!("Requesting size of an initializer list"),
             Type::Reference(_) => 8,
-            Type::Struct(_) => unimplemented!(),
+            Type::UserDefined(_) => unimplemented!(),
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
         }
@@ -138,7 +138,7 @@ impl Display for Type {
             Type::Reference(ref x) => format!("Reference to {}", x),
             Type::InitializerList(_) => "Initializer list".to_owned(),
             Type::Uninitialized => "Uninitialized".to_owned(),
-            Type::Struct(ref name) => format!("Struct {}", *name),
+            Type::UserDefined(ref name) => format!("{}", *name),
             Type::Invalid => "Invalid".to_owned(),
       }, formatter)
   }

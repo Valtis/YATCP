@@ -10,7 +10,7 @@ use crate::common::{
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub const ARRAY_LENGTH_PROPERTY: &'static str = "length";
 
@@ -649,11 +649,11 @@ impl SemanticsCheck {
 
     fn handle_struct_initialization(
         &mut self,
-        _initializers: &mut Vec<AstNode>,
+        initializers: &mut Vec<AstNode>,
         name: &Rc<String>,
         span: &Span) {
         let symbol = self.symbol_table.find_symbol(name);
-        match symbol {
+        let struct_info = match symbol {
             None => {
                 self.report_error(
                     ReportKind::NameError,
@@ -689,9 +689,80 @@ impl SemanticsCheck {
                 return;
             }
             Some(Symbol::Struct(ref info)) => {
-                todo!()
+                info
+            }
+        };
+
+        let mut variable_map = HashMap::new();
+        let mut seen_initializers = HashSet::new();
+        for variable in struct_info.variables.iter() {
+            variable_map.insert(variable.name.clone(), variable.clone());
+        }
+
+        for node in initializers {
+            if let AstNode::VariableAssignment { expression, name, span } = node {
+                self.do_check(expression);
+                let struct_variable_info = variable_map.get(name);
+
+                if let Some(declaration_info) = struct_variable_info {
+
+                    seen_initializers.insert(name.clone());
+                    ice_if!(declaration_info.variable_type == Type::Uninitialized, "Uninitialized struct variable");
+                    let conversion_result =  self.perform_type_conversion(&declaration_info.variable_type, expression);
+
+                    let expr_type = self.get_type(expression);
+                    ice_if!(expr_type == Type::Uninitialized, "Uninitialized initializer expression type");
+
+                    if conversion_result != ConversionResult::Converted && expr_type != Type::Invalid {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            expression.span(),
+                            format!("Expression has type '{}' while '{}' was expected", expr_type, declaration_info.variable_type)
+                        );
+                        self.report_error(
+                            ReportKind::Note,
+                            declaration_info.span,
+                            format!("Matching struct field defined here has type '{}'", declaration_info.variable_type)
+                        );
+
+                        if conversion_result == ConversionResult::CastRequired {
+                           self.report_error(
+                               ReportKind::Note,
+                               expression.span(),
+                               format!("Expression can be explicitly cast to '{}'", declaration_info.variable_type)
+                             );
+                        }
+                    }
+
+                } else {
+                    self.report_error(
+                        ReportKind::NameError,
+                        *span,
+                        format!("Undeclared initializer field '{}'", name)
+                    );
+                    self.report_error(
+                        ReportKind::Note,
+                        struct_info.span,
+                        format!("Struct '{}', declared here, has no field '{}'", struct_info.name, name)
+                    );
+                }
+            } else {
+                ice!("Unexpected node '{}'", node);
             }
         }
+
+        variable_map
+            .iter()
+            .filter(|(name, _)| {
+                !seen_initializers.contains(*name)
+            })
+            .for_each(|(name, _)| {
+                self.report_error(
+                    ReportKind::DataFlowError,
+                    *span,
+                    format!("Missing initializer for struct field '{}'", name)
+                );
+            });
     }
 
     fn handle_variable_declaration(
@@ -2193,7 +2264,7 @@ impl SemanticsCheck {
             },
             AstNode::Cast{ target_type, ..  } => target_type.clone(),
             AstNode::InitializerList { list_type, .. } => list_type.clone(),
-            AstNode::StructInitialization {  name, ..} => Type::Struct((**name).clone()),
+            AstNode::StructInitialization {  name, ..} => Type::UserDefined((**name).clone()),
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }
@@ -3158,7 +3229,6 @@ impl SemanticsCheck {
             },
             // self casts
             (x, y) if &x == y => ConversionResult::Converted,
-
             _ => ConversionResult::NotPossible
         }
     }

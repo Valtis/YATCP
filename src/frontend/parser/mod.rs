@@ -16,6 +16,7 @@ pub struct Parser {
     lexer: Box<dyn Lexer>,
     error_reporter: Rc<RefCell<dyn ErrorReporter>>,
     loop_depth: i32,
+    allow_struct_initialization: bool, // Hack/workaround to prevent following from being parsed as struct initializer: if a == b { c = 4; }
 }
 
 impl Parser {
@@ -26,6 +27,7 @@ impl Parser {
             lexer,
             error_reporter,
             loop_depth: 0,
+            allow_struct_initialization: false
         }
     }
 
@@ -260,7 +262,9 @@ impl Parser {
                     continue;
                 },
                 TokenType::Let | TokenType::Const | TokenType::Val => {
+                    self.allow_struct_initialization = true;
                     let res = self.parse_variable_declaration();
+                    self.allow_struct_initialization = false;
                     if let Err(_) = res {
                         self.skip_to_first_of(vec![TokenType::SemiColon]);
                     }
@@ -1327,7 +1331,7 @@ impl Parser {
             TokenType::Identifier => {
                 if self.lexer.peek_token().token_type == TokenType::LParen {
                     self.parse_function_call(token)
-                } else if self.lexer.peek_token().token_type == TokenType::LBrace {
+                } else if self.allow_struct_initialization && self.lexer.peek_token().token_type == TokenType::LBrace {
                     self.parse_struct_initialization(token)
                 } else {
                     match token.attribute {

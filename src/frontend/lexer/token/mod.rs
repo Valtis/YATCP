@@ -325,7 +325,7 @@ impl From<&Token> for Type {
             TokenType::Void => Type::Void,
             TokenType::Identifier => {
                 if let Some(TokenAttribute::Text(ref text)) = variable_token.attribute {
-                    Type::Struct((**text).clone())
+                    Type::UserDefined((**text).clone())
                 } else {
                     ice!("Unexpected token attribute {:?}", variable_token.attribute);
                 }
