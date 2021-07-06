@@ -1,0 +1,23 @@
+program: |
+
+    fn main() : int {
+
+    }
+
+    fn A() {
+
+    }
+
+    struct A {
+
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+  10:8 Name error: Declaration of struct 'A' shadows previously declared function
+  struct A {
+         ^
+  6:4 Note: Previously declared here
+  fn A() {
+     ^
+  Terminating compilation due to 1 error

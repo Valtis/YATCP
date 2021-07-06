@@ -18,6 +18,7 @@ pub enum Type {
     Array(Box<Type>, Vec<i32>),
     InitializerList(Box<Type>),
     Reference(Box<Type>),
+    Struct(String),
     Invalid, // type error occurred
 }
 
@@ -37,6 +38,7 @@ impl Type {
             Type::Array(_, _) => unimplemented!(), // TODO define semantics
             Type::InitializerList(_) => ice!("Requesting size of an initializer list"),
             Type::Reference(_) => 8,
+            Type::Struct(_) => unimplemented!(),
             Type::Uninitialized => ice!("Requesting size of an uninitialized type"),
             Type::Invalid => ice!("Requesting size of an invalid type"),
         }
@@ -79,7 +81,7 @@ impl Type {
     }
 
     // common enough in type checks that this gets its own utility function
-    pub const fn get_integral_types() -> [Type; 5] {
+    pub const fn integral_types() -> [Type; 5] {
         [
             Type::Byte,
             Type::Short,
@@ -88,7 +90,7 @@ impl Type {
             Type::IntegralNumber ]
     }
 
-    pub const fn get_numeric_types() -> [Type; 7] {
+    pub const fn numeric_types() -> [Type; 7] {
         [
             Type::Byte,
             Type::Short,
@@ -136,6 +138,7 @@ impl Display for Type {
             Type::Reference(ref x) => format!("Reference to {}", x),
             Type::InitializerList(_) => "Initializer list".to_owned(),
             Type::Uninitialized => "Uninitialized".to_owned(),
+            Type::Struct(ref name) => format!("Struct {}", *name),
             Type::Invalid => "Invalid".to_owned(),
       }, formatter)
   }

@@ -268,6 +268,7 @@ impl ReadLexer {
             "return" => Some(self.create_token(TokenType::Return)),
             "new" => Some(self.create_token(TokenType::New)),
             "class" => Some(self.create_token(TokenType::Class)),
+            "struct" => Some(self.create_token(TokenType::Struct)),
             "public" => Some(self.create_token(TokenType::Public)),
             "protected" => Some(self.create_token(TokenType::Protected)),
             "private" => Some(self.create_token(TokenType::Private)),
@@ -1173,7 +1174,7 @@ mod tests {
 
     #[test]
     fn keywords_are_accepted() {
-        let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class
+        let (mut lexer, reporter) = create_lexer(r"if else while for let fn return new class struct
         public protected private extern byte short int long float double bool void string as break continue");
 
         assert_eq_token!(
@@ -1219,6 +1220,10 @@ mod tests {
         assert_eq_token!(
             lexer.next_token(),
             TokenType::Class,
+            None);
+        assert_eq_token!(
+            lexer.next_token(),
+            TokenType::Struct,
             None);
 
         assert_eq_token!(

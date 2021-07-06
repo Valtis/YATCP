@@ -1,9 +1,10 @@
-use crate::common::node_info::{FunctionInfo, DeclarationInfo};
+use crate::common::node_info::{FunctionInfo, DeclarationInfo, StructInfo};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Symbol {
     Function(FunctionInfo),
     Variable(DeclarationInfo, u32),
+    Struct(StructInfo),
 }
 
 impl Symbol {
@@ -11,6 +12,7 @@ impl Symbol {
         match self {
             Symbol::Function(function_info) => function_info.name.as_str(),
             Symbol::Variable(declaration_info, _) => declaration_info.name.as_str(),
+            Symbol::Struct(struct_info) => struct_info.name.as_str(),
         }
     }
 }
@@ -47,6 +49,11 @@ impl TableEntry {
                         return Some(s.clone());
                     }
                 },
+                Symbol::Struct(ref info) => {
+                    if *info.name == name {
+                        return Some(s.clone())
+                    }
+                }
             }
         }
         None

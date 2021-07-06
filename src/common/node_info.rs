@@ -44,6 +44,26 @@ impl FunctionInfo {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct StructInfo {
+    pub name: Rc<String>,
+    pub variables: Vec<DeclarationInfo>,
+    pub span: Span,
+}
+
+impl StructInfo {
+    pub fn new(
+        name: Rc<String>,
+        span: Span) -> StructInfo {
+
+        StructInfo {
+            name,
+            span,
+            variables: vec![],
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeclarationInfo {
     pub name: Rc<String>,
     pub variable_type: Type,

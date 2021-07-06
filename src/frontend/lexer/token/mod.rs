@@ -36,6 +36,7 @@ pub enum TokenType {
     Return,
     New,
     Class,
+    Struct,
     Public,
     Protected,
     Private,
@@ -88,7 +89,7 @@ pub enum TokenType {
 }
 
 impl TokenType {
-    pub fn get_type_tokens() -> Vec<TokenType> {
+    pub fn type_tokens() -> Vec<TokenType> {
         vec![
             TokenType::Byte,
             TokenType::Short,
@@ -99,6 +100,7 @@ impl TokenType {
             TokenType::String,
             TokenType::Float,
             TokenType::Double,
+            TokenType::Identifier, // structs
         ]
     }
 }
@@ -133,6 +135,7 @@ impl Display for TokenType {
         TokenType::BooleanConstant => "boolean",
         TokenType::New => "new",
         TokenType::Class => "class",
+        TokenType::Struct=> "struct",
         TokenType::Public => "public",
         TokenType::Protected => "protected",
         TokenType::Private => "private",
@@ -320,6 +323,13 @@ impl From<&Token> for Type {
             TokenType::Double => Type::Double,
             TokenType::Boolean => Type::Boolean,
             TokenType::Void => Type::Void,
+            TokenType::Identifier => {
+                if let Some(TokenAttribute::Text(ref text)) = variable_token.attribute {
+                    Type::Struct((**text).clone())
+                } else {
+                    ice!("Unexpected token attribute {:?}", variable_token.attribute);
+                }
+            },
             _ => ice!("Expected type but was '{}' instead", variable_token),
         }
     }
@@ -327,18 +337,7 @@ impl From<&Token> for Type {
 
 impl From<Token> for Type {
     fn from(variable_token: Token) -> Type {
-        match variable_token.token_type {
-            TokenType::Byte => Type::Byte,
-            TokenType::Short => Type::Short,
-            TokenType::Integer => Type::Integer,
-            TokenType::Long=> Type::Long,
-            TokenType::String => Type::String,
-            TokenType::Float => Type::Float,
-            TokenType::Double => Type::Double,
-            TokenType::Boolean => Type::Boolean,
-            TokenType::Void => Type::Void,
-            _ => ice!("Expected type but was '{}' instead", variable_token),
-        }
+        Type::from(&variable_token)
     }
 }
 

@@ -437,8 +437,10 @@ impl Display for AstByte {
 pub enum AstNode {
     Block{ statements: Vec<AstNode>, block_symbol_table_entry: Option<symbol_table::TableEntry>, span: Span },
     Function{ block: Box<AstNode>, function_info: FunctionInfo },
+    Struct { struct_info: StructInfo },
     ExternFunction{ function_info: FunctionInfo },
     FunctionCall{ arguments: Vec<AstNode>, function_name: Rc<String>, span: Span },
+    StructInitialization { name: Rc<String>, initializers: Vec<AstNode>, span: Span },
     VariableDeclaration{ initialization_expression: Box<AstNode>, declaration_info: DeclarationInfo },
     ArrayDeclaration{ initialization_expression: Box<AstNode>, dimensions: Vec<AstNode>, declaration_info: DeclarationInfo },
     VariableAssignment{ expression: Box<AstNode>, name: Rc<String>, span: Span },
@@ -515,6 +517,17 @@ impl Display for AstNode {
                         param_str,
                         function_info.return_type)
             },
+            AstNode::Struct{ struct_info, .. } => {
+                let variable_str = struct_info.variables.iter().fold(
+                    String::new(),
+                    |acc, ref t| format!("{}\n       {} : {};", acc, t.name, t.variable_type))
+                    .chars()
+                    .skip(2).collect::<String>();
+
+                format!("Struct {} {{ \n {}\n  }}",
+                        struct_info.name,
+                        variable_str)
+            },
             AstNode::ExternFunction{ function_info} => {
                 let param_str = function_info.parameters.iter().fold(
                     String::new(),
@@ -529,6 +542,8 @@ impl Display for AstNode {
             },
             AstNode::FunctionCall{ref function_name, ..} =>
                 format!("Call function {}", function_name),
+            AstNode::StructInitialization{ref name, ..} =>
+                format!("Struct initialization {}", name),
             AstNode::VariableDeclaration{ref declaration_info, ..} =>
                 format!("Variable declaration '{}' : {}", declaration_info.name, declaration_info.variable_type),
             AstNode::ArrayDeclaration{ref declaration_info, ..} => {
@@ -619,9 +634,15 @@ impl AstNode {
                 }
             },
             AstNode::Function{ ref block, .. } => string = format!("{}{}", string, block.print_impl(next_int)),
+            AstNode::Struct{ .. } => { /* do nothing, no children*/},
             AstNode::ExternFunction{ .. } => { /* do nothing, no children */},
             AstNode::FunctionCall{ ref arguments, .. } => {
                 for arg in  arguments {
+                    string = format!("{}{}", string, arg.print_impl(next_int));
+                }
+            },
+            AstNode::StructInitialization{ ref initializers, .. } => {
+                for arg in initializers {
                     string = format!("{}{}", string, arg.print_impl(next_int));
                 }
             },
@@ -750,8 +771,10 @@ impl AstNode {
         let x = match self {
             AstNode::Block{ span, ..} => *span,
             AstNode::Function{ function_info, .. } => function_info.span,
+            AstNode::Struct{ struct_info, .. } => struct_info.span,
             AstNode::ExternFunction{ function_info} => function_info.span,
             AstNode::FunctionCall{span, ..} => *span,
+            AstNode::StructInitialization{span, ..} => *span,
             AstNode::VariableDeclaration{declaration_info, .. } => declaration_info.span,
             AstNode::VariableAssignment{ span, .. } => *span,
             AstNode::ArrayDeclaration{declaration_info, .. } => declaration_info.span,
@@ -808,8 +831,10 @@ impl AstNode {
         let x = match self {
             AstNode::Block { ref mut span, .. } => span,
             AstNode::Function { function_info, .. } => &mut function_info.span,
+            AstNode::Struct{ struct_info, .. } => &mut struct_info.span,
             AstNode::ExternFunction { function_info } => &mut function_info.span,
             AstNode::FunctionCall { span, .. } => span,
+            AstNode::StructInitialization { span, .. } => span,
             AstNode::VariableDeclaration { declaration_info, .. } => &mut declaration_info.span,
             AstNode::VariableAssignment { span, .. } => span,
             AstNode::ArrayDeclaration { declaration_info, .. } => &mut declaration_info.span,

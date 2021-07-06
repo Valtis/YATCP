@@ -59,7 +59,7 @@ impl SemanticsCheck {
         self.errors
     }
 
-    // only process function declarations initially, so that we can call functions that appear later
+    // process function declarations and structs, so that we can call functions and use structs that appear later
     fn check_and_gather_top_level_symbols(&mut self, node: &mut AstNode) {
         self.symbol_table.push_empty();
         if let AstNode::Block{ref mut statements, ref mut block_symbol_table_entry , ..} = node {
@@ -70,6 +70,9 @@ impl SemanticsCheck {
                     AstNode::ExternFunction{ ref function_info } => {
                         self.check_function_declaration(function_info);
 
+                    }
+                    AstNode::Struct{ ref struct_info } => {
+                       self.check_struct_declaration(struct_info);
                     }
                     _ => (), // don't care right now
                 }
@@ -99,9 +102,13 @@ impl SemanticsCheck {
                 self.handle_block(statements, block_symbol_table_entry, span),
             AstNode::Function{block,  function_info } =>
                 self.handle_function(block, function_info),
+            AstNode::Struct{struct_info } =>
+                self.handle_struct(struct_info),
             AstNode::ExternFunction{..} => (), // do nothing, handled in the initial function definition pass
             AstNode::FunctionCall{arguments, function_name, span} =>
                 self.handle_function_call(arguments, function_name, span),
+            AstNode::StructInitialization{initializers, name, span} =>
+                self.handle_struct_initialization(initializers, name, span),
             AstNode::VariableDeclaration{initialization_expression, declaration_info} => {
                 self.handle_variable_declaration(initialization_expression, declaration_info);
                 // Compile time constant - remove from tree
@@ -257,6 +264,13 @@ impl SemanticsCheck {
         }
     }
 
+    fn handle_struct(
+        &mut self,
+        _struct_info: &StructInfo,
+    ) {
+
+    }
+
     fn handle_function(
         &mut self,
         child: &mut AstNode,
@@ -304,26 +318,80 @@ impl SemanticsCheck {
         }
     }
 
+
+    fn check_struct_declaration(
+        &mut self,
+        struct_info: &StructInfo) {
+
+        // report redeclaration
+        if let Some(symbol) = self.symbol_table.find_symbol(&struct_info.name) {
+            match symbol {
+                Symbol::Struct(ref si) => {
+                    self.report_error(
+                        ReportKind::NameError,
+                        struct_info.span.clone(),
+                        format!("Redefinition of struct '{}'",
+                                struct_info.name));
+
+                    self.report_error(
+                        ReportKind::Note,
+                        si.span.clone(),
+                        "Previously declared here".to_string());
+                }
+                Symbol::Function(ref fi) => {
+                    self.report_error(
+                        ReportKind::NameError,
+                        struct_info.span.clone(),
+                        format!("Declaration of struct '{}' shadows previously declared function",
+                                struct_info.name));
+
+                    self.report_error(
+                        ReportKind::Note,
+                        fi.span.clone(),
+                        "Previously declared here".to_string());
+                }
+                _ => ice!("Unexpected symbol '{:#?}'", symbol),
+            }
+        } else {
+            self.symbol_table.add_symbol(
+                Symbol::Struct(struct_info.clone())
+            );
+        }
+    }
+
+
     fn check_function_declaration(
         &mut self,
         function_info: &FunctionInfo) {
 
         // report redeclaration
         if let Some(symbol) = self.symbol_table.find_symbol(&function_info.name) {
-            if let Symbol::Function(ref fi) = symbol {
-                self.report_error(
-                    ReportKind::NameError,
-                    function_info.span.clone(),
-                    format!("Redefinition of function '{}'",
-                        function_info.name));
+            match symbol {
+                Symbol::Function(ref fi) => {
+                    self.report_error(
+                        ReportKind::NameError,
+                        function_info.span.clone(),
+                        format!("Redefinition of function '{}'",
+                                function_info.name));
 
-                self.report_error(
-                    ReportKind::Note,
-                    fi.span.clone(),
-                    "Previously declared here".to_string());
+                    self.report_error(
+                        ReportKind::Note,
+                        fi.span.clone(),
+                        "Previously declared here".to_string());
+                }
+                Symbol::Struct(ref si) => {
+                    self.report_error(
+                        ReportKind::NameError,
+                        function_info.span.clone(),
+                        format!("Declaration of function '{}' shadows previously declared struct",
+                                function_info.name));
 
-            } else {
-                ice!("Function redeclared, but not shadowing a symbol");
+                    self.report_error(
+                        ReportKind::Note,
+                        si.span.clone(),
+                        "Previously declared here".to_string());
+                }
+                _ => ice!("Unexpected symbol '{:#?}'", symbol),
             }
         } else {
             self.symbol_table.add_symbol(
@@ -408,6 +476,18 @@ impl SemanticsCheck {
                         ReportKind::Note,
                         declaration_info.span.clone(),
                         "Variable declared here".to_string());
+                }
+                Symbol::Struct(ref struct_info) => {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        span.clone(),
+                        format!("Usage of struct '{}' as a function",
+                        function_name));
+
+                    self.report_error(
+                        ReportKind::Note,
+                        struct_info.span.clone(),
+                        "Struct declared here".to_string());
                 }
                 Symbol::Function(ref function_info) => {
                     if args.len() != function_info.parameters.len() {
@@ -563,6 +643,54 @@ impl SemanticsCheck {
                 format!("Function '{}' has not been declared",
                     function_name));
             return;
+        }
+    }
+
+
+    fn handle_struct_initialization(
+        &mut self,
+        _initializers: &mut Vec<AstNode>,
+        name: &Rc<String>,
+        span: &Span) {
+        let symbol = self.symbol_table.find_symbol(name);
+        match symbol {
+            None => {
+                self.report_error(
+                    ReportKind::NameError,
+                    *span,
+                    format!("Undeclared struct '{}'", name)
+                );
+                return;
+            },
+            Some(Symbol::Function(ref info)) => {
+                self.report_error(
+                    ReportKind::TypeError,
+                    *span,
+                    format!("Usage of function '{}' as struct", info.name)
+                );
+                self.report_error(
+                    ReportKind::Note,
+                    info.span,
+                    "Function previously declared here".to_owned()
+                );
+                return;
+            }
+            Some(Symbol::Variable(ref info, ..)) => {
+                self.report_error(
+                    ReportKind::TypeError,
+                    *span,
+                    format!("Usage of variable '{}' as struct", info.name)
+                );
+                self.report_error(
+                    ReportKind::Note,
+                    info.span,
+                    "Variable previously declared here".to_owned()
+                );
+                return;
+            }
+            Some(Symbol::Struct(ref info)) => {
+                todo!()
+            }
         }
     }
 
@@ -842,6 +970,13 @@ impl SemanticsCheck {
                          vi.span.line,
                          vi.span.column,
                          vi.span.length
+                        ),
+                    Symbol::Struct(si) =>
+                        (format!("Variable '{}' shadows a struct",
+                            si.name),
+                         si.span.line,
+                         si.span.column,
+                         si.span.length
                         ),
                 };
 
@@ -1420,7 +1555,7 @@ impl SemanticsCheck {
         let (ref valid_types, ref mut arithmetic_info) = match *node {
             AstNode::Plus{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
-                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                let mut acceptable_types = Type::numeric_types().to_vec();
                 acceptable_types.push(Type::Invalid);
                 acceptable_types.push(Type::String);
 
@@ -1430,7 +1565,7 @@ impl SemanticsCheck {
             AstNode::Multiply{ ref mut left_expression, ref mut right_expression, ref mut arithmetic_info } => {
                 self.handle_arithmetic_node(left_expression, right_expression, arithmetic_info);
 
-                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                let mut acceptable_types = Type::numeric_types().to_vec();
                 acceptable_types.push(Type::Invalid);
 
                 (acceptable_types, arithmetic_info)
@@ -1452,7 +1587,7 @@ impl SemanticsCheck {
                     _ => (),
                 };
 
-                let mut acceptable_types = Type::get_numeric_types().to_vec();
+                let mut acceptable_types = Type::numeric_types().to_vec();
                 acceptable_types.push(Type::Invalid);
 
                 (acceptable_types, arithmetic_info)
@@ -1470,7 +1605,7 @@ impl SemanticsCheck {
                         )
                 };
 
-                let mut acceptable_types = Type::get_integral_types().to_vec();
+                let mut acceptable_types = Type::integral_types().to_vec();
                 acceptable_types.push(Type::Invalid);
                 (acceptable_types, arithmetic_info)
             },
@@ -1526,7 +1661,7 @@ impl SemanticsCheck {
         // if type has non-arithmetic type, report it and set type to invalid
         // otherwise just set the type to the type of the child
 
-        const VALID_TYPES: [Type; 7] = Type::get_numeric_types();
+        const VALID_TYPES: [Type; 7] = Type::numeric_types();
 
         if child_type == Type::Invalid {
             arith_info.node_type = Type::Invalid;
@@ -1550,7 +1685,7 @@ impl SemanticsCheck {
         let left_type = self.get_type(left_child);
         let right_type = self.get_type(right_child);
 
-        let mut accepted_types = Type::get_numeric_types().to_vec();
+        let mut accepted_types = Type::numeric_types().to_vec();
 
         if equality_comparison {
             accepted_types.push(Type::Boolean);
@@ -1645,7 +1780,7 @@ impl SemanticsCheck {
         let right_type = self.get_type(right_child);
 
 
-        const VALID_TYPES: [Type; 5] = Type::get_integral_types();
+        const VALID_TYPES: [Type; 5] = Type::integral_types();
 
         let mut bad_type = false;
         if !VALID_TYPES.contains(&left_type) && left_type != Type::Invalid {
@@ -1742,7 +1877,7 @@ impl SemanticsCheck {
         let value_type = self.get_type(value);
         let shift_type = self.get_type(shift_count);
 
-        const ACCEPTED_SHIFT_TYPES: [Type; 5] = Type::get_integral_types();
+        const ACCEPTED_SHIFT_TYPES: [Type; 5] = Type::integral_types();
 
         if !ACCEPTED_SHIFT_TYPES.contains(&value_type) && value_type != Type::Invalid {
             self.report_error(
@@ -1928,6 +2063,19 @@ impl SemanticsCheck {
                             function_info.span.clone(),
                             "Function declared here:".to_string());
                     }
+                    Symbol::Struct(struct_info) => {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            span.clone(),
+                            format!(
+                                "Usage of struct '{}' as a variable",
+                                name));
+
+                        self.report_error(
+                            ReportKind::Note,
+                            struct_info.span.clone(),
+                            "Struct declared here:".to_string());
+                    }
                     Symbol::Variable(_, _) => { return Some(symbol.clone()); }
 
                 };
@@ -2045,6 +2193,7 @@ impl SemanticsCheck {
             },
             AstNode::Cast{ target_type, ..  } => target_type.clone(),
             AstNode::InitializerList { list_type, .. } => list_type.clone(),
+            AstNode::StructInitialization {  name, ..} => Type::Struct((**name).clone()),
             AstNode::ErrorNode => Type::Invalid,
             _ => ice!("Invalid node '{}' when resolving node type", node),
         }

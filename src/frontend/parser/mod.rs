@@ -30,7 +30,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> AstNode {
-        let top_level_tokens = vec![TokenType::Fn, TokenType::Extern, TokenType::Const];
+        let top_level_tokens = vec![TokenType::Fn, TokenType::Extern, TokenType::Const, TokenType::Struct];
         let mut nodes = vec![];
         loop {
             let token = self.lexer.peek_token();
@@ -45,6 +45,13 @@ impl Parser {
                 TokenType::Fn => {
                     match self.parse_function() {
                         Ok(function_node) => nodes.push(function_node),
+                        Err(_) =>
+                            self.skip_to_first_of(top_level_tokens.clone()),
+                    }
+                },
+                TokenType::Struct => {
+                    match self.parse_struct() {
+                        Ok(struct_node) => nodes.push(struct_node),
                         Err(_) =>
                             self.skip_to_first_of(top_level_tokens.clone()),
                     }
@@ -85,6 +92,40 @@ impl Parser {
         }
     }
 
+    fn parse_struct(&mut self) -> Result<AstNode, ()> {
+        self.expect(TokenType::Struct)?;
+        let identifier = self.expect(TokenType::Identifier)?;
+        self.expect(TokenType::LBrace)?;
+        let variables = self.parse_struct_variable_declarations()?;
+        self.expect(TokenType::RBrace)?;
+
+        Ok(AstNode::Struct {
+            struct_info: StructInfo {
+                name: (&identifier).into(),
+                span: identifier.into(),
+                variables,
+            }
+        })
+    }
+
+    fn parse_struct_variable_declarations(&mut self ) -> Result<Vec<DeclarationInfo>, ()> {
+        let mut variables = vec![];
+
+        while self.lexer.peek_token().token_type == TokenType::Identifier {
+            let identifier = self.expect(TokenType::Identifier)?;
+            self.expect(TokenType::Colon)?;
+            let variable_type = self.expect_one_of(TokenType::type_tokens())?;
+            self.expect(TokenType::SemiColon)?;
+            variables.push(DeclarationInfo::new(
+                (&identifier).into(),
+                identifier.into(),
+                    Type::from(variable_type)));
+
+        }
+
+        Ok(variables)
+    }
+
     fn parse_function(&mut self) -> Result<AstNode, ()> {
         self.expect(TokenType::Fn)?;
         let identifier = self.expect(TokenType::Identifier)?;
@@ -94,7 +135,7 @@ impl Parser {
 
         let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
             self.expect(TokenType::Colon)?;
-            self.expect_one_of(TokenType::get_type_tokens())?
+            self.expect_one_of(TokenType::type_tokens())?
         } else {
             Token {
                 token_type: TokenType::Void,
@@ -130,7 +171,7 @@ impl Parser {
 
         let type_token = if self.lexer.peek_token().token_type == TokenType::Colon {
             self.expect(TokenType::Colon)?;
-            self.expect_one_of(TokenType::get_type_tokens())?
+            self.expect_one_of(TokenType::type_tokens())?
         } else {
             Token {
                 token_type: TokenType::Void,
@@ -168,7 +209,7 @@ impl Parser {
                 };
 
                 self.expect(TokenType::Colon)?;
-                let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
+                let var_type = self.expect_one_of(TokenType::type_tokens())?;
                 let mut decl = DeclarationInfo::new((&identifier).into(), identifier.into(), var_type.into());
                 if is_read_only {
                     decl.attributes.insert(VariableAttribute::ReadOnly);
@@ -303,7 +344,7 @@ impl Parser {
             Type::Uninitialized
         } else {
             self.expect(TokenType::Colon)?;
-            let var_type = self.expect_one_of(TokenType::get_type_tokens())?;
+            let var_type = self.expect_one_of(TokenType::type_tokens())?;
             // Array parse & custom error handling for missing initialization
             let next_token = self.lexer.peek_token();
             if next_token.token_type == TokenType::LBracket {
@@ -1286,6 +1327,8 @@ impl Parser {
             TokenType::Identifier => {
                 if self.lexer.peek_token().token_type == TokenType::LParen {
                     self.parse_function_call(token)
+                } else if self.lexer.peek_token().token_type == TokenType::LBrace {
+                    self.parse_struct_initialization(token)
                 } else {
                     match token.attribute {
                         Some(TokenAttribute::Text(ref name)) =>
@@ -1406,6 +1449,24 @@ impl Parser {
             values,
             span: start_span,
             list_type: Type::Uninitialized
+        })
+    }
+
+    fn parse_struct_initialization(&mut self, identifier: Token) -> Result<AstNode, ()> {
+        self.expect(TokenType::LBrace)?;
+        let mut initializers = vec![];
+        while self.lexer.peek_token().token_type == TokenType::Identifier {
+            let identifier = self.expect(TokenType::Identifier)?;
+            initializers.push(self.parse_assignment(identifier)?);
+            self.expect(TokenType::SemiColon)?;
+        }
+
+        self.expect(TokenType::RBrace)?;
+
+        Ok(AstNode::StructInitialization {
+            name: (&identifier).into(),
+            initializers,
+            span: identifier.into(),
         })
     }
 
@@ -1629,7 +1690,7 @@ impl Parser {
 
     fn parse_cast_expression(&mut self, node: AstNode) -> Result<AstNode, ()> {
         let as_token = self.expect(TokenType::As)?;
-        let type_token = self.expect_one_of(TokenType::get_type_tokens() )?;
+        let type_token = self.expect_one_of(TokenType::type_tokens() )?;
 
         let cast_node = AstNode::Cast {
             expression: Box::new(node),

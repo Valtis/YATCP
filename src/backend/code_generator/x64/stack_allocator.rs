@@ -6178,7 +6178,7 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                     dest: PhysicalRegister(reg),
                 }
             ));
-            
+
             updated_instructions.push(
                 ByteCode::Compare(
                     ComparisonOperation{
