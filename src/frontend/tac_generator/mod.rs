@@ -19,6 +19,7 @@ use std::collections::HashMap;
 pub const ARRAY_LENGTH_ID_OFFSET: u32 = 1000000;
 
 pub struct TACGenerator {
+    structs: HashMap<String, StructInfo>,
     functions: Vec<Function>,
     function_stack: Vec<Function>,
     loop_label_stack: Vec<(u32, u32)>,
@@ -35,6 +36,7 @@ impl TACGenerator {
     pub fn new(start_id: u32) -> TACGenerator {
         TACGenerator {
             functions: vec![],
+            structs: HashMap::new(),
             function_stack: vec![],
             loop_label_stack: vec![],
             operands: vec![],
@@ -65,7 +67,9 @@ impl TACGenerator {
                 self.handle_block(statements, block_symbol_table_entry, span),
             AstNode::Function{ref block, ref function_info } =>
                 self.handle_function(block, function_info),
-           AstNode::ExternFunction{ref function_info} =>
+            AstNode::Struct{ struct_info } =>
+                self.handle_struct(struct_info),
+            AstNode::ExternFunction{ref function_info} =>
                 self.handle_extern_function(function_info),
             AstNode::FunctionCall{ ref arguments, ref function_name, ref span} =>
                 self.handle_function_call(function_name, arguments, span),
@@ -81,6 +85,8 @@ impl TACGenerator {
             AstNode::ArraySlice { start_expression, end_expression, array_expression}=> {
                 self.handle_array_slice(start_expression, end_expression, array_expression);
             },
+            AstNode::StructInitialization { name, initializers, .. } =>
+                self.handle_struct_init(name, initializers),
             AstNode::ArrayAssignment { assignment_expression, index_expression, variable_name, span: _, } =>
                 self.handle_array_assignment(variable_name, index_expression, assignment_expression),
             AstNode::MemberAccess {
@@ -167,6 +173,10 @@ impl TACGenerator {
         }
 
         self.symbol_table.pop();
+    }
+
+    fn handle_struct(&mut self, struct_info: &StructInfo) {
+        self.structs.insert((*struct_info.name).clone(), struct_info.clone());
     }
 
     fn handle_function(&mut self, child: &AstNode, info: &FunctionInfo) {
@@ -521,6 +531,12 @@ impl TACGenerator {
                 left_operand: None,
                 right_operand: operand
             });
+    }
+
+    fn handle_struct_init(&mut self, name: &str, initializers: &Vec<AstNode>) {
+
+
+        self.operands.push(Operand::Initialized(Type::UserDefined(name.to_owned())));
     }
 
     fn handle_array_access(&mut self,
