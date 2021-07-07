@@ -264,11 +264,62 @@ impl SemanticsCheck {
         }
     }
 
+
     fn handle_struct(
         &mut self,
-        _struct_info: &StructInfo,
+        struct_info: &StructInfo,
     ) {
-
+        for field in struct_info.fields.iter() {
+            if let Type::UserDefined(ref name) = field.variable_type  {
+                match self.symbol_table.find_symbol(name) {
+                    None => {
+                        self.report_error(
+                            ReportKind::NameError,
+                            field.span,
+                            format!("Undefined type '{}' for field '{}'", field.variable_type, field.name)
+                        );
+                    }
+                    Some(Symbol::Struct(ref variable_struct_info)) =>  {
+                        if variable_struct_info.name == struct_info.name {
+                            self.report_error(
+                               ReportKind::TypeError,
+                               field.span,
+                               "Recursive fields are not allowed".to_string()
+                            );
+                            self.report_error(
+                               ReportKind::Note,
+                               field.span,
+                               "Struct containing itself would require infinite space to store".to_string()
+                            );
+                       }
+                    }
+                    Some(Symbol::Function(ref info)) => {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            field.span,
+                            format!("Usage of function '{}' as type for field '{}", info.name, struct_info.name)
+                        );
+                        self.report_error(
+                            ReportKind::Note,
+                            info.span,
+                            format!("Function '{}' declared here", info.name)
+                        );
+                    }
+                    Some(Symbol::Variable(info, _)) => {
+                        self.report_error(
+                            ReportKind::TypeError,
+                            field.span,
+                            format!("Usage of variable or constant '{}' as type for field '{}", info.name, struct_info.name)
+                        );
+                        self.report_error(
+                            ReportKind::Note,
+                            info.span,
+                            format!("'{}' declared here", info.name)
+                        );
+                    }
+                }
+            }
+        }
     }
 
     fn handle_function(
@@ -695,7 +746,7 @@ impl SemanticsCheck {
 
         let mut variable_map = HashMap::new();
         let mut seen_initializers = HashSet::new();
-        for variable in struct_info.variables.iter() {
+        for variable in struct_info.fields.iter() {
             variable_map.insert(variable.name.clone(), variable.clone());
         }
 
@@ -714,23 +765,42 @@ impl SemanticsCheck {
                     ice_if!(expr_type == Type::Uninitialized, "Uninitialized initializer expression type");
 
                     if conversion_result != ConversionResult::Converted && expr_type != Type::Invalid {
-                        self.report_error(
-                            ReportKind::TypeError,
-                            expression.span(),
-                            format!("Expression has type '{}' while '{}' was expected", expr_type, declaration_info.variable_type)
-                        );
-                        self.report_error(
-                            ReportKind::Note,
-                            declaration_info.span,
-                            format!("Matching struct field defined here has type '{}'", declaration_info.variable_type)
-                        );
 
-                        if conversion_result == ConversionResult::CastRequired {
-                           self.report_error(
-                               ReportKind::Note,
-                               expression.span(),
-                               format!("Expression can be explicitly cast to '{}'", declaration_info.variable_type)
-                             );
+
+                        // skip reporting undefined user types, recursive types
+                        // these will be reported separately when checking struct for validity
+                        let skip = if let Type::UserDefined(ref name) = declaration_info.variable_type  {
+                            match self.symbol_table.find_symbol(name) {
+                                None => true,
+                                Some(Symbol::Struct(ref struct_info)) => {
+                                    *struct_info.name == *name
+                                },
+                                Some(Symbol::Function(_)) => true,
+                                Some(Symbol::Variable(_, _)) => true,
+                            }
+                        } else {
+                            false
+                        };
+
+                        if !skip {
+                            self.report_error(
+                                ReportKind::TypeError,
+                                expression.span(),
+                                format!("Expression has type '{}' while '{}' was expected", expr_type, declaration_info.variable_type)
+                            );
+                            self.report_error(
+                                ReportKind::Note,
+                                declaration_info.span,
+                                format!("Matching struct field defined here has type '{}'", declaration_info.variable_type)
+                            );
+
+                            if conversion_result == ConversionResult::CastRequired {
+                                self.report_error(
+                                    ReportKind::Note,
+                                    expression.span(),
+                                    format!("Expression can be explicitly cast to '{}'", declaration_info.variable_type)
+                                );
+                            }
                         }
                     }
 

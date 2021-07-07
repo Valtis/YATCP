@@ -518,7 +518,7 @@ impl Display for AstNode {
                         function_info.return_type)
             },
             AstNode::Struct{ struct_info, .. } => {
-                let variable_str = struct_info.variables.iter().fold(
+                let variable_str = struct_info.fields.iter().fold(
                     String::new(),
                     |acc, ref t| format!("{}\n       {} : {};", acc, t.name, t.variable_type))
                     .chars()

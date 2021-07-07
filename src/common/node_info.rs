@@ -46,7 +46,7 @@ impl FunctionInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructInfo {
     pub name: Rc<String>,
-    pub variables: Vec<DeclarationInfo>,
+    pub fields: Vec<DeclarationInfo>,
     pub span: Span,
 }
 
@@ -58,7 +58,7 @@ impl StructInfo {
         StructInfo {
             name,
             span,
-            variables: vec![],
+            fields: vec![],
         }
     }
 }

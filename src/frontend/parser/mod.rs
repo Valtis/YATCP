@@ -105,7 +105,7 @@ impl Parser {
             struct_info: StructInfo {
                 name: (&identifier).into(),
                 span: identifier.into(),
-                variables,
+                fields: variables,
             }
         })
     }
