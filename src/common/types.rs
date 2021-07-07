@@ -52,6 +52,13 @@ impl Type {
         }
     }
 
+    pub const fn is_user_defined(&self) -> bool {
+        match *self {
+            Type::UserDefined(_) => true,
+            _ => false,
+        }
+    }
+
     pub const fn is_invalid(&self) -> bool {
         match *self {
             Type::Invalid => true,

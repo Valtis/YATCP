@@ -1556,6 +1556,34 @@ impl SemanticsCheck {
                         format!("Invalid property '{}' for an array", name, ));
                 }
             },
+            AstNode::Identifier{ref name, ..} if self.get_type(object).is_user_defined() => {
+
+                let struct_info = if let Type::UserDefined(ref name)  = self.get_type(object) {
+                    if let Some(Symbol::Struct(struct_info)) = self.symbol_table.find_symbol(name) {
+                        struct_info
+                    } else {
+                         self.report_error(
+                             ReportKind::TypeError,
+                             member.span(),
+                             format!("Invalid property '{}' for expression of type '{}'", name, self.get_type(object)));
+                        return;
+                    }
+                } else {
+                    ice!("Unexpected type {}", self.get_type(object));
+                };
+
+                for field in struct_info.fields.iter() {
+                    if field.name == *name {
+                        return;
+                    }
+                }
+
+
+                self.report_error(
+                    ReportKind::NameError,
+                    member.span(),
+                    format!("Undefined field '{}' for struct '{}'", name,  struct_info.name));
+            },
             _ if self.get_type(object) != Type::Invalid => {
                 self.report_error(
                     ReportKind::TypeError,
@@ -2328,6 +2356,22 @@ impl SemanticsCheck {
                         return Type::Invalid;
                     } else {
                         return Type::Invalid;
+                    }
+                } else if self.get_type(object).is_user_defined() {
+                    let field_name = if let AstNode::Identifier{ref name, ..} = **member {
+                        name
+                    } else {
+                        return Type::Invalid
+                    };
+
+                    if let Type::UserDefined(ref name) = self.get_type(object) {
+                        if let Some(Symbol::Struct(struct_info)) = self.symbol_table.find_symbol(name) {
+                            for field in struct_info.fields {
+                                if field.name == *field_name {
+                                    return field.variable_type;
+                                }
+                            }
+                        }
                     }
                 }
                 return Type::Invalid;

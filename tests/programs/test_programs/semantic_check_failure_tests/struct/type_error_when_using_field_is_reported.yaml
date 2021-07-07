@@ -1,0 +1,28 @@
+program: |
+
+    extern fn int_printer(value: int);
+
+    fn main() : int {
+        let a = A {
+          a = 14;
+        };
+
+        int_printer(a.a);
+    }
+    
+    struct A {
+        a: long;
+    }
+    
+expect_compile_failure: true
+expect_stderr: |
+  9:18 Type error: Got argument of type 'Long' when 'Integer' was expected
+      int_printer(a.a);
+                   ^
+  2:23 Note: Corresponding parameter declared here
+  extern fn int_printer(value: int);
+                        ^^^^^
+  9:18 Note: Explicit cast is required to convert 'Long' to 'Integer'
+      int_printer(a.a);
+                   ^
+  Terminating compilation due to 1 error
