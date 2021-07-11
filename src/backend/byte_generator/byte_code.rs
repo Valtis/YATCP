@@ -19,7 +19,8 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ByteCode {
     Nop,
-    PseudoArrayInit{size_in_bytes: u32, id: u32}, // for adjusting stack & dynamic offsets
+    PseudoArrayInit{size_in_bytes: u32, id: u32 }, // for adjusting stack & dynamic offsets
+    PseudoStructInit{size_in_bytes: u32, id: u32 }, // for adjusting stack & dynamic offsets
     Add(BinaryOperation),
     Sub(BinaryOperation),
     Mul(BinaryOperation),
@@ -150,6 +151,7 @@ impl Display for ByteCode {
         write!(formatter, "{}", match *self {
             ByteCode::Nop => "NOP".to_owned(),
             ByteCode::PseudoArrayInit {size_in_bytes, id} => format!("Reserve {} bytes stack for array {}", size_in_bytes, id),
+            ByteCode::PseudoStructInit { size_in_bytes, id} => format!("Reserve {} bytes of stack for struct {}", size_in_bytes, id),
             ByteCode::Mov(UnaryOperation {
                 ref dest,
                 src: Value::ComparisonResult(ref comp_result), }) =>
@@ -227,7 +229,7 @@ impl Display for Value {
 
             Value::DynamicStackOffset {
                 index, offset, size, id
-            } => format!("{} PTR [stack + {} - (0x{:x}+array_{}_offset)]",
+            } => format!("{} PTR [stack + {} - (0x{:x}+id_{}_offset)]",
                          match *size {
                              1 => "BYTE",
                              2 => "WORD",

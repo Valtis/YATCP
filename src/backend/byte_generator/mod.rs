@@ -2,7 +2,7 @@ pub mod byte_code;
 
 use byte_code::*;
 
-use crate::common::node_info::DeclarationInfo;
+use crate::common::node_info::{DeclarationInfo, StructInfo};
 
 use std::collections::HashMap;
 
@@ -56,6 +56,12 @@ impl ByteGenerator {
 
             for s in f.statements {
                 match s {
+                    Statement::Assignment {
+                        operator: None,
+                        destination: Some(Operand::Variable(declaration_info, id)),
+                        left_operand: None,
+                        right_operand: Some(Operand::StructInit { info })
+                    } => self.emit_struct_init(&info, &declaration_info, id),
                     Statement::Assignment{
                         operator: None,
                         destination: Some(ref dest),
@@ -181,6 +187,35 @@ impl ByteGenerator {
         };
 
         self.current_function().code.push(ByteCode::Ret(ret_val));
+    }
+
+    fn emit_struct_init(&mut self, struct_info: &StructInfo, _declaration_info: &DeclarationInfo, id: u32) {
+
+        // TODO - handle struct fields that have no size yet. Handling primitives for now
+        // likely need to place unresolved structs to end of struct to preserve alignment, e.g. int, Unresolved, long ---> int, long, Unresolved,
+        // so that we can align the current size to preferred Unresolved size once we do know the size of Unresolved
+
+        // Also possibility: Reorder from largest to smallest, to minimize need for padding
+
+        let mut size_in_bytes = 0;
+        for field in struct_info.fields.iter() {
+            size_in_bytes = ByteGenerator::align_to_preferred_size_and_add_variable_size(field.variable_type.size_in_bytes(), size_in_bytes);
+        }
+
+        self.current_function().code.push(ByteCode::PseudoStructInit {
+            size_in_bytes,
+            id,
+        });
+    }
+
+    fn align_to_preferred_size_and_add_variable_size(size: u32, current_struct_size: u32) -> u32 {
+        let desired_size = if current_struct_size & (size-1) == 0 {
+            current_struct_size
+        } else {
+            (current_struct_size | (size-1)) + 1
+        };
+
+        desired_size + size
     }
 
     fn emit_move(&mut self, src: &Operand, dest: &Operand) {
@@ -443,7 +478,7 @@ impl ByteGenerator {
                         let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
                         Value::DynamicStackOffset {
                             id: *id,
-                            index: Box::new(self.get_source(index_operand)),
+                            index: Box::new(dbg!(self.get_source(index_operand))),
                             offset: 0,
                             size,
                         }
@@ -468,7 +503,22 @@ impl ByteGenerator {
                     ice!("Unexpected type for array slicing: {}", variable_info.variable_type);
                 }
             },
-            x => panic!("Not implemented yet for {}", x),
+            Operand::StructFieldAccess { id, field_index, struct_info, .. } => {
+
+                let mut offset = 0;
+                for i in 0..*field_index {
+                    offset = ByteGenerator::align_to_preferred_size_and_add_variable_size(struct_info.fields[i].variable_type.size_in_bytes(), offset)
+
+                }
+
+                Value::DynamicStackOffset {
+                    index: Box::new(Value::IntegerConstant(0)),
+                    offset,
+                    size: struct_info.fields[*field_index].variable_type.size_in_bytes(),
+                    id: *id,
+                }
+            },
+            x => todo!("Not implemented yet for {}", x),
         }
     }
 
@@ -715,5 +765,40 @@ mod test {
             functions[0].code[0]
         );
 
+    }
+
+    #[test]
+    fn should_align_correctly_if_already_aligned_for_bytes() {
+       assert_eq!(14, ByteGenerator::align_to_preferred_size_and_add_variable_size(1, 13));
+    }
+
+    #[test]
+    fn should_align_correctly_if_already_aligned_for_shorts() {
+       assert_eq!(24, ByteGenerator::align_to_preferred_size_and_add_variable_size(2, 22));
+    }
+
+    #[test]
+    fn should_align_correctly_if_already_aligned_for_ints() {
+       assert_eq!(4, ByteGenerator::align_to_preferred_size_and_add_variable_size(4, 0));
+    }
+
+    #[test]
+    fn should_align_correctly_if_already_aligned_for_longs() {
+       assert_eq!(40, ByteGenerator::align_to_preferred_size_and_add_variable_size(8, 32));
+    }
+
+    #[test]
+    fn should_align_correctly_if_not_aligned_for_shorts() {
+       assert_eq!(24, ByteGenerator::align_to_preferred_size_and_add_variable_size(2, 21));
+    }
+
+    #[test]
+    fn should_align_correctly_if_not_aligned_for_ints() {
+       assert_eq!(8, ByteGenerator::align_to_preferred_size_and_add_variable_size(4, 1));
+    }
+
+    #[test]
+    fn should_align_correctly_if_not_aligned_for_longs() {
+       assert_eq!(24, ByteGenerator::align_to_preferred_size_and_add_variable_size(8, 9));
     }
 }

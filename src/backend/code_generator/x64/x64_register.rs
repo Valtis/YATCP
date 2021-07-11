@@ -33,8 +33,8 @@ pub enum X64Register {
     R9d,
     // 8 bit registers (low 8 bits)
     AL,
-    BL,
     CL,
+    BL,
     DL,
     // 16 bit registers (Low 16 bit)
     AX,

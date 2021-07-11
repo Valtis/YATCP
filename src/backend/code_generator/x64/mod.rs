@@ -206,6 +206,16 @@ fn emit_mov_sign_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
                 _ => ice!("Invalid register {:?} and size {}", dest_reg, size),
             }
         }
+        UnaryOperation {
+            dest: PhysicalRegister(dest_reg),
+            src: PhysicalRegister(src_reg),
+        } => {
+            // TODO implement rest of the sizes
+            match (dest_reg.size(), src_reg.size()) {
+                (4, 1) => emit_mov_sign_extend_byte_reg_to_integer_reg(*dest_reg, *src_reg, asm),
+                _ => ice!("Invalid registers {:?} and {:?}", dest_reg, src_reg),
+            }
+        }
         _ => ice!("Invalid MOVSX operation:\n{:#?}", operand),
     }
 }
@@ -282,6 +292,31 @@ fn emit_mov_sign_extend_integer_stack_to_long_register(dest: X64Register, offset
         None,
     );
 }
+
+
+fn emit_mov_sign_extend_byte_reg_to_integer_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() < 2, "Invalid register: {:?}", dest);
+    ice_if!(src.size() != 1, "Invalid register {:?}", src);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(src)
+    };
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), None);
+
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(MOV_SIGN_EXTEND_RM_8_BIT_TO_REG_32_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
 
 fn emit_mov_zero_extending(operand: &UnaryOperation, asm: &mut Vec<u8>) {
     match operand {

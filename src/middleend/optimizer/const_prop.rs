@@ -163,6 +163,8 @@ fn do_constant_propagation(
 fn is_constant(var: &Operand) -> bool {
     match *var {
         Operand::Variable(_, _) => false,
+        Operand::StructInit { .. } => false,
+        Operand::StructFieldAccess{ .. } => false,
         Operand::SSAVariable(_, _, _) => false,
         Operand::Long(_) => true,
         Operand::Integer(_) => true,

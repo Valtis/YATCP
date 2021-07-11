@@ -31,7 +31,7 @@ struct StackSlot {
 #[derive(Debug)]
 struct StackMap {
     reg_to_stack_slot: HashMap<u32, StackSlot>,
-    array_to_stack_slot: HashMap<u32, StackSlot>, // reg and array can be same
+    object_to_stack_slot: HashMap<u32, StackSlot>, // reg and array can be same
     stack_size: u32, // stack size, size chosen so that stack is aligned to 16 byte boundary (adjusted for arg pushes)
     stack_space_used: u32, // stack size, unaligned.
 }
@@ -40,7 +40,7 @@ impl StackMap {
     fn new() -> StackMap {
         StackMap {
             reg_to_stack_slot: HashMap::new(),
-            array_to_stack_slot: HashMap::new(),
+            object_to_stack_slot: HashMap::new(),
             stack_size: 4, // start stack at 4 bytes, so we do not overwrite the old RBP value we push
             stack_space_used: 4,
         }
@@ -83,6 +83,7 @@ fn allocate_variables_to_stack(function: &Function) -> StackMap {
             ByteCode::FunctionArguments(_) |
             ByteCode::Call(_) => (), // do nothing
             ByteCode::PseudoArrayInit { id, size_in_bytes} => add_array_location(&mut stack_map, *id, *size_in_bytes),
+            ByteCode::PseudoStructInit { size_in_bytes, id } => add_struct_location(&mut stack_map, *id, *size_in_bytes),
 
 
             ByteCode::Mov(unary_op) |
@@ -172,17 +173,28 @@ fn align_slot_to_data_size(stack_map: &mut StackMap, size: u32) {
 }
 
 fn add_array_location(map: &mut StackMap, id: u32, size_in_bytes: u32) {
-    if !map.array_to_stack_slot.contains_key(&id) {
+    if !map.object_to_stack_slot.contains_key(&id) {
         let slot_size = if size_in_bytes >= 4 && size_in_bytes & 0b11 == 0 {
             size_in_bytes
         } else {
             (size_in_bytes | 0b11) + 1
         };
 
-        map.array_to_stack_slot.insert(id, StackSlot { offset: map.stack_size, size: slot_size });
+        map.object_to_stack_slot.insert(id, StackSlot { offset: map.stack_size, size: slot_size });
         map.stack_size += slot_size;
     } else {
         ice!("Multiple array declarations for array id {}", id);
+    }
+}
+
+fn add_struct_location(map: &mut StackMap, id: u32, size_in_bytes: u32) {
+    if !map.object_to_stack_slot.contains_key(&id) {
+        align_slot_to_data_size(map, size_in_bytes);
+
+        map.object_to_stack_slot.insert(id, StackSlot { offset: map.stack_size, size: size_in_bytes });
+        map.stack_size += size_in_bytes;
+    } else {
+        ice!("Multiple struct declarations for struct id {}", id);
     }
 }
 
@@ -208,7 +220,7 @@ fn print_stack_map(function: &Function, stack_map: &StackMap) {
         stack_slot_to_entity.push(tuple);
     }
 
-    for (id, slot) in stack_map.array_to_stack_slot.iter() {
+    for (id, slot) in stack_map.object_to_stack_slot.iter() {
         let tuple = (slot.clone(), format!("Array {}", id));
         stack_slot_to_entity.push(tuple);
     }
@@ -270,7 +282,8 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
             },
             ByteCode::FunctionArguments(args) =>
                 handle_function_arguments(args, &mut updated_instructions, stack_map),
-            ByteCode::PseudoArrayInit { id: _, size_in_bytes: _} => (), // pseudo opcode for stack size adjustment,
+            ByteCode::PseudoArrayInit { .. } |
+            ByteCode::PseudoStructInit { .. } => (), // pseudo opcode for stack size adjustment,
             _ => unimplemented!("Not implemented for:\n{:#?}\n", instr),
         }
     }
@@ -478,7 +491,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             }
         } => {
             let fits_in_32_bit = i64_fits_in_i32(*value);
-            let array_stack = &stack_map.array_to_stack_slot[id];
+            let array_stack = &stack_map.object_to_stack_slot[id];
             match **index {
                 VirtualRegister(ref vregdata) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
@@ -550,7 +563,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                 src: src,
                                 dest: StackOffset {
                                     size: *size,
-                                    offset: get_constant_array_offset(*offset, *size, index, &array_stack),
+                                    offset: get_constant_object_offset(*offset, *size, index, &array_stack),
                                 }
                             }
                         ));
@@ -586,7 +599,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             }
         } => {
 
-            let array_stack = &stack_map.array_to_stack_slot[id];
+            let array_stack = &stack_map.object_to_stack_slot[id];
             match **index {
                 VirtualRegister(ref vregdata) => {
                     let stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
@@ -623,7 +636,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                 src: val.clone(),
                                 dest: StackOffset {
                                     size: *size,
-                                    offset: get_constant_array_offset(*offset, *size, index, &array_stack),
+                                    offset: get_constant_object_offset(*offset, *size, index, &array_stack),
                                 }
                             }
                         ));
@@ -659,7 +672,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } => {
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             let tmp2_reg = get_register_for_size2(*size);
-            let array_stack = &stack_map.array_to_stack_slot[id];
+            let array_stack = &stack_map.object_to_stack_slot[id];
             updated_instructions.push(
                 ByteCode::Mov(
                     UnaryOperation {
@@ -707,7 +720,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                 src: PhysicalRegister(tmp2_reg),
                                 dest: StackOffset {
                                     size: *size,
-                                    offset: get_constant_array_offset(*offset, src_stack_slot.size, val,  array_stack),
+                                    offset: get_constant_object_offset(*offset, src_stack_slot.size, val, array_stack),
                                 }
                             }
                         ));
@@ -728,7 +741,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
 
             let value_register = get_register_for_size2(*size);
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let array_stack = &stack_map.array_to_stack_slot[id];
+            let array_stack = &stack_map.object_to_stack_slot[id];
             match **index {
                 VirtualRegister(ref vregdata) => {
                     let index_reg = get_register_for_size(4); // index should be integer
@@ -765,7 +778,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                             UnaryOperation {
                                 src: StackOffset {
                                     size: *size,
-                                    offset: get_constant_array_offset(*offset, *size, val, &array_stack),
+                                    offset: get_constant_object_offset(*offset, *size, val, &array_stack),
                                 },
                                 dest: PhysicalRegister(value_register.clone()),
                             }
@@ -1146,7 +1159,7 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
             dest: VirtualRegister(dest_vregdata)
         } => {
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let src_stack_slot = &stack_map.array_to_stack_slot[&id];
+            let src_stack_slot = &stack_map.object_to_stack_slot[&id];
             let value_reg = get_register_for_size2(PTR_SIZE);
 
 
@@ -1178,7 +1191,7 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
         } => {
 
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
-            let src_stack_slot = &stack_map.array_to_stack_slot[&id];
+            let src_stack_slot = &stack_map.object_to_stack_slot[&id];
             let value_reg = get_register_for_size2(PTR_SIZE);
 
             match **value {
@@ -6602,8 +6615,55 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
                     }
 
                 },
+                DynamicStackOffset { size, index, offset, id } => {
+
+                    let object_stack = &stack_map.object_to_stack_slot[id];
+                    match **index {
+                        IntegerConstant(value) => {
+                            if *size >= 2 {
+                                let dest = get_destination_for_integer_and_pointer_argument(i, *size);
+                                updated_instructions.push(
+                                    ByteCode::Mov(
+                                        UnaryOperation {
+                                            src: StackOffset {
+                                                size: *size,
+                                                offset: get_constant_object_offset(*offset, *size, value, &object_stack),
+                                            },
+                                            dest: dest,
+                                        }
+                                    ));
+                            } else {
+                                let dest = get_destination_for_integer_and_pointer_argument(i, 4);
+                                // handle byte args through temp reg due to how encoding works
+                                let tmp_reg = get_register_for_size(1);
+
+
+                                updated_instructions.push(
+                                    ByteCode::Mov(UnaryOperation {
+                                        src: StackOffset {
+                                                size: *size,
+                                                offset: get_constant_object_offset(*offset, *size, value, &object_stack),
+                                        },
+                                        dest: PhysicalRegister(tmp_reg.clone()),
+                                    })
+                                );
+
+
+                                updated_instructions.push(
+                                    ByteCode::Movsx(UnaryOperation {
+                                        src: PhysicalRegister(tmp_reg),
+                                        dest,
+                                    }));
+
+                            }
+
+                        },
+                        _ => todo!(),
+                    }
+                },
                 _ => unimplemented!("Not implemented for:\n{:#?}", value),
             }
+
         } else {
             // stack arguments
 
@@ -6746,7 +6806,7 @@ fn get_indexed_array_offset(offset: u32, array_stack: &StackSlot) -> u32 {
     constant_offset as u32
 }
 
-fn get_constant_array_offset(offset: u32, size: u32, index: i32, array_stack: &StackSlot) -> u32 {
+fn get_constant_object_offset(offset: u32, size: u32, index: i32, array_stack: &StackSlot) -> u32 {
 
     let constant_offset = -(offset as i32) + array_stack.offset as i32 + array_stack.size as i32 - (size as i32)*index;
     constant_offset as u32

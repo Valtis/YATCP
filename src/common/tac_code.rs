@@ -9,6 +9,7 @@ use super::{
 };
 
 use std::rc::Rc;
+use crate::common::node_info::StructInfo;
 
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,6 +30,8 @@ pub enum Statement {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operand {
     Variable(DeclarationInfo, u32),
+    StructInit { info: StructInfo },
+    StructFieldAccess { id: u32, field_index: usize, struct_info: StructInfo, variable_info: DeclarationInfo },
     AddressOf{ variable_info: DeclarationInfo, id: u32, },
     ArrayIndex{ id: u32, index_operand: Box<Operand>, variable_info: DeclarationInfo, },
     ArraySlice{ id: u32, start_operand: Box<Operand>, end_operand: Box<Operand>, variable_info: DeclarationInfo, },
@@ -175,6 +178,9 @@ impl Display for Operand {
             Operand::Float(v) => format!("{}F", v),
             Operand::Double(v) => format!("{}D", v),
             Operand::Boolean(v) => v.to_string(),
+            Operand::StructInit { ref info} => format!("Initialization of struct of type '{}'", info.name),
+            Operand::StructFieldAccess { field_index, ref struct_info, ref variable_info , id} =>
+                format!("{}_{}.{}", variable_info.name, id, struct_info.fields[field_index].name),
             Operand::Initialized(ref t) => format!(
                 "<initialized {} value>", t),
         })

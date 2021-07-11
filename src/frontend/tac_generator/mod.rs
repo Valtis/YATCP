@@ -85,7 +85,7 @@ impl TACGenerator {
             AstNode::ArraySlice { start_expression, end_expression, array_expression}=> {
                 self.handle_array_slice(start_expression, end_expression, array_expression);
             },
-            AstNode::StructInitialization { name, initializers, .. } =>
+            AstNode::StructInitialization { name, initializers , ..} =>
                 self.handle_struct_init(name, initializers),
             AstNode::ArrayAssignment { assignment_expression, index_expression, variable_name, span: _, } =>
                 self.handle_array_assignment(variable_name, index_expression, assignment_expression),
@@ -490,7 +490,7 @@ impl TACGenerator {
     fn handle_variable_assignment(
         &mut self,
         child: &AstNode,
-        name: &String) {
+        name: &str) {
 
         let (declaration_info, _) = self.get_variable_info_and_id(name);
 
@@ -504,7 +504,7 @@ impl TACGenerator {
     fn declaration_assignment_common(
         &mut self,
         child: &AstNode,
-        name: &String) {
+        name: &str) {
 
         self.generate_tac(child);
 
@@ -514,7 +514,29 @@ impl TACGenerator {
         self.generate_assignment(
             variable_info,
             id,
-            operand)
+            operand);
+
+        let (info, id) = self.get_variable_info_and_id(name);
+        if let Type::UserDefined(ref struct_name) = info.variable_type {
+            let struct_info = self.structs.get(struct_name).unwrap_or_else(|| ice!("Undefined struct '{}'", name)).clone();
+            for (index, _) in struct_info.fields.iter().enumerate() {
+                let expr = self.operands.pop();
+                self.current_function().statements.push(
+                    Statement::Assignment {
+                        destination: Some(Operand::StructFieldAccess {
+                            id,
+                            field_index: index,
+                            struct_info: struct_info.clone(),
+                            variable_info: info.clone(),
+                        }),
+                        left_operand: None,
+                        operator: None,
+                        right_operand:  expr,
+                    }
+                )
+            }
+        }
+
     }
 
     fn generate_assignment(
@@ -536,7 +558,17 @@ impl TACGenerator {
     fn handle_struct_init(&mut self, name: &str, initializers: &Vec<AstNode>) {
 
 
-        self.operands.push(Operand::Initialized(Type::UserDefined(name.to_owned())));
+        initializers.into_iter().rev().for_each(|initializer | {
+            if let AstNode::VariableAssignment { expression, .. } = initializer {
+                let init_expression = self.get_operand(expression);
+                self.operands.push(init_expression);
+            } else {
+                ice!("Unexpected AstNode {}", initializer);
+            }
+        });
+
+        let info = self.structs.get(name).unwrap_or_else(|| ice!("Undefined struct '{}' initialized", name));
+        self.operands.push(Operand::StructInit{ info: info.clone()});
     }
 
     fn handle_array_access(&mut self,
@@ -685,20 +717,47 @@ impl TACGenerator {
         object: &AstNode,
         member: &AstNode) {
 
-        if let AstNode::Identifier{name, ..} = object {
-            let (decl_info, array_id) = self.get_variable_info_and_id(name);
-            ice_if!(!decl_info.variable_type.is_array(), "Access not implemented for non-arrays");
+        if let AstNode::Identifier{ name: object_name, ..} = object {
+            let (decl_info, variable_id) = self.get_variable_info_and_id(object_name);
+            if let AstNode::Identifier{ name: prop_name, ..} = member {
 
-            if let AstNode::Identifier{ name: prop, ..} = member {
-                ice_if!(**prop != ARRAY_LENGTH_PROPERTY, "Not implemented for non-length properties: {:?}", member);
+                let operand = if decl_info.variable_type.is_array() {
+                    ice_if!(**prop_name != ARRAY_LENGTH_PROPERTY, "Non-length array property: {:?}", member);
 
-                let operand =  if decl_info.variable_type.is_reference() {
-                    let (length_id, declaration_info) = self.array_length_param_data
-                        .get(&format!("{}_{}", name, array_id))
-                        .unwrap_or_else(|| ice!("No array length information stored for array '{}'", name));
-                    Operand::Variable(declaration_info.clone(), *length_id)
+                    if decl_info.variable_type.is_reference() {
+                        let (length_id, declaration_info) = self.array_length_param_data
+                            .get(&format!("{}_{}", object_name, variable_id))
+                            .unwrap_or_else(|| ice!("No array length information stored for array '{}'", object_name));
+                        Operand::Variable(declaration_info.clone(), *length_id)
+                    } else {
+                        Operand::Integer(decl_info.variable_type.get_array_dimensions()[0])
+                    }
+                } else if decl_info.variable_type.is_user_defined() {
+
+                    let struct_name = if let Type::UserDefined(ref name) = decl_info.variable_type {
+                        name
+                    } else {
+                        ice!("Unexpected type '{}'", decl_info.variable_type);
+                    };
+
+                    let struct_info = self.structs.get(struct_name).unwrap_or_else(|| ice!("Undefined struct '{}'", object_name));
+
+                    let mut field_index = None;
+                    for (index, field) in struct_info.fields.iter().enumerate() {
+                        if field.name == *prop_name {
+                            field_index = Some(index);
+                            break;
+                        }
+                    }
+
+                    Operand::StructFieldAccess {
+                        id: variable_id,
+                        field_index: field_index.unwrap_or_else(|| ice!("Undefined field '{}'", prop_name)),
+                        struct_info: struct_info.clone(),
+                        variable_info: decl_info.clone(),
+                    }
                 } else {
-                    Operand::Integer(decl_info.variable_type.get_array_dimensions()[0])
+                    ice!("Not implemented for type '{}'", decl_info.variable_type);
                 };
 
                 self.operands.push(operand);
@@ -1159,6 +1218,8 @@ impl TACGenerator {
             Operand::ArraySlice{ ref variable_info, .. } => {
                 Type::Reference(Box::new(variable_info.variable_type.clone()))
             },
+            Operand::StructInit { ref info } => Type::UserDefined((*info.name).clone()),
+            Operand::StructFieldAccess{ ref variable_info, .. } => variable_info.variable_type.clone(),
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }
