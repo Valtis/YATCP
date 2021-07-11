@@ -94,6 +94,12 @@ impl TACGenerator {
                 member,
                 span: _,
             } => self.handle_member_access(object, member),
+            AstNode::MemberAssignment {
+                object,
+                member,
+                expression,
+                span: _,
+            } => self.handle_member_assignment(object, member, expression),
             AstNode::Plus { .. } |
             AstNode::Minus { .. } |
             AstNode::Multiply { .. } |
@@ -761,6 +767,68 @@ impl TACGenerator {
                 };
 
                 self.operands.push(operand);
+            } else {
+                ice!("Member access TAC generation not implemented for member: {:?}", member)
+            }
+
+        } else {
+            todo!("Member access TAC generation not implemented for: {:?}", object)
+        }
+    }
+
+    fn handle_member_assignment(
+        &mut self,
+        object: &AstNode,
+        member: &AstNode,
+        expression: &AstNode) {
+
+        if let AstNode::Identifier{ name: object_name, ..} = object {
+            let (decl_info, variable_id) = self.get_variable_info_and_id(object_name);
+            if let AstNode::Identifier{ name: prop_name, ..} = member {
+
+                if decl_info.variable_type.is_array() {
+                    ice!("Unexpected field assignment when base is an array: {:?}", object);
+                } else if decl_info.variable_type.is_user_defined() {
+
+                    let struct_name = if let Type::UserDefined(ref name) = decl_info.variable_type {
+                        name
+                    } else {
+                        ice!("Unexpected type '{}'", decl_info.variable_type);
+                    };
+
+                    let struct_info = self.structs.get(struct_name).unwrap_or_else(|| ice!("Undefined struct '{}'", object_name));
+
+                    let mut field_index = None;
+                    for (index, field) in struct_info.fields.iter().enumerate() {
+                        if field.name == *prop_name {
+                            field_index = Some(index);
+                            break;
+                        }
+                    }
+
+                    let destination = Operand::StructFieldAccess {
+                        id: variable_id,
+                        field_index: field_index.unwrap_or_else(|| ice!("Undefined field '{}'", prop_name)),
+                        struct_info: struct_info.clone(),
+                        variable_info: decl_info.clone(),
+                    };
+
+                    let op = self.get_operand(expression);
+
+                    self.current_function().statements.push(
+                        Statement::Assignment {
+                            destination: Some(destination),
+                            left_operand: None,
+                            operator: None,
+                            right_operand: Some(op),
+                        }
+                    )
+
+
+                } else {
+                    ice!("Not implemented for type '{}'", decl_info.variable_type);
+                };
+
             } else {
                 ice!("Member access TAC generation not implemented for member: {:?}", member)
             }

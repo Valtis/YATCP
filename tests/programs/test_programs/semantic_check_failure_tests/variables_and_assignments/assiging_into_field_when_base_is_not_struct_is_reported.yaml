@@ -1,0 +1,14 @@
+program: |
+
+    fn main() : int {
+      let x = 4b;
+      x.a = 4;
+    }
+    
+  
+expect_compile_failure: true
+expect_stderr: |
+  4:5 Type error: Invalid property 'a' for expression of type 'Byte'
+    x.a = 4;
+      ^
+  Terminating compilation due to 1 error

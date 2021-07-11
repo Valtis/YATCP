@@ -137,6 +137,12 @@ impl SemanticsCheck {
                 member,
                 span,
             } => self.handle_member_access(object, member, span),
+            AstNode::MemberAssignment {
+                object,
+                member,
+                expression,
+                span,
+            } => self.handle_member_assignment(object, member, expression, span),
             AstNode::Plus{ .. } |
             AstNode::Minus { .. } |
             AstNode::Multiply { .. } |
@@ -1583,6 +1589,102 @@ impl SemanticsCheck {
                     ReportKind::NameError,
                     member.span(),
                     format!("Undefined field '{}' for struct '{}'", name,  struct_info.name));
+            },
+            _ if self.get_type(object) != Type::Invalid => {
+                self.report_error(
+                    ReportKind::TypeError,
+                    member.span(),
+                    format!("Invalid property '{}' for expression of type '{}'", name, self.get_type(object)));
+            },
+            _ if self.get_type(object) == Type::Invalid => (),
+            _ => ice!("Unexpected member type {:?}", member),
+        }
+    }
+
+    fn handle_member_assignment(
+        &mut self,
+        object: &mut AstNode,
+        member: &mut AstNode,
+        expression: &mut AstNode,
+        span: &Span,
+    ) {
+        self.do_check(object);
+        self.do_check(expression);
+
+        let name = if let AstNode::Identifier{ref name, ..} = member {
+            name.clone()
+        } else {
+            ice!("Unexpected AST node '{:?}' for property", member)
+        };
+
+        match member {
+            AstNode::Identifier{ref name, ..} if self.get_type(object).is_array() => {
+                if **name != ARRAY_LENGTH_PROPERTY {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        member.span(),
+                        format!("Invalid property '{}' for an array", name, ));
+                } else {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        member.span(),
+                        "Assigning into array length property is not allowed".to_owned(),
+                    );
+                }
+            },
+            AstNode::Identifier{ref name, ..} if self.get_type(object).is_user_defined() => {
+                let struct_info = if let Type::UserDefined(ref name)  = self.get_type(object) {
+                    if let Some(Symbol::Struct(struct_info)) = self.symbol_table.find_symbol(name) {
+                        struct_info
+                    } else {
+                         self.report_error(
+                             ReportKind::TypeError,
+                             member.span(),
+                             format!("Invalid property '{}' for expression of type '{}'", name, self.get_type(object)));
+                        return;
+                    }
+                } else {
+                    ice!("Unexpected type {}", self.get_type(object));
+                };
+
+                let mut field_info = None;
+                for field in struct_info.fields.iter() {
+                    if field.name == *name {
+                        field_info = Some(field.clone());
+                        break;
+                    }
+                }
+
+                let field_info = if field_info.is_none() {
+                    self.report_error(
+                        ReportKind::NameError,
+                        member.span(),
+                        format!("Undefined field '{}' for struct '{}'", name, struct_info.name));
+                    return;
+                } else {
+                    field_info.unwrap()
+                };
+
+                let conversion_result = self.perform_type_conversion(
+                    &field_info.variable_type,  expression);
+
+                if conversion_result != ConversionResult::Converted && self.get_type(expression) != Type::Invalid {
+                    self.report_error(
+                        ReportKind::TypeError,
+                        span.clone(),
+                        format!(
+                            "Incompatible operand types '{}' and '{}' for this operation", field_info.variable_type, self.get_type(&expression)));
+
+                if conversion_result == ConversionResult::CastRequired {
+                    self.report_conversion_note(
+                        &field_info.variable_type,
+                        &self.get_type(&expression),
+                        span
+                    );
+                }
+
+                }
+
             },
             _ if self.get_type(object) != Type::Invalid => {
                 self.report_error(

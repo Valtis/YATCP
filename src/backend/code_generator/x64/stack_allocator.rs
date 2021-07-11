@@ -6695,6 +6695,28 @@ fn handle_function_arguments(args: &Vec<Value>,  updated_instructions: &mut Vec<
 
                     reg
                 },
+                DynamicStackOffset { size, index, offset, id } => {
+                    let object_stack = &stack_map.object_to_stack_slot[id];
+
+                    match **index {
+                        IntegerConstant(value) => {
+                            let dest = get_register_for_size(*size);
+                            updated_instructions.push(
+                                 ByteCode::Mov(
+                                    UnaryOperation {
+                                        src: StackOffset {
+                                            size: *size,
+                                            offset: get_constant_object_offset(*offset, *size, value, &object_stack),
+                                        },
+                                        dest: PhysicalRegister(dest.clone()),
+                                    }
+                                ));
+
+                            PhysicalRegister(dest)
+                        }
+                        _ => todo!(),
+                    }
+                },
                 _ => unimplemented!("Not implemented for:\n{:#?}", value),
             };
 

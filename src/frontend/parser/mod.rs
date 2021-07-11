@@ -507,6 +507,11 @@ impl Parser {
                 return Ok(node);
 
             }
+            TokenType::Dot => {
+                let node = self.parse_field_assignment_expression(identifier)?;
+                self.expect(TokenType::SemiColon)?;
+                return Ok(node);
+            },
             TokenType::LParen => {
                 let node = self.parse_function_call(identifier)?;
                 self.expect(TokenType::SemiColon)?;
@@ -577,6 +582,20 @@ impl Parser {
             expression: Box::new(expression_node),
             name,
             span: Span::from(&identifier)
+        })
+    }
+
+    fn parse_field_assignment_expression(&mut self, identifier: Token) -> Result<AstNode, ()> {
+        self.expect(TokenType::Dot)?;
+        let field = self.expect(TokenType::Identifier)?;
+        let assignment = self.expect(TokenType::Equals)?;
+        let expression = self.parse_expression()?;
+
+        Ok(AstNode::MemberAssignment {
+            object: Box::new(AstNode::Identifier{ name: (&identifier).into() , span: Span::from(identifier) }),
+            member: Box::new(AstNode::Identifier{ name: (&field).into(), span: Span::from(field) }),
+            expression: Box::new(expression),
+            span: Span::from(assignment),
         })
     }
 

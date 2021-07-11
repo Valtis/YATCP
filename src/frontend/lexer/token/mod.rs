@@ -349,3 +349,9 @@ impl From<&Token> for Rc<String> {
         }
     }
 }
+
+impl From<Token> for Rc<String> {
+    fn from(variable_token: Token) -> Rc<String> {
+        (&variable_token).into()
+    }
+}

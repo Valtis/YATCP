@@ -448,6 +448,7 @@ pub enum AstNode {
     InitializerList { values: Vec<AstNode>, list_type: Type, span: Span },
 
     MemberAccess { object: Box<AstNode>, member: Box<AstNode>, span: Span },
+    MemberAssignment{ object: Box<AstNode>, member: Box<AstNode>, expression: Box<AstNode>, span: Span },
     Plus{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
     Minus{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
     Multiply{ left_expression: Box<AstNode>, right_expression: Box<AstNode>, arithmetic_info: ArithmeticInfo },
@@ -562,7 +563,8 @@ impl Display for AstNode {
                 span: _
             } => format!("Array assignment '{}'", name),
             AstNode::InitializerList{..} => "Initializer list".to_owned(),
-            AstNode::MemberAccess { .. } => "Member access".to_owned(),
+            AstNode::MemberAccess { .. } => "Field access".to_owned(),
+            AstNode::MemberAssignment{ .. } => "Field assignment".to_owned(),
             AstNode::IntegralNumber{value, ..} => format!("Integral number: {}", value),
             AstNode::Long{ value, .. } => format!("Long: {}", value),
             AstNode::Integer{ value, .. } => format!("Integer: {}", value),
@@ -683,6 +685,12 @@ impl AstNode {
                 string = format!("{}{}", string, member_access.print_impl(next_int));
                 string = format!("{}{}", string, member.print_impl(next_int));
             }
+            AstNode::MemberAssignment { ref object, ref member, ref expression, .. } => {
+                string = format!("{}{}", string, object.print_impl(next_int));
+                string = format!("{}{}", string, member.print_impl(next_int));
+                string = format!("{}{}", string, expression.print_impl(next_int));
+
+            }
             AstNode::IntegralNumber{ .. } |
             AstNode::Long{ .. } |
             AstNode::Integer{ .. } |
@@ -781,6 +789,7 @@ impl AstNode {
             AstNode::ArrayAssignment{ span, .. } => *span,
             AstNode::InitializerList{ span, .. } => *span,
             AstNode::MemberAccess { span, .. } => *span,
+            AstNode::MemberAssignment{ span, .. } => *span,
             AstNode::BooleanAnd { span, ..} |
             AstNode::BooleanOr { span, ..} => *span,
             AstNode::BitwiseAnd { arithmetic_info, ..} |
@@ -841,6 +850,7 @@ impl AstNode {
             AstNode::ArrayAssignment { span, .. } => span,
             AstNode::InitializerList { span, .. } => span,
             AstNode::MemberAccess { span, .. } => span,
+            AstNode::MemberAssignment { span, .. } => span,
             AstNode::BooleanAnd { span, .. } |
             AstNode::BooleanOr { span, .. } => span,
             AstNode::BitwiseAnd { arithmetic_info, .. } |
