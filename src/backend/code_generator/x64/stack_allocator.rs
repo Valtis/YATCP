@@ -3712,7 +3712,7 @@ impl ByteCode {
                         }
                     ));
                 } else {
-                    let tmp = get_register_for_size(8);
+                    let tmp = get_register_for_size2(8);
                     updated_instructions.push(ByteCode::Mov(UnaryOperation{
                         dest: tmp.into(),
                         src: LongConstant(*immediate),
