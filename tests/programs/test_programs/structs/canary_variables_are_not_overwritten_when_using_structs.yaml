@@ -1,0 +1,52 @@
+program: |
+  extern fn byte_printer(x: byte) : void;
+  extern fn short_printer(x: short) : void;
+  extern fn int_printer(x: int) : void;
+  extern fn long_printer(x: long) : void;
+
+  struct Test {
+    
+    a: byte;
+    b: short;
+    c: int;
+    d: long;
+  }
+
+  fn main() : int {
+
+    let canary_1 = 127b;
+
+    let x = Test {
+      a = 126B;
+      b = 12600S;
+      c = 2100000000I;
+      d = 16000000000000000L;
+    };
+    let canary_2 = -128b;
+    byte_printer(canary_1);
+    canary_1 = 127b;    
+
+    byte_printer(x.a);
+    short_printer(x.b);
+    int_printer(x.c);
+    long_printer(x.d);
+
+    byte_printer(canary_1);
+    byte_printer(canary_2);
+
+
+
+
+    return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  127
+  126
+  12600
+  2100000000
+  16000000000000000
+  127
+  -128

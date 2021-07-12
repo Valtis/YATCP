@@ -1,0 +1,81 @@
+program: |
+  extern fn byte_printer(x: byte) : void;
+  extern fn short_printer(x: short) : void;
+  extern fn int_printer(x: int) : void;
+  extern fn long_printer(x: long) : void;
+
+  struct Test {
+    
+    a: byte;
+    b: short;
+    c: int;
+    d: long;
+  }
+
+  fn main() : int {
+    let x = Test {
+      a = 126B;
+      b = 12600S;
+      c = 2100000000I;
+      d = 16000000000000000L;
+    };
+
+    let y = Test {
+      a = 80;
+      b = 12345;
+      c = 987654321;
+      d = 12345678987654321;
+    };
+
+    byte_printer(x.a);
+    short_printer(x.b);
+    int_printer(x.c);
+    long_printer(x.d);
+
+    x.a = 9;
+    x.b = 18;
+    x.c = 27;
+    x.d = 36;
+
+    byte_printer(y.a);
+    short_printer(y.b);
+    int_printer(y.c);
+    long_printer(y.d);
+
+    y.a = 99;
+    y.b = 188;
+    y.c = 277;
+    y.d = 366;
+
+    byte_printer(x.a);
+    short_printer(x.b);
+    int_printer(x.c);
+    long_printer(x.d);
+
+    byte_printer(y.a);
+    short_printer(y.b);
+    int_printer(y.c);
+    long_printer(y.d);
+
+    return 0;
+  }
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  126
+  12600
+  2100000000
+  16000000000000000
+  80
+  12345
+  987654321
+  12345678987654321
+  9
+  18
+  27
+  36
+  99
+  188
+  277
+  366

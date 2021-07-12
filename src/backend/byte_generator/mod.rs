@@ -478,7 +478,7 @@ impl ByteGenerator {
                         let size = variable_info.variable_type.get_array_basic_type().size_in_bytes();
                         Value::DynamicStackOffset {
                             id: *id,
-                            index: Box::new(dbg!(self.get_source(index_operand))),
+                            index: Box::new(self.get_source(index_operand)),
                             offset: 0,
                             size,
                         }

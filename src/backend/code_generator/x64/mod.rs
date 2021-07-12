@@ -1743,7 +1743,35 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 registers are not in two address form: {:?} vs {:?}", dest_reg, src_reg);
 
             match dest_reg.size() {
-                4 => emit_add_immediate_to_register(*dest_reg, *value, asm),
+                4 | 8 => emit_add_integer_immediate_to_register(*dest_reg, *value, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src_reg),
+            src2: ShortConstant(value)
+        } => {
+            ice_if!(
+                dest_reg != src_reg,
+                "Destination and src1 registers are not in two address form: {:?} vs {:?}", dest_reg, src_reg);
+
+            match dest_reg.size() {
+                2 => emit_add_short_immediate_to_register(*dest_reg, *value, asm),
+                _ => ice!("Invalid size {}", dest_reg.size()),
+            }
+        },
+        BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src_reg),
+            src2: ByteConstant(value)
+        } => {
+            ice_if!(
+                dest_reg != src_reg,
+                "Destination and src1 registers are not in two address form: {:?} vs {:?}", dest_reg, src_reg);
+
+            match dest_reg.size() {
+                1 => emit_add_byte_immediate_to_register(*dest_reg, *value, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },
@@ -1848,12 +1876,12 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
     sib: not used
     immediate: 32 bit immediate
 */
-fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+fn emit_add_integer_immediate_to_register(register: X64Register, immediate: i32, asm: &mut Vec<u8>) {
 
     let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
-        (Immediate::from(immediate as u8), ADD_IMMEDIATE_8_BIT_TO_RM)
+        (Immediate::from(immediate as u8), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT)
     } else {
-        (Immediate::from(immediate), ADD_IMMEDIATE_32_BIT_TO_RM)
+        (Immediate::from(immediate), ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT)
     };
 
     let modrm = ModRM {
@@ -1871,6 +1899,71 @@ fn emit_add_immediate_to_register(register: X64Register, immediate: i32, asm: &m
         Some(modrm),
         None,
         Some(imm),
+    );
+}
+
+/*
+    ADD reg16, imm
+
+    REX: used if reg is rax - r15, otherwise not used
+    opcode: 8 bit opcode
+    modrm: direct addressing, reg field for opcode extension, reg in rm field
+    sib: not used
+    immediate: 32 bit immediate
+*/
+fn emit_add_short_immediate_to_register(register: X64Register, immediate: i16, asm: &mut Vec<u8>) {
+    ice_if!(register.size() != 2, "Bad register {:?}", register);
+    let (imm, opcode) = if immediate_fits_in_8_bits(immediate as i32) {
+        (Immediate::from(immediate as u8), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT)
+    } else {
+        (Immediate::from(immediate), ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT)
+    };
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(ADD_OPCODE_EXT),
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(modrm.clone()), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(opcode),
+        Some(modrm),
+        None,
+        Some(imm),
+    );
+}
+
+/*
+    ADD reg16, imm
+
+    REX: used if reg is rax - r15, otherwise not used
+    opcode: 8 bit opcode
+    modrm: direct addressing, reg field for opcode extension, reg in rm field
+    sib: not used
+    immediate: 32 bit immediate
+*/
+fn emit_add_byte_immediate_to_register(register: X64Register, immediate: i8, asm: &mut Vec<u8>) {
+    ice_if!(register.size() != 1, "Bad register {:?}", register);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(ADD_OPCODE_EXT),
+        rm_field: RmField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(modrm.clone()), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(ADD_IMMEDIATE_8_BIT_TO_RM_8_BIT),
+        Some(modrm),
+        None,
+        Some(Immediate::from(immediate)),
     );
 }
 
@@ -1901,7 +1994,7 @@ fn emit_add_integer_immediate_to_stack(offset: u32, size: u32, immediate: i32, a
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(ADD_IMMEDIATE_32_BIT_TO_RM),
+        SizedOpCode::from(ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT),
         Some(modrm),
         sib,
         Some(Immediate::from(immediate)),
@@ -1935,7 +2028,7 @@ fn emit_add_short_immediate_to_stack(offset: u32, size: u32, immediate: i16, asm
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(ADD_IMMEDIATE_32_BIT_TO_RM),
+        SizedOpCode::from(ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT),
         Some(modrm),
         sib,
         Some(Immediate::from(immediate)),
@@ -1969,7 +2062,7 @@ fn emit_add_byte_immediate_to_stack(offset: u32, size: u32, immediate: i8, asm: 
     emit_instruction(
         asm,
         rex,
-        SizedOpCode::from(ADD_IMMEDIATE_8_BIT_TO_RM),
+        SizedOpCode::from(ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT),
         Some(modrm),
         sib,
         Some(Immediate::from(immediate)),

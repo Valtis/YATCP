@@ -21,13 +21,14 @@ pub const MOV_ZERO_EXTEND_RM_16_BIT_TO_REG_32_BIT: u16 = 0x0FB7;
 
 pub const LEA_ADDR_TO_REG_64_BIT: u8 = 0x8D;
 
-pub const ADD_IMMEDIATE_32_BIT_TO_RM: u8 = 0x81;
+pub const ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
 pub const ADD_REG_TO_RM_32_BIT: u8 = 0x01;
 pub const ADD_RM_TO_REG_32_BIT: u8 = 0x03;
 
-pub const ADD_IMMEDIATE_8_BIT_TO_RM: u8 = 0x83;
+pub const ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT: u8 = 0x83;
 pub const ADD_REG_TO_RM_8_BIT: u8 = 0x00;
 pub const ADD_RM_TO_REG_8_BIT: u8 = 0x02;
+pub const ADD_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
 
 pub const ADD_OPCODE_EXT: u8 = 0;
 
