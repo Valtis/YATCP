@@ -36,6 +36,12 @@ test_tuples = [
                 "out",
                 108),
 
+            ("struct_variable_byte_self_addition_works",
+                "byte",
+                "let x = 8b; test_variable.a = test_variable.a + x;",
+                "test_variable.a",
+                108),
+
             ("variable_struct_byte_addition_works",
                 "byte",
                 "let x = 15b; let out = x + test_variable.a;",
@@ -46,6 +52,12 @@ test_tuples = [
                 "byte",
                 "let x: byte[3] = 8b; let out = test_variable.a + x[1];",
                 "out",
+                108),
+
+            ("struct_array_variable_byte_self_addition_works",
+                "byte",
+                "let x: byte[3] = 8b; test_variable.a = test_variable.a + x[1];",
+                "test_variable.a",
                 108),
 
             ("array_variable_struct_byte_addition_works",
@@ -81,6 +93,12 @@ test_tuples = [
                 "out",
                 108),
 
+            ("struct_variable_short_self_addition_works",
+                "short",
+                "let x = 8s; test_variable.a = test_variable.a + x;",
+                "test_variable.a",
+                108),
+
             ("variable_struct_short_addition_works",
                 "short",
                 "let x = 15s; let out = x + test_variable.a;",
@@ -91,6 +109,13 @@ test_tuples = [
                 "short",
                 "let x: short[3] = 8s; let out = test_variable.a + x[1];",
                 "out",
+                108),
+
+
+            ("struct_array_variable_short_self_addition_works",
+                "short",
+                "let x: short[3] = 8s; test_variable.a = test_variable.a + x[1];",
+                "test_variable.a",
                 108),
 
             ("array_variable_struct_short_addition_works",
@@ -125,6 +150,12 @@ test_tuples = [
                 "out",
                 108),
 
+            ("struct_variable_int_self_addition_works",
+                "int",
+                "let x = 8i; test_variable.a = test_variable.a + x;",
+                "test_variable.a",
+                108),
+
             ("variable_struct_int_addition_works",
                 "int",
                 "let x = 15i; let out = x + test_variable.a;",
@@ -135,6 +166,12 @@ test_tuples = [
                 "int",
                 "let x: int[3] = 8i; let out = test_variable.a + x[1];",
                 "out",
+                108),
+
+            ("struct_array_variable_int_self_addition_works",
+                "int",
+                "let x: int[3] = 8i; test_variable.a = test_variable.a + x[1];",
+                "test_variable.a",
                 108),
 
             ("array_variable_struct_int_addition_works",
@@ -175,6 +212,12 @@ test_tuples = [
                 "out",
                 108),
 
+            ("struct_variable_long_self_addition_works",
+                "long",
+                "let x = 8l; test_variable.a = test_variable.a + x;",
+                "test_variable.a",
+                108),
+
             ("variable_struct_long_addition_works",
                 "long",
                 "let x = 15l; let out = x + test_variable.a;",
@@ -185,6 +228,12 @@ test_tuples = [
                 "long",
                 "let x: long[3] = 8l; let out = test_variable.a + x[1];",
                 "out",
+                108),
+
+            ("struct_array_variable_long_self_addition_works",
+                "long",
+                "let x: long[3] = 8l; test_variable.a = test_variable.a + x[1];",
+                "test_variable.a",
                 108),
 
             ("array_variable_struct_long_addition_works",
@@ -215,11 +264,17 @@ test_tuples = [
                 "out",
                 98),
 
+            ("struct_const_byte_self_subtraction_works",
+                "byte",
+                "test_variable.a = test_variable.a - 2b;",
+                "test_variable.a",
+                98),
+
             ("const_struct_byte_subtraction_works",
                 "byte",
                 "let out = 5b - test_variable.a;",
                 "out",
-                95),
+                -95),
 
             ("struct_variable_byte_subtraction_works",
                 "byte",
@@ -227,11 +282,17 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_variable_byte_self_subtraction_works",
+                "byte",
+                "let x = 8b; test_variable.a = test_variable.a - x;",
+                "test_variable.a",
+                92),
+
             ("variable_struct_byte_subtraction_works",
                 "byte",
                 "let x = 15b; let out = x - test_variable.a;",
                 "out",
-                85),
+                -85),
 
             ("struct_array_variable_byte_subtraction_works",
                 "byte",
@@ -239,11 +300,17 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_array_variable_byte_self_subtraction_works",
+                "byte",
+                "let x: byte[3] = 8b; test_variable.a = test_variable.a - x[1];",
+                "test_variable.a",
+                92),
+
             ("array_variable_struct_byte_subtraction_works",
                 "byte",
                 "let x: byte[4] = 15b; let out = x[2] - test_variable.a;",
                 "out",
-                85),
+                -85),
 
 
         ############## short ##############
@@ -254,11 +321,18 @@ test_tuples = [
                 "out",
                 98),
 
+
+            ("struct_const_short_self_subtraction_works",
+                "short",
+                "test_variable.a = test_variable.a - 2s;",
+                "test_variable.a",
+                98),
+
             ("const_struct_short_subtraction_works",
                 "short",
                 "let out = 5s - test_variable.a;",
                 "out",
-                95),
+                -95),
 
             ("struct_variable_short_subtraction_works",
                 "short",
@@ -266,11 +340,17 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_variable_short_self_subtraction_works",
+                "short",
+                "let x = 8s; test_variable.a = test_variable.a - x;",
+                "test_variable.a",
+                92),
+
             ("variable_struct_short_subtraction_works",
                 "short",
                 "let x = 15s; let out = x - test_variable.a;",
                 "out",
-                85),
+                -85),
 
             ("struct_array_variable_short_subtraction_works",
                 "short",
@@ -278,11 +358,17 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_array_variable_short_self_subtraction_works",
+                "short",
+                "let x: short[3] = 8s; test_variable.a = test_variable.a - x[1];",
+                "test_variable.a",
+                92),
+
             ("array_variable_struct_short_subtraction_works",
                 "short",
                 "let x: short[4] = 15s; let out = x[2] - test_variable.a;",
                 "out",
-                85),
+                -85),
 
         ############## int ##############
 
@@ -292,11 +378,17 @@ test_tuples = [
                 "out",
                 98),
 
+            ("struct_const_int_self_subtraction_works",
+                "int",
+                "test_variable.a = test_variable.a - 2i;",
+                "test_variable.a",
+                98),
+
             ("const_struct_int_subtraction_works",
                 "int",
                 "let out = 5i - test_variable.a;",
                 "out",
-                95),
+                -95),
 
             ("struct_variable_int_subtraction_works",
                 "int",
@@ -304,11 +396,18 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_variable_int_self_subtraction_works",
+                "int",
+                "let x = 8i; test_variable.a = test_variable.a - x;",
+                "test_variable.a",
+                92),
+
+
             ("variable_struct_int_subtraction_works",
                 "int",
                 "let x = 15i; let out = x - test_variable.a;",
                 "out",
-                85),
+                -85),
 
             ("struct_array_variable_int_subtraction_works",
                 "int",
@@ -316,11 +415,17 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_array_variable_int_self_subtraction_works",
+                "int",
+                "let x: int[3] = 8i; test_variable.a = test_variable.a - x[1];",
+                "test_variable.a",
+                92),
+
             ("array_variable_struct_int_subtraction_works",
                 "int",
                 "let x: int[4] = 15i; let out = x[2] - test_variable.a;",
                 "out",
-                85),
+                -85),
 
         ############## long ##############
 
@@ -330,11 +435,25 @@ test_tuples = [
                 "out",
                 98),
 
+            ("struct_const_long_self_subtraction_works",
+                "long",
+                "test_variable.a = test_variable.a - 2l;",
+                "test_variable.a",
+                98),
+
+
+            ("struct_const_long_subtraction_works_with_large_immediate",
+                "long",
+                "let out = test_variable.a - 2000000000000l;",
+                "out",
+                -1999999999900),
+
+
             ("const_struct_long_subtraction_works",
                 "long",
                 "let out = 5l - test_variable.a;",
                 "out",
-                95),
+                -95),
 
             ("struct_variable_long_subtraction_works",
                 "long",
@@ -342,23 +461,35 @@ test_tuples = [
                 "out",
                 92),
 
+            ("struct_variable_long_self_subtraction_works",
+                "long",
+                "let x = 8l; test_variable.a = test_variable.a - x;",
+                "test_variable.a",
+                92),
+
             ("variable_struct_long_subtraction_works",
                 "long",
                 "let x = 15l; let out = x - test_variable.a;",
                 "out",
-                85),
+                -85),
 
             ("struct_array_variable_long_subtraction_works",
                 "long",
                 "let x: long[3] = 8l; let out = test_variable.a - x[1];",
                 "out",
                 92),
+            
+            ("struct_array_variable_long_self_subtraction_works",
+                "long",
+                "let x: long[3] = 8l; test_variable.a = test_variable.a - x[1];",
+                "test_variable.a",
+                92),
 
             ("array_variable_struct_long_subtraction_works",
                 "long",
                 "let x: long[4] = 15l; let out = x[2] - test_variable.a;",
                 "out",
-                85),
+                -85),
 
 
         # array indexing

@@ -3789,6 +3789,112 @@ impl ByteCode {
                 ));
 
             },
+            /*
+                A = dynamic_stack_location OP B
+
+                As reg will be converted to stack location, needs intermediate instructions. Emit:
+
+                 MOV tmp_reg, dyn_stack_loc,
+                OP tmp_reg, src2
+                MOV A, tmp_reg
+            */
+            BinaryOperation {
+                src1: DynamicStackOffset {
+                    index,
+                    offset,
+                    size,
+                    id
+                },
+                src2: VirtualRegister(src2_vregdata),
+                dest: VirtualRegister(dest_vregdata)
+            } => {
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let reg = get_register_for_size(dest_vregdata.size);
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(enum_type(
+                    BinaryOperation {
+                        src1: reg.into(),
+                        src2: src2_stack_slot.into(),
+                        dest: reg.into(),
+                    }
+                ));
+
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: reg.into(),
+                        dest: dest_stack_slot.into(),
+                    }
+                ));
+            },
+            /*
+                A = B OP dynamic_stack_location
+
+                As reg will be converted to stack location, needs intermediate instructions. Emit:
+
+                MOV tmp_reg, B    omit if A == B
+                MOV A, tmp_reg    omit if A == B
+                MOV tmp_reg, dynamic_stack_location,
+                OP A, tmp_reg,
+
+            */
+            BinaryOperation {
+                src1: VirtualRegister(src1_vregdata),
+                src2: DynamicStackOffset {
+                    index,
+                    offset,
+                    size,
+                    id
+                },
+                dest: VirtualRegister(dest_vregdata)
+            } => {
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let reg = get_register_for_size(dest_vregdata.size);
+
+                if dest_vregdata.id != src1_vregdata.id {
+                    updated_instructions.push( ByteCode::Mov( UnaryOperation {
+                        src: src1_stack_slot.into(),
+                        dest: reg.into(),
+                    }));
+
+                    updated_instructions.push( ByteCode::Mov( UnaryOperation {
+                        src: reg.into(),
+                        dest: dest_stack_slot.into(),
+                    }));
+                }
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(enum_type(
+                    BinaryOperation {
+                        src1: dest_stack_slot.into(),
+                        src2: reg.into(),
+                        dest: dest_stack_slot.into(),
+                    }
+                ));
+            },
         /*
             A = constant OP B if anticommutative
             not directly encodable

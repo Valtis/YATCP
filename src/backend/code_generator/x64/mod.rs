@@ -17,6 +17,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use crate::common::function_attributes::FunctionAttribute;
+use crate::backend::byte_generator::byte_code::Value::PhysicalRegister;
 
 // used to store jumps that need the target patched afterwards
 
@@ -2233,6 +2234,36 @@ fn emit_sub(operand: &BinaryOperation, asm: &mut Vec<u8>) {
 
     match operand {
         BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src1_reg),
+            src2: IntegerConstant(immediate)
+        } => {
+            ice_if!(
+                dest_reg != src1_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+            emit_sub_integer_immediate_from_reg(*dest_reg, *immediate, asm)
+        },
+        BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src1_reg),
+            src2: ShortConstant(immediate)
+        } => {
+            ice_if!(
+                dest_reg != src1_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+            emit_sub_short_immediate_from_reg(*dest_reg, *immediate, asm)
+        },
+        BinaryOperation{
+            dest: PhysicalRegister(dest_reg),
+            src1: PhysicalRegister(src1_reg),
+            src2: ByteConstant(immediate)
+        } => {
+            ice_if!(
+                dest_reg != src1_reg,
+                "Destination and src1 operands not in two address form: {:#?}", operand);
+            emit_sub_byte_immediate_from_reg(*dest_reg, *immediate, asm)
+        },
+        BinaryOperation{
                 dest: StackOffset{offset: dest_offset, size: dest_size },
                 src1: StackOffset{offset: src_offset, size: src_size },
                 src2: ByteConstant(immediate)
@@ -2313,6 +2344,104 @@ fn emit_sub(operand: &BinaryOperation, asm: &mut Vec<u8>) {
         _ => ice!("Invalid sub operation encoding: {:#?}", operand),
     }
 }
+
+/*
+    SUB r32, imm32
+
+    REX: yes, RBP reg used
+    opcode: 8 bits
+    modrm: direct register addressing, opcode extension
+    sib: no
+    immediate: the 32 bit immediate value
+*/
+
+fn emit_sub_integer_immediate_from_reg(dest_reg: X64Register, immediate: i32, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() < 4, "Invalid register: {:#?}", dest_reg);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(SUB_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.size() == 8, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SUB_IMMEDIATE_32_BIT_FROM_RM),
+        Some(modrm),
+        None,
+        Some(Immediate::from(immediate)),
+    );
+}
+
+
+/*
+    SUB r16, imm16
+
+    REX: yes, RBP reg used
+    opcode: 8 bits
+    modrm: direct register addressing, opcode extension
+    sib: no
+    immediate: the 16 bit immediate value
+*/
+
+fn emit_sub_short_immediate_from_reg(dest_reg: X64Register, immediate: i16, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 2, "Invalid register: {:#?}", dest_reg);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(SUB_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SUB_IMMEDIATE_32_BIT_FROM_RM),
+        Some(modrm),
+        None,
+        Some(Immediate::from(immediate)),
+    );
+}
+
+
+
+/*
+    SUB r8, imm8
+
+    REX: yes, RBP reg used
+    opcode: 8 bits
+    modrm: direct register addressing, opcode extension
+    sib: no
+    immediate: the 8 bit immediate value
+*/
+
+fn emit_sub_byte_immediate_from_reg(dest_reg: X64Register, immediate: i8, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 1, "Invalid register: {:#?}", dest_reg);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(SUB_OPCODE_EXT),
+        rm_field: RmField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(false, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(SUB_IMMEDIATE_8_BIT_FROM_RM),
+        Some(modrm),
+        None,
+        Some(Immediate::from(immediate)),
+    );
+}
+
+
 /*
     SUB QWORD/DWORD PTR [rbp-offset], imm32
 
