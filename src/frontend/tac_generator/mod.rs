@@ -1287,7 +1287,7 @@ impl TACGenerator {
                 Type::Reference(Box::new(variable_info.variable_type.clone()))
             },
             Operand::StructInit { ref info } => Type::UserDefined((*info.name).clone()),
-            Operand::StructFieldAccess{ ref variable_info, .. } => variable_info.variable_type.clone(),
+            Operand::StructFieldAccess{ field_index, ref struct_info, .. } => struct_info.fields[field_index].variable_type.clone(),
             Operand::SSAVariable(_, _, _) =>
                 ice!("Unexpected SSA variable during TAC generation"),
         }
