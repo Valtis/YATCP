@@ -3790,6 +3790,60 @@ impl ByteCode {
 
             },
             /*
+                A = constant OP dynamic_stack_location
+
+                As reg will be converted to stack location, needs intermediate instructions. Emit:
+
+                MOV tmp_reg, dyn_stack_loc,
+                MOV A, constant
+                OP A, tmp_reg
+
+            */
+            BinaryOperation {
+                src1:
+                    constant @ LongConstant(_) |
+                    constant @ IntegerConstant(_) |
+                    constant @ ShortConstant(_) |
+                    constant @ ByteConstant(_),
+                src2: DynamicStackOffset {
+                    index,
+                    offset,
+                    size,
+                    id
+                },
+                dest: VirtualRegister(vregdata)
+            } => {
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&vregdata.id];
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let reg = get_register_for_size(vregdata.size);
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: constant.clone(),
+                        dest: dest_stack_slot.into(),
+                    }
+                ));
+
+                updated_instructions.push(enum_type(
+                    BinaryOperation {
+                        src1: dest_stack_slot.into(),
+                        src2: reg.into(),
+                        dest: dest_stack_slot.into()
+                    }
+                ));
+            },
+            /*
                 A = dynamic_stack_location OP B
 
                 As reg will be converted to stack location, needs intermediate instructions. Emit:
