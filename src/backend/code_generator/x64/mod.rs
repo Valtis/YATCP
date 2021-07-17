@@ -1786,7 +1786,8 @@ fn emit_add(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 registers are not in two address form: {:?} vs {:?}", dest_reg, src_reg);
 
             match dest_reg.size() {
-                4 | 8 => emit_add_integer_reg_reg(*dest_reg, *src2_reg, asm),
+                1 => emit_add_byte_reg_reg(*dest_reg, *src2_reg, asm),
+                2 | 4 | 8 => emit_add_integer_reg_reg(*dest_reg, *src2_reg, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },
@@ -2104,19 +2105,55 @@ fn emit_add_stack_to_integer_reg(dest: X64Register, offset: u32, asm: &mut Vec<u
 
 
 /*
+    ADD reg8, rm8 as reg
+
+    REX: yes if extended regs are used
+    opcode: 8 bits
+    modrm: direct register addressing
+    sib: no
+    immediate: no
+
+
+*/
+fn emit_add_byte_reg_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(dest.size() != 1, "Invalid register {:?}", dest);
+    ice_if!(src.size() != 1, "Invalid register {:?}", src);
+
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::Register(dest),
+        rm_field: RmField::Register(src)
+    };
+
+
+    let rex = create_rex_prefix(dest.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(ADD_RM_TO_REG_8_BIT),
+        Some(modrm),
+        None,
+        None
+    );
+}
+
+
+/*
     ADD reg32/64, rm/32/64 as reg
 
     REX: yes Extended regs may be used, may be 8 byte operand size
     opcode: 8 bits
-    modrm: indirect register addressing with one or four byte displacement, depending if offset <= 128. Destination reg encoded
-    sib: byte not used, struct used to pass displacement
+    modrm: direct register addressing
+    sib: no
     immediate: no
 
 
 */
 fn emit_add_integer_reg_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(dest.size() < 4, "Invalid register {:?}", dest);
-    ice_if!(src.size() < 4, "Invalid register {:?}", src);
+    ice_if!(dest.size() < 2, "Invalid register {:?}", dest);
+    ice_if!(src.size() < 2, "Invalid register {:?}", src);
 
 
     let modrm = ModRM {
@@ -2322,7 +2359,7 @@ fn emit_sub(operand: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 operands not in two address form: {:#?}", operand);
             match dest_reg.size() {
                1 => emit_sub_byte_reg_reg(*dest_reg, *src2_reg, asm),
-               4 | 8 => emit_sub_integer_reg_reg(*dest_reg, *src2_reg, asm),
+               2 | 4 | 8 => emit_sub_integer_reg_reg(*dest_reg, *src2_reg, asm),
                _ => ice!("Invalid size {}", dest_reg.size()),
             }
 
@@ -2678,8 +2715,8 @@ fn emit_sub_byte_reg_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>)
     immediate: not used
 */
 fn emit_sub_integer_reg_reg(dest: X64Register, src: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(dest.size() < 4, "Invalid register {:?}", dest);
-    ice_if!(src.size() < 4, "Invalid register {:?}", src);
+    ice_if!(dest.size() < 2, "Invalid register {:?}", dest);
+    ice_if!(src.size() < 2, "Invalid register {:?}", src);
 
     let modrm = ModRM {
         addressing_mode: AddressingMode::DirectRegisterAddressing,

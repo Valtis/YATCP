@@ -66,6 +66,18 @@ test_tuples = [
                 "out",
                 115),
 
+            ("struct_struct_byte_addition_works",
+                "byte",
+                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_byte_self_addition_works",
+                "byte",
+                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "test_variable.a",
+                108),
+
 
         ############## short ##############
 
@@ -124,6 +136,19 @@ test_tuples = [
                 "out",
                 115),
 
+            ("struct_struct_short_addition_works",
+                "short",
+                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_short_self_addition_works",
+                "short",
+                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "test_variable.a",
+                108),
+
+
         ############## int ##############
 
             ("struct_const_int_addition_works",
@@ -179,6 +204,19 @@ test_tuples = [
                 "let x: int[4] = 15i; let out = x[2] + test_variable.a;",
                 "out",
                 115),
+
+            ("struct_struct_int_addition_works",
+                "int",
+                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_int_self_addition_works",
+                "int",
+                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "test_variable.a",
+                108),
+
 
         ############## long ##############
 
@@ -242,6 +280,17 @@ test_tuples = [
                 "out",
                 115),
 
+            ("struct_struct_long_addition_works",
+                "long",
+                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_long_self_addition_works",
+                "long",
+                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "test_variable.a",
+                108),
 
 
 
@@ -314,6 +363,19 @@ test_tuples = [
                 "out",
                 -85),
 
+            ("struct_struct_byte_subtraction_works",
+                "byte",
+                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "out",
+                -92),
+
+            ("struct_struct_byte_self_subtraction_works",
+                "byte",
+                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "test_variable.a",
+                -92),
+
+
 
         ############## short ##############
 
@@ -372,6 +434,19 @@ test_tuples = [
                 "out",
                 -85),
 
+            ("struct_struct_short_subtraction_works",
+                "short",
+                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "out",
+                -92),
+
+            ("struct_struct_short_self_subtraction_works",
+                "short",
+                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "test_variable.a",
+                -92),
+
+
         ############## int ##############
 
             ("struct_const_int_subtraction_works",
@@ -428,6 +503,19 @@ test_tuples = [
                 "let x: int[4] = 15i; let out = x[2] - test_variable.a;",
                 "out",
                 -85),
+
+            ("struct_struct_int_subtraction_works",
+                "int",
+                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "out",
+                -92),
+
+            ("struct_struct_int_self_subtraction_works",
+                "int",
+                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "test_variable.a",
+                -92),
+
 
         ############## long ##############
 
@@ -493,6 +581,17 @@ test_tuples = [
                 "out",
                 -85),
 
+            ("struct_struct_long_subtraction_works",
+                "long",
+                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "out",
+                -92),
+
+            ("struct_struct_long_self_subtraction_works",
+                "long",
+                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "test_variable.a",
+                -92),
 
 
 
@@ -565,6 +664,19 @@ test_tuples = [
                 "out",
                 32),
 
+            ("struct_struct_byte_multiplication_works",
+                "byte",
+                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "out",
+                32),
+
+            ("struct_struct_byte_self_multiplication_works",
+                "byte",
+                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "test_variable.a",
+                32),
+
+
 
         ############## short ##############
 
@@ -623,6 +735,21 @@ test_tuples = [
                 "out",
                 1500),
 
+
+            ("struct_struct_short_multiplication_works",
+                "short",
+                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "out",
+                800),
+
+            ("struct_struct_short_self_multiplication_works",
+                "short",
+                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "test_variable.a",
+                800),
+
+
+
         ############## int ##############
 
             ("struct_const_int_multiplication_works",
@@ -679,6 +806,19 @@ test_tuples = [
                 "let x: int[4] = 15i; let out = x[2]*test_variable.a;",
                 "out",
                 1500),
+
+            ("struct_struct_int_multiplication_works",
+                "int",
+                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "out",
+                800),
+
+            ("struct_struct_int_self_multiplication_works",
+                "int",
+                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "test_variable.a",
+                800),
+
 
         ############## long ##############
 
@@ -743,6 +883,18 @@ test_tuples = [
                 "let x: long[4] = 15l; let out = x[2]*test_variable.a;",
                 "out",
                 1500),
+
+            ("struct_struct_long_multiplication_works",
+                "long",
+                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "out",
+                800),
+
+            ("struct_struct_long_self_multiplication_works",
+                "long",
+                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "test_variable.a",
+                800),
 
 
 
