@@ -564,16 +564,25 @@ impl TACGenerator {
     fn handle_struct_init(&mut self, name: &str, initializers: &Vec<AstNode>) {
 
 
-        initializers.into_iter().rev().for_each(|initializer | {
-            if let AstNode::VariableAssignment { expression, .. } = initializer {
+        let mut initializer_expression_map = HashMap::new();
+
+
+        initializers.into_iter().for_each(|initializer | {
+            if let AstNode::VariableAssignment { expression, name, ..} = initializer {
                 let init_expression = self.get_operand(expression);
-                self.operands.push(init_expression);
+                initializer_expression_map.insert(name.clone(), init_expression);
             } else {
                 ice!("Unexpected AstNode {}", initializer);
             }
         });
 
-        let info = self.structs.get(name).unwrap_or_else(|| ice!("Undefined struct '{}' initialized", name));
+
+        let info = self.structs.get(name).unwrap_or_else(|| ice!("Undefined struct '{}' initialized", name)).clone();
+        // ensure we insert the init expressions to operand stack in reverse order they are defined in the struct
+        info.fields.iter().rev().for_each(|decl_info| {
+            self.operands.push(initializer_expression_map[&decl_info.name].clone());
+        });
+
         self.operands.push(Operand::StructInit{ info: info.clone()});
     }
 

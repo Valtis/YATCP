@@ -68,13 +68,13 @@ test_tuples = [
 
             ("struct_struct_byte_addition_works",
                 "byte",
-                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_byte_self_addition_works",
                 "byte",
-                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -138,13 +138,13 @@ test_tuples = [
 
             ("struct_struct_short_addition_works",
                 "short",
-                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_short_self_addition_works",
                 "short",
-                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -207,13 +207,13 @@ test_tuples = [
 
             ("struct_struct_int_addition_works",
                 "int",
-                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_int_self_addition_works",
                 "int",
-                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -282,13 +282,13 @@ test_tuples = [
 
             ("struct_struct_long_addition_works",
                 "long",
-                "let x = Foo { a = 8; }; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_long_self_addition_works",
                 "long",
-                "let x = Foo { a = 8; }; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -365,13 +365,13 @@ test_tuples = [
 
             ("struct_struct_byte_subtraction_works",
                 "byte",
-                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_byte_self_subtraction_works",
                 "byte",
-                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -436,13 +436,13 @@ test_tuples = [
 
             ("struct_struct_short_subtraction_works",
                 "short",
-                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_short_self_subtraction_works",
                 "short",
-                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -506,13 +506,13 @@ test_tuples = [
 
             ("struct_struct_int_subtraction_works",
                 "int",
-                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_int_self_subtraction_works",
                 "int",
-                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -583,13 +583,13 @@ test_tuples = [
 
             ("struct_struct_long_subtraction_works",
                 "long",
-                "let x = Foo { a = 8; }; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_long_self_subtraction_works",
                 "long",
-                "let x = Foo { a = 8; }; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -666,13 +666,13 @@ test_tuples = [
 
             ("struct_struct_byte_multiplication_works",
                 "byte",
-                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 32),
 
             ("struct_struct_byte_self_multiplication_works",
                 "byte",
-                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -738,13 +738,13 @@ test_tuples = [
 
             ("struct_struct_short_multiplication_works",
                 "short",
-                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_short_self_multiplication_works",
                 "short",
-                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
 
@@ -809,13 +809,13 @@ test_tuples = [
 
             ("struct_struct_int_multiplication_works",
                 "int",
-                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_int_self_multiplication_works",
                 "int",
-                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
 
@@ -886,15 +886,327 @@ test_tuples = [
 
             ("struct_struct_long_multiplication_works",
                 "long",
-                "let x = Foo { a = 8; }; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_long_self_multiplication_works",
                 "long",
-                "let x = Foo { a = 8; }; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # division
+        ############## byte ##############
+
+            ("struct_const_byte_division_works",
+                "byte",
+                "let out = test_variable.a/2b;",
+                "out",
+                50), 
+
+            ("struct_const_byte_self_division_works",
+                "byte",
+                "test_variable.a = test_variable.a/2b;",
+                "test_variable.a",
+                50),
+
+            ("const_struct_byte_division_works",
+                "byte",
+                "let out = 2b/test_variable.a;",
+                "out",
+                0),
+
+            ("struct_variable_byte_division_works",
+                "byte",
+                "let x = 8b; let out = test_variable.a/x;",
+                "out",
+                12),
+
+            ("struct_variable_byte_self_division_works",
+                "byte",
+                "let x = 8b; test_variable.a = test_variable.a/x;",
+                "test_variable.a",
+                12),
+
+            ("variable_struct_byte_division_works",
+                "byte",
+                "let x = 8b; let out = x/test_variable.a;",
+                "out",
+                0),
+
+            ("struct_array_variable_byte_division_works",
+                "byte",
+                "let x: byte[3] = 8b; let out = test_variable.a/x[1];",
+                "out",
+                12),
+
+            ("struct_array_variable_byte_self_division_works",
+                "byte",
+                "let x: byte[3] = 8b; test_variable.a = test_variable.a/x[1];",
+                "test_variable.a",
+                12),
+
+            ("array_variable_struct_byte_division_works",
+                "byte",
+                "let x: byte[4] = 8b; let out = x[2]/test_variable.a;",
+                "out",
+                0),
+
+            ("struct_struct_byte_division_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a / test_variable.a;",
+                "out",
+                30),
+
+            ("struct_struct_byte_self_division_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a / test_variable.a;",
+                "test_variable.a",
+                0),
+
+
+
+        ############## short ##############
+
+            ("struct_const_short_division_works",
+                "short",
+                "let out = test_variable.a/2s;",
+                "out",
+                50),
+
+
+            ("struct_const_short_self_division_works",
+                "short",
+                "test_variable.a = test_variable.a/2s;",
+                "test_variable.a",
+                50),
+
+            ("const_struct_short_division_works",
+                "short",
+                "let out = 500s/test_variable.a;",
+                "out",
+                5),
+
+            ("struct_variable_short_division_works",
+                "short",
+                "let x = 8s; let out = test_variable.a/x;",
+                "out",
+                12),
+
+            ("struct_variable_short_self_division_works",
+                "short",
+                "let x = 8s; test_variable.a = test_variable.a/x;",
+                "test_variable.a",
+                12),
+
+            ("variable_struct_short_division_works",
+                "short",
+                "let x = 1500s; let out = x/test_variable.a;",
+                "out",
+                15),
+
+            ("struct_array_variable_short_division_works",
+                "short",
+                "let x: short[3] = 8s; let out = test_variable.a/x[1];",
+                "out",
+                12),
+
+            ("struct_array_variable_short_self_division_works",
+                "short",
+                "let x: short[3] = 8s; test_variable.a = test_variable.a/x[1];",
+                "test_variable.a",
+                12),
+
+            ("array_variable_struct_short_division_works",
+                "short",
+                "let x: short[4] = 1500s; let out = x[2]/test_variable.a;",
+                "out",
+                15),
+
+
+            ("struct_struct_short_division_works",
+                "short",
+                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_short_self_division_works",
+                "short",
+                "let x = Foo { a = 800; }; test_variable.a = x.a / test_variable.a;",
+                "test_variable.a",
+                8),
+
+
+
+        ############## int ##############
+
+            ("struct_const_int_division_works",
+                "int",
+                "let out = test_variable.a/2i;",
+                "out",
+                50),
+
+            ("struct_const_int_self_division_works",
+                "int",
+                "test_variable.a = test_variable.a/2i;",
+                "test_variable.a",
+                50),
+
+            ("const_struct_int_division_works",
+                "int",
+                "let out = 500i/test_variable.a;",
+                "out",
+                5),
+
+            ("struct_variable_int_division_works",
+                "int",
+                "let x = 8i; let out = test_variable.a/x;",
+                "out",
+                12),
+
+            ("struct_variable_int_self_division_works",
+                "int",
+                "let x = 8i; test_variable.a = test_variable.a/x;",
+                "test_variable.a",
+                12),
+
+
+            ("variable_struct_int_division_works",
+                "int",
+                "let x = 1500i; let out = x/test_variable.a;",
+                "out",
+                15),
+
+            ("struct_array_variable_int_division_works",
+                "int",
+                "let x: int[3] = 8i; let out = test_variable.a/x[1];",
+                "out",
+                12),
+
+            ("struct_array_variable_int_self_division_works",
+                "int",
+                "let x: int[3] = 8i; test_variable.a = test_variable.a/x[1];",
+                "test_variable.a",
+                12),
+
+            ("array_variable_struct_int_division_works",
+                "int",
+                "let x: int[4] = 1500i; let out = x[2]/test_variable.a;",
+                "out",
+                15),
+
+            ("struct_struct_int_division_works",
+                "int",
+                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_int_self_division_works",
+                "int",
+                "let x = Foo { a = 800; }; test_variable.a = x.a / test_variable.a;",
+                "test_variable.a",
+                8),
+
+
+        ############## long ##############
+
+            ("struct_const_long_division_works",
+                "long",
+                "let out = test_variable.a/2l;",
+                "out",
+                50),
+
+            ("struct_const_long_self_division_works",
+                "long",
+                "test_variable.a = test_variable.a/2l;",
+                "test_variable.a",
+                50),
+
+
+            ("struct_const_long_division_works_with_large_immediate",
+                "long",
+                "test_variable.a = 6000000000000l; let out = test_variable.a/2000000000000l;",
+                "out",
+                3),
+
+
+            ("const_struct_long_division_works",
+                "long",
+                "let out = 500l/test_variable.a;",
+                "out",
+                5),
+
+            ("struct_variable_long_division_works",
+                "long",
+                "let x = 8l; let out = test_variable.a/x;",
+                "out",
+                12),
+
+            ("struct_variable_long_self_division_works",
+                "long",
+                "let x = 8l; test_variable.a = test_variable.a/x;",
+                "test_variable.a",
+                12),
+
+            ("variable_struct_long_division_works",
+                "long",
+                "let x = 1500l; let out = x/test_variable.a;",
+                "out",
+                15),
+
+            ("struct_array_variable_long_division_works",
+                "long",
+                "let x: long[3] = 8l; let out = test_variable.a/x[1];",
+                "out",
+                12),
+            
+            ("struct_array_variable_long_self_division_works",
+                "long",
+                "let x: long[3] = 8l; test_variable.a = test_variable.a/x[1];",
+                "test_variable.a",
+                12),
+
+            ("array_variable_struct_long_division_works",
+                "long",
+                "let x: long[4] = 1500l; let out = x[2]/test_variable.a;",
+                "out",
+                15),
+
+            ("struct_struct_long_division_works",
+                "long",
+                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_long_self_division_works",
+                "long",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
+                "test_variable.a",
+                8),
+
 
 
 
@@ -909,7 +1221,13 @@ for t in test_tuples:
 program: |
 
     struct Foo {{
+        // add some unused fields to make sure inner indexing works
+        unused1: long;
+        unused2: byte;
+        unused3: int;
         a: {t[1]};
+        unused4: byte;
+        unused5: long;
     }}
     
     extern fn {t[1]}_printer(value: {t[1]});
@@ -917,6 +1235,11 @@ program: |
     fn main() : int {{
         let test_variable = Foo {{
             a = 100;
+            unused1 = 0;
+            unused2 = 0;
+            unused3 = 0;
+            unused4 = 0;
+            unused5 = 0;
         }};
 
         {t[2]}
