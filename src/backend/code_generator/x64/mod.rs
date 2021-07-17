@@ -577,11 +577,11 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: PhysicalRegister(dest),
             src: IndirectAddress {
                 base, // FIXME replace with box pattern matching once it becomes available
-                index: None,
+                index,
                 offset: Some(offset),
                 size,
             }
-        } => {
+        } if index.is_none() => {
             ice_if!(dest.size()  as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
@@ -600,10 +600,10 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             src: IndirectAddress {
                 base, // FIXME replace with box pattern matching once it becomes available
                 index: Some(index),
-                offset: None,
+                offset,
                 size,
             }
-        } => {
+        } if offset.is_none() => {
             ice_if!(dest.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
@@ -625,11 +625,11 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
             dest: IndirectAddress {
                 base, // FIXME replace with box pattern matching once it becomes available
                 index: Some(index),
-                offset: None,
+                offset,
                 size,
             },
             src: PhysicalRegister(dest),
-        } => {
+        } if offset.is_none() => {
             ice_if!(dest.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", dest.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
@@ -650,12 +650,12 @@ fn emit_mov(operand: &UnaryOperation, asm: &mut Vec<u8>) {
         UnaryOperation {
             dest: IndirectAddress {
                 base, // FIXME replace with box pattern matching once it becomes available
-                index: None,
+                index,
                 offset: Some(offset),
                 size,
             },
             src: PhysicalRegister(src),
-        } => {
+        } if index.is_none() => {
             ice_if!(src.size() as u32 != *size, "Register and stack slot sizes are different: {} vs {}", src.size(), size);
             let base_reg = if let PhysicalRegister(reg) = **base {
                 reg
@@ -2776,6 +2776,15 @@ fn emit_mul(operand: &BinaryOperation, asm: &mut Vec<u8>) {
         BinaryOperation {
             dest: PhysicalRegister(ref dest_reg),
             src1: PhysicalRegister(ref src_reg),
+            src2: ByteConstant(immediate),
+        } => {
+            ice_if!(dest_reg.size() != src_reg.size(), "Registers {:?} and {:?} have different sizes", dest_reg, src_reg);
+            ice_if!(dest_reg.size() != 4, "Bad register size {:?}", dest_reg);
+            emit_mul_integer_reg_with_immediate(*dest_reg, *src_reg, *immediate as i32, asm);
+        },
+        BinaryOperation {
+            dest: PhysicalRegister(ref dest_reg),
+            src1: PhysicalRegister(ref src_reg),
             src2: ShortConstant(immediate),
         } => {
             ice_if!(dest_reg.size() != src_reg.size(), "Registers {:?} and {:?} have different sizes", dest_reg, src_reg);
@@ -2827,7 +2836,7 @@ fn emit_mul_integer_reg_with_immediate(dest_reg: X64Register, src_reg: X64Regist
     ice_if!(src_reg.size() < 4, "Invalid source register {:?}", src_reg);
 
     let (imm, opcode) = if immediate_fits_in_8_bits(immediate) {
-        (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_)
+        (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE)
     } else {
         (Immediate::from(immediate), SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE)
     };
@@ -2865,7 +2874,7 @@ fn emit_mul_short_reg_with_immediate(dest_reg: X64Register, src_reg: X64Register
     ice_if!(src_reg.size() < 2, "Invalid source register {:?}", src_reg);
 
     let (imm, opcode) = if immediate_fits_in_8_bits(immediate as i32) {
-        (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE_)
+        (Immediate::from(immediate as u8), SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE)
     } else {
         (Immediate::from(immediate), SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE)
     };
@@ -3158,7 +3167,7 @@ fn emit_not_byte_stack(offset: u32, size: u32 , asm: &mut Vec<u8>) {
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
     let modrm = ModRM {
-        addressing_mode: addressing_mode,
+        addressing_mode,
         reg_field: RegField::OpcodeExtension(NOT_OPCODE_EXT),
         rm_field: RmField::Register(X64Register::RBP),
     };
@@ -3194,7 +3203,7 @@ fn emit_not_integer_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
 
 
     let modrm = ModRM {
-        addressing_mode: addressing_mode,
+        addressing_mode,
         reg_field: RegField::OpcodeExtension(NOT_OPCODE_EXT),
         rm_field: RmField::Register(X64Register::RBP),
     };
@@ -6471,7 +6480,7 @@ fn get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset: u32
             index: None,
             scale: None,
             // in this case the number is signed integer, but we use u8. Convert the u8 offset to twos complement form, so that it is negative
-            displacement: Some(Displacement::OneByte(u8::max_value().wrapping_sub(offset as u8).wrapping_add(1))),
+            displacement: Some(Displacement::OneByte(u8::MAX.wrapping_sub(offset as u8).wrapping_add(1))),
         })
     } else {
         Some(Sib {
@@ -6479,7 +6488,7 @@ fn get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset: u32
             index: None,
             scale: None,
             // in this case the number is signed integer, but we use u32. Convert the u32 offset to twos complement form, so that it is negative
-            displacement: Some(Displacement::FourByte(u32::max_value().wrapping_sub(offset).wrapping_add(1))),
+            displacement: Some(Displacement::FourByte(u32::MAX.wrapping_sub(offset).wrapping_add(1))),
         })
     };
     (addressing_mode, sib)
@@ -6509,10 +6518,10 @@ fn get_addressing_mode_and_sib_data_for_indexed_addressing_with_displacement(
                 (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(0)))
             }
             (Some(val), _) if val < 128 => {
-                (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(u8::max_value().wrapping_sub(val as u8).wrapping_add(1))))
+                (AddressingMode::IndirectAddressingOneByteDisplacement, Some(Displacement::OneByte(u8::MAX.wrapping_sub(val as u8).wrapping_add(1))))
             }
             (Some(val), _) => {
-                (AddressingMode::IndirectAddressingFourByteDisplacement, Some(Displacement::FourByte(u32::max_value().wrapping_sub(val).wrapping_add(1))))
+                (AddressingMode::IndirectAddressingFourByteDisplacement, Some(Displacement::FourByte(u32::MAX.wrapping_sub(val).wrapping_add(1))))
             }
             (None, None) => {
                 ice!("Not implemented")
