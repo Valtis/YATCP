@@ -1412,11 +1412,17 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             in case the latter, switch around to former
 
             directly encodable, as long as destination is a register and constant fits immediate32. Need to add few moves from/to/stack
+
+            for bytes, we use integer multiplication due to missing encoding for r8*imm8; use r32*imm8
+
+
             emit:
 
             MOV tmp_register, B
             IMUL tmp_register, tmp_register, constant
             MOV A, tmp_register
+
+            if byte, replace first MOV with MOVZX, adjust input/output sizes accordingly so that multiplication is 32 bit operation but 8 bit destination is used
 
             if constant does not fit imm32, emit:
 
@@ -1424,6 +1430,8 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             MOV tmp_register_2, constant
             IMUL tmp_register_1, tmp_register_2,
             MOV A, tmp_register
+
+
 
 
         */
@@ -1513,6 +1521,130 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             );
 
         },
+
+        /*
+            A = B * constant OR A = constant*B
+            in case the latter, switch around to former
+
+            directly encodable, as long as destination is a register and constant fits immediate32. Need to add few moves from/to/stack
+
+            for bytes, we use integer multiplication due to missing encoding for r8*imm8; use r32*imm8
+
+
+            emit:
+
+            MOV tmp_register, B
+            IMUL tmp_register, tmp_register, constant
+            MOV A, tmp_register
+
+            if byte, replace first MOV with MOVZX, adjust input/output sizes accordingly so that multiplication is 32 bit operation but 8 bit destination is used
+
+            if constant does not fit imm32, emit:
+
+            MOV tmp_register_1, B
+            MOV tmp_register_2, constant
+            IMUL tmp_register_1, tmp_register_2,
+            MOV A, tmp_register
+
+
+
+
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_) |
+                immediate @ ByteConstant(_),
+        } |
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_) |
+                immediate @ ByteConstant(_),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[&id];
+
+
+
+
+            // no instruction for 8 bit multiply, need to use encoding for different sizse
+            let dest_size = if dest_stack_slot.size == 1 { 4 } else { dest_stack_slot.size };
+            let reg = get_register_for_size(dest_size);
+
+            if object_stack_slot.size == 1 {
+                emit_movzx_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+            } else {
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+            }
+
+
+
+            match immediate {
+                LongConstant(constant) if !i64_fits_in_i32(*constant)  => {
+                    let reg2 = get_register_for_size2(dest_stack_slot.size);
+                    updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                        src: immediate.clone(),
+                        dest: reg2.into(),
+                    }));
+                    updated_instructions.push(ByteCode::Mul(BinaryOperation {
+                        dest: reg.into(),
+                        src1: reg.into(),
+                        src2: reg2.into(),
+                    }));
+                },
+                LongConstant(constant) if i64_fits_in_i32(*constant) => {
+                    updated_instructions.push(
+                        ByteCode::Mul(
+                            BinaryOperation {
+                                dest: reg.into(),
+                                src1: reg.into(),
+                                src2: IntegerConstant(*constant as i32),
+                            }));
+                }
+                _ => {
+                    updated_instructions.push(
+                        ByteCode::Mul(
+                            BinaryOperation {
+                                dest: reg.into(),
+                                src1: reg.into(),
+                                src2: immediate.clone(),
+                            }));
+                }
+            }
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: reg.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+
+        },
         /*
             A = A*B
             not directly encodable in this case, as A is stack slot
@@ -1546,6 +1678,59 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                         dest: reg.into(),
                         src1: reg.into(),
                         src2: src2_stack_slot.into(),
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: reg.into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        /*
+            A = A*B
+            not directly encodable in this case, as A is stack slot
+
+            emit:
+
+            MOV tmp_reg, A
+            MUL tmp_reg, tmp_reg, B
+            MOV A, tmp_reg
+        */
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset{ index, offset, size, id },
+            src2: VirtualRegister(ref src_vregdata),
+        } |
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: DynamicStackOffset{ index, offset, size, id },
+        } if dest_vregdata.size >= 4 => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let reg = get_register_for_size(dest_stack_slot.size);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map,
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation{
+                        dest: reg.into(),
+                        src1: reg.into(),
+                        src2: src_stack_slot.into(),
                     })
             );
 
@@ -1602,7 +1787,57 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 })
             );
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset{ index, offset, size, id },
+            src2: VirtualRegister(ref src_vregdata),
+        } |
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref src_vregdata),
+            src2: DynamicStackOffset{ index, offset, size, id },
+        } if dest_vregdata.size <= 2 => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let dword_reg1 = get_register_for_size(4);
+            let dword_reg2 = get_register_for_size2(4);
+            let dest_reg = get_register_for_size(dest_vregdata.size);
 
+            emit_movzx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &dword_reg1,
+                object_stack_slot,
+                updated_instructions,
+                stack_map,
+            );
+
+            updated_instructions.push(
+                ByteCode::Movzx(UnaryOperation {
+                    src: src_stack_slot.into(),
+                    dest: dword_reg2.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mul(
+                    BinaryOperation {
+                        dest: dword_reg1.into(),
+                        src1: dword_reg1.into(),
+                        src2: dword_reg2.into(),
+                    })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: dest_reg.into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
 
         _ => ice!("Not implemented for {:#?}", binary_op),
 
@@ -3215,6 +3450,56 @@ fn emit_mov_dynamic_stack_offset_to_reg(
     object_stack_slot: &StackSlot,
     updated_instructions: &mut  Vec<ByteCode>,
     stack_map: &StackMap) {
+
+    emit_mov_with_opcode_dynamic_stack_offset_to_reg(
+        ByteCode::Mov,
+        index,
+        size,
+        offset,
+        id,
+        register,
+        object_stack_slot,
+        updated_instructions,
+        stack_map
+    );
+
+}
+
+fn emit_movzx_dynamic_stack_offset_to_reg(
+    index: &Box<Value>,
+    size: u32,
+    offset: u32,
+    id: u32,
+    register: &X64Register,
+    object_stack_slot: &StackSlot,
+    updated_instructions: &mut  Vec<ByteCode>,
+    stack_map: &StackMap) {
+
+    emit_mov_with_opcode_dynamic_stack_offset_to_reg(
+        ByteCode::Movzx,
+        index,
+        size,
+        offset,
+        id,
+        register,
+        object_stack_slot,
+        updated_instructions,
+        stack_map
+    );
+
+}
+
+fn emit_mov_with_opcode_dynamic_stack_offset_to_reg<T>(
+    bytecode: T,
+    index: &Box<Value>,
+    size: u32,
+    offset: u32,
+    id: u32,
+    register: &X64Register,
+    object_stack_slot: &StackSlot,
+    updated_instructions: &mut  Vec<ByteCode>,
+    stack_map: &StackMap) where T: Fn(UnaryOperation) -> ByteCode  {
+
       match **index {
             VirtualRegister(ref vregdata) => {
                 let index_reg = get_register_for_size(4); // index should be integer
@@ -3224,33 +3509,33 @@ fn emit_mov_dynamic_stack_offset_to_reg(
                     ByteCode::Mov(
                         UnaryOperation {
                             src: stack_slot.into(),
-                            dest: PhysicalRegister(index_reg.clone()),
+                            dest: index_reg.into(),
                         }
                     ));
 
                 updated_instructions.push(
-                    ByteCode::Mov(
+                    bytecode(
                         UnaryOperation {
                             src: DynamicStackOffset {
                                 id,
                                 size,
                                 offset: get_indexed_array_offset(offset, object_stack_slot),
-                                index: Box::new(PhysicalRegister(index_reg)),
+                                index: Box::new(index_reg.into()),
                             },
-                            dest: PhysicalRegister(register.clone()),
+                            dest: register.into(),
                         }
                     ));
 
             },
             IntegerConstant(val) => {
                 updated_instructions.push(
-                    ByteCode::Mov(
+                    bytecode(
                         UnaryOperation {
                             src: StackOffset {
                                 size,
                                 offset: get_constant_object_offset(offset, size, val, object_stack_slot),
                             },
-                            dest: PhysicalRegister(register.clone()),
+                            dest: register.into(),
                         }
                     ));
             }
