@@ -977,9 +977,9 @@ test_tuples = [
 
             ("struct_struct_byte_division_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a / test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = test_variable.a/x.a;",
                 "out",
-                30),
+                12),
 
             ("struct_struct_byte_self_division_works",
                 "byte",
@@ -1049,16 +1049,15 @@ test_tuples = [
 
             ("struct_struct_short_division_works",
                 "short",
-                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_short_self_division_works",
                 "short",
-                "let x = Foo { a = 800; }; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 8),
-
 
 
         ############## int ##############
@@ -1120,13 +1119,13 @@ test_tuples = [
 
             ("struct_struct_int_division_works",
                 "int",
-                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_int_self_division_works",
                 "int",
-                "let x = Foo { a = 800; }; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1197,7 +1196,7 @@ test_tuples = [
 
             ("struct_struct_long_division_works",
                 "long",
-                "let x = Foo { a = 800; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 

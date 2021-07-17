@@ -1578,7 +1578,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
             let dest_size = if dest_stack_slot.size == 1 { 4 } else { dest_stack_slot.size };
             let reg = get_register_for_size(dest_size);
 
-            if object_stack_slot.size == 1 {
+            if dest_stack_slot.size == 1 {
                 emit_movzx_dynamic_stack_offset_to_reg(
                     index,
                     *size,
@@ -2079,14 +2079,12 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                 })
             );
 
-            if dest_stack_slot.size != 1 {
-                updated_instructions.push(
-                    ByteCode::SignExtend(UnaryOperation {
-                        src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                        dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                    })
-                );
-            }
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                })
+            );
 
             updated_instructions.push(
                 ByteCode::Div(BinaryOperation {
@@ -2123,6 +2121,110 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: X64Register::EAX.into(),
                 })
             );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*divisor as i32), // reuse 32 bit division code
+                    dest: reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation{
+                    src: X64Register::EAX.into(),
+                    dest: X64Register::EDX.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation{
+                    dest: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src2: reg.get_alias_for_size(4).into(),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(1).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_),
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let reg = get_register_for_size_for_division(dest_stack_slot.size);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: immediate.clone(),
+                    dest: PhysicalRegister(reg)
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::RAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::RAX.into(), // Not really used, instruction hardcodes
+                    src2: reg.into(),
+                })
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: ByteConstant(divisor),
+        } => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let reg = get_register_for_size_for_division(dest_stack_slot.size);
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::EAX.into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
@@ -2259,6 +2361,115 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                 })
             );
         },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let divisor_reg = get_register_for_size2(dest_vregdata.size);
+
+            ice_if!(divisor_reg.get_alias_for_size(4) == X64Register::EAX
+                || divisor_reg.get_alias_for_size(4) == X64Register::RDX,
+                "Bad divisor reg {:?}", divisor_reg);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &divisor_reg.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: immediate.clone(),
+                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::RAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::RAX.into(), // Not really used, instruction hardcodes
+                    src2: divisor_reg.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: ByteConstant(dividend),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+
+            let src_reg = get_register_for_size2(1);
+
+            ice_if!(src_reg == X64Register::AL, "Register collision");
+
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: IntegerConstant(*dividend as i32),
+                    dest: X64Register::EAX.into(),
+                })
+            );
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &src_reg.get_alias_for_size(4).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.into(),
+                    dest: X64Register::EDX.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src2: src_reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(1).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
         /*
             A = B / C (or A = A / B)
 
@@ -2335,6 +2546,322 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                     dest: src_reg.get_alias_for_size(4).into(),
                 })
             );
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.into(),
+                    dest: X64Register::EDX.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src2: src_reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(1).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } if dest_vregdata.size >= 2 => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+            let divisor_reg = get_register_for_size2(dest_stack_slot.size);
+            let operand_sizes = dest_stack_slot.size as u8;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: dividend_stack_slot.into(),
+                    dest: X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                })
+            );
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &divisor_reg.get_alias_for_size(operand_sizes).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                    dest: X64Register::EDX.get_alias_for_size(operand_sizes).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src2: divisor_reg.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: VirtualRegister(ref dividend_vregdata),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } if dest_vregdata.size == 1 => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let src_reg = get_register_for_size2(1);
+            ice_if!(src_reg == X64Register::AL, "Register collision");
+
+            updated_instructions.push(
+                ByteCode::Movsx(UnaryOperation {
+                    src: dividend_stack_slot.into(),
+                    dest: X64Register::EAX.into(),
+                })
+            );
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &src_reg.get_alias_for_size(4).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.into(),
+                    dest: X64Register::EDX.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src2: src_reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(1).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: VirtualRegister(ref dividend_vregdata),
+        } if dest_vregdata.size >= 2 => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+            let divisor_reg = get_register_for_size2(dest_stack_slot.size);
+            let operand_sizes = dest_stack_slot.size as u8;
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: divisor_stack_slot.into(),
+                    dest: divisor_reg.get_alias_for_size(operand_sizes).into(),
+                })
+            );
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                    dest: X64Register::EDX.get_alias_for_size(operand_sizes).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src2: divisor_reg.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: VirtualRegister(ref dividend_vregdata),
+        } if dest_vregdata.size == 1 => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let divisor_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let src_reg = get_register_for_size2(1);
+            ice_if!(src_reg == X64Register::AL, "Register collision");
+
+            updated_instructions.push(
+                ByteCode::Movsx(UnaryOperation {
+                    src: divisor_stack_slot.into(),
+                    dest: src_reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::EAX.get_alias_for_size(4).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.into(),
+                    dest: X64Register::EDX.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.into(), // Not really used, instruction hardcodes
+                    src2: src_reg.get_alias_for_size(4).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(1).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: DynamicStackOffset { index: index2, offset: offset2, size: size2, id: id2 },
+        } if dest_vregdata.size >= 2 => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot1 = &stack_map.object_to_stack_slot[id];
+            let object_stack_slot2 = &stack_map.object_to_stack_slot[id2];
+
+            let divisor_reg = get_register_for_size2(dest_stack_slot.size);
+            let operand_sizes = dest_stack_slot.size as u8;
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                object_stack_slot1,
+                updated_instructions,
+                stack_map);
+
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index2,
+                *size2,
+                *offset2,
+                *id2,
+                &divisor_reg.get_alias_for_size(operand_sizes).into(),
+                object_stack_slot2,
+                updated_instructions,
+                stack_map);
+
+
+            updated_instructions.push(
+                ByteCode::SignExtend(UnaryOperation {
+                    src: X64Register::EAX.get_alias_for_size(operand_sizes).into(),
+                    dest: X64Register::EDX.get_alias_for_size(operand_sizes).into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Div(BinaryOperation {
+                    dest: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src1: X64Register::EAX.get_alias_for_size(operand_sizes).into(), // Not really used, instruction hardcodes
+                    src2: divisor_reg.into(),
+                })
+            );
+
+            updated_instructions.push(
+                ByteCode::Mov(UnaryOperation {
+                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: dest_stack_slot.into(),
+                })
+            );
+        },
+        BinaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: DynamicStackOffset { index: index2, offset: offset2, size: size2, id: id2 },
+        } if dest_vregdata.size == 1 => {
+
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let object_stack_slot2 = &stack_map.object_to_stack_slot[id2];
+            let src_reg = get_register_for_size2(1);
+            ice_if!(src_reg == X64Register::AL, "Register collision");
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &X64Register::EAX.get_alias_for_size(4).into(),
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index2,
+                *size2,
+                *offset2,
+                *id2,
+                &src_reg.get_alias_for_size(4).into(),
+                object_stack_slot2,
+                updated_instructions,
+                stack_map);
 
             updated_instructions.push(
                 ByteCode::SignExtend(UnaryOperation {
@@ -3238,7 +3765,30 @@ fn emit_movzx_dynamic_stack_offset_to_reg(
         updated_instructions,
         stack_map
     );
+}
 
+
+fn emit_movsx_dynamic_stack_offset_to_reg(
+    index: &Box<Value>,
+    size: u32,
+    offset: u32,
+    id: u32,
+    register: &X64Register,
+    object_stack_slot: &StackSlot,
+    updated_instructions: &mut  Vec<ByteCode>,
+    stack_map: &StackMap) {
+
+    emit_mov_with_opcode_dynamic_stack_offset_to_reg(
+        ByteCode::Movsx,
+        index,
+        size,
+        offset,
+        id,
+        register,
+        object_stack_slot,
+        updated_instructions,
+        stack_map
+    );
 }
 
 fn emit_mov_with_opcode_dynamic_stack_offset_to_reg<T>(
