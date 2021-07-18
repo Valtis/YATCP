@@ -4501,7 +4501,7 @@ fn handle_binary_allocation<T>(
                 src: reg.into(),
             }));
         }
-        _ => ice!("Not implemented for {:#?}", binary_op),
+        _ => ice!("Not implemented for {:#?}", enum_type(binary_op.clone())),
     }
 }
 
@@ -4705,7 +4705,7 @@ fn handle_shift_allocation<T>(
                         dest: dest_slot,
                     }));
             }
-            _ => ice!("Not implemented for {:#?}", binary_op),
+            _ => ice!("Not implemented for {:#?}", enum_type(binary_op.clone())),
     }
 }
 
@@ -4800,6 +4800,6 @@ fn handle_unary_allocation<T>(
             }));
 
         },
-        _ => ice!("Not implemented for {:#?}", unary_op),
+        _ => ice!("Not implemented for {:#?}", enum_type(unary_op.clone())),
     }
 }
