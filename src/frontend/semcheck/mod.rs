@@ -1633,6 +1633,14 @@ impl SemanticsCheck {
                 }
             },
             AstNode::Identifier{ref name, ..} if self.get_type(object).is_user_defined() => {
+                let symbol = self.symbol_table.find_symbol(name).unwrap_or_else(|| ice!("Undeclared identifier '{}' used", name));
+
+                let object_declaration_info = if let Symbol::Variable(declaration_info, _) = symbol {
+                   declaration_info
+                } else {
+                  ice!("Unexpected symbol {:?}", symbol);
+                };
+
                 let struct_info = if let Type::UserDefined(ref name)  = self.get_type(object) {
                     if let Some(Symbol::Struct(struct_info)) = self.symbol_table.find_symbol(name) {
                         struct_info
@@ -1675,15 +1683,16 @@ impl SemanticsCheck {
                         format!(
                             "Incompatible operand types '{}' and '{}' for this operation", field_info.variable_type, self.get_type(&expression)));
 
-                if conversion_result == ConversionResult::CastRequired {
-                    self.report_conversion_note(
-                        &field_info.variable_type,
-                        &self.get_type(&expression),
-                        span
-                    );
+                    if conversion_result == ConversionResult::CastRequired {
+                        self.report_conversion_note(
+                            &field_info.variable_type,
+                            &self.get_type(&expression),
+                            span
+                        );
+                    }
                 }
 
-                }
+               self.report_if_read_only(&span, &object_declaration_info);
 
             },
             _ if self.get_type(object) != Type::Invalid => {
