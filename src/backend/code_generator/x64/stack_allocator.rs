@@ -4749,7 +4749,7 @@ fn handle_unary_allocation<T>(
             let reg = get_register_for_size(*size);
             let object_stack_slot = &stack_map.object_to_stack_slot[id];
             let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
-            
+
             emit_mov_dynamic_stack_offset_to_reg(
                 index,
                 *size,
