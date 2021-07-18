@@ -1,6 +1,9 @@
 use super::super::cfg::{Adjacency, CFG};
 use crate::common::tac_code::{Function, Statement};
 
+
+
+// TODO check that dom frontier update accordingly
 pub fn merge_linear_blocks(
     function: &mut Function,
     cfg: &mut CFG) {
@@ -38,10 +41,6 @@ fn merge_blocks(
     // update adj list
     // erase child block
     // update all blocks to take account deletion (maybe merge with first update)
-
-    println!("BB count: {}", cfg.basic_blocks.len());
-    println!("Adj list, parent ({}): {:?}", parent, cfg.adjacency_list[parent]);
-    println!("Adj list, child ({}): {:?}", child, cfg.adjacency_list[child]);
 
     let parent_block = cfg.basic_blocks[parent].clone();
     let child_block = cfg.basic_blocks[child].clone();

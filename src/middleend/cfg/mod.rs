@@ -15,6 +15,7 @@ use std::fmt::Result;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::rc::Rc;
+use crate::middleend::optimizer::merge_block::merge_linear_blocks;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Adjacency {
@@ -278,10 +279,22 @@ pub fn generate_cfg(functions: &mut Vec<Function>) -> HashMap<Rc<String>, CFG> {
 
         let mut cfg = CFG::new(basic_blocks, adjacency_list);
         cfg.remove_dead_blocks(f);
+
+        // we may have litter in form of:
+        //     <instructions>
+        //     jump LABEL_ID
+        //     label LABEL_ID
+        //     <instructions>
+        //
+        // get rid of these, creates stupid code
+
+        merge_linear_blocks(f, &mut cfg);
+
         cfgs.insert(f.function_info.name.clone(), cfg);
     }
 
     calculate_dominance_frontier(&mut cfgs);
+
     cfgs
 }
 
