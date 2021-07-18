@@ -1240,76 +1240,10 @@ impl Parser {
             _ => (),
         }
 
-        let node = self.parse_factor_with_member_or_array_access()?;
+        let node = self.parse_factor()?;
 
         Ok(node)
     }
-
-    fn parse_factor_with_member_or_array_access(&mut self) -> Result<AstNode, ()> {
-
-        let mut expr = self.parse_factor()?;
-
-        loop {
-            let next_token = self.lexer.peek_token();
-            match next_token.token_type {
-                TokenType::Dot => {
-                    expr = self.parse_member_access(expr)?;
-                },
-                TokenType::LBracket => {
-                    expr =
-                        self.parse_array_access_or_slice(expr)?;
-                }
-                _ => break,
-            }
-        }
-
-        Ok(expr)
-    }
-
-    fn parse_array_access_or_slice(&mut self, indexable_expression: AstNode) -> Result<AstNode, ()> {
-        self.expect(TokenType::LBracket)?;
-        let index_expression = self.parse_expression()?;
-        if self.lexer.peek_token().token_type == TokenType::Colon {
-            self.expect(TokenType::Colon)?;
-
-            let end_expression = self.parse_expression()?;
-            self.expect(TokenType::RBracket)?;
-
-            return Ok(AstNode::ArraySlice{
-                start_expression: Box::new(index_expression),
-                end_expression: Box::new(end_expression),
-                array_expression: Box::new(indexable_expression),
-            });
-
-        }
-
-        self.expect(TokenType::RBracket)?;
-
-        Ok(AstNode::ArrayAccess {
-            index_expression: Box::new(index_expression),
-            indexable_expression: Box::new(indexable_expression),
-        })
-    }
-
-    fn parse_member_access(&mut self, expression: AstNode) -> Result<AstNode, ()> {
-        let dot = self.expect(TokenType::Dot)?;
-        let member = self.expect(TokenType::Identifier)?;
-
-        let name = if let Some(TokenAttribute::Text(ref id)) = member.attribute {
-            id.clone()
-        } else {
-            ice!("Invalid token '{:#?'} received when identifier was expected");
-        };
-
-
-
-        Ok(AstNode::MemberAccess {
-            object: Box::new(expression),
-            member: Box::new(AstNode::Identifier{ name, span: Span::from(member) }),
-            span: Span::new(dot.line, dot.column, dot.length),
-        })
-    }
-
 
     fn parse_factor(&mut self) -> Result<AstNode, ()> {
         let token = self.expect_one_of(vec![
@@ -1323,6 +1257,7 @@ impl Parser {
         match token.token_type {
             TokenType::Minus => {
                 let node = self.parse_factor()?;
+
                 match node {
                     AstNode::IntegralNumber{ value, span } => {
                         Ok(AstNode::IntegralNumber{value: -value, span: span.clone() })
@@ -1348,21 +1283,24 @@ impl Parser {
 
             },
             TokenType::Identifier => {
-                if self.lexer.peek_token().token_type == TokenType::LParen {
-                    self.parse_function_call(token)
-                } else if self.allow_struct_initialization && self.lexer.peek_token().token_type == TokenType::LBrace {
-                    self.parse_struct_initialization(token)
-                } else {
-                    match token.attribute {
-                        Some(TokenAttribute::Text(ref name)) =>
-                            Ok(AstNode::Identifier{
-                                name: name.clone(),
-                                span: Span::from(token)}),
-                        Some(TokenAttribute::ErrorValue) =>
-                                Ok(AstNode::ErrorNode),
-                        _ => ice!(
-                            "invalid token '{}' passed when identifier expected", token),
+                match self.lexer.peek_token().token_type {
+                    TokenType::LParen => self.parse_function_call(token),
+                    TokenType::LBrace if self.allow_struct_initialization => self.parse_struct_initialization(token),
+                    TokenType::Dot => self.parse_member_access(&token),
+                    TokenType::LBracket => self.parse_array_access_or_slice(&token),
+                    _ => {
+                        match token.attribute {
+                            Some(TokenAttribute::Text(ref name)) =>
+                                Ok(AstNode::Identifier{
+                                    name: name.clone(),
+                                    span: Span::from(token)}),
+                            Some(TokenAttribute::ErrorValue) =>
+                                    Ok(AstNode::ErrorNode),
+                            _ => ice!(
+                                "invalid token '{}' passed when identifier expected", token),
+                        }
                     }
+
                 }
             },
             TokenType::NumberConstant => {
@@ -1445,6 +1383,58 @@ impl Parser {
                     "Invalid token '{}' passed to match statement in parse_factor",
                     token),
         }
+    }
+
+    fn parse_array_access_or_slice(&mut self, array_identifier: &Token) -> Result<AstNode, ()> {
+        self.expect(TokenType::LBracket)?;
+        let index_expression = self.parse_expression()?;
+
+        let identifier_expression = AstNode::Identifier {
+            name: array_identifier.into(),
+            span: array_identifier.into(),
+        };
+
+        if self.lexer.peek_token().token_type == TokenType::Colon {
+            self.expect(TokenType::Colon)?;
+
+            let end_expression = self.parse_expression()?;
+            self.expect(TokenType::RBracket)?;
+
+            return Ok(AstNode::ArraySlice{
+                start_expression: Box::new(index_expression),
+                end_expression: Box::new(end_expression),
+                array_expression: Box::new(identifier_expression),
+            });
+        }
+
+        self.expect(TokenType::RBracket)?;
+
+        Ok(AstNode::ArrayAccess {
+            index_expression: Box::new(index_expression),
+            indexable_expression: Box::new(identifier_expression),
+        })
+    }
+
+    fn parse_member_access(&mut self, identifier: &Token) -> Result<AstNode, ()> {
+        let dot = self.expect(TokenType::Dot)?;
+        let member = self.expect(TokenType::Identifier)?;
+
+        let name = if let Some(TokenAttribute::Text(ref id)) = member.attribute {
+            id.clone()
+        } else {
+            ice!("Invalid token '{:#?'} received when identifier was expected");
+        };
+
+
+
+        Ok(AstNode::MemberAccess {
+            object: Box::new(AstNode::Identifier {
+                name: identifier.into(),
+                span: identifier.into(),
+            }),
+            member: Box::new(AstNode::Identifier{ name, span: Span::from(member) }),
+            span: Span::new(dot.line, dot.column, dot.length),
+        })
     }
 
     fn parse_initializer_list(&mut self, mut start_span: Span) -> Result<AstNode, ()> {
@@ -1636,7 +1626,7 @@ impl Parser {
         let node = if next_token.token_type == TokenType::Tilde {
             self.parse_bitwise_not_expression()?
         } else {
-            self.parse_factor_with_member_or_array_access()?
+            self.parse_factor()?
         };
 
         let not_node = AstNode::BitwiseNot {
