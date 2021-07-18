@@ -286,7 +286,11 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
             ByteCode::Mov(unary_op) => handle_mov_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Movsx(unary_op) => handle_movsx_allocation(unary_op, &mut updated_instructions, stack_map),
             ByteCode::Lea(unary_op) => handle_lea_allocation(unary_op, &mut updated_instructions, stack_map),
-            ByteCode::Negate(unary_op) => handle_negate_allocation(unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Negate(unary_op) => handle_unary_allocation(
+                ByteCode::Negate,
+                unary_op,
+                &mut updated_instructions,
+                stack_map),
             ByteCode::Add(binary_op) =>
                 handle_binary_allocation(
                     ByteCode::Add,
@@ -334,7 +338,11 @@ fn update_instructions_to_stack_form(code: &Vec<ByteCode>, stack_map: &mut Stack
                     binary_op,
                     &mut updated_instructions,
                     stack_map),
-            ByteCode::Not(unary_op) => handle_not_allocation(&unary_op, &mut updated_instructions, stack_map),
+            ByteCode::Not(unary_op) => handle_unary_allocation(
+                ByteCode::Not,
+                &unary_op,
+                &mut updated_instructions,
+                stack_map),
             ByteCode::Ret(value) => handle_return_value_allocation(value, &mut updated_instructions, stack_map),
             ByteCode::Compare(comparison_op) => handle_comparison(comparison_op, &mut updated_instructions, stack_map),
 
@@ -1299,68 +1307,6 @@ fn handle_lea_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                 ));
         }
         _ => todo!("Not impemented for {:#?}", unary_op),
-    }
-}
-
-fn handle_negate_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
-    match unary_op {
-        UnaryOperation{
-            src: VirtualRegister(src_vregdata),
-            dest: VirtualRegister(dst_vregdata),
-        } if src_vregdata.id == dst_vregdata.id => {
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-
-            updated_instructions.push(ByteCode::Negate(UnaryOperation {
-                src: StackOffset {
-                    offset: stack_slot.offset,
-                    size: stack_slot.size,
-                },
-                dest: StackOffset {
-                    offset: stack_slot.offset,
-                    size: stack_slot.size,
-                }
-            }));
-        },
-        UnaryOperation{
-            src: VirtualRegister(src_vregdata),
-            dest: VirtualRegister(dst_vregdata),
-        } if src_vregdata.id != dst_vregdata.id => {
-            let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dst_vregdata.id];
-
-            let reg = get_register_for_size(dst_vregdata.size);
-
-            updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                src: StackOffset {
-                    offset: src_stack_slot.offset,
-                    size: src_stack_slot.size,
-                },
-                dest: PhysicalRegister(reg),
-            }));
-
-            updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                src: PhysicalRegister(reg),
-                dest: StackOffset {
-                    offset: dest_stack_slot.offset,
-                    size: dest_stack_slot.size,
-                },
-            }));
-
-            updated_instructions.push(ByteCode::Negate(
-                UnaryOperation {
-                    src: StackOffset {
-                        offset: dest_stack_slot.offset,
-                        size: dest_stack_slot.size,
-                    },
-                    dest: StackOffset {
-                        offset: dest_stack_slot.offset,
-                        size: dest_stack_slot.size,
-                    }
-                }
-            ));
-
-        }
-        _ => unimplemented!("Not implemented for: {:#?}", unary_op),
     }
 }
 
@@ -2889,64 +2835,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
     }
 }
 
-fn handle_not_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &StackMap) {
-    match unary_op {
 
-        /*
-            a = ~b
-
-            Emit:
-            MOV tmp_reg, b
-            NOT tmp_reg
-            MOV a, tmp_reg
-
-        */
-        UnaryOperation {
-            src: VirtualRegister(src_vregdata),
-            dest: VirtualRegister(dest_vregdata)
-        } if src_vregdata.id != dest_vregdata.id => {
-
-            let src_offset = offset_for_reg(stack_map, src_vregdata.id);
-            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
-            let reg = get_register_for_size(src_vregdata.size);
-
-            updated_instructions.push(ByteCode::Mov(UnaryOperation{
-                src: src_offset,
-                dest: PhysicalRegister(reg),
-            }));
-            updated_instructions.push(ByteCode::Not(UnaryOperation{
-                src: PhysicalRegister(reg),
-                dest: PhysicalRegister(reg),
-            }));
-
-            updated_instructions.push(ByteCode::Mov(UnaryOperation{
-                src: PhysicalRegister(reg),
-                dest: dest_offset,
-            }));
-
-        }
-        /*
-            a = ~a
-
-            Emit:
-            NOT a
-
-        */
-        UnaryOperation {
-            src: VirtualRegister(src_vregdata),
-            dest: VirtualRegister(dest_vregdata)
-        } if src_vregdata.id == dest_vregdata.id => {
-
-            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
-
-            updated_instructions.push(ByteCode::Not(UnaryOperation{
-                src: dest_offset.clone(),
-                dest: dest_offset
-            }));
-        }
-        _ => unimplemented!("Not implemented for {:#?}", unary_op),
-    }
-}
 
 /*
     if the instruction is
@@ -3708,10 +3597,7 @@ fn get_constant_object_offset(offset: u32, size: u32, index: i32, object_stack_s
 
 fn offset_for_reg(map: &StackMap, id: u32) -> Value{
     let reg = &map.reg_to_stack_slot[&id];
-    StackOffset {
-        size: reg.size,
-        offset: reg.offset,
-    }
+    reg.into()
 }
 
 
@@ -4595,7 +4481,7 @@ fn handle_shift_allocation<T>(
     enum_type: T,
     binary_op: &BinaryOperation,
     updated_instructions: &mut Vec<ByteCode>,
-    stack_map: &StackMap)  where T: Fn(BinaryOperation) -> ByteCode {
+    stack_map: &StackMap) where T: Fn(BinaryOperation) -> ByteCode {
 
         match binary_op {
 
@@ -4792,5 +4678,100 @@ fn handle_shift_allocation<T>(
                     }));
             }
             _ => ice!("Not implemented for {:#?}", binary_op),
+    }
+}
+
+fn handle_unary_allocation<T>(
+    enum_type: T,
+    unary_op: &UnaryOperation,
+    updated_instructions:
+    &mut Vec<ByteCode>,
+    stack_map: &StackMap) where T: Fn(UnaryOperation) -> ByteCode {
+    match unary_op {
+
+        /*
+            a = OP b
+
+            Emit:
+            MOV tmp_reg, b
+            OP tmp_reg
+            MOV a, tmp_reg
+
+        */
+        UnaryOperation {
+            src: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata)
+        } if src_vregdata.id != dest_vregdata.id => {
+
+            let src_offset = offset_for_reg(stack_map, src_vregdata.id);
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+            let reg = get_register_for_size(src_vregdata.size);
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: src_offset,
+                dest: reg.into(),
+            }));
+            updated_instructions.push(enum_type(UnaryOperation{
+                src: reg.into(),
+                dest: reg.into(),
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: reg.into(),
+                dest: dest_offset,
+            }));
+
+        }
+        /*
+            a = OP a
+
+            Emit:
+            OP a
+
+        */
+        UnaryOperation {
+            src: VirtualRegister(src_vregdata),
+            dest: VirtualRegister(dest_vregdata)
+        } if src_vregdata.id == dest_vregdata.id => {
+
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+
+            updated_instructions.push(enum_type(UnaryOperation{
+                src: dest_offset.clone(),
+                dest: dest_offset
+            }));
+        }
+        UnaryOperation {
+            src: DynamicStackOffset{ index, offset, size, id } ,
+            dest: VirtualRegister(dest_vregdata)
+        } => {
+
+            let reg = get_register_for_size(*size);
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let dest_offset = offset_for_reg(stack_map, dest_vregdata.id);
+            
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            updated_instructions.push(enum_type(UnaryOperation{
+                src: reg.into(),
+                dest: reg.into(),
+            }));
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation{
+                src: reg.into(),
+                dest: dest_offset,
+            }));
+
+        },
+        _ => ice!("Not implemented for {:#?}", unary_op),
     }
 }

@@ -3282,6 +3282,18 @@ fn emit_neg(operands: &UnaryOperation, asm: &mut Vec<u8>) {
                 _ => ice!("Invalid size {}", src_size),
             }
         },
+        UnaryOperation {
+            src: PhysicalRegister(src_reg),
+            dest: PhysicalRegister(dest_reg),
+        } if src_reg == dest_reg => {
+            ice_if!(src_reg.size() != dest_reg.size(), "Source and destination sizes are different, {:#?}", operands);
+            match src_reg.size() {
+                1 => emit_neg_byte_reg(*dest_reg, asm),
+                2 | 4 | 8 => emit_neg_integer_reg(*dest_reg, asm),
+                _ => ice!("Invalid size {}", src_reg.size()),
+            }
+
+        },
         _ => ice!("Invalid operand encoding for NEG: {:#?}", operands),
     }
 }
@@ -3329,6 +3341,71 @@ fn emit_neg_byte_stack(offset: u32, size: u32, asm: &mut Vec<u8>) {
         sib,
         None,
     );
+}
+
+
+/*
+    NEG reg/8bit bit
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, opcode extension in in reg field,  target register in  in R/M
+    SIB: Not used
+    Immediate: Not used
+*/
+
+fn emit_neg_byte_reg(reg: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(reg.size() != 1, "Invalid register {:#?}", reg);
+
+       let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(NEGATE_OPCODE_EXT),
+        rm_field: RmField::Register(reg),
+    };
+
+    let rex = create_rex_prefix(reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(NEGATE_RM_8_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+
+}
+
+/*
+    NEG reg/32-64 bit
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct addressing, opcode extension in in reg field,  target register in  in R/M
+    SIB: Not used
+    Immediate: Not used
+*/
+
+fn emit_neg_integer_reg(reg: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(reg.size() < 2, "Invalid register {:#?}", reg);
+
+       let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        reg_field: RegField::OpcodeExtension(NEGATE_OPCODE_EXT),
+        rm_field: RmField::Register(reg),
+    };
+
+    let rex = create_rex_prefix(reg.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(NEGATE_RM_32_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+
 }
 
 

@@ -9,6 +9,90 @@
         """
 test_tuples = [
 
+
+
+
+# negation 
+    ############## byte ##############
+
+        ("struct_const_byte_negation_works",
+            "byte",
+            "let out = -test_variable.a;",
+            "out",
+            -100),
+
+        ("struct_const_byte_self_negation_works",
+            "byte",
+            "test_variable.a = -test_variable.a;",
+            "test_variable.a",
+            -100),
+
+    ############## short ##############
+
+        ("struct_const_short_negation_works",
+            "short",
+            "let out = -test_variable.a;",
+            "out",
+            -100),
+
+        ("struct_const_short_self_negation_works",
+            "short",
+            "test_variable.a = -test_variable.a;",
+            "test_variable.a",
+            -100),
+
+
+    ############## int ##############
+
+        ("struct_const_int_negation_works",
+            "int",
+            "let out = -test_variable.a;",
+            "out",
+            -100),
+
+        ("struct_const_int_self_negation_works",
+            "int",
+            "test_variable.a = -test_variable.a;",
+            "test_variable.a",
+            -100),
+
+
+    ############## long ##############
+
+        ("struct_const_long_negation_works",
+            "long",
+            "let out = -test_variable.a;",
+            "out",
+            -100),
+
+        ("struct_const_long_self_negation_works",
+            "long",
+            "test_variable.a = -test_variable.a;",
+            "test_variable.a",
+            -100),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # addition
         ############## byte ##############
 
