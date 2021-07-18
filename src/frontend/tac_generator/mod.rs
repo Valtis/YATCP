@@ -49,6 +49,9 @@ impl TACGenerator {
     }
 
     pub fn generate_tac_functions(mut self, node: &AstNode) -> Vec<Function> {
+
+        self.gather_struct_definitions(node);
+
         self.generate_tac(node);
 
         for function in self.functions.iter_mut() {
@@ -61,14 +64,25 @@ impl TACGenerator {
         self.functions
     }
 
+    fn gather_struct_definitions(&mut self, node: &AstNode) {
+        if let AstNode::Block{statements, ..} = node {
+            for node in statements.iter() {
+                if let AstNode::Struct{ struct_info } = node {
+                    self.handle_struct(struct_info);
+                }
+            }
+        } else {
+            ice!("Unexpected node {}", node);
+        }
+    }
+
     fn generate_tac(&mut self, node: &AstNode) {
         match node {
             AstNode::Block{ref statements, ref block_symbol_table_entry, ref span} =>
                 self.handle_block(statements, block_symbol_table_entry, span),
             AstNode::Function{ref block, ref function_info } =>
                 self.handle_function(block, function_info),
-            AstNode::Struct{ struct_info } =>
-                self.handle_struct(struct_info),
+            AstNode::Struct{ .. } => (), // do nothing, already handled
             AstNode::ExternFunction{ref function_info} =>
                 self.handle_extern_function(function_info),
             AstNode::FunctionCall{ ref arguments, ref function_name, ref span} =>
