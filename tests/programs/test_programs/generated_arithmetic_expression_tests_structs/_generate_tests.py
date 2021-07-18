@@ -259,13 +259,13 @@ test_tuples = [
 
             ("struct_struct_byte_addition_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_byte_self_addition_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -329,13 +329,13 @@ test_tuples = [
 
             ("struct_struct_short_addition_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_short_self_addition_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -398,13 +398,13 @@ test_tuples = [
 
             ("struct_struct_int_addition_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_int_self_addition_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -473,13 +473,13 @@ test_tuples = [
 
             ("struct_struct_long_addition_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a + test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_long_self_addition_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a + test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a + test_variable.a;",
                 "test_variable.a",
                 108),
 
@@ -566,13 +566,13 @@ test_tuples = [
 
             ("struct_struct_byte_subtraction_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_byte_self_subtraction_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -637,13 +637,13 @@ test_tuples = [
 
             ("struct_struct_short_subtraction_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_short_self_subtraction_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -707,13 +707,13 @@ test_tuples = [
 
             ("struct_struct_int_subtraction_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_int_self_subtraction_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -784,13 +784,13 @@ test_tuples = [
 
             ("struct_struct_long_subtraction_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a - test_variable.a;",
                 "out",
                 -92),
 
             ("struct_struct_long_self_subtraction_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a - test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a - test_variable.a;",
                 "test_variable.a",
                 -92),
 
@@ -877,13 +877,13 @@ test_tuples = [
 
             ("struct_struct_byte_multiplication_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 32),
 
             ("struct_struct_byte_self_multiplication_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -949,13 +949,13 @@ test_tuples = [
 
             ("struct_struct_short_multiplication_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_short_self_multiplication_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
 
@@ -1020,13 +1020,13 @@ test_tuples = [
 
             ("struct_struct_int_multiplication_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_int_self_multiplication_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
 
@@ -1097,13 +1097,13 @@ test_tuples = [
 
             ("struct_struct_long_multiplication_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a * test_variable.a;",
                 "out",
                 800),
 
             ("struct_struct_long_self_multiplication_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a * test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a * test_variable.a;",
                 "test_variable.a",
                 800),
 
@@ -1194,13 +1194,13 @@ test_tuples = [
 
             ("struct_struct_byte_division_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = test_variable.a/x.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = test_variable.a/x.a;",
                 "out",
                 12),
 
             ("struct_struct_byte_self_division_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 0),
 
@@ -1266,13 +1266,13 @@ test_tuples = [
 
             ("struct_struct_short_division_works",
                 "short",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_short_self_division_works",
                 "short",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1336,13 +1336,13 @@ test_tuples = [
 
             ("struct_struct_int_division_works",
                 "int",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_int_self_division_works",
                 "int",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1413,13 +1413,13 @@ test_tuples = [
 
             ("struct_struct_long_division_works",
                 "long",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a / test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_long_self_division_works",
                 "long",
-                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a / test_variable.a;",
+                "let x = Foo { a = 800;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a / test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1510,13 +1510,13 @@ test_tuples = [
 
             ("struct_struct_byte_modulo_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = test_variable.a%x.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = test_variable.a%x.a;",
                 "out",
                 4),
 
             ("struct_struct_byte_self_modulo_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a % test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a % test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1582,13 +1582,13 @@ test_tuples = [
 
             ("struct_struct_short_modulo_works",
                 "short",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a % test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_short_self_modulo_works",
                 "short",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a % test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1652,13 +1652,13 @@ test_tuples = [
 
             ("struct_struct_int_modulo_works",
                 "int",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a % test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_int_self_modulo_works",
                 "int",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a % test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1729,13 +1729,13 @@ test_tuples = [
 
             ("struct_struct_long_modulo_works",
                 "long",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; let out = x.a % test_variable.a;",
                 "out",
                 8),
 
             ("struct_struct_long_self_modulo_works",
                 "long",
-                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0; }; test_variable.a = x.a % test_variable.a;",
                 "test_variable.a",
                 8),
 
@@ -1829,13 +1829,13 @@ test_tuples = [
 
             ("struct_struct_byte_bitwise_and_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a & test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a & test_variable.a;",
                 "out",
                 0),
 
             ("struct_struct_byte_self_bitwise_and_works",
                 "byte",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a & test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a & test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -1899,13 +1899,13 @@ test_tuples = [
 
             ("struct_struct_short_bitwise_and_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a & test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a & test_variable.a;",
                 "out",
                 0),
 
             ("struct_struct_short_self_bitwise_and_works",
                 "short",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a & test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a & test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -1968,13 +1968,13 @@ test_tuples = [
 
             ("struct_struct_int_bitwise_and_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a & test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a & test_variable.a;",
                 "out",
                 0),
 
             ("struct_struct_int_self_bitwise_and_works",
                 "int",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a & test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a & test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -2043,13 +2043,13 @@ test_tuples = [
 
             ("struct_struct_long_bitwise_and_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a & test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a & test_variable.a;",
                 "out",
                 0),
 
             ("struct_struct_long_self_bitwise_and_works",
                 "long",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a & test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a & test_variable.a;",
                 "test_variable.a",
                 32),
 
@@ -2147,13 +2147,13 @@ test_tuples = [
 
             ("struct_struct_byte_bitwise_or_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a | test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_byte_self_bitwise_or_works",
                 "byte",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a | test_variable.a;",
                 "test_variable.a",
                 101),
 
@@ -2217,13 +2217,13 @@ test_tuples = [
 
             ("struct_struct_short_bitwise_or_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a | test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_short_self_bitwise_or_works",
                 "short",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a | test_variable.a;",
                 "test_variable.a",
                 101),
 
@@ -2286,13 +2286,13 @@ test_tuples = [
 
             ("struct_struct_int_bitwise_or_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a | test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_int_self_bitwise_or_works",
                 "int",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a | test_variable.a;",
                 "test_variable.a",
                 101),
 
@@ -2361,13 +2361,13 @@ test_tuples = [
 
             ("struct_struct_long_bitwise_or_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a | test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_long_self_bitwise_or_works",
                 "long",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a | test_variable.a;",
                 "test_variable.a",
                 101),
 
@@ -2463,13 +2463,13 @@ test_tuples = [
 
             ("struct_struct_byte_bitwise_xor_works",
                 "byte",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a ^ test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a ^ test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_byte_self_bitwise_xor_works",
                 "byte",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
                 "test_variable.a",
                 69),
 
@@ -2533,13 +2533,13 @@ test_tuples = [
 
             ("struct_struct_short_bitwise_xor_works",
                 "short",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a ^ test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a ^ test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_short_self_bitwise_xor_works",
                 "short",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
                 "test_variable.a",
                 69),
 
@@ -2602,13 +2602,13 @@ test_tuples = [
 
             ("struct_struct_int_bitwise_xor_works",
                 "int",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a ^ test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a ^ test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_int_self_bitwise_xor_works",
                 "int",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
                 "test_variable.a",
                 69),
 
@@ -2677,15 +2677,242 @@ test_tuples = [
 
             ("struct_struct_long_bitwise_xor_works",
                 "long",
-                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a ^ test_variable.a;",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a ^ test_variable.a;",
                 "out",
                 108),
 
             ("struct_struct_long_self_bitwise_xor_works",
                 "long",
-                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = x.a ^ test_variable.a;",
                 "test_variable.a",
                 69),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  # boolean fields
+        ############## boolean ##############
+
+            ("struct_bool_field_can_be_used_in_if_statement_and_not_taken_if_false",
+                "int", # unused in this test - don't care
+                "let out = 4; if test_variable.bool_field { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_used_in_if_statement_and_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if test_variable.bool_field { out = 8; }",
+                "out",
+                8),
+
+           ("struct_bool_field_can_be_used_in_if_statement_and_taken_if_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; if !test_variable.bool_field { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_used_in_if_statement_and_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if !test_variable.bool_field { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_and_branch_not_taken_when_false",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = test_variable.bool_field; if cond { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_and_branch_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = test_variable.bool_field; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_and_branch_taken_when_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = !test_variable.bool_field; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_and_branch_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = !test_variable.bool_field; if cond { out = 8; }",
+                "out",
+                4),
+
+        ############## boolean and ##############
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_and_operator_and_not_taken_if_false",
+                "int", # unused in this test - don't care
+                "let out = 4; if test_variable.bool_field && true { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_and_operator_and_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if test_variable.bool_field && true { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_and_operator_and_not_taken_if_true_but_other_op_false",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if test_variable.bool_field && false { out = 8; }",
+                "out",
+                4),
+
+           ("struct_bool_field_can_be_used_in_if_statement_with_boolean_and_operator_and_taken_if_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; if !test_variable.bool_field && true { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_and_operator_and_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if !test_variable.bool_field && true { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_and_operator_and_branch_not_taken_when_false",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = test_variable.bool_field && true; if cond { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_and_operator_and_branch_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = test_variable.bool_field && true; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_and_operator_and_branch_not_taken_if_true_but_other_op_false",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = test_variable.bool_field && false; if cond { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_and_operator_and_branch_taken_when_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = !test_variable.bool_field && true; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_and_operator_and_branch_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = !test_variable.bool_field && true; if cond { out = 8; }",
+                "out",
+                4),
+
+
+        ############## boolean or ##############
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_not_taken_if_false",
+                "int", # unused in this test - don't care
+                "let out = 4; if test_variable.bool_field || false { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if test_variable.bool_field || false { out = 8; }",
+                "out",
+                8),
+
+           ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_taken_if_other_op_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if test_variable.bool_field || true { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_not_taken_if_false_and_other_op_false",
+                "int", # unused in this test - don't care
+                "let out = 4; if test_variable.bool_field || false { out = 8; }",
+                "out",
+                4),
+
+           ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_taken_if_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; if !test_variable.bool_field || false { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_used_in_if_statement_with_boolean_or_operator_and_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; if !test_variable.bool_field || false { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_or_operator_and_branch_not_taken_when_false",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = test_variable.bool_field || false; if cond { out = 8; }",
+                "out",
+                4),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_or_operator_and_branch_taken_if_true",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = test_variable.bool_field || false; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_or_operator_and_branch_taken_if_true_and_other_op_false",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = test_variable.bool_field || false; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_or_operator_and_branch_taken_when_false_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; let cond = !test_variable.bool_field || false; if cond { out = 8; }",
+                "out",
+                8),
+
+            ("struct_bool_field_can_be_assigned_to_variable_with_boolean_or_operator_and_branch_not_taken_if_true_but_flipped",
+                "int", # unused in this test - don't care
+                "let out = 4; test_variable.bool_field = true; let cond = !test_variable.bool_field || false; if cond { out = 8; }",
+                "out",
+                4),
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2723,7 +2950,7 @@ program: |
         unused2: byte;
         unused3: int;
         a: {t[1]};
-        unused4: byte;
+        bool_field: bool;
         unused5: long;
     }}
     
@@ -2735,7 +2962,7 @@ program: |
             unused1 = 0;
             unused2 = 0;
             unused3 = 0;
-            unused4 = 0;
+            bool_field = false;
             unused5 = 0;
         }};
 

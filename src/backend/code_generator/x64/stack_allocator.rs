@@ -3243,6 +3243,34 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 )
             );
         },
+        ComparisonOperation {
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2: ByteConstant(val),
+        } => {
+
+            let reg = get_register_for_size(*size);
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: reg.into(),
+                        src2: ByteConstant(*val),
+                    }
+                )
+            )
+        },
         _ => unimplemented!("{:#?}", comparison_op),
     }
 }

@@ -1,0 +1,41 @@
+program: |
+  extern fn byte_printer(x: byte) : void;
+  extern fn short_printer(x: short) : void;
+  extern fn int_printer(x: int) : void;
+  extern fn long_printer(x: long) : void;
+
+
+  fn main() : int {
+    let x = Test {
+      a = 126B;
+      b = 12600S;
+      c = 2100000000I;
+      d = 16000000000000000L;
+    };
+    foobar(1, 2, 3, 4, 5, 6, x.a, x.b, x.c, x.d);
+    return 0;
+  }
+
+  fn foobar(a: int, b: int, c: int, d: int, e: int, f: int, g: byte, h: short, i: int, j: long) {
+          byte_printer(g);
+          short_printer(h);
+          int_printer(i);
+          long_printer(j);
+  }
+
+  struct Test {
+    
+    a: byte;
+    b: short;
+    c: int;
+    d: long;
+  }
+
+
+link_with:
+  - tests/files/support/support.c 
+expect_stdout: |
+  126
+  12600
+  2100000000
+  16000000000000000

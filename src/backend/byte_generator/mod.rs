@@ -349,7 +349,7 @@ impl ByteGenerator {
         let src = self.get_source(op);
 
         match src {
-            Value::VirtualRegister(vregdata) => {
+            Value::VirtualRegister(ref vregdata) => {
                 ice_if!(
                     vregdata.size != 1,
                     "Non-boolean register value used for conditional jump:\n{:#?}",
@@ -357,21 +357,34 @@ impl ByteGenerator {
 
                 self.current_function().code.push(
                     ByteCode::Compare(ComparisonOperation {
-                        src1: Value::VirtualRegister(vregdata.clone()),
+                        src1: src.clone(),
                         src2: Value::ByteConstant(1),
                     })
                 );
 
-                let cmp = if reverse_comparison {
-                    ComparisonType::NotEquals
-                } else {
-                    ComparisonType::Equals
-                };
-                self.current_function().code.push(
-                    ByteCode::JumpConditional(id, cmp));
+
             },
+            // TODO: Once pattern binding after @ are stabilized, use those
+            Value::DynamicStackOffset {  size, ..} => {
+                ice_if!(size != 1, "Non-boolean dynamic offset used for conditional jump:\n{:#?}", src);
+
+                self.current_function().code.push(
+                    ByteCode::Compare(ComparisonOperation {
+                        src1: src.clone(),
+                        src2: Value::ByteConstant(1),
+                    })
+                );
+            }
             _ => ice!("Invalid operand type in conditional jump: {:#?}", src),
         }
+
+        let cmp = if reverse_comparison {
+            ComparisonType::NotEquals
+        } else {
+            ComparisonType::Equals
+        };
+        self.current_function().code.push(
+            ByteCode::JumpConditional(id, cmp));
     }
 
     fn emit_function_call(&mut self, callee: &str, args: &Vec<Operand>, retval: &Option<Operand>) {
@@ -566,7 +579,7 @@ impl ByteGenerator {
     }
 
     fn current_function(&mut self) -> &mut Function {
-        self.bytecode_functions.last_mut().unwrap_or_else(|| panic!("Internal compiler error: Empty function array"))
+        self.bytecode_functions.last_mut().unwrap_or_else(|| ice!("Empty function array"))
     }
 }
 
