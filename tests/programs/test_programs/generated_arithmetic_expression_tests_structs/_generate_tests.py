@@ -2064,6 +2064,330 @@ test_tuples = [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # bitwise_or
+        ############## byte ##############
+
+            ("struct_const_byte_bitwise_or_works",
+                "byte",
+                "let out = test_variable.a | 2b;",
+                "out",
+                102),
+
+            ("struct_const_byte_self_bitwise_or_works",
+                "byte",
+                "test_variable.a = test_variable.a | 4b;",
+                "test_variable.a",
+                100),
+
+            ("const_struct_byte_bitwise_or_works",
+                "byte",
+                "let out = 5b | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_variable_byte_bitwise_or_works",
+                "byte",
+                "let x = 8b; let out = test_variable.a | x;",
+                "out",
+                108),
+
+            ("struct_variable_byte_self_bitwise_or_works",
+                "byte",
+                "let x = 32b; test_variable.a = test_variable.a | x;",
+                "test_variable.a",
+                100),
+
+            ("variable_struct_byte_bitwise_or_works",
+                "byte",
+                "let x = 97b; let out = x | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_array_variable_byte_bitwise_or_works",
+                "byte",
+                "let x: byte[3] = 96b; let out = test_variable.a | x[1];",
+                "out",
+                100),
+
+            ("struct_array_variable_byte_self_bitwise_or_works",
+                "byte",
+                "let x: byte[3] = 98b; test_variable.a = test_variable.a | x[1];",
+                "test_variable.a",
+                102),
+
+            ("array_variable_struct_byte_bitwise_or_works",
+                "byte",
+                "let x: byte[4] = 15b; let out = x[2] | test_variable.a;",
+                "out",
+                111),
+
+            ("struct_struct_byte_bitwise_or_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_byte_self_bitwise_or_works",
+                "byte",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "test_variable.a",
+                101),
+
+
+        ############## short ##############
+
+            ("struct_const_short_bitwise_or_works",
+                "short",
+                "let out = test_variable.a | 2s;",
+                "out",
+                102),
+
+            ("struct_const_short_self_bitwise_or_works",
+                "short",
+                "test_variable.a = test_variable.a | 4s;",
+                "test_variable.a",
+                100),
+
+            ("const_struct_short_bitwise_or_works",
+                "short",
+                "let out = 5s | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_variable_short_bitwise_or_works",
+                "short",
+                "let x = 8s; let out = test_variable.a | x;",
+                "out",
+                108),
+
+            ("struct_variable_short_self_bitwise_or_works",
+                "short",
+                "let x = 32s; test_variable.a = test_variable.a | x;",
+                "test_variable.a",
+                100),
+
+            ("variable_struct_short_bitwise_or_works",
+                "short",
+                "let x = 97s; let out = x | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_array_variable_short_bitwise_or_works",
+                "short",
+                "let x: short[3] = 96s; let out = test_variable.a | x[1];",
+                "out",
+                100),
+
+
+            ("struct_array_variable_short_self_bitwise_or_works",
+                "short",
+                "let x: short[3] = 98s; test_variable.a = test_variable.a | x[1];",
+                "test_variable.a",
+                102),
+
+            ("array_variable_struct_short_bitwise_or_works",
+                "short",
+                "let x: short[4] = 15s; let out = x[2] | test_variable.a;",
+                "out",
+                111),
+
+            ("struct_struct_short_bitwise_or_works",
+                "short",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_short_self_bitwise_or_works",
+                "short",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "test_variable.a",
+                101),
+
+
+        ############## int ##############
+
+            ("struct_const_int_bitwise_or_works",
+                "int",
+                "let out = test_variable.a | 2i;",
+                "out",
+                102),
+
+            ("struct_const_int_self_bitwise_or_works",
+                "int",
+                "test_variable.a = test_variable.a | 4i;",
+                "test_variable.a",
+                100),
+
+            ("const_struct_int_bitwise_or_works",
+                "int",
+                "let out = 5i | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_variable_int_bitwise_or_works",
+                "int",
+                "let x = 8i; let out = test_variable.a | x;",
+                "out",
+                108),
+
+            ("struct_variable_int_self_bitwise_or_works",
+                "int",
+                "let x = 32i; test_variable.a = test_variable.a | x;",
+                "test_variable.a",
+                100),
+
+            ("variable_struct_int_bitwise_or_works",
+                "int",
+                "let x = 97i; let out = x | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_array_variable_int_bitwise_or_works",
+                "int",
+                "let x: int[3] = 96i; let out = test_variable.a | x[1];",
+                "out",
+                100),
+
+            ("struct_array_variable_int_self_bitwise_or_works",
+                "int",
+                "let x: int[3] = 98i; test_variable.a = test_variable.a | x[1];",
+                "test_variable.a",
+                102),
+
+            ("array_variable_struct_int_bitwise_or_works",
+                "int",
+                "let x: int[4] = 15i; let out = x[2] | test_variable.a;",
+                "out",
+                111),
+
+            ("struct_struct_int_bitwise_or_works",
+                "int",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_int_self_bitwise_or_works",
+                "int",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "test_variable.a",
+                101),
+
+
+        ############## long ##############
+
+            ("struct_const_long_bitwise_or_works",
+                "long",
+                "let out = test_variable.a | 2l;",
+                "out",
+                102),
+
+            ("struct_const_long_bitwise_or_works_with_large_immediate_works",
+                "long",
+                "let out = test_variable.a | 8000000000004l;",
+                "out",
+                8000000000100),
+
+            ("struct_const_long_self_bitwise_or_works",
+                "long",
+                "test_variable.a = test_variable.a | 4l;",
+                "test_variable.a",
+                100),
+
+            ("const_struct_long_bitwise_or_works",
+                "long",
+                "let out = 5l | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_variable_long_bitwise_or_works",
+                "long",
+                "let x = 8l; let out = test_variable.a | x;",
+                "out",
+                108),
+
+            ("struct_variable_long_self_bitwise_or_works",
+                "long",
+                "let x = 32l; test_variable.a = test_variable.a | x;",
+                "test_variable.a",
+                100),
+
+            ("variable_struct_long_bitwise_or_works",
+                "long",
+                "let x = 97l; let out = x | test_variable.a;",
+                "out",
+                101),
+
+            ("struct_array_variable_long_bitwise_or_works",
+                "long",
+                "let x: long[3] = 96l; let out = test_variable.a | x[1];",
+                "out",
+                100),
+
+            ("struct_array_variable_long_self_bitwise_or_works",
+                "long",
+                "let x: long[3] = 98l; test_variable.a = test_variable.a | x[1];",
+                "test_variable.a",
+                102),
+
+            ("array_variable_struct_long_bitwise_or_works",
+                "long",
+                "let x: long[4] = 15l; let out = x[2] | test_variable.a;",
+                "out",
+                111),
+
+            ("struct_struct_long_bitwise_or_works",
+                "long",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = x.a | test_variable.a;",
+                "out",
+                108),
+
+            ("struct_struct_long_self_bitwise_or_works",
+                "long",
+                "let x = Foo {a=33;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a | test_variable.a;",
+                "test_variable.a",
+                101),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ]
 
 for t in test_tuples:

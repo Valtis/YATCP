@@ -3984,8 +3984,8 @@ fn emit_or(operands: &BinaryOperation, asm: &mut Vec<u8>) {
                 "Destination and src1 operands not in two address form: {:#?}", operands);
 
             match dest_reg.size() {
-                // not implemented for bytes for now
-                4 | 8 => emit_or_integer_reg_with_reg(*dest_reg, *src_reg2, asm),
+                1 => emit_or_byte_reg_with_reg(*dest_reg, *src_reg2, asm),
+                2 | 4 | 8 => emit_or_integer_reg_with_reg(*dest_reg, *src_reg2, asm),
                 _ => ice!("Invalid size {}", dest_reg.size()),
             }
         },
@@ -4087,6 +4087,39 @@ fn emit_or(operands: &BinaryOperation, asm: &mut Vec<u8>) {
     }
 }
 
+/*
+    OR r8, r8
+
+    REX: if 64 bit registers are used, if extended registers are used
+    opcode: 8 bit opcode
+    modrm: direct register addressing
+    sib: not used
+    Immediate: Not used
+*/
+
+fn emit_or_byte_reg_with_reg(dest_reg: X64Register, src_reg: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(dest_reg.size() != 1, "Invalid register '{:?}'", dest_reg);
+    ice_if!(src_reg.size() != 1, "Invalid register {:?}", src_reg);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        rm_field: RmField::Register(src_reg),
+        reg_field: RegField::Register(dest_reg),
+    };
+
+    let rex = create_rex_prefix(dest_reg.size() == 8, Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(OR_RM_8_BIT_WITH_REG),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
+
 
 
 /*
@@ -4100,8 +4133,8 @@ fn emit_or(operands: &BinaryOperation, asm: &mut Vec<u8>) {
 */
 
 fn emit_or_integer_reg_with_reg(dest_reg: X64Register, src_reg: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(dest_reg.size() < 4, "Invalid register '{:?}'", dest_reg);
-    ice_if!(src_reg.size() < 4, "Invalid register {:?}", src_reg);
+    ice_if!(dest_reg.size() < 2, "Invalid register '{:?}'", dest_reg);
+    ice_if!(src_reg.size() < 2, "Invalid register {:?}", src_reg);
     ice_if!(dest_reg.size() != src_reg.size(), "Invalid register sizes {:?} vs {:?}", dest_reg, src_reg);
 
     let modrm = ModRM {
