@@ -10,8 +10,6 @@
 test_tuples = [
 
 
-
-
 # negation 
     ############## byte ##############
 
@@ -70,6 +68,115 @@ test_tuples = [
             "test_variable.a = -test_variable.a;",
             "test_variable.a",
             -100),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+   # not 
+        ############## byte ##############
+
+            ("struct_const_byte_not_works",
+                "byte",
+                "let out = ~test_variable.a;",
+                "out",
+                -101),
+
+            ("struct_const_byte_self_not_works",
+                "byte",
+                "test_variable.a = ~test_variable.a;",
+                "test_variable.a",
+                -101),
+
+        ############## short ##############
+
+            ("struct_const_short_not_works",
+                "short",
+                "let out = ~test_variable.a;",
+                "out",
+                -101),
+
+            ("struct_const_short_self_not_works",
+                "short",
+                "test_variable.a = ~test_variable.a;",
+                "test_variable.a",
+                -101),
+
+
+        ############## int ##############
+
+            ("struct_const_int_not_works",
+                "int",
+                "let out = ~test_variable.a;",
+                "out",
+                -101),
+
+            ("struct_const_int_self_not_works",
+                "int",
+                "test_variable.a = ~test_variable.a;",
+                "test_variable.a",
+                -101),
+
+
+        ############## long ##############
+
+            ("struct_const_long_not_works",
+                "long",
+                "let out = ~test_variable.a;",
+                "out",
+                -101),
+
+            ("struct_const_long_self_not_works",
+                "long",
+                "test_variable.a = ~test_variable.a;",
+                "test_variable.a",
+                -101),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
