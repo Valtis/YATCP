@@ -1633,7 +1633,14 @@ impl SemanticsCheck {
                 }
             },
             AstNode::Identifier{ref name, ..} if self.get_type(object).is_user_defined() => {
-                let symbol = self.symbol_table.find_symbol(name).unwrap_or_else(|| ice!("Undeclared identifier '{}' used", name));
+
+                let object_name = if let AstNode::Identifier { name: object_name, .. } = object {
+                    object_name
+                } else {
+                    ice!("Not implemented");
+                };
+
+                let symbol = self.symbol_table.find_symbol(object_name).unwrap_or_else(|| ice!("Undeclared identifier '{}' used", name));
 
                 let object_declaration_info = if let Symbol::Variable(declaration_info, _) = symbol {
                    declaration_info
