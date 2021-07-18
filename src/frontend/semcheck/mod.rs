@@ -2510,7 +2510,11 @@ impl SemanticsCheck {
             AstNode::ArrayAccess {
                 index_expression, indexable_expression
             } => self.is_constant(index_expression) && self.is_constant(indexable_expression),
-
+            AstNode::Greater { left_expression, right_expression, .. } |
+            AstNode::GreaterOrEq { left_expression, right_expression, .. } |
+            AstNode::Equals  { left_expression, right_expression, .. } |
+            AstNode::LessOrEq { left_expression, right_expression, .. } |
+            AstNode::Less { left_expression, right_expression, .. } |
             AstNode::BooleanAnd { left_expression, right_expression, .. } |
             AstNode::BooleanOr { left_expression, right_expression, .. } |
             AstNode::BitwiseAnd {  left_expression, right_expression, .. } |
@@ -3012,6 +3016,141 @@ impl SemanticsCheck {
                     (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte{ value: AstByte::Byte(i2), .. }) if i2 < 8 && i2 > 0 =>
                         AstNode::Byte { value: AstByte::Byte(i1 << i2), span: arithmetic_info.span },
                     _ => node.clone(),
+                }
+            },
+            AstNode::Less {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 < i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 < i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 < i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 < i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 < i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 < f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 < f2,  span: *span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::LessOrEq {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 <= i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 <= i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 <= i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 <= i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 <= i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 <= f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 <= f2,  span: *span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::Equals {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 == i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 == i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 == i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 == i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 == i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 == f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 == f2,  span: *span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::GreaterOrEq {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 >= i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 >= i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 >= i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 >= i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 >= i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 >= f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 >= f2,  span: *span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::Greater {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 > i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 > i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 > i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 > i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 > i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 > f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 > f2,  span: *span },
+                    _ => node.clone()
                 }
             },
             AstNode::Cast{ expression, .. } => {
