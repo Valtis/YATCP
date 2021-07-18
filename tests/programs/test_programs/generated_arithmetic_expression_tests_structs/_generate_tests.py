@@ -918,6 +918,12 @@ test_tuples = [
 
 
 
+
+
+
+
+
+
     # division
         ############## byte ##############
 
@@ -1207,6 +1213,320 @@ test_tuples = [
                 8),
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # modulo
+        ############## byte ##############
+
+            ("struct_const_byte_modulo_works",
+                "byte",
+                "let out = test_variable.a%2b;",
+                "out",
+                0), 
+
+            ("struct_const_byte_self_modulo_works",
+                "byte",
+                "test_variable.a = test_variable.a%3b;",
+                "test_variable.a",
+                1),
+
+            ("const_struct_byte_modulo_works",
+                "byte",
+                "let out = 2b%test_variable.a;",
+                "out",
+                2),
+
+            ("struct_variable_byte_modulo_works",
+                "byte",
+                "let x = 8b; let out = test_variable.a%x;",
+                "out",
+                4),
+
+            ("struct_variable_byte_self_modulo_works",
+                "byte",
+                "let x = 8b; test_variable.a = test_variable.a%x;",
+                "test_variable.a",
+                4),
+
+            ("variable_struct_byte_modulo_works",
+                "byte",
+                "let x = 8b; let out = x%test_variable.a;",
+                "out",
+                8),
+
+            ("struct_array_variable_byte_modulo_works",
+                "byte",
+                "let x: byte[3] = 8b; let out = test_variable.a%x[1];",
+                "out",
+                4),
+
+            ("struct_array_variable_byte_self_modulo_works",
+                "byte",
+                "let x: byte[3] = 8b; test_variable.a = test_variable.a%x[1];",
+                "test_variable.a",
+                4),
+
+            ("array_variable_struct_byte_modulo_works",
+                "byte",
+                "let x: byte[4] = 8b; let out = x[2]%test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_byte_modulo_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; let out = test_variable.a%x.a;",
+                "out",
+                4),
+
+            ("struct_struct_byte_self_modulo_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0;}; test_variable.a = x.a % test_variable.a;",
+                "test_variable.a",
+                8),
+
+
+
+        ############## short ##############
+
+            ("struct_const_short_modulo_works",
+                "short",
+                "let out = test_variable.a%2s;",
+                "out",
+                0),
+
+
+            ("struct_const_short_self_modulo_works",
+                "short",
+                "test_variable.a = test_variable.a%3s;",
+                "test_variable.a",
+                1),
+
+            ("const_struct_short_modulo_works",
+                "short",
+                "let out = 500s%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_variable_short_modulo_works",
+                "short",
+                "let x = 8s; let out = test_variable.a%x;",
+                "out",
+                4),
+
+            ("struct_variable_short_self_modulo_works",
+                "short",
+                "let x = 8s; test_variable.a = test_variable.a%x;",
+                "test_variable.a",
+                4),
+
+            ("variable_struct_short_modulo_works",
+                "short",
+                "let x = 1500s; let out = x%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_array_variable_short_modulo_works",
+                "short",
+                "let x: short[3] = 8s; let out = test_variable.a%x[1];",
+                "out",
+                4),
+
+            ("struct_array_variable_short_self_modulo_works",
+                "short",
+                "let x: short[3] = 8s; test_variable.a = test_variable.a%x[1];",
+                "test_variable.a",
+                4),
+
+            ("array_variable_struct_short_modulo_works",
+                "short",
+                "let x: short[4] = 1500s; let out = x[2]%test_variable.a;",
+                "out",
+                0),
+
+
+            ("struct_struct_short_modulo_works",
+                "short",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_short_self_modulo_works",
+                "short",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "test_variable.a",
+                8),
+
+
+        ############## int ##############
+
+            ("struct_const_int_modulo_works",
+                "int",
+                "let out = test_variable.a%2i;",
+                "out",
+                0),
+
+            ("struct_const_int_self_modulo_works",
+                "int",
+                "test_variable.a = test_variable.a%3i;",
+                "test_variable.a",
+                1),
+
+            ("const_struct_int_modulo_works",
+                "int",
+                "let out = 500i%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_variable_int_modulo_works",
+                "int",
+                "let x = 8i; let out = test_variable.a%x;",
+                "out",
+                4),
+
+            ("struct_variable_int_self_modulo_works",
+                "int",
+                "let x = 8i; test_variable.a = test_variable.a%x;",
+                "test_variable.a",
+                4),
+
+
+            ("variable_struct_int_modulo_works",
+                "int",
+                "let x = 1500i; let out = x%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_array_variable_int_modulo_works",
+                "int",
+                "let x: int[3] = 8i; let out = test_variable.a%x[1];",
+                "out",
+                4),
+
+            ("struct_array_variable_int_self_modulo_works",
+                "int",
+                "let x: int[3] = 8i; test_variable.a = test_variable.a%x[1];",
+                "test_variable.a",
+                4),
+
+            ("array_variable_struct_int_modulo_works",
+                "int",
+                "let x: int[4] = 1500i; let out = x[2]%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_struct_int_modulo_works",
+                "int",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_int_self_modulo_works",
+                "int",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "test_variable.a",
+                8),
+
+
+        ############## long ##############
+
+            ("struct_const_long_modulo_works",
+                "long",
+                "let out = test_variable.a%2l;",
+                "out",
+                0),
+
+            ("struct_const_long_self_modulo_works",
+                "long",
+                "test_variable.a = test_variable.a%3l;",
+                "test_variable.a",
+                1),
+
+
+            ("struct_const_long_modulo_works_with_large_immediate",
+                "long",
+                "test_variable.a = 6000000000000l; let out = test_variable.a%2000000000000l;",
+                "out",
+                0),
+
+
+            ("const_struct_long_modulo_works",
+                "long",
+                "let out = 500l%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_variable_long_modulo_works",
+                "long",
+                "let x = 8l; let out = test_variable.a%x;",
+                "out",
+                4),
+
+            ("struct_variable_long_self_modulo_works",
+                "long",
+                "let x = 8l; test_variable.a = test_variable.a%x;",
+                "test_variable.a",
+                4),
+
+            ("variable_struct_long_modulo_works",
+                "long",
+                "let x = 1500l; let out = x%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_array_variable_long_modulo_works",
+                "long",
+                "let x: long[3] = 8l; let out = test_variable.a%x[1];",
+                "out",
+                4),
+            
+            ("struct_array_variable_long_self_modulo_works",
+                "long",
+                "let x: long[3] = 8l; test_variable.a = test_variable.a%x[1];",
+                "test_variable.a",
+                4),
+
+            ("array_variable_struct_long_modulo_works",
+                "long",
+                "let x: long[4] = 1500l; let out = x[2]%test_variable.a;",
+                "out",
+                0),
+
+            ("struct_struct_long_modulo_works",
+                "long",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; let out = x.a % test_variable.a;",
+                "out",
+                8),
+
+            ("struct_struct_long_self_modulo_works",
+                "long",
+                "let x = Foo { a = 8;unused1=0;unused2=0;unused3=0;unused4=0;unused5=0; }; test_variable.a = x.a % test_variable.a;",
+                "test_variable.a",
+                8),
 
 
         # array indexing
