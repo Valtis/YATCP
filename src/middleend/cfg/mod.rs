@@ -469,12 +469,12 @@ mod tests {
                 left_operand: None,
                 right_operand: None
             },
+            Statement::Jump(4),
         ];
 
         let function = create_function(statements);
 
         let mut functions = vec![function];
-        println!("{:?} ", functions[0].statements);
 
         let mut cfgs = generate_cfg(&mut functions);
         let cfg = &mut cfgs.get_mut(&Rc::new("foo".to_string())).unwrap();
@@ -483,7 +483,7 @@ mod tests {
         let remove_list = vec![0];
         cfg.remove_statements(&mut functions[0], remove_list);
 
-        assert_eq!(7, functions[0].statements.len());
+        assert_eq!(8, functions[0].statements.len());
 
         assert_eq!(
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
@@ -513,6 +513,10 @@ mod tests {
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[6]);
 
+        assert_eq!(
+            Statement::Jump(4),
+            functions[0].statements[7]);
+
         assert_eq!(3, cfg.basic_blocks.len());
 
         assert_eq!(0, cfg.basic_blocks[0].start);
@@ -522,7 +526,7 @@ mod tests {
         assert_eq!(5, cfg.basic_blocks[1].end);
 
         assert_eq!(5, cfg.basic_blocks[2].start);
-        assert_eq!(7, cfg.basic_blocks[2].end);
+        assert_eq!(8, cfg.basic_blocks[2].end);
 
     }
 
@@ -538,6 +542,7 @@ mod tests {
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Jump(4),
         ];
 
         let function = create_function(statements);
@@ -549,7 +554,7 @@ mod tests {
         let remove_list = vec![2, 5, 6];
         cfg.remove_statements(&mut functions[0], remove_list);
 
-        assert_eq!(5, functions[0].statements.len());
+        assert_eq!(6, functions[0].statements.len());
 
         assert_eq!(
             Statement::Label(1),
@@ -571,6 +576,9 @@ mod tests {
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[4]);
 
+        assert_eq!(
+            Statement::Jump(4),
+            functions[0].statements[5]);
 
         assert_eq!(3, cfg.basic_blocks.len());
 
@@ -581,7 +589,7 @@ mod tests {
         assert_eq!(4, cfg.basic_blocks[1].end);
 
         assert_eq!(4, cfg.basic_blocks[2].start);
-        assert_eq!(5, cfg.basic_blocks[2].end);
+        assert_eq!(6, cfg.basic_blocks[2].end);
     }
 
     #[test]
@@ -596,6 +604,7 @@ mod tests {
             Statement::JumpIfTrue(Operand::Boolean(false), 1),
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
+            Statement::Jump(4),
         ];
 
         let function = create_function(statements);
@@ -607,7 +616,7 @@ mod tests {
         let remove_list = vec![3, 4, 6];
         cfg.remove_statements(&mut functions[0], remove_list);
 
-        assert_eq!(5, functions[0].statements.len());
+        assert_eq!(6, functions[0].statements.len());
 
         assert_eq!(
             Statement::Label(1),
@@ -628,6 +637,10 @@ mod tests {
         assert_eq!(
             Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
             functions[0].statements[4]);
+
+        assert_eq!(
+            Statement::Jump(4),
+            functions[0].statements[5]);
 
         assert_eq!(3, cfg.basic_blocks.len());
 
@@ -638,81 +651,9 @@ mod tests {
         assert_eq!(4, cfg.basic_blocks[1].end);
 
         assert_eq!(4, cfg.basic_blocks[2].start);
-        assert_eq!(5, cfg.basic_blocks[2].end);
-    }
-
-    #[test]
-    fn removing_statements_from_block_with_size_of_one_updates_cfg_and_function_correctly() {
-        let statements = vec![
-            Statement::Label(1),
-            Statement::Label(2),
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None } ,
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            Statement::Label(4),
-            Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-        ];
-
-        let function = create_function(statements);
-
-        let mut functions = vec![function];
-        let mut cfgs = generate_cfg(&mut functions);
-        let cfg = &mut cfgs.get_mut(&Rc::new("foo".to_string())).unwrap();
-
-        let remove_list = vec![0];
-        cfg.remove_statements(&mut functions[0], remove_list);
-
-        assert_eq!(8, functions[0].statements.len());
-
-        assert_eq!(
-            Statement::Label(2),
-            functions[0].statements[0]);
-
-        assert_eq!(
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            functions[0].statements[1]);
-
-        assert_eq!(
-            Statement::Assignment{ operator: Some(Operator::Plus), destination: None, left_operand: None, right_operand: None },
-            functions[0].statements[2]);
-
-        assert_eq!(
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            functions[0].statements[3]);
-
-        assert_eq!(
-            Statement::Label(4),
-            functions[0].statements[4]);
-
-        assert_eq!(
-            Statement::JumpIfTrue(Operand::Boolean(false), 1),
-            functions[0].statements[5]);
-
-        assert_eq!(
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            functions[0].statements[6]);
-
-        assert_eq!(
-            Statement::Assignment{ operator: None, destination: None, left_operand: None, right_operand: None },
-            functions[0].statements[7]);
-
-        assert_eq!(4, cfg.basic_blocks.len());
-
-        assert_eq!(0, cfg.basic_blocks[0].start);
-        assert_eq!(0, cfg.basic_blocks[0].end);
-
-        assert_eq!(0, cfg.basic_blocks[1].start);
-        assert_eq!(4, cfg.basic_blocks[1].end);
-
-        assert_eq!(4, cfg.basic_blocks[2].start);
         assert_eq!(6, cfg.basic_blocks[2].end);
-
-        assert_eq!(6, cfg.basic_blocks[3].start);
-        assert_eq!(8, cfg.basic_blocks[3].end);
-
     }
+
 
     /*
     #[test]
