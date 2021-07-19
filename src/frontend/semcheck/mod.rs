@@ -2012,13 +2012,26 @@ impl SemanticsCheck {
                         left_type));
         }
 
-        if left_type == Type::IntegralNumber {
-            ice_if!(
-                self.perform_type_conversion(&Type::Integer, left_child) != ConversionResult::Converted,
-                "Unexpected conversion failure");
+        if left_type == Type::IntegralNumber || right_type == Type::IntegralNumber {
+            let mut target_type = Type::Invalid;
+            if left_type == Type::IntegralNumber {
+                target_type = right_type.clone();
+            }
+
+            if right_type == Type::IntegralNumber {
+                target_type = left_type.clone();
+            }
+
+            if target_type == Type::IntegralNumber {
+                target_type = Type::Integer;
+            }
 
             ice_if!(
-                self.perform_type_conversion(&Type::Integer, right_child) != ConversionResult::Converted,
+                self.perform_type_conversion(&target_type, left_child) != ConversionResult::Converted,
+                "Unexpected conversion failure");
+
+             ice_if!(
+                self.perform_type_conversion(&target_type, right_child) != ConversionResult::Converted,
                 "Unexpected conversion failure");
         }
     }
@@ -2529,6 +2542,7 @@ impl SemanticsCheck {
             AstNode::Greater { left_expression, right_expression, .. } |
             AstNode::GreaterOrEq { left_expression, right_expression, .. } |
             AstNode::Equals  { left_expression, right_expression, .. } |
+            AstNode::NotEquals { left_expression, right_expression, .. } |
             AstNode::LessOrEq { left_expression, right_expression, .. } |
             AstNode::Less { left_expression, right_expression, .. } |
             AstNode::BooleanAnd { left_expression, right_expression, .. } |
@@ -3112,6 +3126,33 @@ impl SemanticsCheck {
                         AstNode::Boolean { value: f1 == f2,  span: *span },
                     (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
                         AstNode::Boolean { value: f1 == f2,  span: *span },
+                    _ => node.clone()
+                }
+            },
+            AstNode::NotEquals {
+                left_expression,
+                right_expression,
+                span,
+            } => {
+                match (
+                    self.get_constant_initializer_expression(left_expression),
+                    self.get_constant_initializer_expression(right_expression),
+                ) {
+
+                    (AstNode::IntegralNumber{ value: i1, .. } , AstNode::IntegralNumber{ value: i2, .. } ) =>
+                        AstNode::Boolean { value: i1 != i2,  span: *span },
+                    (AstNode::Long{ value: AstLong::Long(i1), .. }, AstNode::Long{ value: AstLong::Long(i2), .. }) =>
+                        AstNode::Boolean { value: i1 != i2,  span: *span },
+                    (AstNode::Integer { value: AstInteger::Int(i1), .. }, AstNode::Integer { value: AstInteger::Int(i2), .. }) =>
+                        AstNode::Boolean { value: i1 != i2,  span: *span },
+                    (AstNode::Short{ value: AstShort::Short(i1), .. } , AstNode::Short{ value: AstShort::Short(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 != i2,  span: *span },
+                    (AstNode::Byte{ value: AstByte::Byte(i1), .. } , AstNode::Byte { value: AstByte::Byte(i2), .. } ) =>
+                        AstNode::Boolean { value: i1 != i2,  span: *span },
+                    (AstNode::Float{ value: f1, .. } , AstNode::Float { value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 != f2,  span: *span },
+                    (AstNode::Double{ value: f1, .. } , AstNode::Double{ value: f2, .. } ) =>
+                        AstNode::Boolean { value: f1 != f2,  span: *span },
                     _ => node.clone()
                 }
             },

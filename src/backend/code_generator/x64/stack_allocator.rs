@@ -2868,124 +2868,6 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
     match comparison_op {
 
         /*
-            a CMP b
-
-            emit:
-
-            MOV tmp_reg, a
-            CMP tmp_reg, b
-
-        */
-        ComparisonOperation{
-            src1: LongConstant(val1),
-            src2: LongConstant(val2)
-        } => {
-
-            let reg = get_register_for_size(8);
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: LongConstant(*val1),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            if i64_fits_in_i32(*val2) {
-                updated_instructions.push(
-                    ByteCode::Compare(
-                        ComparisonOperation {
-                            src1: PhysicalRegister(reg),
-                            src2: IntegerConstant(*val2 as i32),
-                        }
-                    )
-                );
-            } else {
-                let reg2 = get_register_for_size2(8);
-                updated_instructions.push(ByteCode::Mov(
-                    UnaryOperation {
-                        src: LongConstant(*val2),
-                        dest: PhysicalRegister(reg2),
-                    }
-                ));
-                updated_instructions.push(
-                    ByteCode::Compare(
-                        ComparisonOperation {
-                            src1: PhysicalRegister(reg),
-                            src2: PhysicalRegister(reg2),
-                        }
-                    ));
-            }
-
-        },
-        ComparisonOperation{
-            src1: IntegerConstant(val1),
-            src2: IntegerConstant(val2)
-        } => {
-
-            let reg = get_register_for_size(4);
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: IntegerConstant(*val1),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: IntegerConstant(*val2),
-                    }
-                )
-            );
-
-        },
-        ComparisonOperation{
-            src1: ShortConstant(val1),
-            src2: ShortConstant(val2)
-        } => {
-
-            let reg = get_register_for_size(2);
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: ShortConstant(*val1),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: ShortConstant(*val2),
-                    }
-                )
-            );
-
-        },
-        ComparisonOperation{
-            src1: ByteConstant(val1),
-            src2: ByteConstant(val2)
-        } => {
-
-            let reg = get_register_for_size(1);
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: ByteConstant(*val1),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: ByteConstant(*val2),
-                    }
-                )
-            );
-
-        },
-        /*
             A CMP constant
 
             emit:
@@ -2996,16 +2878,12 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
             src1: VirtualRegister(src_vregdata),
             src2: LongConstant(val),
         } => {
-
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             if i64_fits_in_i32(*val) {
                 updated_instructions.push(
                     ByteCode::Compare(
                         ComparisonOperation {
-                            src1: StackOffset {
-                                offset: stack_slot.offset,
-                                size: stack_slot.size,
-                            },
+                            src1: stack_slot.into(),
                             src2: IntegerConstant(*val as i32),
                         }
                     )
@@ -3015,17 +2893,14 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 updated_instructions.push(ByteCode::Mov(
                     UnaryOperation {
                         src: LongConstant(*val),
-                        dest: PhysicalRegister(reg),
+                        dest: reg.into(),
                     }
                 ));
                 updated_instructions.push(
                     ByteCode::Compare(
                         ComparisonOperation {
-                            src1: StackOffset {
-                                offset: stack_slot.offset,
-                                size: stack_slot.size,
-                            },
-                            src2: PhysicalRegister(reg),
+                            src1: stack_slot.into(),
+                            src2: reg.into(),
                         }
                     )
                 )
@@ -3033,219 +2908,72 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
         },
         ComparisonOperation {
             src1: VirtualRegister(src_vregdata),
-            src2: IntegerConstant(val),
+            src2:
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_) |
+                immediate @ ByteConstant(_),
         } => {
 
             let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
             updated_instructions.push(
                 ByteCode::Compare(
                     ComparisonOperation{
-                        src1: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        },
-                        src2: IntegerConstant(*val),
+                        src1: stack_slot.into(),
+                        src2: immediate.clone(),
                     }
                 )
             )
-        },
-        ComparisonOperation {
-            src1: VirtualRegister(src_vregdata),
-            src2: ShortConstant(val),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        },
-                        src2: ShortConstant(*val),
-                    }
-                )
-            )
-        },
-        ComparisonOperation {
-            src1: VirtualRegister(src_vregdata),
-            src2: ByteConstant(val),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        },
-                        src2: ByteConstant(*val),
-                    }
-                )
-            )
-        },
-        /*
-            constant CMP A
-
-            emit:
-            MOV tmp_reg, constant
-            CMP tmp_reg, A
-        */
-        ComparisonOperation {
-            src1: LongConstant(val),
-            src2: VirtualRegister(src_vregdata),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            let reg = get_register_for_size(stack_slot.size);
-
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: LongConstant(*val),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        }
-                    }
-                )
-            );
-
-        },
-        ComparisonOperation {
-            src1: IntegerConstant(val),
-            src2: VirtualRegister(src_vregdata),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            let reg = get_register_for_size(stack_slot.size);
-
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: IntegerConstant(*val),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        }
-                    }
-                )
-            );
-
-        },
-        ComparisonOperation {
-            src1: ShortConstant(val),
-            src2: VirtualRegister(src_vregdata),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            let reg = get_register_for_size(stack_slot.size);
-
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: ShortConstant(*val),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        }
-                    }
-                )
-            );
-
-        },
-        ComparisonOperation {
-            src1: ByteConstant(val),
-            src2: VirtualRegister(src_vregdata),
-        } => {
-
-            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
-            let reg = get_register_for_size(stack_slot.size);
-
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: ByteConstant(*val),
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: StackOffset {
-                            offset: stack_slot.offset,
-                            size: stack_slot.size,
-                        }
-                    }
-                )
-            );
-
-        },
-        /*
-            A CMP B
-
-            emit:
-            MOV tmp_reg, A
-            CMP tmp_reg, B
-
-        */
-        ComparisonOperation {
-            src1: VirtualRegister(src1_vregdata),
-            src2: VirtualRegister(src2_vregdata),
-        } => {
-
-            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
-            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
-            let reg = get_register_for_size(src1_stack_slot.size);
-
-            updated_instructions.push(ByteCode::Mov(
-                UnaryOperation {
-                    src: StackOffset {
-                        offset: src1_stack_slot.offset,
-                        size: src1_stack_slot.size,
-                    },
-                    dest: PhysicalRegister(reg),
-                }
-            ));
-
-            updated_instructions.push(
-                ByteCode::Compare(
-                    ComparisonOperation{
-                        src1: PhysicalRegister(reg),
-                        src2: StackOffset {
-                            offset: src2_stack_slot.offset,
-                            size: src2_stack_slot.size,
-                        }
-                    }
-                )
-            );
         },
         ComparisonOperation {
             src1: DynamicStackOffset { index, offset, size, id },
-            src2: ByteConstant(val),
+            src2: LongConstant(val),
+        } => {
+
+            let reg = get_register_for_size(*size);
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            if i64_fits_in_i32(*val) {
+                updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: reg.into(),
+                        src2: IntegerConstant(*val as i32),
+                    }
+                ));
+            } else {
+                let reg2 = get_register_for_size2(8);
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: LongConstant(*val),
+                        dest: reg2.into(),
+                    }
+                ));
+                updated_instructions.push(
+                    ByteCode::Compare(
+                        ComparisonOperation {
+                            src1: reg.into(),
+                            src2: reg2.into(),
+                        }
+                    ));
+            }
+        },
+        ComparisonOperation {
+            src1: DynamicStackOffset { index, offset, size, id },
+            src2:
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_) |
+                immediate @ ByteConstant(_),
         } => {
 
             let reg = get_register_for_size(*size);
@@ -3266,12 +2994,221 @@ fn handle_comparison(comparison_op: &ComparisonOperation, updated_instructions: 
                 ByteCode::Compare(
                     ComparisonOperation{
                         src1: reg.into(),
-                        src2: ByteConstant(*val),
+                        src2: immediate.clone(),
                     }
                 )
             )
         },
-        _ => unimplemented!("{:#?}", comparison_op),
+        /*
+            constant CMP A
+
+            emit:
+            MOV tmp_reg, constant
+            CMP tmp_reg, A
+        */
+
+        ComparisonOperation {
+            src1:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @  ShortConstant(_) |
+                immediate @ ByteConstant(_),
+            src2: VirtualRegister(src_vregdata),
+        } => {
+
+            let stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
+            let reg = get_register_for_size(stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: immediate.clone(),
+                    dest: reg.into(),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: reg.into(),
+                        src2: stack_slot.into(),
+                    }
+                )
+            );
+
+        },
+        ComparisonOperation {
+            src1:
+                immediate @ LongConstant(_) |
+                immediate @ IntegerConstant(_) |
+                immediate @ ShortConstant(_) |
+                immediate @ ByteConstant(_),
+            src2: DynamicStackOffset { index, offset, size, id },
+        } => {
+
+            let reg = get_register_for_size(*size);
+            let imm_reg = get_register_for_size2(*size);
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+                updated_instructions.push(ByteCode::Mov(
+                    UnaryOperation {
+                        src: immediate.clone(),
+                        dest: imm_reg.into(),
+                    }));
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation{
+                        src1: imm_reg.into(),
+                        src2: reg.into(),
+                    }
+                )
+            )
+        },
+        /*
+            A CMP B
+
+            emit:
+            MOV tmp_reg, A
+            CMP tmp_reg, B
+
+        */
+        ComparisonOperation {
+            src1: VirtualRegister(src1_vregdata),
+            src2: VirtualRegister(src2_vregdata),
+        } => {
+
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+            let reg = get_register_for_size(src1_stack_slot.size);
+
+            updated_instructions.push(ByteCode::Mov(
+                UnaryOperation {
+                    src: src1_stack_slot.into(),
+                    dest: reg.into(),
+                }
+            ));
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation {
+                        src1: reg.into(),
+                        src2: src2_stack_slot.into(),
+                    }
+                )
+            );
+        },
+        ComparisonOperation {
+            src1: DynamicStackOffset{ index, offset, size, id },
+            src2: VirtualRegister(src2_vregdata),
+        } => {
+
+            let  object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let src2_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+            let reg = get_register_for_size(*size);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation {
+                        src1: reg.into(),
+                        src2: src2_stack_slot.into(),
+                    }
+                )
+            );
+        },
+        ComparisonOperation {
+            src1: VirtualRegister(src2_vregdata),
+            src2: DynamicStackOffset{ index, offset, size, id },
+        } => {
+
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let src1_stack_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+            let reg = get_register_for_size(*size);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation {
+                        src1: src1_stack_slot.into(),
+                        src2: reg.into(),
+                    }
+                )
+            );
+        },
+        ComparisonOperation {
+            src1: DynamicStackOffset{ index, offset, size, id },
+            src2: DynamicStackOffset{ index: index2, offset: offset2, size: size2, id: id2 },
+        } => {
+
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+            let object_stack_slot2 = &stack_map.object_to_stack_slot[id2];
+            let reg = get_register_for_size(*size);
+            let reg2 = get_register_for_size2(*size2);
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map
+            );
+
+            emit_mov_dynamic_stack_offset_to_reg(
+                index2,
+                *size2,
+                *offset2,
+                *id2,
+                &reg2,
+                object_stack_slot2,
+                updated_instructions,
+                stack_map
+            );
+
+            updated_instructions.push(
+                ByteCode::Compare(
+                    ComparisonOperation {
+                        src1: reg.into(),
+                        src2: reg2.into(),
+                    }
+                )
+            );
+        },
+        _ => ice!("{:#?}", comparison_op),
     }
 }
 

@@ -2722,6 +2722,241 @@ test_tuples = [
 
 
 
+
+
+
+
+
+
+
+
+
+    # comparison, less than
+        ############## byte ##############
+
+            ("struct_const_byte_less_than_comparison_works",
+                "byte",
+                "let out = 0b; if test_variable.a < 2b { out = 4; }",
+                "out",
+                0),
+
+
+            ("const_struct_byte_less_than_comparison_works",
+                "byte",
+                "let out = 0b; if 5b < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_variable_byte_less_than_comparison_works",
+                "byte",
+                "let x = 8b; let out = 0b; if test_variable.a < x { out = 4; }",
+                "out",
+                0),
+
+            ("variable_struct_byte_less_than_comparison_works",
+                "byte",
+                "let x = 8b; let out = 0b; if x < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_array_variable_byte_less_than_comparison_works",
+                "byte",
+                "let x: byte[3] = 96b; let out = 0b; if test_variable.a < x[2] { out = 4; }",
+                "out",
+                0),
+
+            ("array_variable_struct_byte_less_than_comparison_works",
+                "byte",
+                "let x: byte[4] = 15b; let out = 0b; if x[3] < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_struct_byte_less_than_comparison_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = 0b; if x.a < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+        ############## short ##############
+
+            ("struct_const_short_less_than_comparison_works",
+                "short",
+                "let out = 0s; if test_variable.a < 2 { out = 4; }",
+                "out",
+                0),
+
+
+            ("const_struct_short_less_than_comparison_works",
+                "short",
+                "let out = 0s; if 5 < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_variable_short_less_than_comparison_works",
+                "short",
+                "let x = 8s; let out = 0s; if test_variable.a < x { out = 4; }",
+                "out",
+                0),
+
+            ("variable_struct_short_less_than_comparison_works",
+                "short",
+                "let x = 8s; let out = 0s; if x < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_array_variable_short_less_than_comparison_works",
+                "short",
+                "let x: short[3] = 96s; let out = 0s; if test_variable.a < x[2] { out = 4; }",
+                "out",
+                0),
+
+            ("array_variable_struct_short_less_than_comparison_works",
+                "short",
+                "let x: short[4] = 15s; let out = 0s; if x[3] < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_struct_short_less_than_comparison_works",
+                "short",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = 0s; if x.a < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+        ############## int ##############
+
+            ("struct_const_int_less_than_comparison_works",
+                "int",
+                "let out = 0i; if test_variable.a < 2 { out = 4; }",
+                "out",
+                0),
+
+
+            ("const_struct_int_less_than_comparison_works",
+                "int",
+                "let out = 0i; if 5 < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_variable_int_less_than_comparison_works",
+                "int",
+                "let x = 8i; let out = 0i; if test_variable.a < x { out = 4; }",
+                "out",
+                0),
+
+            ("variable_struct_int_less_than_comparison_works",
+                "int",
+                "let x = 8i; let out = 0i; if x < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_array_variable_int_less_than_comparison_works",
+                "int",
+                "let x: int[3] = 96i; let out = 0i; if test_variable.a < x[2] { out = 4; }",
+                "out",
+                0),
+
+            ("array_variable_struct_int_less_than_comparison_works",
+                "int",
+                "let x: int[4] = 15i; let out = 0i; if x[3] < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_struct_int_less_than_comparison_works",
+                "int",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = 0i; if x.a < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+        ############## long ##############
+
+            ("struct_const_long_less_than_comparison_works",
+                "long",
+                "let out = 0l; if test_variable.a < 2 { out = 4; }",
+                "out",
+                0),
+
+
+            ("const_struct_long_less_than_comparison_works",
+                "long",
+                "let out = 0l; if 5 < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_variable_long_less_than_comparison_works",
+                "long",
+                "let x = 8l; let out = 0l; if test_variable.a < x { out = 4; }",
+                "out",
+                0),
+
+            ("variable_struct_long_less_than_comparison_works",
+                "long",
+                "let x = 8l; let out = 0l; if x < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_array_variable_long_less_than_comparison_works",
+                "long",
+                "let x: long[3] = 96l; let out = 0l; if test_variable.a < x[2] { out = 4; }",
+                "out",
+                0),
+
+            ("array_variable_struct_long_less_than_comparison_works",
+                "long",
+                "let x: long[4] = 15l; let out = 0l; if x[3] < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+            ("struct_struct_long_less_than_comparison_works",
+                "long",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = 0l; if x.a < test_variable.a { out = 4; }",
+                "out",
+                4),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   # boolean fields
         ############## boolean ##############
 
@@ -2940,6 +3175,7 @@ test_tuples = [
 ]
 
 for t in test_tuples:
+
 
     out = f'''
 program: |

@@ -5942,7 +5942,8 @@ fn emit_comparison(operands: &ComparisonOperation, asm: &mut Vec<u8>)  {
         } => {
             ice_if!(reg.size() != *size as u8, "Source and destination sizes are different: {:?} vs {:?}", reg, size);
             match *size {
-                4 | 8 => emit_compare_integer_register_with_stack(*offset, *reg, asm),
+                1 => emit_compare_byte_register_with_stack(*offset, *reg, asm),
+                2 | 4 | 8 => emit_compare_integer_register_with_stack(*offset, *reg, asm),
                 _ => ice!("Invalid operand size"),
             }
         },
@@ -5952,7 +5953,8 @@ fn emit_comparison(operands: &ComparisonOperation, asm: &mut Vec<u8>)  {
         } => {
             ice_if!(reg.size() != reg2.size(), "Source and destination sizes are different: {:?} vs {:?}", reg, reg2);
             match reg.size() {
-                4 | 8 => emit_compare_integer_register_with_register(*reg, *reg2, asm),
+                1 => emit_compare_byte_register_with_register(*reg, *reg2, asm),
+                2 | 4 | 8 => emit_compare_integer_register_with_register(*reg, *reg2, asm),
                 _ => ice!("Invalid operand size"),
             }
         },
@@ -6115,7 +6117,7 @@ fn emit_compare_integer_stack_with_register(offset: u32, register: X64Register, 
 }
 
 fn emit_compare_integer_register_with_stack(offset: u32, register: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(register.size() < 4, "Invalid register {:?}", register);
+    ice_if!(register.size() < 2, "Invalid register {:?}", register);
 
     let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
 
@@ -6137,9 +6139,32 @@ fn emit_compare_integer_register_with_stack(offset: u32, register: X64Register, 
     );
 }
 
+fn emit_compare_byte_register_with_stack(offset: u32, register: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(register.size() != 1, "Invalid register {:?}", register);
+
+    let (addressing_mode, sib) = get_addressing_mode_and_sib_data_for_displacement_only_addressing(offset);
+
+    let modrm = ModRM {
+        addressing_mode,
+        rm_field: RmField::Register(X64Register::RBP),
+        reg_field: RegField::Register(register),
+    };
+
+    let rex = create_rex_prefix(register.is_64_bit_register(), Some(modrm), sib);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(COMPARE_RM_8_BIT_WITH_REG),
+        Some(modrm),
+        sib,
+        None,
+    );
+}
+
 fn emit_compare_integer_register_with_register(register1: X64Register, register2: X64Register, asm: &mut Vec<u8>) {
-    ice_if!(register1.size() < 4, "Invalid register {:?}", register1);
-    ice_if!(register2.size() < 4, "Invalid register {:?}", register2);
+    ice_if!(register1.size() < 2, "Invalid register {:?}", register1);
+    ice_if!(register2.size() < 2, "Invalid register {:?}", register2);
     ice_if!(register1.size() != register2.size(), "Invalid register sizes: {:?} vs {:?}", register1, register2);
 
     let modrm = ModRM {
@@ -6159,6 +6184,29 @@ fn emit_compare_integer_register_with_register(register1: X64Register, register2
         None,
     );
 }
+
+fn emit_compare_byte_register_with_register(register1: X64Register, register2: X64Register, asm: &mut Vec<u8>) {
+    ice_if!(register1.size() != 1, "Invalid register {:?}", register1);
+    ice_if!(register2.size() != 1, "Invalid register {:?}", register2);
+
+    let modrm = ModRM {
+        addressing_mode: AddressingMode::DirectRegisterAddressing,
+        rm_field: RmField::Register(register2),
+        reg_field: RegField::Register(register1),
+    };
+
+    let rex = create_rex_prefix(register1.is_64_bit_register(), Some(modrm), None);
+
+    emit_instruction(
+        asm,
+        rex,
+        SizedOpCode::from(COMPARE_REG_WITH_RM_8_BIT),
+        Some(modrm),
+        None,
+        None,
+    );
+}
+
 
 
 fn emit_compare_byte_stack_with_register(offset: u32, register: X64Register, asm: &mut Vec<u8>) {
