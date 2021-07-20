@@ -575,7 +575,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                     size: stack_slot.size,
                                     offset: stack_slot.offset,
                                 },
-                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size as u8)),
+                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size )),
                             }
                         ));
 
@@ -683,7 +683,7 @@ fn handle_mov_allocation(unary_op: &UnaryOperation, updated_instructions: &mut V
                                     size: stack_slot.size,
                                     offset: stack_slot.offset,
                                 },
-                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size as u8)),
+                                dest: PhysicalRegister(tmp_reg.get_alias_for_size(stack_slot.size )),
                             }
                         ));
 
@@ -1412,14 +1412,14 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
                 updated_instructions.push(
                     ByteCode::Movzx(UnaryOperation {
                         src: src_stack_slot.into(),
-                        dest: reg.get_alias_for_size(src_size as u8).into(),
+                        dest: reg.get_alias_for_size(src_size ).into(),
                     })
                 );
             } else {
                 updated_instructions.push(
                     ByteCode::Mov(UnaryOperation {
                         src: src_stack_slot.into(),
-                        dest: reg.get_alias_for_size(src_size as u8).into(),
+                        dest: reg.get_alias_for_size(src_size ).into(),
                     })
                 );
             }
@@ -1461,7 +1461,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
-                    src: reg.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: reg.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -1585,7 +1585,7 @@ fn handle_mul_allocation(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation{
-                    src: reg.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: reg.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -1937,7 +1937,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
 
             let (dividend_reg, dividend) = if dest_vregdata.size > 1 {
-                (X64Register::EAX.get_alias_for_size(dest_vregdata.size as u8), dividend.clone())
+                (X64Register::EAX.get_alias_for_size(dest_vregdata.size ), dividend.clone())
             } else {
                 let dividend = match dividend {
                     ByteConstant(value) => ShortConstant(*value as i16),
@@ -1965,8 +1965,8 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             if dest_vregdata.size > 1 {
                 updated_instructions.push(
                     ByteCode::SignExtend(UnaryOperation {
-                        src: X64Register::EAX.get_alias_for_size(dest_vregdata.size as u8).into(),
-                        dest: X64Register::EDX.get_alias_for_size(dest_vregdata.size as u8).into(),
+                        src: X64Register::EAX.get_alias_for_size(dest_vregdata.size ).into(),
+                        dest: X64Register::EDX.get_alias_for_size(dest_vregdata.size ).into(),
                     })
                 );
             }
@@ -1981,7 +1981,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_vregdata.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_vregdata.size ).into(),
                     dest: stack_slot.into(),
                 })
             );
@@ -2014,7 +2014,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
                     src: dividend_stack_slot.into(),
-                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
@@ -2027,8 +2027,8 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::SignExtend(UnaryOperation {
-                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
@@ -2043,7 +2043,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2116,7 +2116,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                 *size,
                 *offset,
                 *id,
-                &X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                &X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
                 object_stack_slot,
                 updated_instructions,
                 stack_map);
@@ -2130,8 +2130,8 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::SignExtend(UnaryOperation {
-                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
@@ -2146,7 +2146,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2230,14 +2230,14 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
                     src: immediate.clone(),
-                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
             updated_instructions.push(
                 ByteCode::SignExtend(UnaryOperation {
-                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
@@ -2251,7 +2251,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2328,7 +2328,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
                 *size,
                 *offset,
                 *id,
-                &divisor_reg.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                &divisor_reg.get_alias_for_size(dest_stack_slot.size ).into(),
                 object_stack_slot,
                 updated_instructions,
                 stack_map);
@@ -2337,14 +2337,14 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
                     src: immediate.clone(),
-                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    dest: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
             updated_instructions.push(
                 ByteCode::SignExtend(UnaryOperation {
-                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size as u8).into(),
-                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: X64Register::RAX.get_alias_for_size(dest_stack_slot.size ).into(),
+                    dest: X64Register::RDX.get_alias_for_size(dest_stack_slot.size ).into(),
                 })
             );
 
@@ -2358,7 +2358,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2435,7 +2435,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             let dividend_stack_slot = &stack_map.reg_to_stack_slot[&dividend_vregdata.id];
             let divisor_stack_slot = &stack_map.reg_to_stack_slot[&divisor_vregdata.id];
 
-            let operand_sizes = dest_stack_slot.size as u8;
+            let operand_sizes = dest_stack_slot.size ;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
@@ -2461,7 +2461,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2525,7 +2525,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             let object_stack_slot = &stack_map.object_to_stack_slot[id];
 
             let divisor_reg = get_register_for_size2(dest_stack_slot.size);
-            let operand_sizes = dest_stack_slot.size as u8;
+            let operand_sizes = dest_stack_slot.size ;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
@@ -2562,7 +2562,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2628,7 +2628,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             let object_stack_slot = &stack_map.object_to_stack_slot[id];
 
             let divisor_reg = get_register_for_size2(dest_stack_slot.size);
-            let operand_sizes = dest_stack_slot.size as u8;
+            let operand_sizes = dest_stack_slot.size ;
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
@@ -2665,7 +2665,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -2731,7 +2731,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
             let object_stack_slot2 = &stack_map.object_to_stack_slot[id2];
 
             let divisor_reg = get_register_for_size2(dest_stack_slot.size);
-            let operand_sizes = dest_stack_slot.size as u8;
+            let operand_sizes = dest_stack_slot.size ;
 
             emit_mov_dynamic_stack_offset_to_reg(
                 index,
@@ -2772,7 +2772,7 @@ fn handle_div_mod_common(binary_op: &BinaryOperation, updated_instructions: &mut
 
             updated_instructions.push(
                 ByteCode::Mov(UnaryOperation {
-                    src: result_register.get_alias_for_size(dest_stack_slot.size as u8).into(),
+                    src: result_register.get_alias_for_size(dest_stack_slot.size ).into(),
                     dest: dest_stack_slot.into(),
                 })
             );
@@ -4477,7 +4477,7 @@ fn handle_shift_allocation<T>(
                 updated_instructions.push(
                     ByteCode::Mov(UnaryOperation{
                         src: src1_stack_slot.into(),
-                        dest: reg.get_alias_for_size(src1_stack_slot.size as u8).into(),
+                        dest: reg.get_alias_for_size(src1_stack_slot.size ).into(),
                     }));
 
                 let count = match constant {
@@ -4567,7 +4567,7 @@ fn handle_shift_allocation<T>(
                 updated_instructions.push(
                     ByteCode::Mov(UnaryOperation{
                         src: src_stack_slot.into(),
-                        dest: reg.get_alias_for_size(src_stack_slot.size as u8).into(),
+                        dest: reg.get_alias_for_size(src_stack_slot.size ).into(),
                     }));
 
                 let stack_offset: Value = dest_stack_slot.into();
@@ -4611,7 +4611,7 @@ fn handle_shift_allocation<T>(
                 updated_instructions.push(
                     ByteCode::Mov(UnaryOperation{
                         src: count_slot.into(),
-                        dest: cl_reg.get_alias_for_size(count_slot.size as u8).into(),
+                        dest: cl_reg.get_alias_for_size(count_slot.size ).into(),
                     }));
 
 

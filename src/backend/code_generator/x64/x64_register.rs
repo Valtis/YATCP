@@ -86,7 +86,7 @@ impl X64Register {
 
 
     // Incomplete, extended on-demand
-    pub fn get_alias_for_size(&self, size: u8) -> X64Register {
+    pub fn get_alias_for_size(&self, size: u32) -> X64Register {
         match self {
 
             X64Register::AL | X64Register::AX | X64Register::EAX | X64Register::RAX => {
@@ -133,7 +133,7 @@ impl X64Register {
         self.size() == 8
     }
 
-    pub fn size(&self) -> u8 {
+    pub fn size(&self) -> u32 {
         match self {
             X64Register::RAX |
             X64Register::RCX |

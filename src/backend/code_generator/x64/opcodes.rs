@@ -1,5 +1,321 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum Opcode {
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum Mode {
+    FromRegToReg, // reg = reg OP reg
+    FromRegToMemory, // R/M = R/M OP reg
+    FromMemoryToReg, // reg  = reg OP R/M
+    ImmediateWithMemory, // mem = mem OP immediate
+    ImmediateWithRegister, // mem = mem OP immediate
+}
+
+pub struct OpcodeRegistry {
+    opcodes: HashMap<Opcode, HashMap<Mode, HashMap<u32, Vec<SizedOpCode> >>>,
+    opcode_extensions: HashMap<Opcode, u8>,
+}
+
+impl OpcodeRegistry {
+
+
+    pub fn get_opcode(&self, opcode: Opcode, mode: Mode, size: u32) -> SizedOpCode {
+        let class = self.opcodes.get(&opcode).unwrap_or_else(|| ice!("Unknown opcode {:?}", opcode));
+        let operands = class.get(&mode).unwrap_or_else(|| ice!("Unknown mode {:?} for opcode {:?}", mode, opcode));
+        operands.get(&size).unwrap_or_else(|| ice!("No opcode of size {:?} for opcode {:?} with mode {:?}", size, opcode, mode))[0]
+    }
+
+    pub fn get_opcode_with_small_alternatives(&self, opcode: Opcode, mode: Mode, size: u32) -> &Vec<SizedOpCode> {
+        let class = self.opcodes.get(&opcode).unwrap_or_else(|| ice!("Unknown opcode {:?}", opcode));
+        let operands = class.get(&mode).unwrap_or_else(|| ice!("Unknown mode {:?} for opcode {:?}", mode, opcode));
+        operands.get(&size).unwrap_or_else(|| ice!("No opcode of size {:?} for opcode {:?} with mode {:?}", size, opcode, mode))
+    }
+
+    pub fn get_opcode_extension(&self, opcode: Opcode) -> u8 {
+        *self.opcode_extensions.get(&opcode).unwrap_or_else(|| ice!("Unknown opcode extension {:?}", opcode))
+    }
+
+    pub fn new() -> OpcodeRegistry {
+        let mut reg = OpcodeRegistry {
+            opcodes: HashMap::new(),
+            opcode_extensions: HashMap::new(),
+        };
+
+        reg.populate_add_opcodes();
+        reg.populate_sub_opcodes();
+        reg.populate_and_opcodes();
+        reg.populate_or_opcodes();
+        reg.populate_xor_opcodes();
+
+        reg
+    }
+
+
+    fn populate_add_opcodes(&mut self) {
+
+        self.opcode_extensions.insert(Opcode::Add, ADD_OPCODE_EXT);
+
+        self.opcodes.insert(Opcode::Add, HashMap::new());
+        let modes = self.opcodes.get_mut(&Opcode::Add).unwrap();
+
+
+        modes.insert(Mode::FromRegToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToReg).unwrap();
+        op_sizes.insert(1, vec![ADD_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![ADD_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![ADD_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![ADD_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromRegToMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToMemory).unwrap();
+        op_sizes.insert(1, vec![ADD_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![ADD_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![ADD_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![ADD_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromMemoryToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromMemoryToReg).unwrap();
+        op_sizes.insert(1, vec![ADD_RM_TO_REG_8_BIT.into()]);
+        op_sizes.insert(2, vec![ADD_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(4, vec![ADD_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(8, vec![ADD_RM_TO_REG_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithMemory).unwrap();
+        op_sizes.insert(1, vec![ADD_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithRegister, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithRegister).unwrap();
+        op_sizes.insert(1, vec![ADD_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![ADD_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), ADD_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+    }
+
+    fn populate_sub_opcodes(&mut self) {
+
+        self.opcode_extensions.insert(Opcode::Sub, SUB_OPCODE_EXT);
+
+        self.opcodes.insert(Opcode::Sub, HashMap::new());
+        let modes = self.opcodes.get_mut(&Opcode::Sub).unwrap();
+
+
+        modes.insert(Mode::FromRegToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToReg).unwrap();
+        op_sizes.insert(1, vec![SUB_REG_FROM_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromRegToMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToMemory).unwrap();
+        op_sizes.insert(1, vec![SUB_REG_FROM_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![SUB_REG_FROM_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromMemoryToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromMemoryToReg).unwrap();
+        op_sizes.insert(1, vec![SUB_RM_FROM_REG_8_BIT.into()]);
+        op_sizes.insert(2, vec![SUB_RM_FROM_REG_32_BIT.into()]);
+        op_sizes.insert(4, vec![SUB_RM_FROM_REG_32_BIT.into()]);
+        op_sizes.insert(8, vec![SUB_RM_FROM_REG_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithMemory).unwrap();
+        op_sizes.insert(1, vec![SUB_IMMEDIATE_8_BIT_FROM_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithRegister, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithRegister).unwrap();
+        op_sizes.insert(1, vec![SUB_IMMEDIATE_8_BIT_FROM_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT.into(), SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT.into()]);
+    }
+
+
+    fn populate_and_opcodes(&mut self) {
+
+        self.opcode_extensions.insert(Opcode::And, AND_OPCODE_EXT);
+
+        self.opcodes.insert(Opcode::And, HashMap::new());
+        let modes = self.opcodes.get_mut(&Opcode::And).unwrap();
+
+
+        modes.insert(Mode::FromRegToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToReg).unwrap();
+        op_sizes.insert(1, vec![AND_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![AND_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![AND_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![AND_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromRegToMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToMemory).unwrap();
+        op_sizes.insert(1, vec![AND_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![AND_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![AND_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![AND_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromMemoryToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromMemoryToReg).unwrap();
+        op_sizes.insert(1, vec![AND_RM_TO_REG_8_BIT.into()]);
+        op_sizes.insert(2, vec![AND_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(4, vec![AND_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(8, vec![AND_RM_TO_REG_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithMemory).unwrap();
+        op_sizes.insert(1, vec![AND_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithRegister, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithRegister).unwrap();
+        op_sizes.insert(1, vec![AND_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![AND_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), AND_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+    }
+
+    fn populate_or_opcodes(&mut self) {
+
+        self.opcode_extensions.insert(Opcode::Or, OR_OPCODE_EXT);
+
+        self.opcodes.insert(Opcode::Or, HashMap::new());
+        let modes = self.opcodes.get_mut(&Opcode::Or).unwrap();
+
+
+        modes.insert(Mode::FromRegToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToReg).unwrap();
+        op_sizes.insert(1, vec![OR_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![OR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![OR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![OR_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromRegToMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToMemory).unwrap();
+        op_sizes.insert(1, vec![OR_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![OR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![OR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![OR_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromMemoryToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromMemoryToReg).unwrap();
+        op_sizes.insert(1, vec![OR_RM_TO_REG_8_BIT.into()]);
+        op_sizes.insert(2, vec![OR_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(4, vec![OR_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(8, vec![OR_RM_TO_REG_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithMemory).unwrap();
+        op_sizes.insert(1, vec![OR_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithRegister, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithRegister).unwrap();
+        op_sizes.insert(1, vec![OR_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![OR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), OR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+    }
+
+    fn populate_xor_opcodes(&mut self) {
+
+        self.opcode_extensions.insert(Opcode::Xor, XOR_OPCODE_EXT);
+
+        self.opcodes.insert(Opcode::Xor, HashMap::new());
+        let modes = self.opcodes.get_mut(&Opcode::Xor).unwrap();
+
+
+        modes.insert(Mode::FromRegToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToReg).unwrap();
+        op_sizes.insert(1, vec![XOR_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![XOR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![XOR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![XOR_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromRegToMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromRegToMemory).unwrap();
+        op_sizes.insert(1, vec![XOR_REG_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![XOR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![XOR_REG_TO_RM_32_BIT.into()]);
+        op_sizes.insert(8, vec![XOR_REG_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::FromMemoryToReg, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::FromMemoryToReg).unwrap();
+        op_sizes.insert(1, vec![XOR_RM_TO_REG_8_BIT.into()]);
+        op_sizes.insert(2, vec![XOR_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(4, vec![XOR_RM_TO_REG_32_BIT.into()]);
+        op_sizes.insert(8, vec![XOR_RM_TO_REG_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithMemory, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithMemory).unwrap();
+        op_sizes.insert(1, vec![XOR_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+
+
+        modes.insert(Mode::ImmediateWithRegister, HashMap::new());
+        let op_sizes= modes.get_mut(&Mode::ImmediateWithRegister).unwrap();
+        op_sizes.insert(1, vec![XOR_IMMEDIATE_8_BIT_TO_RM_8_BIT.into()]);
+        op_sizes.insert(2, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        op_sizes.insert(4, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+        // 8 byte immediate not supported, will be 4 byte
+        op_sizes.insert(8, vec![XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT.into(), XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT.into()]);
+    }
+
+
+
+}
+
 pub const OPERAND_SIZE_OVERRIDE: u8 = 0x66;
 
 pub const MOV_IMMEDIATE_32_BIT_TO_REG_BASE: u8 = 0xB8; // register encoding will be binary OR'ed into opcode
@@ -33,52 +349,53 @@ pub const ADD_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
 pub const ADD_OPCODE_EXT: u8 = 0;
 
 
-pub const SUB_IMMEDIATE_32_BIT_FROM_RM: u8 = 0x81;
-pub const SUB_RM_32_FROM_REG: u8 = 0x2B;
+pub const SUB_IMMEDIATE_32_BIT_FROM_RM_32_BIT: u8 = 0x81;
+pub const SUB_IMMEDIATE_8_BIT_FROM_RM_32_BIT: u8 = 0x83;
+pub const SUB_RM_FROM_REG_32_BIT: u8 = 0x2B;
 pub const SUB_REG_FROM_RM_32_BIT: u8 = 0x29;
 
-pub const SUB_IMMEDIATE_8_BIT_FROM_RM: u8 = 0x83;
-pub const SUB_RM_8_FROM_REG: u8 = 0x2A;
+pub const SUB_IMMEDIATE_8_BIT_FROM_RM_8_BIT: u8 = 0x80;
+pub const SUB_RM_FROM_REG_8_BIT: u8 = 0x2A;
 pub const SUB_REG_FROM_RM_8_BIT: u8 = 0x28;
 
 pub const SUB_OPCODE_EXT: u8 = 0x05;
 
 pub const SIGNED_MUL_RM_32_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x6B;
 pub const SIGNED_MUL_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x69;
-pub const SIGNED_MUL_REG_RM_32_BIT: u16 = 0x0FAF;
+pub const SIGNED_MUL_RM_WITH_REG_32_BIT: u16 = 0x0FAF;
 
 pub const SIGNED_DIV_RM_8_BIT: u8 = 0xF6;
 pub const SIGNED_DIV_RM_32_BIT: u8 = 0xF7;
 pub const DIV_OPCODE_EXT: u8 = 0x07;
 
-pub const AND_RM_8_BIT_WITH_REG: u8 = 0x22;
-pub const AND_RM_32_BIT_WITH_REG: u8 = 0x23;
-pub const AND_REG_WITH_RM_32_BIT: u8 = 0x21;
-pub const AND_REG_WITH_RM_8_BIT: u8 = 0x20;
+pub const AND_RM_TO_REG_8_BIT: u8 = 0x22;
+pub const AND_RM_TO_REG_32_BIT: u8 = 0x23;
+pub const AND_REG_TO_RM_32_BIT: u8 = 0x21;
+pub const AND_REG_TO_RM_8_BIT: u8 = 0x20;
 pub const AND_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
-pub const AND_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
+pub const AND_IMMEDIATE_8_BIT_TO_RM_32_BIT: u8 = 0x83;
 pub const AND_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
 
 pub const AND_OPCODE_EXT: u8 = 0x04;
 
-pub const OR_RM_8_BIT_WITH_REG: u8 = 0x0A;
-pub const OR_RM_32_BIT_WITH_REG: u8 = 0x0B;
-pub const OR_REG_WITH_RM_8_BIT: u8 = 0x08;
-pub const OR_REG_WITH_RM_32_BIT: u8 = 0x09;
+pub const OR_RM_TO_REG_8_BIT: u8 = 0x0A;
+pub const OR_RM_TO_REG_32_BIT: u8 = 0x0B;
+pub const OR_REG_TO_RM_8_BIT: u8 = 0x08;
+pub const OR_REG_TO_RM_32_BIT: u8 = 0x09;
 pub const OR_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
-pub const OR_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
+pub const OR_IMMEDIATE_8_BIT_TO_RM_32_BIT: u8 = 0x83;
 pub const OR_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
 
 pub const OR_OPCODE_EXT: u8 = 0x01;
 
 
-pub const XOR_RM_8_BIT_WITH_REG: u8 = 0x32;
-pub const XOR_RM_32_BIT_WITH_REG: u8 = 0x33;
-pub const XOR_REG_WITH_RM_8_BIT: u8 = 0x30;
-pub const XOR_REG_WITH_RM_32_BIT: u8 = 0x31;
-pub const XOR_RM_8_BIT_WITH_8_BIT_IMMEDIATE: u8 = 0x80;
-pub const XOR_IMMEDIATE_8_BIT_SIGN_EXTENDED_TO_RM_32_BIT: u8 = 0x83;
-pub const XOR_RM_32_BIT_WITH_32_BIT_IMMEDIATE: u8 = 0x81;
+pub const XOR_RM_TO_REG_8_BIT: u8 = 0x32;
+pub const XOR_RM_TO_REG_32_BIT: u8 = 0x33;
+pub const XOR_REG_TO_RM_8_BIT: u8 = 0x30;
+pub const XOR_REG_TO_RM_32_BIT: u8 = 0x31;
+pub const XOR_IMMEDIATE_8_BIT_TO_RM_8_BIT: u8 = 0x80;
+pub const XOR_IMMEDIATE_8_BIT_TO_RM_32_BIT: u8 = 0x83;
+pub const XOR_IMMEDIATE_32_BIT_TO_RM_32_BIT: u8 = 0x81;
 pub const XOR_OPCODE_EXT: u8 = 0x06;
 
 
