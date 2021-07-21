@@ -1161,19 +1161,50 @@ fn mov_long_constant_to_stack(updated_instructions: &mut Vec<ByteCode>, val: &i6
 
 fn handle_movsx_allocation(unary_op: &UnaryOperation, updated_instructions: &mut Vec<ByteCode>, stack_map: &mut StackMap) {
     match unary_op {
-          UnaryOperation{dest: VirtualRegister(ref dest_vregdata), src: VirtualRegister(ref src_vregdata)} => {
+        UnaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src: VirtualRegister(ref src_vregdata)
+        } => {
             let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
             let src_stack_slot = &stack_map.reg_to_stack_slot[&src_vregdata.id];
 
+            let reg = get_register_for_size(dest_stack_slot.size);
 
             updated_instructions.push(ByteCode::Movsx(UnaryOperation {
-                dest: PhysicalRegister(get_register_for_size(dest_stack_slot.size)),
-                src: StackOffset{offset: src_stack_slot.offset, size: src_stack_slot.size},
+                src: src_stack_slot.into(),
+                dest: reg.into(),
             }));
 
+
             updated_instructions.push(ByteCode::Mov(UnaryOperation {
-                dest: StackOffset{offset: dest_stack_slot.offset, size: dest_vregdata.size},
-                src: PhysicalRegister(get_register_for_size(dest_vregdata.size)),
+                src: reg.into(),
+                dest: dest_stack_slot.into(),
+            }));
+        },
+        UnaryOperation{
+            dest: VirtualRegister(ref dest_vregdata),
+            src: DynamicStackOffset { index, offset, size, id },
+        } => {
+            let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+            let object_stack_slot = &stack_map.object_to_stack_slot[id];
+
+            let reg = get_register_for_size(dest_stack_slot.size);
+
+
+            emit_movsx_dynamic_stack_offset_to_reg(
+                index,
+                *size,
+                *offset,
+                *id,
+                &reg,
+                object_stack_slot,
+                updated_instructions,
+                stack_map);
+
+
+            updated_instructions.push(ByteCode::Mov(UnaryOperation {
+                src: reg.into(),
+                dest: dest_stack_slot.into(),
             }));
 
 

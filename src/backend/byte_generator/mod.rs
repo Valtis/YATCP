@@ -235,6 +235,11 @@ impl ByteGenerator {
              Value::VirtualRegister(VirtualRegisterData { ref mut size, ..}) => {
                  *size = to.size_in_bytes();
              },
+             Value::DynamicStackOffset { ref mut size, .. } => {
+                 if from.size_in_bytes() >= to.size_in_bytes() {
+                     *size = to.size_in_bytes(); // make sure we have correct
+                 }
+             },
              _ => ice!("Unexpected value {:?}", data.src)
          }
 

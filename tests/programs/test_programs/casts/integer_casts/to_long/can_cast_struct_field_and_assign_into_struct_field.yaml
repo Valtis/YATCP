@@ -1,0 +1,31 @@
+program: |
+    extern fn long_printer(value: long);
+
+    struct Foo {
+        a: int;
+    }
+
+    struct Bar {
+        a: long;
+    }
+
+    fn main() : int {
+        let y = Foo {
+            a = 100;
+        };
+
+        let z = Bar {
+            a = y.a as long;
+        };
+
+        long_printer(z.a);
+        z.a = y.a as long;
+        long_printer(z.a);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  100
+  100
+  

@@ -1,0 +1,23 @@
+program: |
+    extern fn byte_printer(value: byte);
+
+    struct Foo {
+        a: int;
+    }
+
+    fn main() : int {
+        let y = Foo {
+            a = 100;
+        };
+
+        let z: byte[3] = 5;
+        z[0] = y.a as byte;
+        byte_printer(z[0]);
+        return 0;
+    }
+link_with:
+    - tests/files/support/support.c
+expect_stdout: |
+  100
+
+  
