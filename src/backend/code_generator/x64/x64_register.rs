@@ -59,7 +59,7 @@ impl X64Register {
             X64Register::RCX | X64Register::R9 | X64Register::ECX | X64Register::R9d | X64Register::R9w | X64Register::CL | X64Register::CX => 0x01,
             X64Register::RDX | X64Register::R10 | X64Register::EDX | X64Register::DL | X64Register::DX => 0x02,
             X64Register::RBX | X64Register::R11 | X64Register::EBX | X64Register::BL | X64Register::BX => 0x03,
-            X64Register::RSP | X64Register::ESP |  X64Register::R12 | X64Register::SP => 0x04,
+            X64Register::RSP | X64Register::ESP | X64Register::R12 | X64Register::SP => 0x04,
             X64Register::RBP | X64Register::EBP | X64Register::R13 | X64Register::BP => 0x05,
             X64Register::RSI | X64Register::ESI | X64Register::R14 | X64Register::SI => 0x06,
             X64Register::RDI | X64Register::EDI | X64Register::R15 | X64Register::DI => 0x07,
