@@ -2720,6 +2720,314 @@ test_tuples = [
 
 
 
+  # logical shift left
+        ############## byte ##############
+
+            ("struct_const_byte_logical_shift_left_works",
+                "byte",
+                "let out = test_variable.a << 2b;",
+                "out",
+                -112),
+
+            ("struct_const_byte_self_logical_shift_left_works",
+                "byte",
+                "test_variable.a = test_variable.a << 2b;",
+                "test_variable.a",
+                -112),
+
+            ("const_struct_byte_logical_shift_left_works",
+                "byte",
+                "let out = 5b << test_variable.a;",
+                "out",
+                80),
+
+            ("struct_variable_byte_logical_shift_left_works",
+                "byte",
+                "let x = 1b; let out = test_variable.a << x;",
+                "out",
+                -56),
+
+            ("struct_variable_byte_self_logical_shift_left_works",
+                "byte",
+                "let x = 2b; test_variable.a = test_variable.a << x;",
+                "test_variable.a",
+                -112),
+
+            ("variable_struct_byte_logical_shift_left_works",
+                "byte",
+                "let x = 15b; let out = x << test_variable.a;",
+                "out",
+                -16),
+
+            ("struct_array_variable_byte_logical_shift_left_works",
+                "byte",
+                "let x: byte[3] = 3b; let out = test_variable.a << x[1];",
+                "out",
+                32),
+
+            ("struct_array_variable_byte_self_logical_shift_left_works",
+                "byte",
+                "let x: byte[3] = 8b; test_variable.a = test_variable.a << x[1];",
+                "test_variable.a",
+                0),
+
+            ("array_variable_struct_byte_logical_shift_left_works",
+                "byte",
+                "let x: byte[4] = 15b; let out = x[2] << test_variable.a;",
+                "out",
+                -16),
+
+            ("struct_struct_byte_logical_shift_left_works",
+                "byte",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a << test_variable.a;",
+                "out",
+                -128),
+
+            ("struct_struct_byte_self_logical_shift_left_works",
+                "byte",
+                "let x = Foo {a=1;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = test_variable.a << x.a;",
+                "test_variable.a",
+                -56),
+
+
+        ############## short ##############
+
+            ("struct_const_short_logical_shift_left_works",
+                "short",
+                "let out = test_variable.a << 2s;",
+                "out",
+                400),
+
+            ("struct_const_short_self_logical_shift_left_works",
+                "short",
+                "test_variable.a = test_variable.a << 2s;",
+                "test_variable.a",
+                400),
+
+            ("const_struct_short_logical_shift_left_works",
+                "short",
+                "let out = 5s << test_variable.a;",
+                "out",
+                80),
+
+            ("struct_variable_short_logical_shift_left_works",
+                "short",
+                "let x = 8s; let out = test_variable.a << x;",
+                "out",
+                25600),
+
+            ("struct_variable_short_self_logical_shift_left_works",
+                "short",
+                "let x = 8s; test_variable.a = test_variable.a << x;",
+                "test_variable.a",
+                25600),
+
+            ("variable_struct_short_logical_shift_left_works",
+                "short",
+                "let x = 15s; let out = x << test_variable.a;",
+                "out",
+                240),
+
+            ("struct_array_variable_short_logical_shift_left_works",
+                "short",
+                "let x: short[3] = 8s; let out = test_variable.a << x[1];",
+                "out",
+                25600),
+
+
+            ("struct_array_variable_short_self_logical_shift_left_works",
+                "short",
+                "let x: short[3] = 8s; test_variable.a = test_variable.a << x[1];",
+                "test_variable.a",
+                25600),
+
+            ("array_variable_struct_short_logical_shift_left_works",
+                "short",
+                "let x: short[4] = 15s; let out = x[2] << test_variable.a;",
+                "out",
+                240),
+
+            ("struct_struct_short_logical_shift_left_works",
+                "short",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a << test_variable.a;",
+                "out",
+                128),
+
+            ("struct_struct_short_self_logical_shift_left_works",
+                "short",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = test_variable.a << x.a;",
+                "test_variable.a",
+                25600),
+
+
+        ############## int ##############
+
+            ("struct_const_int_logical_shift_left_works",
+                "int",
+                "let out = test_variable.a << 2i;",
+                "out",
+                400),
+
+            ("struct_const_int_self_logical_shift_left_works",
+                "int",
+                "test_variable.a = test_variable.a << 2i;",
+                "test_variable.a",
+                400),
+
+            ("const_struct_int_logical_shift_left_works",
+                "int",
+                "let out = 5i << test_variable.a;",
+                "out",
+                80),
+
+            ("struct_variable_int_logical_shift_left_works",
+                "int",
+                "let x = 8i; let out = test_variable.a << x;",
+                "out",
+                25600),
+
+            ("struct_variable_int_self_logical_shift_left_works",
+                "int",
+                "let x = 8i; test_variable.a = test_variable.a << x;",
+                "test_variable.a",
+                25600),
+
+            ("variable_struct_int_logical_shift_left_works",
+                "int",
+                "let x = 15i; let out = x << test_variable.a;",
+                "out",
+                240),
+
+            ("struct_array_variable_int_logical_shift_left_works",
+                "int",
+                "let x: int[3] = 8i; let out = test_variable.a << x[1];",
+                "out",
+                25600),
+
+            ("struct_array_variable_int_self_logical_shift_left_works",
+                "int",
+                "let x: int[3] = 8i; test_variable.a = test_variable.a << x[1];",
+                "test_variable.a",
+                25600),
+
+            ("array_variable_struct_int_logical_shift_left_works",
+                "int",
+                "let x: int[4] = 15i; let out = x[2] << test_variable.a;",
+                "out",
+                240),
+
+            ("struct_struct_int_logical_shift_left_works",
+                "int",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a << test_variable.a;",
+                "out",
+                128),
+
+            ("struct_struct_int_self_logical_shift_left_works",
+                "int",
+                "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = test_variable.a << x.a;",
+                "test_variable.a",
+                25600),
+
+
+
+            ############## long ##############
+
+                ("struct_const_long_logical_shift_left_works",
+                    "long",
+                    "let out = test_variable.a << 2l;",
+                    "out",
+                    400),
+
+                ("struct_const_long_self_logical_shift_left_works",
+                    "long",
+                    "test_variable.a = test_variable.a << 2l;",
+                    "test_variable.a",
+                    400),
+
+                ("const_struct_long_logical_shift_left_works",
+                    "long",
+                    "let out = 5l << test_variable.a;",
+                    "out",
+                    343597383680),
+
+                ("struct_variable_long_logical_shift_left_works",
+                    "long",
+                    "let x = 8l; let out = test_variable.a << x;",
+                    "out",
+                    25600),
+
+                ("struct_variable_long_self_logical_shift_left_works",
+                    "long",
+                    "let x = 8l; test_variable.a = test_variable.a << x;",
+                    "test_variable.a",
+                    25600),
+
+                ("variable_struct_long_logical_shift_left_works",
+                    "long",
+                    "let x = 15l; let out = x << test_variable.a;",
+                    "out",
+                    1030792151040),
+
+                ("struct_array_variable_long_logical_shift_left_works",
+                    "long",
+                    "let x: long[3] = 8l; let out = test_variable.a << x[1];",
+                    "out",
+                    25600),
+
+                ("struct_array_variable_long_self_logical_shift_left_works",
+                    "long",
+                    "let x: long[3] = 8l; test_variable.a = test_variable.a << x[1];",
+                    "test_variable.a",
+                    25600),
+
+                ("array_variable_struct_long_logical_shift_left_works",
+                    "long",
+                    "let x: long[4] = 15l; let out = x[2] << test_variable.a;",
+                    "out",
+                    1030792151040),
+
+                ("struct_struct_long_logical_shift_left_works",
+                    "long",
+                    "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; let out = x.a << test_variable.a;",
+                    "out",
+                    549755813888),
+
+                ("struct_struct_long_self_logical_shift_left_works",
+                    "long",
+                    "let x = Foo {a=8;unused1=0;unused2=0;unused3=0;bool_field=false;unused5=0;}; test_variable.a = test_variable.a << x.a;",
+                    "test_variable.a",
+                    25600),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

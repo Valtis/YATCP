@@ -4536,6 +4536,53 @@ fn handle_shift_allocation<T>(
                         dest: dest_stack_slot.into(),
                     }));
             },
+            BinaryOperation {
+                dest: VirtualRegister(dest_vregdata),
+                src1: DynamicStackOffset { index, offset, size, id },
+                src2:
+                    constant @ LongConstant(_) |
+                    constant @ IntegerConstant(_) |
+                    constant @ ShortConstant(_) |
+                    constant @ ByteConstant(_),
+            } => {
+
+                let object_stack_slot =  &stack_map.object_to_stack_slot[id];
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let reg = get_register_for_size(*size);
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: reg.into(),
+                    dest: dest_stack_slot.into(),
+                }));
+
+
+                let count = match constant {
+                    LongConstant(value) => *value as i32,
+                    IntegerConstant(value) => *value,
+                    ShortConstant(value) => *value as i32,
+                    ByteConstant(value) => *value as i32,
+                    _ => ice!("Unexpected value {:?}", constant),
+                };
+
+                updated_instructions.push(
+                    enum_type(BinaryOperation{
+                        src1: dest_stack_slot.into(),
+                        src2: IntegerConstant(count),
+                        dest: dest_stack_slot.into(),
+                    }));
+            },
             /*
                 x = constant OP x
                 OR
@@ -4569,6 +4616,58 @@ fn handle_shift_allocation<T>(
                         src: src_stack_slot.into(),
                         dest: reg.get_alias_for_size(src_stack_slot.size ).into(),
                     }));
+
+                let stack_offset: Value = dest_stack_slot.into();
+
+                 match constant {
+                     LongConstant(count) => mov_long_constant_to_stack(updated_instructions, count, dest_stack_slot),
+                     _ => {
+                         let count = match constant {
+                             IntegerConstant(value) => *value,
+                             ShortConstant(value) => *value as i32,
+                             ByteConstant(value) => *value as i32,
+                             _ => ice!("Unexpected value {:?}", constant),
+                         };
+                         updated_instructions.push(
+                             ByteCode::Mov(UnaryOperation{
+                                 src: IntegerConstant(count),
+                                 dest: stack_offset.clone(),
+                             }));
+
+                     }
+                };
+
+                updated_instructions.push(
+                    enum_type(BinaryOperation{
+                        src1: stack_offset.clone(),
+                        src2: reg.get_alias_for_size(1).into(),
+                        dest: stack_offset,
+                    }));
+            },
+            BinaryOperation {
+                dest: VirtualRegister(dest_vregdata),
+                src1:
+                    constant @ LongConstant(_) |
+                    constant @ IntegerConstant(_) |
+                    constant @ ShortConstant(_) |
+                    constant @ ByteConstant(_),
+                src2: DynamicStackOffset { index, offset, size, id },
+            } => {
+
+                let object_stack_slot =  &stack_map.object_to_stack_slot[id];
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let reg = X64Register::CL;
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg.get_alias_for_size(*size),
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
 
                 let stack_offset: Value = dest_stack_slot.into();
 
@@ -4639,6 +4738,154 @@ fn handle_shift_allocation<T>(
                     enum_type(BinaryOperation{
                         src1: dest_slot.clone(),
                         src2: X64Register::CL.into(),
+                        dest: dest_slot,
+                    }));
+            },
+            BinaryOperation {
+                dest: VirtualRegister(dest_vregdata),
+                src1: DynamicStackOffset{ index, offset, size, id } ,
+                src2: VirtualRegister(src2_vregdata),
+            } => {
+
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let count_slot = &stack_map.reg_to_stack_slot[&src2_vregdata.id];
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let cl_reg = X64Register::CL;
+                let reg = get_register_for_size(*size);
+                ice_if!(cl_reg == reg.get_alias_for_size(8), "Register collision");
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(
+                    ByteCode::Mov(UnaryOperation{
+                        src: reg.into(),
+                        dest: dest_stack_slot.into(),
+                    }));
+
+
+                updated_instructions.push(
+                    ByteCode::Mov(UnaryOperation{
+                        src: count_slot.into(),
+                        dest: cl_reg.get_alias_for_size(count_slot.size ).into(),
+                    }));
+
+
+                let dest_slot: Value = dest_stack_slot.into();
+
+
+                updated_instructions.push(
+                    enum_type(BinaryOperation{
+                        src1: dest_slot.clone(),
+                        src2: cl_reg.into(),
+                        dest: dest_slot,
+                    }));
+            },
+            BinaryOperation {
+                dest: VirtualRegister(dest_vregdata),
+                src1: VirtualRegister(src1_vregdata),
+                src2: DynamicStackOffset{ index, offset, size, id } ,
+            } => {
+
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let value_slot = &stack_map.reg_to_stack_slot[&src1_vregdata.id];
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let cl_reg = X64Register::CL;
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &cl_reg.get_alias_for_size(*size),
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                if dest_stack_slot.offset != value_slot.offset {
+
+                    let reg = get_register_for_size(value_slot.size);
+                    ice_if!(reg.get_alias_for_size(1) == cl_reg, "Register collision");
+
+                    updated_instructions.push(
+                        ByteCode::Mov(UnaryOperation{
+                            src: value_slot.into(),
+                            dest: reg.into(),
+                        }));
+
+                    updated_instructions.push(
+                        ByteCode::Mov(UnaryOperation{
+                            src: reg.into(),
+                            dest: dest_stack_slot.into(),
+                        }));
+                }
+
+                let dest_slot: Value = dest_stack_slot.into();
+
+                updated_instructions.push(
+                    enum_type(BinaryOperation{
+                        src1: dest_stack_slot.into(),
+                        src2: cl_reg.into(),
+                        dest: dest_slot,
+                    }));
+            }
+            BinaryOperation {
+                dest: VirtualRegister(dest_vregdata),
+                src1: DynamicStackOffset{ index, offset, size, id } ,
+                src2: DynamicStackOffset{ index: index2, offset: offset2, size: size2, id: id2 } ,
+            } => {
+
+                let object_stack_slot = &stack_map.object_to_stack_slot[id];
+                let object_stack_slot2  = &stack_map.object_to_stack_slot[id2];
+                let dest_stack_slot = &stack_map.reg_to_stack_slot[&dest_vregdata.id];
+                let cl_reg = X64Register::CL;
+
+                let reg = get_register_for_size(*size);
+                ice_if!(cl_reg == reg.get_alias_for_size(8), "Register collision");
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index,
+                    *size,
+                    *offset,
+                    *id,
+                    &reg,
+                    object_stack_slot,
+                    updated_instructions,
+                    stack_map
+                );
+
+                updated_instructions.push(
+                ByteCode::Mov(UnaryOperation{
+                    src: reg.into(),
+                    dest: dest_stack_slot.into(),
+                }));
+
+                emit_mov_dynamic_stack_offset_to_reg(
+                    index2,
+                    *size2,
+                    *offset2,
+                    *id2,
+                    &cl_reg.get_alias_for_size(*size),
+                    object_stack_slot2,
+                    updated_instructions,
+                    stack_map
+                );
+
+                let dest_slot: Value = dest_stack_slot.into();
+
+                updated_instructions.push(
+                    enum_type(BinaryOperation{
+                        src1: dest_stack_slot.into(),
+                        src2: cl_reg.into(),
                         dest: dest_slot,
                     }));
             }

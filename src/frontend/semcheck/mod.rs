@@ -2204,9 +2204,11 @@ impl SemanticsCheck {
                 format!("Shift count must be an integral value, got '{}' instead", shift_type),
             );
         } else if self.is_constant(shift_count) {
-            if shift_type == Type::IntegralNumber {
+
+            if shift_type != Type::Integer {
                 ice_if!(self.perform_type_conversion(&Type::Integer, shift_count) != ConversionResult::Converted, "Unexpected conversion failure");
             }
+
             if let AstNode::Integer { value: AstInteger::Int(count), .. } = *shift_count {
                 if count < 0 {
                     self.report_error(

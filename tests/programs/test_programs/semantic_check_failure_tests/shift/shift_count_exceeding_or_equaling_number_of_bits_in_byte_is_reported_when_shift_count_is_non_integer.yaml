@@ -1,0 +1,12 @@
+program: |
+    fn main() : int {
+      let x = 16b << 8b;
+      return 0;
+    }
+
+expect_compile_failure: true
+expect_stderr: |
+    2:18 Type error: Shift count too large for type 'Byte'
+      let x = 16b << 8b;
+                     ^^
+    Terminating compilation due to 1 error
